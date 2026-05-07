@@ -59,12 +59,16 @@ export function AvailabilityManager() {
   /** `'__any__'` = parents may book at any linked site for this opening */
   const [facilityForAdd, setFacilityForAdd] = useState<string>('__any__');
 
+  /** Server DB missing `facility_id` on openings — saves work but room isn’t persisted */
+  const [facilityScopesDisabled, setFacilityScopesDisabled] = useState(false);
+
   const refreshSlots = useCallback(async () => {
     const r = await fetch('/api/availability/me');
     const data = await r.json();
     if (r.ok) {
       if (Array.isArray(data.availability)) setList(data.availability);
       if (Array.isArray(data.coachFacilities)) setCoachFacilityOptions(data.coachFacilities);
+      setFacilityScopesDisabled(data.facilityScopesDisabled === true);
     }
   }, []);
 
@@ -186,6 +190,7 @@ export function AvailabilityManager() {
           if (!firstError) firstError = (data.error as string) || 'Failed to add';
         } else {
           succeeded++;
+          if (data.facilityScopesDisabled === true) setFacilityScopesDisabled(true);
           if (data.duplicate) serverDuplicate++;
         }
       }
@@ -258,6 +263,15 @@ export function AvailabilityManager() {
             Select dates and hours parents can request you. Optionally pick a wrestling room — if you train at multiple
             sites, parents booking that opening will only see that location on the booking page.
           </CardDescription>
+          {facilityScopesDisabled ? (
+            <p className="text-sm rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-950 dark:text-amber-100">
+              Your live database is not updated for per-room openings yet, so times still save but the wrestling room choice
+              is not stored. Run the migration for <span className="font-mono text-xs">athlete_availability_slots.facility_id</span>{' '}
+              in Supabase (SQL Editor: file{' '}
+              <span className="font-mono text-xs">20260507120000_availability_slots_facility.sql</span>
+              ).
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-6">
           <div>

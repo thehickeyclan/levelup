@@ -6,6 +6,7 @@ import { getTenantByDomain } from '@/config/tenants';
 import { type AvailabilitySlot } from '@/lib/availability';
 import { mergeSlotsWithFacilities } from '@/lib/availability-slots-with-facility';
 import { formatEST } from '@/lib/format-date';
+import { isAthleteAvailabilitySlotsFacilityIdSchemaError } from '@/lib/supabase-postgrest-errors';
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,12 +45,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ slots: [] });
     }
 
-    // Date-specific slots for this date
-    const { data: dateRows } = await supabase
+    // Date-specific slots for this date (retry without facility_id if prod migration not applied)
+    const dated1 = await supabase
       .from('athlete_availability_slots')
       .select('slot_date, start_time, end_time, facility_id')
       .eq('athlete_id', athleteId)
       .eq('slot_date', dateOnly);
+
+    let dateRows: Parameters<typeof mergeSlotsWithFacilities>[0];
+    if (dated1.error && isAthleteAvailabilitySlotsFacilityIdSchemaError(dated1.error)) {
+      const dated2 = await supabase
+        .from('athlete_availability_slots')
+        .select('slot_date, start_time, end_time')
+        .eq('athlete_id', athleteId)
+        .eq('slot_date', dateOnly);
+      dateRows = (dated2.data ?? []) as Parameters<typeof mergeSlotsWithFacilities>[0];
+    } else {
+      dateRows = (dated1.data ?? []) as Parameters<typeof mergeSlotsWithFacilities>[0];
+    }
 
     // Legacy recurring slots
     const { data: availRows } = await supabase

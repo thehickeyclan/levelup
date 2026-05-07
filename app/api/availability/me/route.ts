@@ -7,6 +7,7 @@ import { timeToHHmm } from '@/lib/availability';
 import { notifyAvailabilityFollowers } from '@/lib/notify-availability-followers';
 import { dbForCoachActor, resolveCoachActorId } from '@/lib/coach-actor-server';
 import { coachHasFacility, getCoachFacilityIds, normalizeFacilityIdParam } from '@/lib/coach-facilities';
+import { isAthleteAvailabilitySlotsFacilityIdSchemaError } from '@/lib/supabase-postgrest-errors';
 
 export async function GET() {
   try {
@@ -35,13 +36,38 @@ export async function GET() {
 
     const coachFacilities = facilityRows ?? [];
 
-    const { data: rows, error } = await supabase
+    type SlotRow = {
+      id: string;
+      slot_date: string;
+      start_time: string;
+      end_time: string;
+      facility_id?: string | null;
+    };
+
+    let facilityScopesDisabled = false;
+    const res1 = await supabase
       .from('athlete_availability_slots')
       .select('id, slot_date, start_time, end_time, facility_id')
       .eq('athlete_id', actor.coachId)
       .gte('slot_date', new Date().toISOString().slice(0, 10))
       .order('slot_date', { ascending: true })
       .order('start_time', { ascending: true });
+
+    let rows: SlotRow[] | null = res1.data as SlotRow[] | null;
+    let error = res1.error;
+
+    if (error && isAthleteAvailabilitySlotsFacilityIdSchemaError(error)) {
+      facilityScopesDisabled = true;
+      const res2 = await supabase
+        .from('athlete_availability_slots')
+        .select('id, slot_date, start_time, end_time')
+        .eq('athlete_id', actor.coachId)
+        .gte('slot_date', new Date().toISOString().slice(0, 10))
+        .order('slot_date', { ascending: true })
+        .order('start_time', { ascending: true });
+      rows = res2.data as SlotRow[] | null;
+      error = res2.error;
+    }
 
     if (error) {
       if (error.message?.includes('does not exist') || error.code === '42P01') {
@@ -50,13 +76,7 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const availability = ((rows ?? []) as {
-        id: string;
-        slot_date: string;
-        start_time: string;
-        end_time: string;
-        facility_id?: string | null;
-      }[]).map((r) => ({
+    const availability = ((rows ?? []) as SlotRow[]).map((r) => ({
       id: r.id,
       slot_date: r.slot_date,
       start_time: timeToHHmm(r.start_time),
@@ -64,7 +84,11 @@ export async function GET() {
       facility_id: r.facility_id ?? null,
     }));
 
-    return NextResponse.json({ availability, coachFacilities });
+    return NextResponse.json({
+      availability,
+      coachFacilities,
+      ...(facilityScopesDisabled ? { facilityScopesDisabled: true as const } : {}),
+    });
   } catch (e) {
     console.error('Availability me GET error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -142,25 +166,42 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let existingQuery = db
-      .from('athlete_availability_slots')
-      .select('id, slot_date, start_time, end_time, facility_id')
-      .eq('athlete_id', actor.coachId)
-      .eq('slot_date', slotDate)
-      .eq('start_time', start);
-    existingQuery =
-      facilityRowId === null
-        ? existingQuery.is('facility_id', null)
-        : existingQuery.eq('facility_id', facilityRowId);
-    const { data: existing } = await existingQuery.maybeSingle();
+    /** Prod DB without migration — no `facility_id` column; omit from all queries/writes */
+    const { error: probeErr } = await db.from('athlete_availability_slots').select('facility_id').limit(1);
+    const legacySlotsMode =
+      !!(probeErr && isAthleteAvailabilitySlotsFacilityIdSchemaError(probeErr));
 
-    const mapAvail = (r: {
+    const slotSelectStr = legacySlotsMode
+      ? 'id, slot_date, start_time, end_time'
+      : 'id, slot_date, start_time, end_time, facility_id';
+    const degraded: { facilityScopesDisabled?: true } = legacySlotsMode
+      ? { facilityScopesDisabled: true }
+      : {};
+
+    type PersistedSlot = {
       id: string;
       slot_date: string;
       start_time: string;
       end_time: string;
       facility_id?: string | null;
-    }) => ({
+    };
+
+    let existingQuery = db
+      .from('athlete_availability_slots')
+      .select(slotSelectStr)
+      .eq('athlete_id', actor.coachId)
+      .eq('slot_date', slotDate)
+      .eq('start_time', start);
+    if (!legacySlotsMode) {
+      existingQuery =
+        facilityRowId === null
+          ? existingQuery.is('facility_id', null)
+          : existingQuery.eq('facility_id', facilityRowId);
+    }
+    const { data: existingRaw } = await existingQuery.maybeSingle();
+    const existing = existingRaw as unknown as PersistedSlot | null;
+
+    const mapAvail = (r: PersistedSlot) => ({
       id: r.id,
       slot_date: r.slot_date,
       start_time: timeToHHmm(r.start_time),
@@ -169,7 +210,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (existing) {
-      const existingRow = existing as typeof existing & { facility_id?: string | null };
+      const existingRow = existing;
       const existingEnd =
         typeof existingRow.end_time === 'string'
           ? pad(existingRow.end_time)
@@ -178,6 +219,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           availability: mapAvail(existingRow),
           duplicate: true,
+          ...degraded,
         });
       }
       const { data: row, error: upErr } = await db
@@ -185,46 +227,53 @@ export async function POST(req: NextRequest) {
         .update({ end_time: end })
         .eq('id', existingRow.id)
         .eq('athlete_id', actor.coachId)
-        .select('id, slot_date, start_time, end_time, facility_id')
+        .select(slotSelectStr)
         .single();
       if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
       if (!row) return NextResponse.json({ error: 'Update failed' }, { status: 500 });
       notifyAvailabilityFollowers(tenant.slug, actor.coachId);
       return NextResponse.json({
-        availability: mapAvail(row),
+        availability: mapAvail(row as unknown as PersistedSlot),
         updatedEnd: true,
+        ...degraded,
       });
     }
 
+    const insertRow: Record<string, unknown> = {
+      athlete_id: actor.coachId,
+      slot_date: slotDate,
+      start_time: start,
+      end_time: end,
+    };
+    if (!legacySlotsMode) insertRow.facility_id = facilityRowId;
+
     const { data: row, error } = await db
       .from('athlete_availability_slots')
-      .insert({
-        athlete_id: actor.coachId,
-        slot_date: slotDate,
-        start_time: start,
-        end_time: end,
-        facility_id: facilityRowId,
-      })
-      .select('id, slot_date, start_time, end_time, facility_id')
+      .insert(insertRow)
+      .select(slotSelectStr)
       .single();
 
     if (error) {
       if (error.code === '23505') {
         let againQuery = db
           .from('athlete_availability_slots')
-          .select('id, slot_date, start_time, end_time, facility_id')
+          .select(slotSelectStr)
           .eq('athlete_id', actor.coachId)
           .eq('slot_date', slotDate)
           .eq('start_time', start);
-        againQuery =
-          facilityRowId === null
-            ? againQuery.is('facility_id', null)
-            : againQuery.eq('facility_id', facilityRowId);
-        const { data: again } = await againQuery.maybeSingle();
+        if (!legacySlotsMode) {
+          againQuery =
+            facilityRowId === null
+              ? againQuery.is('facility_id', null)
+              : againQuery.eq('facility_id', facilityRowId);
+        }
+        const { data: againRaw } = await againQuery.maybeSingle();
+        const again = againRaw as unknown as PersistedSlot | null;
         if (again) {
           return NextResponse.json({
             availability: mapAvail(again),
             duplicate: true,
+            ...degraded,
           });
         }
       }
@@ -234,7 +283,8 @@ export async function POST(req: NextRequest) {
     notifyAvailabilityFollowers(tenant.slug, actor.coachId);
 
     return NextResponse.json({
-      availability: mapAvail(row),
+      availability: mapAvail(row as unknown as PersistedSlot),
+      ...degraded,
     });
   } catch (e) {
     console.error('Availability me POST error:', e);

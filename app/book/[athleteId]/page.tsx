@@ -6,6 +6,7 @@ import { getTenantByDomain } from '@/config/tenants';
 import { checkoutAllowSavedAccountPercent } from '@/lib/checkout-promo';
 import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
 import { coachPayoutFromParentPrice } from '@/lib/pricing';
+import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
 import { BookingFlow } from './booking-flow';
 import {
   CoachUpcomingSessionsSection,
@@ -17,7 +18,13 @@ export default async function BookPage({
   searchParams,
 }: {
   params: Promise<{ athleteId: string }>;
-  searchParams: Promise<{ youthWrestlerId?: string; date?: string; time?: string; bookIntent?: string }>;
+  searchParams: Promise<{
+    youthWrestlerId?: string;
+    date?: string;
+    time?: string;
+    bookIntent?: string;
+    session?: string;
+  }>;
 }) {
   const { athleteId } = await params;
   const sp = await searchParams;
@@ -47,7 +54,22 @@ export default async function BookPage({
 
   const tenantSlug = tenant.slug;
   const supabase = await createClient(tenantSlug);
-  const loginRedirect = '/login?redirect=' + encodeURIComponent('/book/' + athleteId);
+  const loginBookPath = (() => {
+    const qs = new URLSearchParams();
+    const v = (k: keyof typeof sp) => {
+      const raw = sp[k];
+      const t = typeof raw === 'string' ? raw.trim() : '';
+      if (t) qs.set(k, t);
+    };
+    v('youthWrestlerId');
+    v('session');
+    v('date');
+    v('time');
+    v('bookIntent');
+    const q = qs.toString();
+    return q ? `/book/${athleteId}?${q}` : `/book/${athleteId}`;
+  })();
+  const loginRedirect = '/login?redirect=' + encodeURIComponent(loginBookPath);
 
   // Check authentication (handle invalid/expired refresh token gracefully)
   let user;
@@ -86,6 +108,49 @@ export default async function BookPage({
 
   if (athleteError || !athlete) {
     notFound();
+  }
+
+  const admin = createAdminClient(tenantSlug);
+
+  const sessionLinkId = normalizeUuidParam(sp.session);
+  if (sessionLinkId) {
+    const { data: sessRow } = await admin
+      .from('sessions')
+      .select(
+        'id, athlete_id, status, join_policy, partner_invite_code, current_participants, max_participants'
+      )
+      .eq('id', sessionLinkId)
+      .maybeSingle();
+    const r = sessRow as {
+      athlete_id?: string | null;
+      status?: string | null;
+      join_policy?: string | null;
+      partner_invite_code?: string | null;
+      current_participants?: number | null;
+      max_participants?: number | null;
+    } | null;
+    if (r?.athlete_id === athleteId && r.status === 'scheduled') {
+      const jp = String(r.join_policy ?? '');
+      const current = r.current_participants ?? 1;
+      const max = r.max_participants ?? 2;
+      if ((jp === 'public' || jp === 'invite_only') && current < max) {
+        if (jp === 'invite_only') {
+          const pinv = String(r.partner_invite_code ?? '').trim().toUpperCase();
+          if (pinv) {
+            const qs = new URLSearchParams();
+            if (preselectedYouthWrestlerId) qs.set('wrestler', preselectedYouthWrestlerId);
+            qs.set('code', pinv);
+            const suffix = qs.toString();
+            redirect(`/sessions/${sessionLinkId}/register${suffix ? `?${suffix}` : ''}`);
+          }
+        } else {
+          const qs = new URLSearchParams();
+          if (preselectedYouthWrestlerId) qs.set('wrestler', preselectedYouthWrestlerId);
+          const suffix = qs.toString();
+          redirect(`/sessions/${sessionLinkId}/register${suffix ? `?${suffix}` : ''}`);
+        }
+      }
+    }
   }
 
   // Wrestlers this user can book: primary parent + linked via youth_wrestler_parents (same as session register).
@@ -128,7 +193,6 @@ export default async function BookPage({
 
   // Pricing: prefer coach rate card (`athlete_services`); otherwise Guild product defaults with
   // per-coach overrides from `athlete_products` (same as getRecommendedPricesForCoach / profile).
-  const admin = createAdminClient(tenantSlug);
   const recommendedByType = await getRecommendedPricesForCoach(admin, athleteId);
 
   const { data: coachServicesRaw } = await admin

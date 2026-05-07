@@ -38,7 +38,10 @@ const coachApplicationSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
-  phone: z.string().min(10, 'Valid phone number required'),
+  phone: z
+    .string()
+    .min(1, 'Cell phone is required')
+    .refine((v) => v.replace(/\D/g, '').length >= 10, 'Enter a valid 10-digit cell number'),
   dateOfBirth: z.string().min(1, 'Date of birth is required'),
   
   // Step 2: Background

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
+import { hasMinPhoneDigits } from '@/lib/phone';
 import {
   buildCoachApplicationAthleteInsert,
   buildCoachApplicationUserInsert,
@@ -50,6 +51,10 @@ export async function POST(req: NextRequest) {
     // Validate required fields
     if (!firstName || !lastName || !email || !phone || !dateOfBirth || !coachType || !school || !bio || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    if (!hasMinPhoneDigits(String(phone))) {
+      return NextResponse.json({ error: 'Enter a valid cell number (at least 10 digits).' }, { status: 400 });
     }
 
     if (!['ncaa_athlete', 'club_hs_coach'].includes(coachType)) {

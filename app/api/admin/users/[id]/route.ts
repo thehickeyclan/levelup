@@ -41,13 +41,19 @@ export async function PATCH(
     }
     if (body.phone !== undefined) {
       const trimmed = body.phone === null || body.phone === '' ? '' : String(body.phone).trim();
-      if (trimmed === '') updates.phone = null;
-      else if (!hasMinPhoneDigits(trimmed)) {
+      if (trimmed === '') {
+        return NextResponse.json(
+          { error: 'Cell phone is required; use a valid number with at least 10 digits.' },
+          { status: 400 }
+        );
+      }
+      if (!hasMinPhoneDigits(trimmed)) {
         return NextResponse.json(
           { error: 'Cell phone must include at least 10 digits' },
           { status: 400 }
         );
-      } else updates.phone = trimmed;
+      }
+      updates.phone = trimmed;
     }
     const zipRaw = body.zip_code !== undefined ? body.zip_code : body.zipCode;
     if (zipRaw !== undefined) {

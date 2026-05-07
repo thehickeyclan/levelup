@@ -293,10 +293,11 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
                     label: 'Sign in to register',
                   };
             } else {
+              const bookPath = `/book/${id}?session=${s.id}`;
               cta = canBookOrRegister
-                ? { href: `/book/${id}`, label: 'Book' }
+                ? { href: bookPath, label: 'Book' }
                 : {
-                    href: `/login?redirect=${encodeURIComponent(`/book/${id}`)}`,
+                    href: `/login?redirect=${encodeURIComponent(bookPath)}`,
                     label: 'Sign in to book',
                   };
             }

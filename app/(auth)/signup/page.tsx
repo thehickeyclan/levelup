@@ -29,6 +29,10 @@ const signupSchema = z.object({
     .string()
     .min(1, 'Home ZIP code is required')
     .refine(isValidUsZipCode, 'Enter a valid U.S. ZIP code (5 digits or ZIP+4)'),
+  phone: z
+    .string()
+    .min(1, 'Cell phone is required')
+    .refine((v) => v.replace(/\D/g, '').length >= 10, 'Enter a valid 10-digit cell number'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
@@ -87,6 +91,8 @@ export default function SignupPage() {
     defaultValues: {
       firstName: '',
       lastName: '',
+      zipCode: '',
+      phone: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -108,6 +114,7 @@ export default function SignupPage() {
           firstName: values.firstName.trim(),
           lastName: values.lastName.trim(),
           zipCode: values.zipCode.trim(),
+          phone: values.phone.trim(),
           email: values.email,
           password: values.password,
           role: 'parent',
@@ -228,6 +235,27 @@ export default function SignupPage() {
                     </FormControl>
                     <FormDescription>
                       {`Used to show coaches and programs near your family (maps and discovery).`}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cell phone</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="tel"
+                        placeholder="Mobile number"
+                        autoComplete="tel"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Required for session texts and coach contact (same standard as wrestler signup).
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

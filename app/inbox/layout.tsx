@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { getTenantByDomain } from '@/config/tenants';
+import { redirectIfMissingUserCellPhone } from '@/lib/require-user-cell-phone';
 import { InboxLayoutClient } from './inbox-layout-client';
 
 export default async function InboxLayout({
@@ -17,6 +18,8 @@ export default async function InboxLayout({
   const supabase = await createClient(tenant.slug);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  await redirectIfMissingUserCellPhone();
 
   const { data: userData } = await supabase
     .from('users')

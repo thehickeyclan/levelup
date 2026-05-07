@@ -162,11 +162,15 @@ export async function PUT(req: NextRequest) {
     // Cell + ZIP live on users (not athletes)
     let phoneForUser: string | null | undefined = undefined;
     if (phone !== undefined) {
-      if (phone === null) phoneForUser = null;
+      if (phone === null) {
+        return NextResponse.json({ error: 'Cell phone is required. Enter a valid 10-digit number.' }, { status: 400 });
+      }
       else {
         const trimmed = String(phone).trim();
-        if (trimmed === '') phoneForUser = null;
-        else if (trimmed.replace(/\D/g, '').length >= 10) phoneForUser = trimmed;
+        if (trimmed === '') {
+          return NextResponse.json({ error: 'Cell phone is required. Enter a valid 10-digit number.' }, { status: 400 });
+        }
+        if (trimmed.replace(/\D/g, '').length >= 10) phoneForUser = trimmed;
         else {
           return NextResponse.json({ error: 'Enter a valid 10-digit cell number.' }, { status: 400 });
         }

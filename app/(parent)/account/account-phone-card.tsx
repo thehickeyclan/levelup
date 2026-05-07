@@ -14,17 +14,27 @@ export function AccountPhoneCard({ initialPhone, compact }: { initialPhone: stri
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<'success' | 'error' | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
+    setErrorDetail(null);
     try {
       const res = await fetch('/api/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim() || null }),
+        body: JSON.stringify({ phone: phone.trim() }),
       });
       if (!res.ok) {
+        let msg = 'Failed to save';
+        try {
+          const j = (await res.json()) as { error?: string };
+          if (j.error) msg = j.error;
+        } catch {
+          /* ignore */
+        }
+        setErrorDetail(msg);
         setMessage('error');
         return;
       }
@@ -81,7 +91,7 @@ export function AccountPhoneCard({ initialPhone, compact }: { initialPhone: stri
           )}
         </div>
         {message === 'error' && (
-          <p className="text-xs text-destructive mt-2 pl-8">Failed to save</p>
+          <p className="text-xs text-destructive mt-2 pl-8">{errorDetail ?? 'Failed to save'}</p>
         )}
       </div>
     );
@@ -94,7 +104,7 @@ export function AccountPhoneCard({ initialPhone, compact }: { initialPhone: stri
           <Phone className="h-4 w-4" />
           Contact
         </CardTitle>
-        <CardDescription>Your cell phone (optional). Used for session contact.</CardDescription>
+        <CardDescription>Your cell phone (required). Used for session alerts and coach contact.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-2">
@@ -115,7 +125,7 @@ export function AccountPhoneCard({ initialPhone, compact }: { initialPhone: stri
           <p className="text-sm text-green-600 dark:text-green-400">Saved.</p>
         )}
         {message === 'error' && (
-          <p className="text-sm text-destructive">Failed to save. Try again.</p>
+          <p className="text-sm text-destructive">{errorDetail ?? 'Failed to save. Try again.'}</p>
         )}
       </CardContent>
     </Card>

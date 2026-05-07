@@ -21,9 +21,10 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  // Add tenant slug to request headers
+  // Add tenant slug + pathname for Server Components (cell-phone gate, analytics, etc.).
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-tenant-slug', tenant.slug);
+  requestHeaders.set('x-pathname', req.nextUrl.pathname);
 
   const res = NextResponse.next({
     request: {

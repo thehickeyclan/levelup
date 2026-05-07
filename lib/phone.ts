@@ -9,6 +9,11 @@ export function hasMinPhoneDigits(value: string | null | undefined, minDigits = 
   return digits.length >= minDigits;
 }
 
+/** Alias: same rules as `validateRequiredYouthPhone` — use for parent/coach signup copy. */
+export function validateRequiredCellPhone(raw: unknown) {
+  return validateRequiredYouthPhone(raw);
+}
+
 /** Required athlete/parent-supplied cell for youth wrestler create/update. */
 export function validateRequiredYouthPhone(raw: unknown):
   | { ok: true; phone: string }

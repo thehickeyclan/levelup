@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { verifyInviteToken } from '@/lib/invite-parent-token';
-import { validateRequiredYouthPhone } from '@/lib/phone';
+import { validateRequiredYouthPhone, validateRequiredCellPhone } from '@/lib/phone';
 import { resolveDiscountPercentOff } from '@/lib/discount-codes';
 import { family10CodeBlockedForEmail } from '@/lib/family-auto-discount';
 import { normalizeUsZipCode } from '@/lib/us-zip';
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     }
     const invitePayload = typeof inviteToken === 'string' && inviteToken.trim() ? verifyInviteToken(inviteToken.trim()) : null;
 
+    let parentSignupPhone: string | undefined;
     if (role === 'parent') {
       const fn = typeof firstName === 'string' ? firstName.trim() : '';
       const ln = typeof lastName === 'string' ? lastName.trim() : '';
@@ -74,6 +75,11 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+      const pp = validateRequiredCellPhone(body.phone ?? body.cellPhone);
+      if (!pp.ok) {
+        return NextResponse.json({ error: pp.message }, { status: 400 });
+      }
+      parentSignupPhone = pp.phone;
     }
 
     // For athletes (coaches), require additional fields and coach type
@@ -194,11 +200,13 @@ export async function POST(req: NextRequest) {
       usersInsert.first_name = String(firstName).trim();
       usersInsert.last_name = String(lastName).trim();
       usersInsert.zip_code = normalizeUsZipCode(String(body.zipCode ?? ''))!;
+      usersInsert.phone = parentSignupPhone!;
     }
     if (role === 'youth_wrestler') {
       usersInsert.first_name = String(firstName).trim();
       usersInsert.last_name = String(lastName).trim();
       usersInsert.zip_code = youthZipNorm!;
+      usersInsert.phone = youthAthletePhone!;
     }
 
     // Insert into users table (one user per email address; store normalized for consistency)

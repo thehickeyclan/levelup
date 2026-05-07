@@ -38,7 +38,10 @@ const profileSchema = z.object({
   bio: z.string().max(500, 'Bio must be 500 characters or less').optional(),
   facilityId: z.string().optional(),
   secondaryFacilityId: z.string().optional(),
-  phone: z.string().optional().refine((v) => !v || v.trim() === '' || v.replace(/\D/g, '').length >= 10, 'Enter a valid 10-digit cell number'),
+  phone: z
+    .string()
+    .min(1, 'Cell phone is required')
+    .refine((v) => v.replace(/\D/g, '').length >= 10, 'Enter a valid 10-digit cell number'),
   zipCode: z
     .string()
     .optional()

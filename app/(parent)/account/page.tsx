@@ -25,7 +25,41 @@ export default async function AccountPage() {
   if (!user) redirect('/login');
 
   const { data: userData } = await supabase.from('users').select('role, phone, email, zip_code').eq('id', user.id).single();
+
   if (userData?.role === 'coach') redirect('/athlete-dashboard');
+
+  if (userData?.role === 'youth_wrestler') {
+    const userEmail = user.email ?? '';
+    const userPhone = (userData as { phone?: string | null })?.phone;
+    const userZip = (userData as { zip_code?: string | null })?.zip_code ?? null;
+    return (
+      <div className="min-h-screen pb-24">
+        <div className="px-4 pt-6 pb-4">
+          <h1 className="text-2xl font-bold text-foreground">Account</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{userEmail}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your cell number is required so coaches and session updates can reach you by text.
+          </p>
+        </div>
+        <div className="px-4 space-y-3">
+          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl overflow-hidden divide-y divide-zinc-800/50">
+            <AccountPhoneCard initialPhone={userPhone ?? null} compact />
+            <AccountZipCard initialZip={userZip} compact />
+          </div>
+          <div className="pt-2 flex flex-col gap-2">
+            <Link
+              href="/youth-dashboard"
+              className="text-sm font-medium text-[#D4AF37] hover:text-[#E5C76B]"
+            >
+              ← Back to Home
+            </Link>
+            <AccountSignOut />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (userData?.role !== 'parent' && userData?.role !== 'admin') redirect('/dashboard');
 
   // Wrestlers this parent can manage (primary or linked)

@@ -67,3 +67,8 @@ export function coachPayoutUsd(session: SessionCoachPayoutFields, payoutRate?: n
   const n = Number(session.current_participants ?? 0);
   return Math.round(per * rate * n * 100) / 100;
 }
+
+/** Coach-facing dashboards: show cents so totals match Stripe / payouts. */
+export function formatUsdTwoDecimals(amount: number): string {
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

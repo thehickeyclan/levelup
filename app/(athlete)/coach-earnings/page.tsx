@@ -6,23 +6,15 @@ import { getTenantByDomain } from '@/config/tenants';
 import { Card, CardContent } from '@/components/ui/card';
 import { DollarSign, TrendingUp, Clock } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
-import { coachPayoutUsd } from '@/lib/coach-session-payout';
 import { coachRevenueSharePercentDisplay, normalizeCoachRevenueShareRate } from '@/lib/pricing';
 import { CoachRankCard } from '@/components/coach-rank-card';
+import { formatUsdTwoDecimals } from '@/lib/coach-session-payout';
+import {
+  fetchPastSessionsForCoachEarnings,
+  summarizeCoachEarningsFromPastSessions,
+} from '@/lib/coach-earnings-summary-server';
 
 export const dynamic = 'force-dynamic';
-
-function isEarningsEligible(
-  s: { status: string | null; scheduled_datetime: string | null },
-  nowIso: string
-): boolean {
-  const st = s.status ?? '';
-  if (st === 'cancelled' || st === 'no-show') return false;
-  if (st === 'completed') return true;
-  const t = s.scheduled_datetime ? new Date(s.scheduled_datetime).getTime() : NaN;
-  if (Number.isNaN(t)) return false;
-  return t < new Date(nowIso).getTime() && st === 'scheduled';
-}
 
 export default async function CoachEarningsPage() {
   const headersList = await headers();
@@ -64,57 +56,16 @@ export default async function CoachEarningsPage() {
 
   const nowIso = new Date().toISOString();
 
-  const { data: pastSessionsRaw, error: pastError } = await admin
-    .from('sessions')
-    .select(
-      `
-      id,
-      scheduled_datetime,
-      completed_at,
-      athlete_payment,
-      total_price,
-      session_type,
-      current_participants,
-      price_per_participant,
-      session_payout_rate,
-      status,
-      session_participants(id, amount_paid)
-    `
-    )
-    .eq('athlete_id', coachId)
-    .or(`status.eq.completed,status.eq.cancelled,status.eq.no-show,scheduled_datetime.lt.${nowIso}`)
-    .not('scheduled_datetime', 'is', null)
-    .order('scheduled_datetime', { ascending: false });
+  const pastSessionsRaw = await fetchPastSessionsForCoachEarnings(admin, coachId, nowIso);
 
-  if (pastError) {
-    console.error('coach-earnings sessions:', pastError.message);
-  }
+  const {
+    earningsSessions,
+    thisMonthSessions,
+    getSessionPayout,
+    thisMonthEarnings,
+    allTimeEarnings,
+  } = summarizeCoachEarningsFromPastSessions(pastSessionsRaw, payoutRate, nowIso);
 
-  const earningsSessions = (pastSessionsRaw ?? []).filter((s) => isEarningsEligible(s, nowIso));
-
-  const thisMonthKey = formatEST(new Date(), 'yyyy-MM');
-  const thisMonthSessions = earningsSessions.filter(
-    (s) => s.scheduled_datetime && formatEST(s.scheduled_datetime, 'yyyy-MM') === thisMonthKey
-  );
-
-  const getSessionPayout = (s: (typeof earningsSessions)[0]) => {
-    const participantAmountPaidSum = Array.isArray(s.session_participants)
-      ? s.session_participants.reduce((sum, p) => sum + Number(p.amount_paid || 0), 0)
-      : 0;
-    const rate = s.session_payout_rate != null ? Number(s.session_payout_rate) : Number(payoutRate);
-    return coachPayoutUsd(
-      {
-        athlete_payment: s.athlete_payment,
-        price_per_participant: s.price_per_participant,
-        current_participants: s.current_participants,
-        participant_amount_paid_sum: participantAmountPaidSum > 0 ? participantAmountPaidSum : null,
-      },
-      rate
-    );
-  };
-
-  const thisMonthEarnings = thisMonthSessions.reduce((sum, s) => sum + getSessionPayout(s), 0);
-  const allTimeEarnings = earningsSessions.reduce((sum, s) => sum + getSessionPayout(s), 0);
   const totalSessions = earningsSessions.length;
 
   const { data: upcomingSessions } = await admin
@@ -168,7 +119,7 @@ export default async function CoachEarningsPage() {
               <DollarSign className="h-4 w-4" />
               <span className="text-sm">This Month</span>
             </div>
-            <p className="text-2xl font-bold text-foreground">${thisMonthEarnings.toFixed(0)}</p>
+            <p className="text-2xl font-bold text-foreground">${formatUsdTwoDecimals(thisMonthEarnings)}</p>
             <p className="text-xs text-muted-foreground">
               {thisMonthSessions.length} session{thisMonthSessions.length !== 1 ? 's' : ''}
             </p>
@@ -180,7 +131,7 @@ export default async function CoachEarningsPage() {
               <TrendingUp className="h-4 w-4" />
               <span className="text-sm">All Time</span>
             </div>
-            <p className="text-2xl font-bold text-foreground">${allTimeEarnings.toFixed(0)}</p>
+            <p className="text-2xl font-bold text-foreground">${formatUsdTwoDecimals(allTimeEarnings)}</p>
             <p className="text-xs text-muted-foreground">
               {totalSessions} session{totalSessions !== 1 ? 's' : ''}
             </p>
@@ -195,7 +146,7 @@ export default async function CoachEarningsPage() {
               <Clock className="h-4 w-4" />
               <span className="text-sm font-medium">Projected from upcoming sessions</span>
             </div>
-            <p className="text-2xl font-bold text-foreground">${projectedEarnings.toFixed(0)}</p>
+            <p className="text-2xl font-bold text-foreground">${formatUsdTwoDecimals(projectedEarnings)}</p>
             <p className="text-xs text-muted-foreground">
               {upcomingSessions?.length ?? 0} upcoming session{(upcomingSessions?.length ?? 0) !== 1 ? 's' : ''}
             </p>
@@ -240,7 +191,7 @@ export default async function CoachEarningsPage() {
                       {(session.current_participants ?? 1) !== 1 ? 's' : ''}
                     </p>
                   </div>
-                  <p className="text-lg font-bold text-emerald-500">+${getSessionPayout(session).toFixed(0)}</p>
+                  <p className="text-lg font-bold text-emerald-500">+${formatUsdTwoDecimals(getSessionPayout(session))}</p>
                 </CardContent>
               </Card>
             ))}

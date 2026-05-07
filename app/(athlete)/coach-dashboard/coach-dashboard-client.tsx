@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Star, TrendingUp, DollarSign, Clock } from 'lucide-react';
 import { CoachPlaybook } from '@/components/coach-playbook';
 import { CoachRankCard } from '@/components/coach-rank-card';
+import { formatUsdTwoDecimals } from '@/lib/coach-session-payout';
 
 type Review = {
   id: string;
@@ -66,7 +67,7 @@ export function CoachDashboardClient({
                 <DollarSign className="h-4 w-4" />
                 <span className="text-sm">This month</span>
               </div>
-              <p className="text-2xl font-bold text-foreground tabular-nums">${thisMonthEarnings.toFixed(0)}</p>
+              <p className="text-2xl font-bold text-foreground tabular-nums">${formatUsdTwoDecimals(thisMonthEarnings)}</p>
               <p className="text-xs text-muted-foreground">
                 {thisMonthSessionCount} completed session{thisMonthSessionCount !== 1 ? 's' : ''}
               </p>
@@ -78,7 +79,7 @@ export function CoachDashboardClient({
                 <TrendingUp className="h-4 w-4" />
                 <span className="text-sm">All time</span>
               </div>
-              <p className="text-2xl font-bold text-foreground tabular-nums">${allTimeEarnings.toFixed(0)}</p>
+              <p className="text-2xl font-bold text-foreground tabular-nums">${formatUsdTwoDecimals(allTimeEarnings)}</p>
               <p className="text-xs text-muted-foreground">
                 {totalPastSessionCount} session{totalPastSessionCount !== 1 ? 's' : ''} in history
               </p>

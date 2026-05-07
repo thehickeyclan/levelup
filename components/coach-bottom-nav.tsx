@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, CircleHelp, CirclePlus, DollarSign, User } from 'lucide-react';
+import { Calendar, CirclePlus, DollarSign, LayoutDashboard, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCoachPendingRequestsCount } from '@/lib/hooks/use-coach-pending-requests-count';
 
@@ -31,10 +31,10 @@ const ITEMS: readonly {
     match: (p) => p === '/coach-earnings' || p.startsWith('/coach-earnings/'),
   },
   {
-    href: '/coach-help',
-    label: 'Help',
-    icon: CircleHelp,
-    match: (p) => p === '/coach-help' || p.startsWith('/coach-help/'),
+    href: '/coach-dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    match: (p) => p === '/coach-dashboard' || p.startsWith('/coach-dashboard/'),
   },
   {
     href: '/profile',

@@ -2,10 +2,18 @@
 
 import Link from 'next/link';
 import { useTenant } from './theme-provider';
+import { useAuth } from '@/lib/auth/use-auth';
 import { Instagram, Facebook } from 'lucide-react';
 
 export function Footer() {
   const tenant = useTenant();
+  const { effectiveRole, loading, user } = useAuth();
+
+  /** Logged-in coaches were hitting /earnings (marketing) instead of payouts. */
+  const wrestlerCoachesEarningsHref =
+    !loading && !!user && effectiveRole === 'coach' ? '/coach-earnings' : '/earnings';
+  const wrestlerCoachesEarningsLabel =
+    !loading && !!user && effectiveRole === 'coach' ? 'Your payouts' : 'Earnings';
 
   return (
     <footer className="bg-primary text-white py-12 mt-auto border-t border-accent/20">
@@ -85,10 +93,10 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/earnings"
+                  href={wrestlerCoachesEarningsHref}
                   className="block py-2.5 text-white/80 hover:text-accent transition-colors min-h-[44px] flex items-center"
                 >
-                  Earnings
+                  {wrestlerCoachesEarningsLabel}
                 </Link>
               </li>
             </ul>

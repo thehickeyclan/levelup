@@ -168,8 +168,10 @@ export async function POST(req: NextRequest) {
 
     /** Prod DB without migration — no `facility_id` column; omit from all queries/writes */
     const { error: probeErr } = await db.from('athlete_availability_slots').select('facility_id').limit(1);
-    const legacySlotsMode =
-      !!(probeErr && isAthleteAvailabilitySlotsFacilityIdSchemaError(probeErr));
+    const legacySlotsMode = !!(
+      probeErr &&
+      isAthleteAvailabilitySlotsFacilityIdSchemaError(probeErr, { fromSlotsProbe: true })
+    );
 
     const slotSelectStr = legacySlotsMode
       ? 'id, slot_date, start_time, end_time'

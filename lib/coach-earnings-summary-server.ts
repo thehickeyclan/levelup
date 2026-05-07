@@ -5,6 +5,7 @@ import { coachPayoutUsd } from '@/lib/coach-session-payout';
 /** Row shape returned by fetchPastSessionsForCoachEarnings. */
 export type CoachEarningsSessionRow = {
   id: string;
+  athlete_id?: string;
   scheduled_datetime: string | null;
   completed_at?: string | null;
   athlete_payment?: number | null;
@@ -27,6 +28,27 @@ export function isCoachSessionEarningsEligible(
   const t = s.scheduled_datetime ? new Date(s.scheduled_datetime).getTime() : NaN;
   if (Number.isNaN(t)) return false;
   return t < new Date(nowIso).getTime() && st === 'scheduled';
+}
+
+/** One session’s coach share — same math as Dashboard, /coach-earnings, and leaderboard (after eligibility filter). */
+export function payoutUsdForCoachEarningsSession(
+  s: CoachEarningsSessionRow,
+  coachDefaultPayoutRate: number
+): number {
+  const participantAmountPaidSum = Array.isArray(s.session_participants)
+    ? s.session_participants.reduce((sum, p) => sum + Number(p.amount_paid || 0), 0)
+    : 0;
+  const rate =
+    s.session_payout_rate != null ? Number(s.session_payout_rate) : Number(coachDefaultPayoutRate);
+  return coachPayoutUsd(
+    {
+      athlete_payment: s.athlete_payment,
+      price_per_participant: s.price_per_participant,
+      current_participants: s.current_participants,
+      participant_amount_paid_sum: participantAmountPaidSum > 0 ? participantAmountPaidSum : null,
+    },
+    rate
+  );
 }
 
 /** Same projection as Dashboard + coach-earnings pages (admin/service client). */
@@ -82,22 +104,7 @@ export function summarizeCoachEarningsFromPastSessions(
 ): CoachEarningsSummary {
   const earningsSessions = (pastSessionsRaw ?? []).filter((s) => isCoachSessionEarningsEligible(s, nowIso));
 
-  const getSessionPayout = (s: CoachEarningsSessionRow) => {
-    const participantAmountPaidSum = Array.isArray(s.session_participants)
-      ? s.session_participants.reduce((sum, p) => sum + Number(p.amount_paid || 0), 0)
-      : 0;
-    const rate =
-      s.session_payout_rate != null ? Number(s.session_payout_rate) : Number(coachDefaultPayoutRate);
-    return coachPayoutUsd(
-      {
-        athlete_payment: s.athlete_payment,
-        price_per_participant: s.price_per_participant,
-        current_participants: s.current_participants,
-        participant_amount_paid_sum: participantAmountPaidSum > 0 ? participantAmountPaidSum : null,
-      },
-      rate
-    );
-  };
+  const getSessionPayout = (s: CoachEarningsSessionRow) => payoutUsdForCoachEarningsSession(s, coachDefaultPayoutRate);
 
   const thisMonthKey = formatEST(new Date(), 'yyyy-MM');
   const thisMonthSessions = earningsSessions.filter(

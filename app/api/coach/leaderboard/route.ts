@@ -3,8 +3,13 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
-import { coachPayoutUsd } from '@/lib/coach-session-payout';
+import { formatEST } from '@/lib/format-date';
 import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
+import {
+  type CoachEarningsSessionRow,
+  isCoachSessionEarningsEligible,
+  payoutUsdForCoachEarningsSession,
+} from '@/lib/coach-earnings-summary-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +23,9 @@ export async function GET() {
   }
 
   const supabase = await createClient(tenant.slug);
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -26,7 +33,6 @@ export async function GET() {
 
   const admin = createAdminClient(tenant.slug);
 
-  // Get all active coaches with their stats
   const { data: coaches, error: coachesError } = await admin
     .from('athletes')
     .select('id, first_name, last_name, average_rating, review_count, payout_rate')
@@ -37,6 +43,9 @@ export async function GET() {
   }
 
   const coachIds = coaches?.map((c) => c.id) ?? [];
+  if (coachIds.length === 0) {
+    return NextResponse.json({ leaderboard: [], totalCoaches: 0 });
+  }
 
   const coachDefaultRateMap: Record<string, number> = {};
   (coaches ?? []).forEach((c) => {
@@ -45,16 +54,18 @@ export async function GET() {
     );
   });
 
-  const thisMonthStart = new Date();
-  thisMonthStart.setDate(1);
-  thisMonthStart.setHours(0, 0, 0, 0);
-  const thisMonthIso = thisMonthStart.toISOString();
+  const nowIso = new Date().toISOString();
+  const thisMonthKey = formatEST(new Date(), 'yyyy-MM');
 
-  const { data: completedSessions } = await admin
+  /** Same broad fetch as coach earnings + eligibility filter (includes past scheduled, not only status=completed). */
+  const { data: pastSessionsRaw, error: sessionsErr } = await admin
     .from('sessions')
     .select(
       `
+      id,
       athlete_id,
+      scheduled_datetime,
+      status,
       completed_at,
       athlete_payment,
       price_per_participant,
@@ -64,53 +75,45 @@ export async function GET() {
     `
     )
     .in('athlete_id', coachIds)
-    .eq('status', 'completed');
+    .or(`status.eq.completed,status.eq.cancelled,status.eq.no-show,scheduled_datetime.lt.${nowIso}`)
+    .not('scheduled_datetime', 'is', null);
+
+  if (sessionsErr) {
+    return NextResponse.json({ error: sessionsErr.message }, { status: 500 });
+  }
 
   const sessionCountMap: Record<string, number> = {};
   const thisMonthCountMap: Record<string, number> = {};
   const earningsMap: Record<string, number> = {};
 
-  completedSessions?.forEach((s) => {
-    const aid = s.athlete_id as string;
+  for (const raw of pastSessionsRaw ?? []) {
+    const s = raw as CoachEarningsSessionRow;
+    if (!isCoachSessionEarningsEligible(s, nowIso)) continue;
+
+    const aid = (s.athlete_id ?? (raw as { athlete_id?: string }).athlete_id) as string;
+    if (!aid) continue;
+
     sessionCountMap[aid] = (sessionCountMap[aid] || 0) + 1;
 
-    const completedAt = s.completed_at ? String(s.completed_at) : '';
-    if (completedAt && completedAt >= thisMonthIso) {
+    if (s.scheduled_datetime && formatEST(s.scheduled_datetime, 'yyyy-MM') === thisMonthKey) {
       thisMonthCountMap[aid] = (thisMonthCountMap[aid] || 0) + 1;
     }
 
-    const participants = s.session_participants as { amount_paid?: number | null }[] | null;
-    const participantAmountPaidSum = Array.isArray(participants)
-      ? participants.reduce((sum, p) => sum + Number(p.amount_paid || 0), 0)
-      : 0;
-    const rate = coachDefaultRateMap[aid] ?? normalizeCoachRevenueShareRate(null);
-    const payout = coachPayoutUsd(
-      {
-        athlete_payment: s.athlete_payment,
-        price_per_participant: s.price_per_participant,
-        current_participants: s.current_participants,
-        participant_amount_paid_sum: participantAmountPaidSum > 0 ? participantAmountPaidSum : null,
-        session_payout_rate: s.session_payout_rate,
-        coach_payout_rate: coachDefaultRateMap[aid],
-      },
-      rate
-    );
+    const defaultRate = coachDefaultRateMap[aid] ?? normalizeCoachRevenueShareRate(null);
+    const payout = payoutUsdForCoachEarningsSession(s, defaultRate);
     earningsMap[aid] = (earningsMap[aid] || 0) + payout;
-  });
+  }
 
-  // Build leaderboard with rankings
   const leaderboard = (coaches ?? []).map((coach) => ({
     id: coach.id,
     name: `${coach.first_name} ${coach.last_name}`,
     sessionCount: sessionCountMap[coach.id] || 0,
     totalEarningsUsd: Math.round((earningsMap[coach.id] || 0) * 100) / 100,
-    averageRating:
-      coach.average_rating != null ? Number(coach.average_rating) : null,
+    averageRating: coach.average_rating != null ? Number(coach.average_rating) : null,
     reviewCount: coach.review_count || 0,
     thisMonthSessions: thisMonthCountMap[coach.id] || 0,
   }));
 
-  // Sort by session count for ranking
   const bySessionCount = [...leaderboard].sort((a, b) => b.sessionCount - a.sessionCount);
   const sessionRankMap: Record<string, number> = {};
   bySessionCount.forEach((c, i) => {
@@ -123,7 +126,6 @@ export async function GET() {
     earningsRankMap[c.id] = i + 1;
   });
 
-  // Sort by rating for ranking (only those with reviews); tie-break by review count
   const byRating = [...leaderboard]
     .filter((c) => c.reviewCount > 0 && c.averageRating != null)
     .sort((a, b) => {
@@ -137,13 +139,11 @@ export async function GET() {
     ratingRankMap[c.id] = i + 1;
   });
 
-  // Add ranks to each coach
   const rankedLeaderboard = leaderboard.map((coach) => ({
     ...coach,
     sessionRank: sessionRankMap[coach.id] || leaderboard.length,
     earningsRank: earningsRankMap[coach.id] || leaderboard.length,
-    ratingRank: ratingRankMap[coach.id] || null,
-    // "On Fire" = 3+ sessions this month
+    ratingRank: ratingRankMap[coach.id] ?? null,
     isOnFire: coach.thisMonthSessions >= 3,
   }));
 

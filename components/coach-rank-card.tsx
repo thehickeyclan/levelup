@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trophy, Star, Flame, Medal, DollarSign } from 'lucide-react';
+import { formatUsdTwoDecimals } from '@/lib/coach-session-payout';
 
 export type LeaderboardSortMode = 'sessions' | 'earnings' | 'rating';
 
@@ -196,7 +197,7 @@ export function CoachRankCard({ coachId, topSessionsListSize }: Props) {
                   <p className="text-xs text-muted-foreground">
                     {sessionCount} completed booking{sessionCount !== 1 ? 's' : ''}
                     {' · '}
-                    {`$${totalEarningsUsd.toFixed(0)} earned`}
+                    {`$${formatUsdTwoDecimals(totalEarningsUsd)} earned`}
                     {reviewCount > 0 && averageRating != null
                       ? ` · ${averageRating.toFixed(1)}★ (${reviewCount} review${reviewCount !== 1 ? 's' : ''})`
                       : ''}
@@ -260,7 +261,7 @@ export function CoachRankCard({ coachId, topSessionsListSize }: Props) {
                     {sortMode === 'sessions'
                       ? c.sessionCount
                       : sortMode === 'earnings'
-                        ? `$${c.totalEarningsUsd.toFixed(0)}`
+                        ? `$${formatUsdTwoDecimals(c.totalEarningsUsd)}`
                         : c.averageRating != null
                           ? `${c.averageRating.toFixed(1)}★`
                           : '—'}

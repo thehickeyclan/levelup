@@ -7,6 +7,7 @@ import { checkoutAllowSavedAccountPercent } from '@/lib/checkout-promo';
 import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
 import { coachPayoutFromParentPrice } from '@/lib/pricing';
 import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
+import { getCoachFacilityIds } from '@/lib/coach-facilities';
 import { BookingFlow } from './booking-flow';
 import {
   CoachUpcomingSessionsSection,
@@ -180,17 +181,9 @@ export default async function BookPage({
   // BookingFlow will show an "Add your wrestler to book" CTA instead of redirecting away.
   const youthWrestlersList = youthWrestlers ?? [];
 
-  // Wrestling rooms for book flow: coach_facilities junction, else primary + secondary, else primary only.
+  // Wrestling rooms for book flow: coach_facilities ∪ primary ∪ secondary (see getCoachFacilityIds).
   let coachFacilitiesBook: Array<{ id: string; name: string; school: string; address?: string | null }> = [];
-  const { data: cfJoin } = await admin
-    .from('coach_facilities')
-    .select('facility_id')
-    .eq('coach_id', athleteId);
-  let fidList = [...new Set((cfJoin ?? []).map((r: { facility_id: string }) => r.facility_id).filter(Boolean))];
-  if (fidList.length === 0) {
-    const pair = [athlete.facility_id, athlete.secondary_facility_id].filter(Boolean) as string[];
-    fidList = [...new Set(pair)];
-  }
+  const fidList = await getCoachFacilityIds(admin, athleteId);
   if (fidList.length > 0) {
     const { data: facRows } = await admin
       .from('facilities')

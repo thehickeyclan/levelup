@@ -93,6 +93,7 @@ import { AdminMessageLogSection } from '@/components/admin-message-log-section';
 import { isOpenSessionStatus } from '@/lib/session-checkout-shell';
 import { formatSlotDisplay } from '@/lib/availability';
 import type { RecruitNcCreditTotals } from '@/lib/recruitnc-credit-admin-stats';
+import { isCoachSessionEarningsEligible } from '@/lib/coach-earnings-summary-server';
 
 /** Payout history presets use the date stored in athlete_payout_date (Eastern calendar day). */
 type PayoutHistoryPeriodPreset = 'week' | 'month' | 'last30' | 'ytd' | 'all' | 'custom';
@@ -189,6 +190,14 @@ function sessionPayoutAmountUsd(s: AdminSession): number {
     session_payout_rate: s.session_payout_rate ?? null,
     coach_payout_rate: s.coach_payout_rate ?? null,
   });
+}
+
+/** Same “realized” window as /api/coach/leaderboard — excludes future open sessions from earnings totals. */
+function isAdminSessionEarningsEligible(s: AdminSession, nowIso: string): boolean {
+  return isCoachSessionEarningsEligible(
+    { status: s.status, scheduled_datetime: s.scheduled_datetime },
+    nowIso
+  );
 }
 
 export type AdminUser = {
@@ -1233,6 +1242,8 @@ export function AdminDashboardClient({
       active: boolean;
     }>();
 
+    const nowIso = new Date().toISOString();
+
     for (const s of filteredSess) {
       const existing = coachMap.get(s.athlete_id) || {
         athlete_id: s.athlete_id,
@@ -1249,7 +1260,9 @@ export function AdminDashboardClient({
       };
       
       existing.session_count += 1;
-      existing.total_earnings += sessionPayoutAmountUsd(s);
+      if (isAdminSessionEarningsEligible(s, nowIso)) {
+        existing.total_earnings += sessionPayoutAmountUsd(s);
+      }
       
       if (s.status === 'completed') existing.completed_count += 1;
       if (s.status === 'scheduled' && !s.booking_checkout_shell) existing.open_count += 1;

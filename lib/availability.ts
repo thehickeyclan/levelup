@@ -55,6 +55,16 @@ export function displayTo24h(s: string): string {
   return `${String(h).padStart(2, '0')}:${mm}`;
 }
 
+/** Normalize client/API scheduled time (24h HH:mm[:ss], or display "h:mm AM/PM") to "HH:mm". */
+export function normalizeRequestSlotHHmm(raw: string): string {
+  const t = (raw ?? '').trim();
+  if (!t) return '00:00';
+  if (/\b(AM|PM)\b/i.test(t)) {
+    return displayTo24h(t);
+  }
+  return timeToHHmm(t);
+}
+
 /** Get day_of_week (0–6) for a Date. Sunday = 0. */
 export function getDayOfWeek(d: Date): number {
   return d.getDay();

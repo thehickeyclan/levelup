@@ -19,6 +19,9 @@ import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
 import { applyCredits, getUserCreditBalance } from '@/lib/credits';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
+import { getCoachFacilityIds } from '@/lib/coach-facilities';
+import { fetchCoachDaySlotsMerged } from '@/lib/fetch-coach-day-slots';
+import { normalizeRequestSlotHHmm } from '@/lib/availability';
 
 export async function POST(req: NextRequest) {
   try {
@@ -107,6 +110,35 @@ export async function POST(req: NextRequest) {
     }
     if (!facility_id) {
       return NextResponse.json({ error: 'Facility required' }, { status: 400 });
+    }
+
+    const allowedFacilityIds = new Set(await getCoachFacilityIds(admin, athleteIdNorm));
+    if (!allowedFacilityIds.has(facility_id)) {
+      return NextResponse.json(
+        {
+          error: 'That location is not linked to this coach. Pick one of their training locations.',
+        },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const merged = await fetchCoachDaySlotsMerged(admin, athleteIdNorm, scheduledDate);
+      const slotKey = normalizeRequestSlotHHmm(scheduledTime);
+      const slotRow = merged.find((s) => s.time === slotKey);
+      if (slotRow?.facilityId != null && String(slotRow.facilityId).trim() !== '') {
+        if (facility_id !== slotRow.facilityId) {
+          return NextResponse.json(
+            {
+              error:
+                'That time slot is only open at one specific facility — pick the wrestling room listed for it on the date/time step, or choose another slot.',
+            },
+            { status: 400 }
+          );
+        }
+      }
+    } catch (slotFacilityErr) {
+      console.warn('[bookings] slot facility constraint skipped', slotFacilityErr);
     }
     if (userData?.role === 'parent' && checkoutAllowSavedAccountPercent()) {
       await ensureAutoFamilyDiscountForParent(admin, user.id, user.email);

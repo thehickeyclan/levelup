@@ -101,7 +101,7 @@ export default async function BookPage({
   // Fetch athlete data
   const { data: athlete, error: athleteError } = await supabase
     .from('athletes')
-    .select('id, first_name, last_name, school, photo_url, facility_id, total_sessions')
+    .select('id, first_name, last_name, school, photo_url, facility_id, secondary_facility_id, total_sessions')
     .eq('id', athleteId)
     .eq('active', true)
     .single();
@@ -180,18 +180,25 @@ export default async function BookPage({
   // BookingFlow will show an "Add your wrestler to book" CTA instead of redirecting away.
   const youthWrestlersList = youthWrestlers ?? [];
 
-  // Get facility info if available
-  let facility = null;
-  if (athlete.facility_id) {
-    const { data: facilityData } = await supabase
-      .from('facilities')
-      .select('*')
-      .eq('id', athlete.facility_id)
-      .single();
-    facility = facilityData;
+  // Wrestling rooms for book flow: coach_facilities junction, else primary + secondary, else primary only.
+  let coachFacilitiesBook: Array<{ id: string; name: string; school: string; address?: string | null }> = [];
+  const { data: cfJoin } = await admin
+    .from('coach_facilities')
+    .select('facility_id')
+    .eq('coach_id', athleteId);
+  let fidList = [...new Set((cfJoin ?? []).map((r: { facility_id: string }) => r.facility_id).filter(Boolean))];
+  if (fidList.length === 0) {
+    const pair = [athlete.facility_id, athlete.secondary_facility_id].filter(Boolean) as string[];
+    fidList = [...new Set(pair)];
   }
-
-  // Pricing: prefer coach rate card (`athlete_services`); otherwise Guild product defaults with
+  if (fidList.length > 0) {
+    const { data: facRows } = await admin
+      .from('facilities')
+      .select('id, name, school, address')
+      .in('id', fidList)
+      .order('name', { ascending: true });
+    coachFacilitiesBook = facRows ?? [];
+  }
   // per-coach overrides from `athlete_products` (same as getRecommendedPricesForCoach / profile).
   const recommendedByType = await getRecommendedPricesForCoach(admin, athleteId);
 
@@ -342,7 +349,7 @@ export default async function BookPage({
       />
       <BookingFlow
         athlete={athlete}
-        facility={facility}
+        coachFacilities={coachFacilitiesBook}
         youthWrestlers={youthWrestlersList}
         tenantPricing={tenant.pricing}
         products={products}

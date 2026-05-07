@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { timeToHHmm } from '@/lib/availability';
 import { notifyAvailabilityFollowers } from '@/lib/notify-availability-followers';
 import { dbForCoachActor, resolveCoachActorId } from '@/lib/coach-actor-server';
+import { coachHasFacility, getCoachFacilityIds, normalizeFacilityIdParam } from '@/lib/coach-facilities';
 
 export async function GET() {
   try {
@@ -20,9 +22,22 @@ export async function GET() {
     const actor = await resolveCoachActorId(supabase, user.id);
     if (!actor.ok) return NextResponse.json({ error: actor.error }, { status: actor.status });
 
+    const admin = createAdminClient(tenant.slug);
+    const facilityIdList = await getCoachFacilityIds(admin, actor.coachId);
+    const { data: facilityRows } =
+      facilityIdList.length > 0
+        ? await admin
+            .from('facilities')
+            .select('id, name, address, school')
+            .in('id', facilityIdList)
+            .order('name', { ascending: true })
+        : { data: [] as { id: string; name: string; address?: string | null; school?: string }[] };
+
+    const coachFacilities = facilityRows ?? [];
+
     const { data: rows, error } = await supabase
       .from('athlete_availability_slots')
-      .select('id, slot_date, start_time, end_time')
+      .select('id, slot_date, start_time, end_time, facility_id')
       .eq('athlete_id', actor.coachId)
       .gte('slot_date', new Date().toISOString().slice(0, 10))
       .order('slot_date', { ascending: true })
@@ -30,19 +45,26 @@ export async function GET() {
 
     if (error) {
       if (error.message?.includes('does not exist') || error.code === '42P01') {
-        return NextResponse.json({ availability: [] });
+        return NextResponse.json({ availability: [], coachFacilities });
       }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const availability = (rows || []).map((r: { id: string; slot_date: string; start_time: string; end_time: string }) => ({
+    const availability = ((rows ?? []) as {
+        id: string;
+        slot_date: string;
+        start_time: string;
+        end_time: string;
+        facility_id?: string | null;
+      }[]).map((r) => ({
       id: r.id,
       slot_date: r.slot_date,
       start_time: timeToHHmm(r.start_time),
       end_time: timeToHHmm(r.end_time),
+      facility_id: r.facility_id ?? null,
     }));
 
-    return NextResponse.json({ availability });
+    return NextResponse.json({ availability, coachFacilities });
   } catch (e) {
     console.error('Availability me GET error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -65,8 +87,15 @@ export async function POST(req: NextRequest) {
 
     const db = dbForCoachActor(tenant.slug, actor, supabase);
 
-    const body = (await req.json()) as { slot_date: string; start_time: string; end_time: string };
-    const { slot_date, start_time, end_time } = body;
+    const admin = createAdminClient(tenant.slug);
+
+    const body = (await req.json()) as {
+      slot_date: string;
+      start_time: string;
+      end_time: string;
+      facilityId?: string | null | string;
+    };
+    const { slot_date, start_time, end_time, facilityId: rawFacilityFromBody } = body;
 
     if (!slot_date || typeof slot_date !== 'string') {
       return NextResponse.json({ error: 'Invalid slot_date' }, { status: 400 });
@@ -96,45 +125,73 @@ export async function POST(req: NextRequest) {
     const start = pad(start_time);
     const end = pad(end_time);
 
-    const { data: existing } = await db
+    let facilityRowId: string | null = null;
+    if (rawFacilityFromBody != null && String(rawFacilityFromBody).trim() !== '') {
+      facilityRowId = normalizeFacilityIdParam(rawFacilityFromBody);
+      if (!facilityRowId) {
+        return NextResponse.json({ error: 'Invalid facility' }, { status: 400 });
+      }
+      if (!(await coachHasFacility(admin, actor.coachId, facilityRowId))) {
+        return NextResponse.json(
+          {
+            error:
+              'Choose a facility linked to your profile (primary, secondary, or sites your admin assigned).',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    let existingQuery = db
       .from('athlete_availability_slots')
-      .select('id, slot_date, start_time, end_time')
+      .select('id, slot_date, start_time, end_time, facility_id')
       .eq('athlete_id', actor.coachId)
       .eq('slot_date', slotDate)
-      .eq('start_time', start)
-      .maybeSingle();
+      .eq('start_time', start);
+    existingQuery =
+      facilityRowId === null
+        ? existingQuery.is('facility_id', null)
+        : existingQuery.eq('facility_id', facilityRowId);
+    const { data: existing } = await existingQuery.maybeSingle();
+
+    const mapAvail = (r: {
+      id: string;
+      slot_date: string;
+      start_time: string;
+      end_time: string;
+      facility_id?: string | null;
+    }) => ({
+      id: r.id,
+      slot_date: r.slot_date,
+      start_time: timeToHHmm(r.start_time),
+      end_time: timeToHHmm(r.end_time),
+      facility_id: r.facility_id ?? null,
+    });
 
     if (existing) {
+      const existingRow = existing as typeof existing & { facility_id?: string | null };
       const existingEnd =
-        typeof existing.end_time === 'string' ? pad(existing.end_time) : pad(String(existing.end_time));
+        typeof existingRow.end_time === 'string'
+          ? pad(existingRow.end_time)
+          : pad(String(existingRow.end_time));
       if (existingEnd === end) {
         return NextResponse.json({
-          availability: {
-            id: existing.id,
-            slot_date: existing.slot_date,
-            start_time: timeToHHmm(existing.start_time),
-            end_time: timeToHHmm(existing.end_time),
-          },
+          availability: mapAvail(existingRow),
           duplicate: true,
         });
       }
       const { data: row, error: upErr } = await db
         .from('athlete_availability_slots')
         .update({ end_time: end })
-        .eq('id', existing.id)
+        .eq('id', existingRow.id)
         .eq('athlete_id', actor.coachId)
-        .select('id, slot_date, start_time, end_time')
+        .select('id, slot_date, start_time, end_time, facility_id')
         .single();
       if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
       if (!row) return NextResponse.json({ error: 'Update failed' }, { status: 500 });
       notifyAvailabilityFollowers(tenant.slug, actor.coachId);
       return NextResponse.json({
-        availability: {
-          id: row.id,
-          slot_date: row.slot_date,
-          start_time: timeToHHmm(row.start_time),
-          end_time: timeToHHmm(row.end_time),
-        },
+        availability: mapAvail(row),
         updatedEnd: true,
       });
     }
@@ -146,27 +203,27 @@ export async function POST(req: NextRequest) {
         slot_date: slotDate,
         start_time: start,
         end_time: end,
+        facility_id: facilityRowId,
       })
-      .select('id, slot_date, start_time, end_time')
+      .select('id, slot_date, start_time, end_time, facility_id')
       .single();
 
     if (error) {
       if (error.code === '23505') {
-        const { data: again } = await db
+        let againQuery = db
           .from('athlete_availability_slots')
-          .select('id, slot_date, start_time, end_time')
+          .select('id, slot_date, start_time, end_time, facility_id')
           .eq('athlete_id', actor.coachId)
           .eq('slot_date', slotDate)
-          .eq('start_time', start)
-          .maybeSingle();
+          .eq('start_time', start);
+        againQuery =
+          facilityRowId === null
+            ? againQuery.is('facility_id', null)
+            : againQuery.eq('facility_id', facilityRowId);
+        const { data: again } = await againQuery.maybeSingle();
         if (again) {
           return NextResponse.json({
-            availability: {
-              id: again.id,
-              slot_date: again.slot_date,
-              start_time: timeToHHmm(again.start_time),
-              end_time: timeToHHmm(again.end_time),
-            },
+            availability: mapAvail(again),
             duplicate: true,
           });
         }
@@ -177,12 +234,7 @@ export async function POST(req: NextRequest) {
     notifyAvailabilityFollowers(tenant.slug, actor.coachId);
 
     return NextResponse.json({
-      availability: {
-        id: row.id,
-        slot_date: row.slot_date,
-        start_time: timeToHHmm(row.start_time),
-        end_time: timeToHHmm(row.end_time),
-      },
+      availability: mapAvail(row),
     });
   } catch (e) {
     console.error('Availability me POST error:', e);

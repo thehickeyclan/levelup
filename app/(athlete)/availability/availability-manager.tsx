@@ -20,12 +20,27 @@ const SLOTS_24H = [
   '16:00', '17:00', '18:00', '19:00', '20:00', '21:00',
 ];
 
-type Slot = { id: string; slot_date: string; start_time: string; end_time: string };
+type Slot = {
+  id: string;
+  slot_date: string;
+  start_time: string;
+  end_time: string;
+  facility_id?: string | null;
+};
 
-function slotAlreadyInList(list: Slot[], slotDate: string, start: string, end: string): boolean {
-  return list.some(
-    (s) => s.slot_date === slotDate && s.start_time === start && s.end_time === end
-  );
+function slotAlreadyInList(
+  list: Slot[],
+  slotDate: string,
+  start: string,
+  end: string,
+  facilityKey: string | null
+): boolean {
+  return list.some((s) => {
+    const sf = (s.facility_id ?? null) as string | null;
+    return (
+      s.slot_date === slotDate && s.start_time === start && s.end_time === end && sf === facilityKey
+    );
+  });
 }
 
 export function AvailabilityManager() {
@@ -38,11 +53,18 @@ export function AvailabilityManager() {
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  const [coachFacilityOptions, setCoachFacilityOptions] = useState<
+    { id: string; name: string; address?: string | null; school?: string }[]
+  >([]);
+  /** `'__any__'` = parents may book at any linked site for this opening */
+  const [facilityForAdd, setFacilityForAdd] = useState<string>('__any__');
+
   const refreshSlots = useCallback(async () => {
     const r = await fetch('/api/availability/me');
     const data = await r.json();
-    if (r.ok && Array.isArray(data.availability)) {
-      setList(data.availability);
+    if (r.ok) {
+      if (Array.isArray(data.availability)) setList(data.availability);
+      if (Array.isArray(data.coachFacilities)) setCoachFacilityOptions(data.coachFacilities);
     }
   }, []);
 
@@ -106,6 +128,12 @@ export function AvailabilityManager() {
     []
   );
 
+  const facilityNameLookup = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of coachFacilityOptions) m.set(f.id, f.name);
+    return m;
+  }, [coachFacilityOptions]);
+
   const handleAdd = async () => {
     if (selectedDates.length === 0) {
       window.alert('Please select one or more dates.');
@@ -117,10 +145,16 @@ export function AvailabilityManager() {
       window.alert('End time must be after start time.');
       return;
     }
+    const facilityKey = facilityForAdd === '__any__' ? null : facilityForAdd;
+    if (facilityKey && !coachFacilityOptions.some((f) => f.id === facilityKey)) {
+      window.alert('Pick a valid wrestling room, or Any linked room.');
+      return;
+    }
+
     setAdding(true);
     try {
       const toAdd = selectedDates.filter(
-        (d) => !slotAlreadyInList(list, formatEST(d, 'yyyy-MM-dd'), start, end)
+        (d) => !slotAlreadyInList(list, formatEST(d, 'yyyy-MM-dd'), start, end, facilityKey)
       );
       const skippedExact = selectedDates.length - toAdd.length;
       if (toAdd.length === 0) {
@@ -140,7 +174,12 @@ export function AvailabilityManager() {
         const r = await fetch('/api/availability/me', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slot_date: slotDate, start_time: start, end_time: end }),
+          body: JSON.stringify({
+            slot_date: slotDate,
+            start_time: start,
+            end_time: end,
+            ...(facilityKey ? { facilityId: facilityKey } : {}),
+          }),
         });
         const data = await r.json();
         if (!r.ok) {
@@ -175,6 +214,7 @@ export function AvailabilityManager() {
         setSelectedDates([]);
         setStart('09:00');
         setEnd('17:00');
+        setFacilityForAdd('__any__');
       }
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Failed to add slot');
@@ -215,9 +255,8 @@ export function AvailabilityManager() {
         <CardHeader>
           <CardTitle>Your calendar</CardTitle>
           <CardDescription>
-            Select one or more dates, choose when you&apos;re open, then add. Parents use these times for private and
-            partner requests. If a day already appears under Upcoming openings with the same start and end, you
-            don&apos;t need to add it again — use Remove there if you want to change it.
+            Select dates and hours parents can request you. Optionally pick a wrestling room — if you train at multiple
+            sites, parents booking that opening will only see that location on the booking page.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -281,6 +320,27 @@ export function AvailabilityManager() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="w-full max-w-sm space-y-1">
+              <label className="text-sm font-medium block">Where you&apos;ll be</label>
+              <Select value={facilityForAdd} onValueChange={setFacilityForAdd}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Facility" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__any__">Any linked wrestling room</SelectItem>
+                  {coachFacilityOptions.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {coachFacilityOptions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Have your admin attach sites to your profile (primary / secondary locations) so you can tag a room here.
+                </p>
+              ) : null}
+            </div>
             <Button onClick={() => void handleAdd()} disabled={adding || selectedDates.length === 0}>
               {adding ? 'Adding…' : selectedDates.length > 1 ? `Add opening (${selectedDates.length} days)` : 'Add opening'}
             </Button>
@@ -307,9 +367,16 @@ export function AvailabilityManager() {
                   key={s.id}
                   className="flex items-center justify-between py-2 px-3 rounded-lg border bg-muted/30 gap-2"
                 >
-                  <span className="font-medium text-sm sm:text-base min-w-0">
-                    {formatEST(new Date(s.slot_date + 'T12:00:00'), 'EEE, MMM d, yyyy')} ·{' '}
-                    {formatSlotDisplay(s.start_time)} – {formatSlotDisplay(s.end_time)}
+                  <span className="flex flex-col min-w-0 gap-0.5">
+                    <span className="font-medium text-sm sm:text-base">
+                      {formatEST(new Date(s.slot_date + 'T12:00:00'), 'EEE, MMM d, yyyy')} ·{' '}
+                      {formatSlotDisplay(s.start_time)} – {formatSlotDisplay(s.end_time)}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      {s.facility_id
+                        ? facilityNameLookup.get(s.facility_id) ?? 'Wrestling room'
+                        : 'Any linked wrestling room'}
+                    </span>
                   </span>
                   <Button
                     variant="ghost"

@@ -26,6 +26,13 @@ import { formatSlotDisplay, getDayOfWeek } from '@/lib/availability';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 const creditsFetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -60,6 +67,16 @@ function is24h(s: string): boolean {
   return /^\d{1,2}:\d{2}$/.test(s) && !s.match(/\s*(AM|PM)/i);
 }
 
+/** Slot from API — may lock booking to one facility when `facilityId` is set */
+export interface BookingSlotOption {
+  time: string;
+  facilityId: string | null;
+}
+
+function slotOptKey(s: BookingSlotOption): string {
+  return `${s.time}\t${s.facilityId ?? ''}`;
+}
+
 /** Local calendar day for yyyy-MM-dd (matches date picker). */
 function parseYmdLocal(ymd: string): Date | undefined {
   const parts = ymd.split('-').map((x) => parseInt(x, 10));
@@ -83,7 +100,7 @@ interface Athlete {
 interface Facility {
   id: string;
   name: string;
-  address?: string;
+  address?: string | null;
   school: string;
 }
 
@@ -100,7 +117,8 @@ export interface Product {
 
 interface BookingFlowProps {
   athlete: Athlete;
-  facility: Facility | null;
+  /** Wrestling rooms linked to this coach (primary, secondary, `coach_facilities`). */
+  coachFacilities: Facility[];
   youthWrestlers: YouthWrestler[];
   tenantPricing: { oneOnOne: number; twoAthlete: number; groupRate: number };
   products?: Product[];
@@ -119,7 +137,7 @@ type AvailabilityByDay = { day_of_week: number; start_time: string; end_time: st
 
 export function BookingFlow({
   athlete,
-  facility,
+  coachFacilities,
   youthWrestlers,
   tenantPricing,
   products = [],
@@ -141,11 +159,13 @@ export function BookingFlow({
   const [sessionChoice, setSessionChoice] = useState<'1-on-1' | 'partner' | 'sibling' | null>(null);
   const [partnerOption, setPartnerOption] = useState<'invite' | 'open' | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [availability, setAvailability] = useState<AvailabilityByDay | null>(null);
   const [availabilityDates, setAvailabilityDates] = useState<Set<string>>(new Set());
-  const [slots, setSlots] = useState<string[]>([]);
+  const [slotsOptions, setSlotsOptions] = useState<BookingSlotOption[]>([]);
+  /** Selected hourly slot — may impose a locked facility via `facilityId`. */
+  const [selectedSlotBooking, setSelectedSlotBooking] = useState<BookingSlotOption | null>(null);
+  /** When chosen slot leaves venue open (`facilityId` null) and coach has multiple sites. */
+  const [chosenOpenVenueId, setChosenOpenVenueId] = useState<string>('');
   const [promoCode, setPromoCode] = useState('');
   const [promoApplying, setPromoApplying] = useState(false);
   const [promoFeedback, setPromoFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -154,6 +174,7 @@ export function BookingFlow({
   const [bookingPromoApplied, setBookingPromoApplied] = useState(false);
   const [bookingPromoPercent, setBookingPromoPercent] = useState<number | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [initialSlotSeeded, setInitialSlotSeeded] = useState(false);
   const [useCredits, setUseCredits] = useState(true);
@@ -306,15 +327,16 @@ export function BookingFlow({
     if (initialSlotSeeded || !initialBookingTime || !selectedDate || slotsLoading) return;
     const ymd = formatEST(selectedDate, 'yyyy-MM-dd');
     if (initialBookingDate && ymd !== initialBookingDate) return;
-    if (slots.includes(initialBookingTime)) {
-      setSelectedTime(initialBookingTime);
+    const match = slotsOptions.find((s) => s.time === initialBookingTime);
+    if (match) {
+      setSelectedSlotBooking(match);
       setInitialSlotSeeded(true);
     }
   }, [
     initialBookingDate,
     initialBookingTime,
     selectedDate,
-    slots,
+    slotsOptions,
     slotsLoading,
     initialSlotSeeded,
   ]);
@@ -325,11 +347,13 @@ export function BookingFlow({
 
   useEffect(() => {
     if (!selectedDate) {
-      setSlots([]);
-      setSelectedTime(null);
+      setSlotsOptions([]);
+      setSelectedSlotBooking(null);
+      setChosenOpenVenueId('');
       return;
     }
-    setSelectedTime(null);
+    setSelectedSlotBooking(null);
+    setChosenOpenVenueId('');
     if (!hasAvailability) {
       const now = new Date();
       const isToday =
@@ -338,7 +362,7 @@ export function BookingFlow({
         selectedDate.getDate() === now.getDate();
       const currentHHmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const fallback = isToday ? TIME_SLOTS_24H.filter((s) => s > currentHHmm) : TIME_SLOTS_24H;
-      setSlots(fallback);
+      setSlotsOptions(fallback.map((time) => ({ time, facilityId: null })));
       return;
     }
     let ok = true;
@@ -348,16 +372,52 @@ export function BookingFlow({
       .then((r) => r.json())
       .then((data) => {
         if (!ok) return;
-        setSlots(Array.isArray(data.slots) ? data.slots : []);
+        const raw = Array.isArray(data.slots) ? data.slots : [];
+        const normalized: BookingSlotOption[] = raw
+          .map((item: unknown) => {
+            if (typeof item === 'string') return { time: item, facilityId: null };
+            const o = item as { time?: unknown; facilityId?: unknown };
+            const tm = typeof o.time === 'string' ? o.time.trim() : '';
+            if (!tm) return null;
+            let facilityId: string | null = null;
+            const fid = o.facilityId;
+            if (typeof fid === 'string' && fid.trim()) facilityId = fid.trim();
+            return { time: tm, facilityId };
+          })
+          .filter((x: BookingSlotOption | null): x is BookingSlotOption => x !== null);
+        setSlotsOptions(normalized);
       })
       .catch(() => {
-        if (ok) setSlots([]);
+        if (ok) setSlotsOptions([]);
       })
       .finally(() => {
         if (ok) setSlotsLoading(false);
       });
     return () => { ok = false; };
   }, [athlete.id, selectedDate, hasAvailability]);
+
+  const selectedTime = selectedSlotBooking?.time ?? null;
+
+  const needsVenueChoice =
+    Boolean(selectedSlotBooking) &&
+    !selectedSlotBooking?.facilityId &&
+    coachFacilities.length > 1;
+
+  const resolvedBookingFacilityId = useMemo(() => {
+    if (!selectedSlotBooking) return null;
+    if (selectedSlotBooking.facilityId) return selectedSlotBooking.facilityId;
+    if (coachFacilities.length === 1) return coachFacilities[0]?.id ?? null;
+    const v = chosenOpenVenueId.trim();
+    return v || null;
+  }, [selectedSlotBooking, coachFacilities, chosenOpenVenueId]);
+
+  const resolvedBookingFacility =
+    resolvedBookingFacilityId != null
+      ? coachFacilities.find((f) => f.id === resolvedBookingFacilityId) ?? null
+      : null;
+
+  const facilityLabelShort = (fid: string | null) =>
+    fid ? coachFacilities.find((f) => f.id === fid)?.name ?? 'Site' : 'Any linked room';
 
   const toggleWrestler = (w: YouthWrestler) => {
     setSelectedWrestlers((prev) =>
@@ -405,12 +465,14 @@ export function BookingFlow({
     }
   }, [currentStep, sessionMode, selectedWrestlers.length]);
 
+  const venueChoiceComplete = !needsVenueChoice || Boolean(chosenOpenVenueId.trim());
+
   const handleContinue = () => {
     if (currentStep === 1 && numSelected > 0) setCurrentStep(2);
     else if (currentStep === 2) {
       if (isPartner && oneWrestler && !partnerOption) return; // must pick partner option
       if (sessionChoice && (!isPartner || partnerOption)) setCurrentStep(3);
-    } else if (currentStep === 3 && selectedDate && selectedTime) setCurrentStep(4);
+    } else if (currentStep === 3 && selectedDate && selectedTime && venueChoiceComplete) setCurrentStep(4);
   };
 
   const handleBack = () => {
@@ -424,7 +486,7 @@ export function BookingFlow({
   const canContinue =
     (currentStep === 1 && numSelected > 0) ||
     (currentStep === 2 && sessionChoice && (!isPartner || partnerOption)) ||
-    (currentStep === 3 && !!selectedDate && !!selectedTime);
+    (currentStep === 3 && !!selectedDate && !!selectedTime && venueChoiceComplete);
 
   const refreshPercentDiscount = async () => {
     const pctRes = await fetch('/api/account/percentage-discount');
@@ -504,6 +566,14 @@ export function BookingFlow({
       alert('Click Apply to confirm your promo code before paying, or clear the promo field.');
       return;
     }
+    if (!resolvedBookingFacilityId) {
+      alert(
+        needsVenueChoice
+          ? 'Choose which wrestling room you want — this coach lists more than one site.'
+          : 'Could not resolve a wrestling room for this booking. Refresh and pick your date/time again.'
+      );
+      return;
+    }
     setLoading(true);
     try {
       const dateStr = formatEST(selectedDate, 'yyyy-MM-dd');
@@ -512,7 +582,7 @@ export function BookingFlow({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           athleteId: athlete.id,
-          facilityId: facility?.id ?? null,
+          facilityId: resolvedBookingFacilityId,
           youthWrestlerIds: selectedWrestlers.map((w) => w.id),
           sessionMode,
           joinPolicy:
@@ -830,29 +900,74 @@ export function BookingFlow({
                     <h3 className="font-semibold mb-3">Time</h3>
                     {slotsLoading ? (
                       <p className="text-sm text-muted-foreground">Loading slots…</p>
-                    ) : slots.length === 0 ? (
+                    ) : slotsOptions.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No times available this day.</p>
                     ) : (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                        {slots.map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => setSelectedTime(t)}
-                            className={`min-h-[44px] p-2 rounded-lg border text-sm transition-all touch-manipulation ${
-                              selectedTime === t ? 'border-accent bg-accent text-black' : 'border-border hover:border-accent/50'
-                            }`}
-                          >
-                            {formatSlotDisplay(t)}
-                          </button>
-                        ))}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {slotsOptions.map((slot) => {
+                          const sel =
+                            !!selectedSlotBooking &&
+                            selectedSlotBooking.time === slot.time &&
+                            slotOptKey(selectedSlotBooking) === slotOptKey(slot);
+                          return (
+                            <button
+                              key={slotOptKey(slot)}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSlotBooking(slot);
+                                setChosenOpenVenueId('');
+                              }}
+                              className={`min-h-[56px] p-2 rounded-lg border text-left text-sm transition-all touch-manipulation flex flex-col justify-center gap-0.5 ${
+                                sel
+                                  ? 'border-accent bg-accent text-black'
+                                  : 'border-border hover:border-accent/50'
+                              }`}
+                            >
+                              <span className="font-medium">{formatSlotDisplay(slot.time)}</span>
+                              <span className={`text-[11px] leading-tight ${sel ? 'text-black/75' : 'text-muted-foreground'}`}>
+                                {facilityLabelShort(slot.facilityId)}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 )}
+                {needsVenueChoice ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="book-venue-choice">Wrestling room</Label>
+                    <Select value={chosenOpenVenueId} onValueChange={setChosenOpenVenueId}>
+                      <SelectTrigger id="book-venue-choice">
+                        <SelectValue placeholder={`Choose venue (${coachFacilities.length} linked)`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {coachFacilities.map((f) => (
+                          <SelectItem key={f.id} value={f.id}>
+                            {f.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Your coach trains at multiple sites — pick where this session will run.
+                    </p>
+                  </div>
+                ) : null}
+                {selectedDate && selectedSlotBooking?.facilityId ? (
+                  <p className="text-sm font-medium text-foreground rounded-md border border-accent/35 bg-accent/10 px-3 py-2">
+                    This time is booked at{' '}
+                    <span className="underline decoration-accent">{facilityLabelShort(selectedSlotBooking.facilityId)}</span>{' '}
+                    only.
+                  </p>
+                ) : null}
                 {selectedDate && selectedTime && (
                   <p className="text-sm text-muted-foreground">
-                    Selected: {formatEST(selectedDate, 'EEEE, MMMM d, yyyy')} at {formatSlotDisplay(selectedTime)}
+                    Selected: {formatEST(selectedDate, 'EEEE, MMMM d, yyyy')} at{' '}
+                    {formatSlotDisplay(selectedTime)}
+                    {resolvedBookingFacility && !needsVenueChoice ? (
+                      <span className="block mt-1 text-foreground">{resolvedBookingFacility.name}</span>
+                    ) : null}
                   </p>
                 )}
                 <div className="flex gap-4 mt-6">
@@ -995,13 +1110,15 @@ export function BookingFlow({
                     {selectedDate && selectedTime && `${formatEST(selectedDate, 'EEEE, MMMM d, yyyy')} at ${formatSlotDisplay(selectedTime)}`}
                   </p>
                 </div>
-                {facility && (
+                {resolvedBookingFacility ? (
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Location</p>
-                    <p className="mt-1">{facility.name}</p>
-                    {facility.address && <p className="text-sm text-muted-foreground">{facility.address}</p>}
+                    <p className="mt-1">{resolvedBookingFacility.name}</p>
+                    {resolvedBookingFacility.address && (
+                      <p className="text-sm text-muted-foreground">{resolvedBookingFacility.address}</p>
+                    )}
                   </div>
-                )}
+                ) : null}
                 {(!checkoutUsesSavedAccountDiscount || !hasPercentDiscount) && (
                     <div className="space-y-2 rounded-lg border p-4">
                       <Label htmlFor="booking-promo">Promo code</Label>
@@ -1202,12 +1319,12 @@ export function BookingFlow({
                     <p className="text-sm text-muted-foreground">Not selected</p>
                   )}
                 </div>
-                {facility && (
+                {resolvedBookingFacility ? (
                   <div>
                     <p className="text-sm font-medium mb-2">Location</p>
-                    <p className="text-sm">{facility.name}</p>
+                    <p className="text-sm">{resolvedBookingFacility.name}</p>
                   </div>
-                )}
+                ) : null}
                 <div className="pt-4 border-t flex justify-between">
                   <span className="font-semibold">Total</span>
                   <span className="text-xl font-bold">

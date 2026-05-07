@@ -3,7 +3,8 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
-import { slotsForDay, slotsForDate, type AvailabilitySlot } from '@/lib/availability';
+import { type AvailabilitySlot } from '@/lib/availability';
+import { mergeSlotsWithFacilities } from '@/lib/availability-slots-with-facility';
 import { formatEST } from '@/lib/format-date';
 
 export async function GET(req: NextRequest) {
@@ -46,11 +47,9 @@ export async function GET(req: NextRequest) {
     // Date-specific slots for this date
     const { data: dateRows } = await supabase
       .from('athlete_availability_slots')
-      .select('slot_date, start_time, end_time')
+      .select('slot_date, start_time, end_time, facility_id')
       .eq('athlete_id', athleteId)
       .eq('slot_date', dateOnly);
-
-    const dateSlots = slotsForDate((dateRows || []) as { slot_date: string; start_time: string; end_time: string }[]);
 
     // Legacy recurring slots
     const { data: availRows } = await supabase
@@ -67,9 +66,15 @@ export async function GET(req: NextRequest) {
     );
 
     const dayOfWeek = d.getDay();
-    const recurSlots = slotsForDay(availability, dayOfWeek);
 
-    const allSlots = [...new Set([...dateSlots, ...recurSlots])].sort();
+    const mergedTimed = mergeSlotsWithFacilities(
+      (dateRows ?? []) as Parameters<typeof mergeSlotsWithFacilities>[0],
+      availability,
+      dateOnly,
+      dayOfWeek
+    );
+
+    const allSlots = [...new Set(mergedTimed.map((s) => s.time))].sort();
 
     if (allSlots.length === 0) {
       return NextResponse.json({ slots: [] });
@@ -128,11 +133,20 @@ export async function GET(req: NextRequest) {
       d.getDate() === now.getDate();
     const currentHHmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    const slots = allSlots.filter((slot) => {
-      if (booked.has(slot)) return false;
-      if (isToday && slot <= currentHHmm) return false;
-      return true;
-    });
+    const openTimes = new Set(
+      mergedTimed.filter((s) => {
+        if (booked.has(s.time)) return false;
+        if (isToday && s.time <= currentHHmm) return false;
+        return true;
+      }).map((s) => s.time)
+    );
+
+    const slots = mergedTimed
+      .filter((s) => openTimes.has(s.time))
+      .reduce<Array<{ time: string; facilityId: string | null }>>((acc, s) => {
+        acc.push({ time: s.time, facilityId: s.facilityId });
+        return acc;
+      }, []);
 
     return NextResponse.json({ slots });
   } catch (e) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminApi } from '@/lib/admin-api-auth';
-import { grantRewardCredit, isRewardsProgramEnabled, SESSION_CASHBACK_RATE } from '@/lib/rewards';
+import { grantRewardCredit, isRewardsProgramEnabled, isLegacyPromotionCreditsEnabled, SESSION_CASHBACK_RATE } from '@/lib/rewards';
 import { createNotification } from '@/lib/notifications';
 import { sendTransactionalEmail } from '@/lib/email/send-transactional';
 
@@ -39,6 +39,14 @@ export async function GET() {
 
   const auth = await requireAdminApi();
   if (!auth.ok) return auth.response;
+
+  if (!isLegacyPromotionCreditsEnabled()) {
+    return NextResponse.json({
+      legacyPromotionsDisabled: true,
+      message:
+        'Retroactive session cashback is off. Parent wallet credits from automation are referrals (and RecruitNC transfers) unless REWARDS_LEGACY_PROMOTION_CREDITS_ENABLED=true.',
+    });
+  }
 
   const admin = createAdminClient(auth.tenantSlug);
   const { data: ran } = await admin
@@ -84,6 +92,16 @@ export async function POST(req: NextRequest) {
 
   const auth = await requireAdminApi();
   if (!auth.ok) return auth.response;
+
+  if (!isLegacyPromotionCreditsEnabled()) {
+    return NextResponse.json(
+      {
+        error:
+          'Retroactive session credits are disabled. Set REWARDS_LEGACY_PROMOTION_CREDITS_ENABLED=true to allow this run.',
+      },
+      { status: 403 }
+    );
+  }
 
   const body = await req.json().catch(() => ({}));
   if (body?.confirm !== true) {

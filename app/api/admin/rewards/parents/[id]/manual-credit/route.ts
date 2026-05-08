@@ -37,6 +37,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     amount: Number(amount.toFixed(2)),
     rewardType: 'manual',
     description: reason,
+    adminManualGrant: true,
   });
   if (error) return NextResponse.json({ error }, { status: 500 });
 

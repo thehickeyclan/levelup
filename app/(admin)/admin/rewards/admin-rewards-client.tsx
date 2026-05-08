@@ -269,7 +269,9 @@ export function AdminRewardsClient() {
           </p>
         </div>
         <div className="flex flex-col gap-2 items-stretch md:items-end">
-          {launchInfo?.alreadyRan ? (
+          {launchInfo?.legacyPromotionsDisabled ? (
+            <p className="text-sm text-muted-foreground max-w-md text-right">{String(launchInfo.message ?? '')}</p>
+          ) : launchInfo?.alreadyRan ? (
             <p className="text-sm text-muted-foreground max-w-md text-right">
               Launch bonus issued{' '}
               {formatEST(new Date(String(launchInfo.ranAt)), 'MMM d, yyyy')}
@@ -1184,10 +1186,13 @@ export function AdminRewardsClient() {
             <DialogTitle>Retroactive launch bonus</DialogTitle>
             <DialogDescription>
               Credits 5% of roster amount_paid for paid spots that do not already have session_earned. Safe to
-              preview; run issues grants and notifies parents.
+              preview; run issues grants and notifies parents. Requires REWARDS_LEGACY_PROMOTION_CREDITS_ENABLED=true.
             </DialogDescription>
           </DialogHeader>
-          {launchInfo && !launchInfo.alreadyRan && (
+          {launchInfo && Boolean(launchInfo.legacyPromotionsDisabled) && (
+            <p className="text-sm text-muted-foreground">{String(launchInfo.message ?? '')}</p>
+          )}
+          {launchInfo && !launchInfo.alreadyRan && !launchInfo.legacyPromotionsDisabled && (
             <div className="rounded-lg border p-3 text-sm space-y-1">
               <p>Parents affected: {Number((launchInfo.preview as Record<string, unknown>)?.parentsAffected ?? 0)}</p>
               <p>Sessions: {Number((launchInfo.preview as Record<string, unknown>)?.sessionsToCredit ?? 0)}</p>
@@ -1204,8 +1209,9 @@ export function AdminRewardsClient() {
             <Button
               type="button"
               className="bg-[#B89D60] text-black"
-              disabled={launchRunning || !!launchInfo?.alreadyRan}
+              disabled={launchRunning || !!launchInfo?.alreadyRan || !!launchInfo?.legacyPromotionsDisabled}
               onClick={async () => {
+                if (launchInfo?.legacyPromotionsDisabled) return;
                 const amt = Number((launchInfo?.preview as Record<string, unknown>)?.totalCreditUsd ?? 0);
                 const parents = Number((launchInfo?.preview as Record<string, unknown>)?.parentsAffected ?? 0);
                 if (

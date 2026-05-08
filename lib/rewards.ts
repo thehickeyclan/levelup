@@ -8,6 +8,17 @@ export function isRewardsProgramEnabled(): boolean {
   return process.env.REWARDS_PROGRAM_ENABLED === 'true';
 }
 
+/**
+ * When false (default), `credits` rows with source `reward` may only be created for referral payouts
+ * (`reward_type` referral_sent) or admin manual grants. Session milestones, review bonuses, per-session
+ * cashback, and the retroactive launch bonus are off. RecruitNC → Guild inserts use source
+ * recruitnc_transfer and are unaffected.
+ * Opt back in with REWARDS_LEGACY_PROMOTION_CREDITS_ENABLED=true.
+ */
+export function isLegacyPromotionCreditsEnabled(): boolean {
+  return process.env.REWARDS_LEGACY_PROMOTION_CREDITS_ENABLED === 'true';
+}
+
 export const SESSION_CASHBACK_RATE = 0.05;
 export const REFERRAL_CREDIT_AMOUNT = 25;
 /** Days after referred family's first paid booking before referrer credit is released */
@@ -90,7 +101,7 @@ export async function issueSessionEarnedCredit(
     cashPaidDollars: number;
   }
 ): Promise<void> {
-  if (!isRewardsProgramEnabled()) return;
+  if (!isRewardsProgramEnabled() || !isLegacyPromotionCreditsEnabled()) return;
 
   const creditAmount = Number((opts.cashPaidDollars * SESSION_CASHBACK_RATE).toFixed(2));
   if (creditAmount < 0.01) return;
@@ -299,7 +310,7 @@ export async function checkSessionMilestonesForParent(
   admin: SupabaseClient,
   opts: { tenantSlug: string; parentId: string }
 ): Promise<void> {
-  if (!isRewardsProgramEnabled()) return;
+  if (!isRewardsProgramEnabled() || !isLegacyPromotionCreditsEnabled()) return;
 
   const n = await countCompletedPaidSessionsForParent(admin, opts.parentId);
 
@@ -345,7 +356,7 @@ export async function checkReviewRewardForSession(
   admin: SupabaseClient,
   opts: { tenantSlug: string; parentId: string; sessionId: string }
 ): Promise<void> {
-  if (!isRewardsProgramEnabled()) return;
+  if (!isRewardsProgramEnabled() || !isLegacyPromotionCreditsEnabled()) return;
 
   const milestoneKey = `review:${opts.sessionId}`;
   const { data: existing } = await admin

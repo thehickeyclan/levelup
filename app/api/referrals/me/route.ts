@@ -7,6 +7,7 @@ import {
   countCompletedPaidSessionsForParent,
   ensureReferralCodeForParent,
   getNextSessionMilestoneProgress,
+  isLegacyPromotionCreditsEnabled,
   isRewardsProgramEnabled,
 } from '@/lib/rewards';
 
@@ -37,6 +38,7 @@ export async function GET() {
         pendingReferrals: 0,
         completedSessions: 0,
         nextMilestone: null,
+        sessionMilestoneRewardsEnabled: false,
       });
     }
 
@@ -72,7 +74,8 @@ export async function GET() {
       : null;
 
     const completedSessions = await countCompletedPaidSessionsForParent(admin, user.id);
-    const nextMilestone = getNextSessionMilestoneProgress(completedSessions);
+    const milestonesOn = isLegacyPromotionCreditsEnabled();
+    const nextMilestone = milestonesOn ? getNextSessionMilestoneProgress(completedSessions) : null;
 
     return NextResponse.json({
       rewardsEnabled: true,
@@ -87,6 +90,7 @@ export async function GET() {
       nextReferralCreditAmount,
       completedSessions,
       nextMilestone,
+      sessionMilestoneRewardsEnabled: milestonesOn,
     });
   } catch (e) {
     console.error('referrals/me GET:', e);

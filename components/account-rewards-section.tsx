@@ -24,6 +24,7 @@ type ReferralsMe = {
     creditAtNext: number | null;
     label: string | null;
   } | null;
+  sessionMilestoneRewardsEnabled?: boolean;
 };
 
 export function AccountRewardsSection() {
@@ -158,8 +159,9 @@ export function AccountRewardsSection() {
 
         <p className="text-xs text-zinc-600 flex items-start gap-1.5">
           <Link2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          Earn credit through session milestones and referrals. Wallet credit applies automatically at checkout when you
-          choose to use it.
+          {data.sessionMilestoneRewardsEnabled
+            ? 'Earn credit through session milestones and referrals. Wallet credit applies automatically at checkout when you choose to use it.'
+            : 'Earn referral credit when a referred family completes their first paid booking. Wallet credit applies automatically at checkout when you choose to use it.'}
         </p>
       </div>
     </div>

@@ -9,6 +9,7 @@ import {
   getNextSessionMilestoneProgress,
   isLegacyPromotionCreditsEnabled,
   isRewardsProgramEnabled,
+  REFERRAL_CREDIT_AMOUNT,
 } from '@/lib/rewards';
 
 export async function GET() {
@@ -39,6 +40,7 @@ export async function GET() {
         completedSessions: 0,
         nextMilestone: null,
         sessionMilestoneRewardsEnabled: false,
+        referralCreditAmountDefault: REFERRAL_CREDIT_AMOUNT,
       });
     }
 
@@ -91,6 +93,7 @@ export async function GET() {
       completedSessions,
       nextMilestone,
       sessionMilestoneRewardsEnabled: milestonesOn,
+      referralCreditAmountDefault: REFERRAL_CREDIT_AMOUNT,
     });
   } catch (e) {
     console.error('referrals/me GET:', e);

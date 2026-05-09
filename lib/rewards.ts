@@ -66,9 +66,21 @@ export async function grantRewardCredit(
     description: string;
     sourceSessionId?: string | null;
     sessionParticipantId?: string | null;
+    /** Only the admin manual-credit API should set this */
+    adminManualGrant?: boolean;
   }
 ): Promise<{ creditId?: string; error?: string }> {
   if (opts.amount < 0.01) return {};
+
+  const legacy = isLegacyPromotionCreditsEnabled();
+  const isReferral = opts.rewardType === 'referral_sent';
+  const isManual = opts.rewardType === 'manual' && opts.adminManualGrant === true;
+  if (!legacy && !isReferral && !isManual) {
+    return {
+      error:
+        'Automatic reward credits are limited to referrals. Enable REWARDS_LEGACY_PROMOTION_CREDITS_ENABLED for milestones, reviews, or session cashback.',
+    };
+  }
 
   const { data, error } = await admin
     .from('credits')

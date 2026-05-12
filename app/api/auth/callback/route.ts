@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getTenantByDomain } from '@/config/tenants';
+import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 
 function getAdminEmails(): Set<string> {
   const raw = process.env.ADMIN_EMAILS || '';
@@ -12,11 +12,11 @@ function getAdminEmails(): Set<string> {
 
 export async function GET(req: NextRequest) {
   try {
-    const hostname = req.headers.get('host') || '';
+    const hostname = resolveHostnameFromHeaders(req.headers);
     const tenant = getTenantByDomain(hostname);
 
     if (!tenant) {
-      return NextResponse.redirect(new URL('/404', req.url));
+      return NextResponse.redirect(new URL('/login?error=unknown_site', req.url));
     }
 
     const supabase = await createClient(tenant.slug);

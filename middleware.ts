@@ -15,9 +15,19 @@ export async function middleware(req: NextRequest) {
   // Extract tenant from subdomain / known domains
   const tenant = getTenantByDomain(hostname);
 
+  // Unknown host: proceed without x-tenant-slug so Root Layout can render a single
+  // "tenant not found" page. Never redirect to /404 — that path hits middleware again
+  // and recreated the same redirect → ERR_TOO_MANY_REDIRECTS for some proxies / FB WebViews.
   if (!tenant) {
-    const res = NextResponse.redirect(new URL('/404', req.url));
-    res.headers.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+    const fallbackHeaders = new Headers(req.headers);
+    fallbackHeaders.set('x-pathname', req.nextUrl.pathname);
+    const res = NextResponse.next({
+      request: { headers: fallbackHeaders },
+    });
+    if (!isFingerprintedOrPublicFile(req.nextUrl.pathname)) {
+      res.headers.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+      res.headers.set('Vercel-CDN-Cache-Control', 'no-store');
+    }
     return res;
   }
 

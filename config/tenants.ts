@@ -64,7 +64,7 @@ export const tenants: Record<string, TenantConfig> = {
   guild: {
     slug: "guild",
     orgName: "The Guild",
-    orgType: "501c3",
+    orgType: "llc",
     productName: "The Guild",
 
     brandColors: {

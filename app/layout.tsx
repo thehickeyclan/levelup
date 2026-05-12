@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { Playfair_Display } from 'next/font/google';
-import { getTenantByDomain } from '@/config/tenants';
+import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 import { Analytics } from '@vercel/analytics/next';
 import { ThemeProvider } from '@/components/theme-provider';
 import { PwaInstallProvider, PwaInstallBanner } from '@/components/pwa-install-provider';
@@ -28,7 +28,7 @@ export const viewport = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const headersList = await headers();
-  const host = headersList.get('host') || '';
+  const host = resolveHostnameFromHeaders(headersList);
   const tenant = getTenantByDomain(host);
   const appleTitle = tenant?.productName ?? 'The Guild';
   const title = tenant
@@ -65,7 +65,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const headersList = await headers();
-  const host = headersList.get('host') || '';
+  const host = resolveHostnameFromHeaders(headersList);
   const tenant = getTenantByDomain(host);
 
   const htmlProps = {

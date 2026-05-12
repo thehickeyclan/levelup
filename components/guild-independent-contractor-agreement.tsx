@@ -15,8 +15,8 @@ export function GuildIndependentContractorAgreement() {
 
       <p className="text-muted-foreground">
         This Independent Contractor Agreement (&quot;Agreement&quot;) is entered into as of the date of electronic acceptance
-        (&quot;Effective Date&quot;) between: The Guild (&quot;Company&quot;), a platform operated by NC United Wrestling, a North
-        Carolina 501(c)(3) nonprofit organization, and Coach (&quot;Contractor&quot;), the individual who has applied to and
+        (&quot;Effective Date&quot;) between The Guild, LLC (&quot;Company&quot;), a limited liability company operating The Guild
+        wrestling coaching platform and related services, and Coach (&quot;Contractor&quot;), the individual who has applied to and
         been approved to provide coaching services through The Guild platform.
       </p>
 

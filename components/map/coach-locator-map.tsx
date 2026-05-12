@@ -44,6 +44,32 @@ function sessionTypeMatches(kinds: SessionKind[], filter: string): boolean {
   return true;
 }
 
+function buildPinHoverPopupEl(pin: CoachMapPin): HTMLDivElement {
+  const wrap = document.createElement('div');
+
+  const name = document.createElement('div');
+  name.textContent = `${pin.firstName} ${pin.lastName}`;
+  name.style.fontWeight = '600';
+  name.style.fontSize = '13px';
+  name.style.marginBottom = '6px';
+  name.style.lineHeight = '1.25';
+
+  const actions = document.createElement('div');
+  actions.style.fontSize = '12px';
+  actions.style.lineHeight = '1.35';
+  actions.style.opacity = '0.9';
+  actions.textContent = 'Book private · Join a small group';
+
+  const hint = document.createElement('div');
+  hint.textContent = 'Tap pin for details';
+  hint.style.fontSize = '11px';
+  hint.style.marginTop = '6px';
+  hint.style.opacity = '0.55';
+
+  wrap.append(name, actions, hint);
+  return wrap;
+}
+
 export function CoachLocatorMap({
   accessToken,
   className,
@@ -64,6 +90,7 @@ export function CoachLocatorMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const pinsRef = useRef<CoachMapPin[]>([]);
+  const hoverPinPopupRef = useRef<mapboxgl.Popup | null>(null);
 
   const [pins, setPins] = useState<CoachMapPin[]>(initialPins ?? []);
   const [cities, setCities] = useState<string[]>(initialCities ?? []);
@@ -92,7 +119,7 @@ export function CoachLocatorMap({
   }, []);
 
   useEffect(() => {
-    if (initialPins && initialPins.length > 0) return;
+    if (!visible) return;
     let cancelled = false;
     fetch('/api/map/coach-pins')
       .then((r) => r.json())
@@ -102,6 +129,7 @@ export function CoachLocatorMap({
           setLoadError(data.error);
           return;
         }
+        setLoadError(null);
         setPins(data.pins ?? []);
         setCities(data.cities ?? []);
         if (data.stats) setStats(data.stats);
@@ -112,7 +140,7 @@ export function CoachLocatorMap({
     return () => {
       cancelled = true;
     };
-  }, [initialPins]);
+  }, [visible]);
 
   const filteredPins = useMemo(() => {
     return pins.filter((p) => {
@@ -249,6 +277,8 @@ export function CoachLocatorMap({
       });
 
       const onClusterClick = (e: mapboxgl.MapLayerMouseEvent) => {
+        hoverPinPopupRef.current?.remove();
+        hoverPinPopupRef.current = null;
         const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
         const clusterId = features[0]?.properties?.cluster_id as number | undefined;
         if (clusterId == null) return;
@@ -274,6 +304,8 @@ export function CoachLocatorMap({
       };
 
       const onPinClick = (e: mapboxgl.MapLayerMouseEvent) => {
+        hoverPinPopupRef.current?.remove();
+        hoverPinPopupRef.current = null;
         const f = e.features?.[0];
         const key = f?.properties?.pinKey as string | undefined;
         if (!key) return;
@@ -283,16 +315,41 @@ export function CoachLocatorMap({
 
       map.on('click', 'clusters', onClusterClick);
       map.on('click', 'unclustered', onPinClick);
+
+      const clearHoverPinPopup = () => {
+        hoverPinPopupRef.current?.remove();
+        hoverPinPopupRef.current = null;
+      };
+
+      map.on('mouseenter', 'unclustered', (e) => {
+        const f = e.features?.[0];
+        const key = f?.properties?.pinKey as string | undefined;
+        if (!key || !f?.geometry || f.geometry.type !== 'Point') return;
+        const pin = pinsRef.current.find((p) => p.pinKey === key);
+        if (!pin) return;
+        clearHoverPinPopup();
+        const coords = (f.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
+        const popup = new mapboxgl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: 14,
+          className: 'coach-map-pin-hover-popup',
+          maxWidth: '260px',
+        })
+          .setLngLat(coords)
+          .setDOMContent(buildPinHoverPopupEl(pin))
+          .addTo(map);
+        hoverPinPopupRef.current = popup;
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'unclustered', () => {
+        clearHoverPinPopup();
+        map.getCanvas().style.cursor = '';
+      });
       map.on('mouseenter', 'clusters', () => {
         map.getCanvas().style.cursor = 'pointer';
       });
       map.on('mouseleave', 'clusters', () => {
-        map.getCanvas().style.cursor = '';
-      });
-      map.on('mouseenter', 'unclustered', () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', 'unclustered', () => {
         map.getCanvas().style.cursor = '';
       });
 
@@ -300,6 +357,8 @@ export function CoachLocatorMap({
     });
 
     return () => {
+      hoverPinPopupRef.current?.remove();
+      hoverPinPopupRef.current = null;
       setMapReady(false);
       map.remove();
       mapRef.current = null;

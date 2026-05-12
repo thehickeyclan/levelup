@@ -133,3 +133,24 @@
 }.bg-black-gradient {
   background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
 }
+
+/* Mapbox hover tooltip on homepage coach pins */
+.coach-map-pin-hover-popup .mapboxgl-popup-content {
+  background: rgb(24 24 27);
+  color: rgb(250 250 250);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+}
+.coach-map-pin-hover-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
+  border-bottom-color: rgb(24 24 27);
+}
+.coach-map-pin-hover-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+  border-top-color: rgb(24 24 27);
+}
+.coach-map-pin-hover-popup.mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
+  border-right-color: rgb(24 24 27);
+}
+.coach-map-pin-hover-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
+  border-left-color: rgb(24 24 27);
+}

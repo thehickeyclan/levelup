@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { getTenantByDomain } from '@/config/tenants';
+import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 import { createClient } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/button';
 import { Star, ChevronDown } from 'lucide-react';
@@ -24,7 +24,7 @@ export default async function HomePage({
     sp.table === 'partner' ? 'partner' : sp.table === 'group' ? 'small_group' : 'all';
 
   const headersList = await headers();
-  const host = headersList.get('host') || '';
+  const host = resolveHostnameFromHeaders(headersList);
   const tenant = getTenantByDomain(host);
   const logoSrc = tenant?.logo ?? '/logos/guild-bronze.jpg';
 

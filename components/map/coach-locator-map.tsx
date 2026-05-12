@@ -58,7 +58,7 @@ function buildPinHoverPopupEl(pin: CoachMapPin): HTMLDivElement {
   actions.style.fontSize = '12px';
   actions.style.lineHeight = '1.35';
   actions.style.opacity = '0.9';
-  actions.textContent = 'Join a small group · Book a private';
+  actions.textContent = 'Join a small group or book private now';
 
   const hint = document.createElement('div');
   hint.textContent = 'Tap pin for details';
@@ -640,17 +640,20 @@ function CoachCardContent({
       )}
 
       <div className="flex flex-col gap-2">
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button asChild variant="premium" size="sm" className="w-full">
-            <Link href={`/book/${pin.coachId}`}>Join a small group or book a private</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="w-full border-accent/40 text-accent">
-            <Link href={joinPublicHref}>Open partner &amp; small groups</Link>
-          </Button>
-        </div>
+        <Button asChild variant="premium" size="sm" className="w-full">
+          <Link href={`/book/${pin.coachId}`}>Join a small group or book private now</Link>
+        </Button>
+        <p className="text-center">
+          <Link
+            href={joinPublicHref}
+            className="text-xs font-medium text-accent underline-offset-2 hover:underline"
+          >
+            Browse posted partner &amp; group sessions
+          </Link>
+        </p>
         <p className="text-center text-[11px] leading-snug text-white/45">
-          Partner: you&apos;ll invite your partner after checkout. Public sessions are optional join-ins—book with the
-          coach for a time that fits you.
+          Partner bookings: invite your partner after checkout. Posted sessions are optional join-ins—you can always book a
+          time that fits you.
         </p>
         <p className="text-center">
           <Link

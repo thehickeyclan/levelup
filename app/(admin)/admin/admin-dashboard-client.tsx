@@ -223,6 +223,8 @@ export type BillingSummary = {
   completedCount: number;
   pendingPaymentCount: number;
   upcomingOpenCount: number;
+  /** Youth roster rows tied to `session_participants.youth_wrestler_id` on `upcomingOpenCount` sessions only. */
+  upcomingKidsSignedUpCount: number;
 };
 
 export type AthleteReport = {
@@ -2358,62 +2360,76 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
           </div>
 
           {/* Quick Stats Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10">
-                  <Users className="h-4 w-4 text-emerald-500" />
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-emerald-500/10">
+                    <Users className="h-4 w-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Coaches</p>
+                    <p className="text-lg font-semibold">{athleteReports.length}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Coaches</p>
-                  <p className="text-lg font-semibold">{athleteReports.length}</p>
+              </Card>
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-500/10">
+                    <User className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Parents</p>
+                    <p className="text-lg font-semibold">{users.filter(u => u.role === 'parent').length}</p>
+                  </div>
                 </div>
-              </div>
-            </Card>
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <User className="h-4 w-4 text-blue-500" />
+              </Card>
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/10">
+                    <Star className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Avg Rating</p>
+                    <p className="text-lg font-semibold">
+                      {(athleteReports.reduce((sum, a) => sum + (a.average_rating || 0), 0) / athleteReports.filter(a => a.average_rating).length || 0).toFixed(1)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Parents</p>
-                  <p className="text-lg font-semibold">{users.filter(u => u.role === 'parent').length}</p>
+              </Card>
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-purple-500/10">
+                    <CreditCard className="h-4 w-4 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Active Credits</p>
+                    <p className="text-lg font-semibold">{credits.filter(c => c.remaining > 0).length}</p>
+                  </div>
                 </div>
-              </div>
-            </Card>
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10">
-                  <Star className="h-4 w-4 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Avg Rating</p>
-                  <p className="text-lg font-semibold">
-                    {(athleteReports.reduce((sum, a) => sum + (a.average_rating || 0), 0) / athleteReports.filter(a => a.average_rating).length || 0).toFixed(1)}
+              </Card>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription>Upcoming/open sessions</CardDescription>
+                  <CardTitle className="text-2xl">{billing.upcomingOpenCount} total</CardTitle>
+                  <p className="text-sm text-muted-foreground pt-1">
+                    Scheduled sessions from today&apos;s date forward (Eastern), including any incomplete checkouts.
                   </p>
-                </div>
-              </div>
-            </Card>
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <CreditCard className="h-4 w-4 text-purple-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Active Credits</p>
-                  <p className="text-lg font-semibold">{credits.filter(c => c.remaining > 0).length}</p>
-                </div>
-              </div>
-            </Card>
-            <Card className="md:col-span-2">
-              <CardHeader className="pb-2">
-                <CardDescription>Upcoming/open sessions</CardDescription>
-                <CardTitle className="text-2xl">{billing.upcomingOpenCount} total</CardTitle>
-                <p className="text-sm text-muted-foreground pt-1">
-                  Scheduled sessions from today&apos;s date forward (Eastern), including any incomplete checkouts.
-                </p>
-              </CardHeader>
-            </Card>
+                </CardHeader>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription>Kids on those sessions</CardDescription>
+                  <CardTitle className="text-2xl">{billing.upcomingKidsSignedUpCount} rostered</CardTitle>
+                  <p className="text-sm text-muted-foreground pt-1">
+                    Youth wrestlers with a roster row on those same upcoming scheduled sessions (Eastern-from-today),
+                    including unpaid checkout placeholders when a kid is on the signup.
+                  </p>
+                </CardHeader>
+              </Card>
+            </div>
           </div>
 
           {/* Revenue Breakdown & Payouts Due */}

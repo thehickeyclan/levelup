@@ -289,6 +289,18 @@ export default async function AdminPage() {
     }
     return rows.filter((p) => (p as ParticipantRow).paid !== false).length;
   }
+
+  /** Youth roster spots (excludes explicit paid=false drop/cancel rows; includes unpaid checkout placeholders with a kid). */
+  function youthParticipantSignupCount(s: (typeof sessionsRows)[0]): number {
+    const raw = s.session_participants;
+    const rows = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    return rows.filter((p) => {
+      const pr = p as ParticipantRow;
+      if (pr.youth_wrestler_id == null || pr.youth_wrestler_id === '') return false;
+      if (pr.paid === false) return false;
+      return true;
+    }).length;
+  }
   
   // Calculate drop-in amount (participants with null youth_wrestler_id)
   function dropInAmount(s: (typeof sessionsRows)[0]): number {
@@ -443,6 +455,11 @@ export default async function AdminPage() {
     upcomingOpenCount: sessions.filter(
       (s) => s.status === 'scheduled' && isOpenSessionFromTodayForwardEastern(s.scheduled_datetime)
     ).length,
+    upcomingKidsSignedUpCount: sessionsRows.reduce((sum, s) => {
+      if (s.status !== 'scheduled' || !isOpenSessionFromTodayForwardEastern(s.scheduled_datetime))
+        return sum;
+      return sum + youthParticipantSignupCount(s);
+    }, 0),
   };
 
   // Build coach list from all athletes so coaches with no sessions (e.g. Cam) still appear

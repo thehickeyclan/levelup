@@ -23,7 +23,7 @@ function dayRangeInTz(dateStr: string, tz: string): { start: string; end: string
 }
 
 /**
- * GET /api/admin/cockpit?date=YYYY-MM-DD&range=today|week|month&timezone=America/New_York
+ * GET /api/admin/cockpit?date=YYYY-MM-DD&range=today|week|month&trendPeriod=7d|90d|3w|12m&timezone=America/New_York
  * All dates/times are Eastern (EST/EDT). "Today" = current Eastern calendar day.
  */
 export async function GET(req: NextRequest) {
@@ -47,7 +47,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get('date');
     const rangeParam = searchParams.get('range');
-    const trendPeriod = (searchParams.get('trendPeriod') || '7d') as '7d' | '3w' | '12m';
+    const rawTrend = searchParams.get('trendPeriod');
+    const trendPeriod: '7d' | '90d' | '3w' | '12m' =
+      rawTrend === '90d' || rawTrend === '3w' || rawTrend === '12m' ? rawTrend : '7d';
     const tz = searchParams.get('timezone') || APP_TIMEZONE;
     // Default "today" to current date in Eastern so admins see their real day
     const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: tz });
@@ -76,11 +78,12 @@ export async function GET(req: NextRequest) {
 
     const admin = createAdminClient(tenant.slug);
 
-    // Trend buckets: 7d = 7 days, 3w = 3 weeks, 12m = 12 months
+    // Trend buckets: 7d / 90d = daily, 3w = weekly, 12m = monthly
     const trendEndDate = date;
     let trendRanges: { start: string; end: string; label: string }[] = [];
-    if (trendPeriod === '7d') {
-      const days = lastNDays(trendEndDate, 7);
+    if (trendPeriod === '7d' || trendPeriod === '90d') {
+      const n = trendPeriod === '7d' ? 7 : 90;
+      const days = lastNDays(trendEndDate, n);
       trendRanges = days.map((ds) => {
         const { start, end } = dayRangeInTz(ds, tz);
         const label = new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: tz });
@@ -127,14 +130,12 @@ export async function GET(req: NextRequest) {
       newAthletesRes,
       sessionsScheduledRes,
       bookingsRes,
-      earlyAccessRes,
       payoutsPaidRes,
       trendParentsRes,
       trendCoachesRes,
       trendAthletesRes,
       trendSessionsRes,
       trendBookingsRes,
-      trendEarlyRes,
       trendReviewsRes,
     ] = await Promise.all([
       admin.from('users').select('id, email, created_at').eq('role', 'parent').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
@@ -142,14 +143,12 @@ export async function GET(req: NextRequest) {
       admin.from('youth_wrestlers').select('id, first_name, last_name, parent_id, created_at').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('sessions').select('id, scheduled_datetime, status, session_type, session_mode, current_participants, max_participants, athletes(first_name, last_name, school), facilities(name)').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('session_participants').select('id, session_id, parent_id, youth_wrestler_id, amount_paid, created_at, youth_wrestlers(first_name, last_name), sessions(id, scheduled_datetime, athletes(first_name, last_name), facilities(name))').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
-      admin.from('early_access').select('id, email, name, parent_name, wrestler_name, created_at').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('sessions').select('id, athlete_payment, athlete_payout_date, athletes(first_name, last_name)').eq('status', 'completed').gte('athlete_payout_date', rangeStart).lte('athlete_payout_date', rangeEnd),
       trendCountByRanges(admin, 'users', 'parent', trendRanges),
       trendCountByRanges(admin, 'athletes', null, trendRanges),
       trendCountByRanges(admin, 'youth_wrestlers', null, trendRanges),
       trendCountByRanges(admin, 'sessions', null, trendRanges),
       trendCountByRanges(admin, 'session_participants', null, trendRanges),
-      trendCountByRanges(admin, 'early_access', null, trendRanges),
       trendCountByRanges(admin, 'reviews', null, trendRanges),
     ]);
 
@@ -290,8 +289,6 @@ export async function GET(req: NextRequest) {
       0
     );
 
-    // Build trend arrays (last 7 days, oldest first)
-    const trendDays = lastNDays(date, 7);
     const [trendBookingGrossRes, cumBookingGrossRes] = await Promise.all([
       trendSumAmountPaidByRanges(admin, trendRanges),
       cumulativeBookingGrossAtRangeEnds(admin, trendRanges),
@@ -304,7 +301,6 @@ export async function GET(req: NextRequest) {
       sessions: trendSessionsRes,
       bookings: trendBookingsRes,
       bookingGross: trendBookingGrossRes,
-      earlyAccess: trendEarlyRes,
       reviews: trendReviewsRes,
     };
 
@@ -318,7 +314,6 @@ export async function GET(req: NextRequest) {
       cumAthletesRes,
       cumSessionsRes,
       cumBookingsRes,
-      cumEarlyRes,
       cumReviewsRes,
     ] = await Promise.all([
       cumulativeTotalsAtRangeEnds(admin, 'users', 'parent', trendRanges),
@@ -326,7 +321,6 @@ export async function GET(req: NextRequest) {
       cumulativeYouthWrestlersAtRangeEnds(admin, trendRanges),
       cumulativeTotalsAtRangeEnds(admin, 'sessions', null, trendRanges),
       cumulativeTotalsAtRangeEnds(admin, 'session_participants', null, trendRanges),
-      cumulativeTotalsAtRangeEnds(admin, 'early_access', null, trendRanges),
       cumulativeTotalsAtRangeEnds(admin, 'reviews', null, trendRanges),
     ]);
 
@@ -337,7 +331,6 @@ export async function GET(req: NextRequest) {
       sessions: cumSessionsRes,
       bookings: cumBookingsRes,
       bookingGross: cumBookingGrossRes,
-      earlyAccess: cumEarlyRes,
       reviews: cumReviewsRes,
     };
 
@@ -350,7 +343,6 @@ export async function GET(req: NextRequest) {
       trendDetailAthletesRes,
       trendDetailSessionsRes,
       trendDetailBookingsRes,
-      trendDetailEarlyRes,
       trendDetailReviewsRes,
     ] = await Promise.all([
       admin.from('users').select('id, email, created_at').eq('role', 'parent').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
@@ -358,7 +350,6 @@ export async function GET(req: NextRequest) {
       admin.from('youth_wrestlers').select('id, first_name, last_name, parent_id, created_at').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
       admin.from('sessions').select('id, scheduled_datetime, status, session_type, session_mode, current_participants, max_participants, athletes(first_name, last_name, school), facilities(name)').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
       admin.from('session_participants').select('id, session_id, parent_id, youth_wrestler_id, amount_paid, created_at, youth_wrestlers(first_name, last_name), sessions(id, scheduled_datetime, athletes(first_name, last_name), facilities(name))').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
-      admin.from('early_access').select('id, email, name, parent_name, wrestler_name, created_at').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
       admin.from('reviews').select('id, rating, comment, created_at, parent_id, athlete_id, athletes(first_name, last_name)').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
     ]);
 
@@ -414,13 +405,6 @@ export async function GET(req: NextRequest) {
         scheduled_datetime: s?.scheduled_datetime ?? '—',
       };
     });
-    const trendDetailEarlyAccess = (trendDetailEarlyRes.data ?? []).map((e: { id: string; email: string; name?: string | null; parent_name?: string | null; wrestler_name?: string | null; created_at: string }) => ({
-      id: e.id,
-      email: e.email,
-      name: e.name ?? e.parent_name ?? e.wrestler_name ?? '—',
-      created_at: e.created_at,
-    }));
-
     const reviewsRaw = (trendDetailReviewsRes.data ?? []) as Array<{
       id: string; rating: number; comment: string | null; created_at: string; parent_id: string; athlete_id: string;
       athletes?: { first_name: string; last_name: string } | { first_name: string; last_name: string }[];
@@ -503,13 +487,6 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    const earlyAccess = (earlyAccessRes.data ?? []).map((e: { id: string; email: string; name?: string | null; parent_name?: string | null; wrestler_name?: string | null; created_at: string }) => ({
-      id: e.id,
-      email: e.email,
-      name: e.name ?? e.parent_name ?? e.wrestler_name ?? '—',
-      created_at: e.created_at,
-    }));
-
     return NextResponse.json({
       date,
       range,
@@ -522,7 +499,6 @@ export async function GET(req: NextRequest) {
       newAthletes,
       sessionsScheduled,
       bookings,
-      earlyAccess,
       payoutsPaid,
       payoutsPaidAllTime,
       payoutsPaidList,
@@ -542,7 +518,6 @@ export async function GET(req: NextRequest) {
       trendDetailAthletes,
       trendDetailSessions,
       trendDetailBookings,
-      trendDetailEarlyAccess,
       trendDetailReviews,
     });
   } catch (e) {
@@ -564,7 +539,7 @@ function lastNDays(untilDate: string, n: number): string[] {
 
 async function trendCountByRanges(
   admin: ReturnType<typeof createAdminClient>,
-  table: 'users' | 'athletes' | 'youth_wrestlers' | 'sessions' | 'session_participants' | 'early_access' | 'reviews',
+  table: 'users' | 'athletes' | 'youth_wrestlers' | 'sessions' | 'session_participants' | 'reviews',
   role: string | null,
   ranges: { start: string; end: string }[]
 ): Promise<number[]> {
@@ -581,7 +556,7 @@ async function trendCountByRanges(
 /** Total rows ever created with created_at <= end of each bucket (platform growth over time). */
 async function cumulativeTotalsAtRangeEnds(
   admin: ReturnType<typeof createAdminClient>,
-  table: 'users' | 'athletes' | 'youth_wrestlers' | 'sessions' | 'session_participants' | 'early_access' | 'reviews',
+  table: 'users' | 'athletes' | 'youth_wrestlers' | 'sessions' | 'session_participants' | 'reviews',
   role: string | null,
   ranges: { start: string; end: string }[]
 ): Promise<number[]> {

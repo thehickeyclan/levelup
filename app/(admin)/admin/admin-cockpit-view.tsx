@@ -34,7 +34,6 @@ import {
   TrendingDown,
   Loader2,
   Gauge,
-  ClipboardList,
   Eye,
   Star,
   ArrowUpRight,
@@ -86,7 +85,6 @@ export type CockpitData = {
     facility_name: string;
     scheduled_datetime: string;
   }[];
-  earlyAccess: { id: string; email: string; name: string; created_at: string }[];
   payoutsPaid: number;
   payoutsPaidAllTime?: number;
   payoutsPaidList: { session_id: string; amount: number; coach_name: string }[];
@@ -112,7 +110,6 @@ export type CockpitData = {
     sessions: number[];
     bookings: number[];
     bookingGross?: number[];
-    earlyAccess: number[];
     reviews: number[];
   };
   trendCumulativeTotals?: {
@@ -122,12 +119,11 @@ export type CockpitData = {
     sessions: number[];
     bookings: number[];
     bookingGross?: number[];
-    earlyAccess: number[];
     reviews: number[];
   };
   trendDays: string[];
   trendLabels?: string[];
-  trendPeriod?: '7d' | '3w' | '12m';
+  trendPeriod?: '7d' | '90d' | '3w' | '12m';
   trendDetailParents?: { id: string; email: string; created_at: string }[];
   trendDetailCoaches?: { id: string; name: string; school: string; created_at: string }[];
   trendDetailAthletes?: { id: string; name: string; parent_id: string; created_at: string }[];
@@ -160,7 +156,6 @@ export type CockpitData = {
     facility_name: string;
     scheduled_datetime: string;
   }[];
-  trendDetailEarlyAccess?: { id: string; email: string; name: string; created_at: string }[];
 };
 
 const COCKPIT_TIMEZONE = 'America/New_York';
@@ -212,7 +207,6 @@ const GROWTH_LINE_SPECS: { id: keyof NonNullable<CockpitData['trendCumulativeTot
   { id: 'coaches', label: 'Coaches', color: CHART_COLORS.violet },
   { id: 'parents', label: 'Parents', color: CHART_COLORS.blue },
   { id: 'sessions', label: 'Sessions', color: CHART_COLORS.orange },
-  { id: 'earlyAccess', label: 'Early access', color: CHART_COLORS.slate },
   { id: 'reviews', label: 'Reviews', color: CHART_COLORS.gold },
 ];
 
@@ -521,9 +515,9 @@ export function AdminCockpitView() {
   const today = todayInTz(COCKPIT_TIMEZONE);
   const [date, setDate] = useState(today);
   const [range, setRange] = useState<'today' | 'yesterday' | 'week' | 'month'>('today');
-  const [trendPeriod, setTrendPeriod] = useState<'7d' | '3w' | '12m'>('7d');
+  const [trendPeriod, setTrendPeriod] = useState<'7d' | '90d' | '3w' | '12m'>('7d');
   const [trendMetric, setTrendMetric] = useState<
-    'parents' | 'coaches' | 'athletes' | 'sessions' | 'bookings' | 'bookingGross' | 'earlyAccess' | 'reviews'
+    'parents' | 'coaches' | 'athletes' | 'sessions' | 'bookings' | 'bookingGross' | 'reviews'
   >('bookings');
   const [reviewCoachFilter, setReviewCoachFilter] = useState<string>('');
   const [reviewStarFilter, setReviewStarFilter] = useState<number | 'all'>('all');
@@ -604,7 +598,7 @@ export function AdminCockpitView() {
 
   const d = data!;
   const trends = d.trends ?? {
-    parents: [], coaches: [], athletes: [], sessions: [], bookings: [], bookingGross: [], earlyAccess: [], reviews: [],
+    parents: [], coaches: [], athletes: [], sessions: [], bookings: [], bookingGross: [], reviews: [],
   };
   const trendDays = d.trendDays ?? [];
   const trendLabels = d.trendLabels ?? trendDays.map((ds) => formatEST(new Date(ds + 'T12:00:00'), 'M/d'));
@@ -616,7 +610,6 @@ export function AdminCockpitView() {
     { id: 'sessions' as const, label: 'Sessions', values: trends.sessions ?? [], icon: Calendar },
     { id: 'bookings' as const, label: 'Bookings', values: trends.bookings ?? [], icon: CreditCard },
     { id: 'bookingGross' as const, label: 'Booking $', values: trends.bookingGross ?? [], icon: DollarSign },
-    { id: 'earlyAccess' as const, label: 'Early access', values: trends.earlyAccess ?? [], icon: ClipboardList },
     { id: 'reviews' as const, label: 'Reviews', values: trends.reviews ?? [], icon: Star },
   ];
 
@@ -846,7 +839,7 @@ export function AdminCockpitView() {
               
               {/* Period selector */}
               <div className="flex items-center rounded-lg border border-border bg-background p-1">
-                {(['7d', '3w', '12m'] as const).map((p) => (
+                {(['7d', '90d', '3w', '12m'] as const).map((p) => (
                   <button
                     key={p}
                     type="button"
@@ -857,7 +850,7 @@ export function AdminCockpitView() {
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     }`}
                   >
-                    {p === '7d' ? '7 Days' : p === '3w' ? '3 Weeks' : '12 Months'}
+                    {p === '7d' ? '7 Days' : p === '90d' ? '90 Days' : p === '3w' ? '3 Weeks' : '12 Months'}
                   </button>
                 ))}
               </div>
@@ -978,12 +971,17 @@ export function AdminCockpitView() {
             {trendMetric === 'sessions' && <Calendar className="h-4 w-4" />}
             {trendMetric === 'bookings' && <CreditCard className="h-4 w-4" />}
             {trendMetric === 'bookingGross' && <DollarSign className="h-4 w-4" />}
-            {trendMetric === 'earlyAccess' && <ClipboardList className="h-4 w-4" />}
             {trendMetric === 'reviews' && <Star className="h-4 w-4" />}
             {selectedMetric?.label ?? ''} Details
           </CardTitle>
           <CardDescription>
-            {trendPeriod === '7d' ? 'Last 7 days' : trendPeriod === '3w' ? 'Last 3 weeks' : 'Last 12 months'}
+            {trendPeriod === '7d'
+              ? 'Last 7 days'
+              : trendPeriod === '90d'
+                ? 'Last 90 days'
+                : trendPeriod === '3w'
+                  ? 'Last 3 weeks'
+                  : 'Last 12 months'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1046,17 +1044,6 @@ export function AdminCockpitView() {
                     {b.amount_paid != null ? `$${b.amount_paid.toFixed(2)}` : '—'}
                     {b.created_at ? ` · ${formatEST(new Date(b.created_at), 'MMM d')}` : ''}
                   </span>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {trendMetric === 'earlyAccess' && (d.trendDetailEarlyAccess ?? []).length > 0 && (
-            <div className="space-y-2">
-              {(d.trendDetailEarlyAccess ?? []).map((e) => (
-                <div key={e.id} className="flex items-center justify-between gap-2 py-2 border-b border-border/50 last:border-0">
-                  <a href={`mailto:${e.email}`} className="text-sm text-[#B89D60] hover:underline truncate">{e.email}</a>
-                  {e.name !== '—' && <span className="text-xs text-muted-foreground truncate">{e.name}</span>}
                 </div>
               ))}
             </div>
@@ -1157,7 +1144,6 @@ export function AdminCockpitView() {
             (trendMetric === 'athletes' && (d.trendDetailAthletes ?? []).length === 0) ||
             (trendMetric === 'sessions' && (d.trendDetailSessions ?? []).length === 0) ||
             (trendMetric === 'bookings' && (d.trendDetailBookings ?? []).length === 0) ||
-            (trendMetric === 'earlyAccess' && (d.trendDetailEarlyAccess ?? []).length === 0) ||
             (trendMetric === 'reviews' && (d.trendDetailReviews ?? []).length === 0)
           ) && (
             <p className="text-sm text-muted-foreground py-8 text-center">No records in this period.</p>
@@ -1242,7 +1228,6 @@ export function AdminCockpitView() {
         d.newAthletes.length === 0 &&
         d.sessionsScheduled.length === 0 &&
         d.bookings.length === 0 &&
-        d.earlyAccess.length === 0 &&
         d.payoutsPaidList.length === 0 && (
           <Card className="border-dashed">
             <CardContent className="py-12 text-center">

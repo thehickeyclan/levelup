@@ -29,6 +29,9 @@ const BROWSE_WITHOUT_USER_PHONE_PREFIXES = [
   '/messages',
   '/workspaces',
   '/join',
+  /** Booking/cart need a usable phone at checkout/API; allow opening the flow so parents aren’t bounced to Account. */
+  '/book',
+  '/cart',
 ] as const;
 
 function pathnameAllowsMissingUserPhone(pathname: string): boolean {

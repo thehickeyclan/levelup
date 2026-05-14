@@ -16,6 +16,7 @@ import {
   sortAthletesForBrowse,
 } from '@/lib/coach-review-stats';
 import { isSessionOpenForParentBrowse } from '@/lib/sessions';
+import { isBookingCheckoutShellSession, isOpenSessionStatus } from '@/lib/session-checkout-shell';
 import { buildServiceTypesByCoach } from '@/lib/coach-offered-session-types';
 
 export const metadata = {
@@ -40,11 +41,14 @@ type SessionRow = {
   price_per_participant: number | null;
   athlete_id: string;
   facility_id: string;
+  parent_id?: string | null;
+  athlete_paid?: boolean | null;
   athletes?: { id: string; first_name?: string; last_name?: string; school?: string; photo_url?: string; average_rating?: number; review_count?: number } | null;
   facilities?: { id: string; name?: string; address?: string } | null;
   session_participants?: Array<{
     id: string;
     youth_wrestler_id: string | null;
+    paid?: boolean | null;
     youth_wrestlers?: { id: string; first_name?: string; last_name?: string } | null;
   }>;
 };
@@ -327,10 +331,10 @@ export default async function TrainingPage({
   const baseSelect = `
     id, scheduled_datetime, status, session_type, session_mode, join_policy, focus_area,
     current_participants, max_participants, total_price, price_per_participant, duration_minutes,
-    athlete_id, facility_id,
+    athlete_id, facility_id, parent_id, athlete_paid,
     athletes:athlete_id(id, first_name, last_name, school, photo_url, average_rating, review_count),
     facilities:facility_id(id, name, address),
-    session_participants(id, youth_wrestler_id, youth_wrestlers:youth_wrestler_id(id, first_name, last_name))
+    session_participants(id, youth_wrestler_id, paid, youth_wrestlers:youth_wrestler_id(id, first_name, last_name))
   `;
   const sessionQuery = (start: string, end: string) =>
     admin.from('sessions').select(baseSelect).gte('scheduled_datetime', start).lte('scheduled_datetime', end);
@@ -355,6 +359,18 @@ export default async function TrainingPage({
     seen.add(r.id);
     list.push(r);
   }
+  list = list.filter((r) => {
+    if (!isOpenSessionStatus(r.status)) return false;
+    const jp = String(r.join_policy ?? '');
+    /** Parent checkout shells can have parent_id ≠ athlete_id with unpaid roster; never hide discoverable sessions. */
+    if (jp === 'public' || jp === 'invite_only') return true;
+    return !isBookingCheckoutShellSession({
+      status: String(r.status ?? 'scheduled'),
+      parent_id: r.parent_id ?? null,
+      athlete_id: r.athlete_id,
+      session_participants: r.session_participants,
+    });
+  });
   list.sort((a, b) => a.scheduled_datetime.localeCompare(b.scheduled_datetime));
   const timeWindow = sp.time;
   if (timeWindow && timeWindow !== 'any') {
@@ -387,7 +403,7 @@ export default async function TrainingPage({
         `
         )
         .in('athlete_id', athleteIds)
-        .eq('join_policy', 'public')
+        .in('join_policy', ['public', 'invite_only'])
         .eq('status', 'scheduled')
         .gte('scheduled_datetime', nowIso)
     : { data: [] };

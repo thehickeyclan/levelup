@@ -238,9 +238,9 @@ export function CreateSessionForm({
                   <SelectValue placeholder="Select session type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="small_group">Small Group (suggested $30/person)</SelectItem>
-                  <SelectItem value="partner">Partner Session (suggested $50/person)</SelectItem>
-                  <SelectItem value="private">Private Session (suggested $60)</SelectItem>
+                  <SelectItem value="small_group">Small Group</SelectItem>
+                  <SelectItem value="partner">Partner session</SelectItem>
+                  <SelectItem value="private">Private (1:1)</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">

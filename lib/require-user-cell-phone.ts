@@ -6,6 +6,31 @@ import { hasMinPhoneDigits } from '@/lib/phone';
 
 const ACCOUNT = '/account';
 
+/** Logged-in users can open these without a saved cell; booking/cart/messages layouts still gate SMS-critical flows. */
+const BROWSE_WITHOUT_USER_PHONE_PREFIXES = [
+  '/',
+  '/dashboard',
+  '/home',
+  '/youth-dashboard',
+  '/training',
+  '/find-training',
+  '/browse',
+  '/bookings',
+  '/inbox',
+  '/notifications',
+  '/session-requests',
+  '/my-wrestlers',
+  '/my-coaches',
+  '/partner-sessions',
+  '/small-group-sessions',
+  '/wallet',
+  '/wrestlers',
+  '/sessions',
+  '/messages',
+  '/workspaces',
+  '/join',
+] as const;
+
 function pathnameAllowsMissingUserPhone(pathname: string): boolean {
   if (!pathname || pathname.startsWith('/api') || pathname.startsWith('/_next')) return true;
   if (pathname.startsWith('/login')) return true;
@@ -19,6 +44,11 @@ function pathnameAllowsMissingUserPhone(pathname: string): boolean {
   if (pathname.startsWith('/invite-parent')) return true;
   if (pathname.startsWith('/onboarding')) return true;
   if (pathname.startsWith('/profile')) return true;
+  if (pathname === '/') return true;
+  for (const prefix of BROWSE_WITHOUT_USER_PHONE_PREFIXES) {
+    if (prefix === '/') continue;
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) return true;
+  }
   return false;
 }
 

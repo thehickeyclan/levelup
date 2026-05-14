@@ -24,7 +24,7 @@ export default async function AccountPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: userData } = await supabase.from('users').select('role, phone, email, zip_code').eq('id', user.id).single();
+  const { data: userData } = await supabase.from('users').select('role, phone, email, zip_code').eq('id', user.id).maybeSingle();
 
   if (userData?.role === 'coach') redirect('/athlete-dashboard');
 

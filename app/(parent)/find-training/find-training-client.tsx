@@ -162,6 +162,8 @@ export function FindTrainingClient({
       if (Number(dm) !== Number(durationFilter)) return false;
     }
 
+    if (location && location !== 'all' && s.facility_id !== location) return false;
+
     return true;
   });
 

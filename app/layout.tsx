@@ -10,6 +10,7 @@ import { CartProvider } from '@/lib/cart-context';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { ParentBottomNavWrapper } from '@/components/parent-bottom-nav-wrapper';
+import { MetaPixel } from '@/components/meta-pixel';
 import './globals.css';
 
 const playfair = Playfair_Display({
@@ -58,6 +59,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const deploymentSha = process.env.VERCEL_GIT_COMMIT_SHA ?? '';
+const metaPixelId = (process.env.NEXT_PUBLIC_META_PIXEL_ID ?? '').trim();
 
 export default async function RootLayout({
   children,
@@ -85,6 +87,7 @@ export default async function RootLayout({
             </div>
           </div>
           <Analytics />
+          {metaPixelId ? <MetaPixel pixelId={metaPixelId} /> : null}
         </body>
       </html>
     );
@@ -108,6 +111,7 @@ export default async function RootLayout({
           </PwaInstallProvider>
         </ThemeProvider>
         <Analytics />
+        {metaPixelId ? <MetaPixel pixelId={metaPixelId} /> : null}
       </body>
     </html>
   );

@@ -49,6 +49,8 @@ type Props = {
   coachDateFilterBounds: { minYmd: string; maxYmd: string };
   initialSessionType?: CoachSessionTypeFilter;
   initialFollowedCoachIds?: string[];
+  /** Matches `?location=` on `/training`; must be `all` or an id present in locationFacilities. */
+  initialFacilityId?: string;
 };
 
 function formatCoachNextLine(slot_date: string, _start_time: string): string {
@@ -67,13 +69,18 @@ export function TrainingCoachesGrid({
   coachDateFilterBounds,
   initialSessionType = 'all',
   initialFollowedCoachIds = [],
+  initialFacilityId = 'all',
 }: Props) {
   const { user, userRole } = useAuth();
   const [dateOpen, setDateOpen] = useState(false);
   const [followedCoachIds, setFollowedCoachIds] = useState<Set<string>>(
     () => new Set(initialFollowedCoachIds)
   );
-  const [facilityId, setFacilityId] = useState<string>('all');
+  const resolvedInitialFacility =
+    initialFacilityId && initialFacilityId !== 'all' && coachIdsByFacilityId[initialFacilityId]
+      ? initialFacilityId
+      : 'all';
+  const [facilityId, setFacilityId] = useState<string>(resolvedInitialFacility);
   const [sessionType, setSessionType] = useState<CoachSessionTypeFilter>(initialSessionType);
   const [availableOnly, setAvailableOnly] = useState(false);
   const [filterDate, setFilterDate] = useState<string>('');
@@ -81,6 +88,14 @@ export function TrainingCoachesGrid({
   useEffect(() => {
     setSessionType(initialSessionType);
   }, [initialSessionType]);
+
+  useEffect(() => {
+    const next =
+      initialFacilityId && initialFacilityId !== 'all' && coachIdsByFacilityId[initialFacilityId]
+        ? initialFacilityId
+        : 'all';
+    setFacilityId(next);
+  }, [initialFacilityId, coachIdsByFacilityId]);
 
   useEffect(() => {
     if (!user || (userRole !== 'parent' && userRole !== 'admin')) return;

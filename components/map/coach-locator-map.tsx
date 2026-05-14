@@ -24,7 +24,7 @@ function CoachMapEmptyHint({ stats }: { stats: CoachMapStats }) {
       'No facilities have map coordinates yet. In Supabase, set latitude and longitude on each row in facilities (WGS84). Pins only appear after both values are filled.';
   } else if (stats.coachesLinkedToGeocodedFacilities === 0) {
     body =
-      'No eligible coaches are linked to a geocoded facility. In Supabase: set latitude/longitude on the facility row, then link coaches via athletes.facility_id (or secondary) and/or coach_facilities.';
+      'No eligible coaches have a primary facility with map coordinates. In Supabase: set latitude/longitude on the facility row and set athletes.facility_id for each coach.';
   } else {
     body = 'Coach pins could not be built. Check server logs or contact support.';
   }

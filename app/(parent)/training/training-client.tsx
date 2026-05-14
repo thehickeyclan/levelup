@@ -162,6 +162,7 @@ export function TrainingClient({
           coachDateFilterBounds={coachDateFilterBounds}
           initialSessionType={mapUrlTypeToCoachFilter(availabilitySessionType)}
           initialFollowedCoachIds={initialFollowedCoachIds}
+          initialFacilityId={availabilityLocation}
         />
       )}
     </>

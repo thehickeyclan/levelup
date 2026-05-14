@@ -7,7 +7,7 @@ export type SessionKind = 'private' | 'partner' | 'small_group';
 /** Why the map might show zero pins (for empty-state copy). */
 export type CoachMapStats = {
   facilitiesWithCoordinates: number;
-  /** Coaches tied to any geocoded facility (primary, secondary athletes columns, or coach_facilities junction). */
+  /** Coaches whose primary facility (`athletes.facility_id`) has latitude/longitude. */
   coachesLinkedToGeocodedFacilities: number;
 };
 
@@ -101,7 +101,7 @@ export async function fetchCoachMapPins(
   const { data: coaches, error: coachErr } = await admin
     .from('athletes')
     .select(
-      'id, first_name, last_name, photo_url, school, year, weight_class, average_rating, review_count, facility_id, secondary_facility_id'
+      'id, first_name, last_name, photo_url, school, year, weight_class, average_rating, review_count, facility_id'
     )
     .neq('status', 'rejected')
     .neq('status', 'suspended')
@@ -115,53 +115,14 @@ export async function fetchCoachMapPins(
   const skipTableErr = (err: { message?: string; code?: string } | null) =>
     err && (err.message?.includes('does not exist') || err.code === '42P01');
 
-  /** Match Training / booking: pins use primary & secondary athletes columns plus `coach_facilities`. */
-  const facilityIdsByCoach = new Map<string, Set<string>>();
-  const coachFacilitySet = (coachId: string) => {
-    let set = facilityIdsByCoach.get(coachId);
-    if (!set) {
-      set = new Set();
-      facilityIdsByCoach.set(coachId, set);
-    }
-    return set;
-  };
-  const addCoachFacility = (coachId: string, fid: string | null | undefined) => {
-    if (!fid) return;
-    coachFacilitySet(coachId).add(fid);
-  };
-
-  const coachIdsAll = (coaches ?? []).map((c) => c.id as string);
-  for (const c of coaches ?? []) {
-    const cid = c.id as string;
-    addCoachFacility(cid, c.facility_id as string | null);
-    addCoachFacility(cid, c.secondary_facility_id as string | null);
-  }
-
-  if (coachIdsAll.length > 0) {
-    const { data: cfRows, error: cfErr } = await admin
-      .from('coach_facilities')
-      .select('coach_id, facility_id')
-      .in('coach_id', coachIdsAll);
-    if (cfErr && !skipTableErr(cfErr)) {
-      console.error('[fetchCoachMapPins] coach_facilities', cfErr);
-    } else {
-      for (const r of cfRows ?? []) {
-        const cid = r.coach_id as string;
-        const fid = r.facility_id as string;
-        if (!cid || !fid) continue;
-        coachFacilitySet(cid).add(fid);
-      }
-    }
-  }
-
+  /** Pins use primary facility only (`athletes.facility_id`). Secondary / coach_facilities still apply on Training & booking. */
   let coachesLinkedToGeocodedFacilities = 0;
   const coachIds: string[] = [];
   for (const c of coaches ?? []) {
-    const cid = c.id as string;
-    const linked = [...(facilityIdsByCoach.get(cid) ?? [])].some((fid) => facilityIds.has(fid));
-    if (linked) {
+    const pid = c.facility_id as string | null | undefined;
+    if (pid && facilityIds.has(pid)) {
       coachesLinkedToGeocodedFacilities += 1;
-      coachIds.push(cid);
+      coachIds.push(c.id as string);
     }
   }
 
@@ -296,12 +257,8 @@ export async function fetchCoachMapPins(
       });
     };
 
-    const forCoach = facilityIdsByCoach.get(c.id as string);
-    if (forCoach) {
-      for (const fid of forCoach) {
-        if (facilityIds.has(fid)) addPin(fid);
-      }
-    }
+    const primaryId = c.facility_id as string | null | undefined;
+    if (primaryId && facilityIds.has(primaryId)) addPin(primaryId);
   }
 
   const cities = Array.from(citySet).sort((a, b) => a.localeCompare(b));

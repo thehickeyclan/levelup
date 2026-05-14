@@ -114,12 +114,20 @@ export default async function TrainingPage({
       .in('coach_id', athleteIds);
     coachFacilityRows = (cfData ?? []) as CoachFacilityRow[];
   }
-  if (coachFacilityRows.length === 0 && athletesList.length > 0) {
-    for (const a of athletesList) {
-      if (a.facility_id) coachFacilityRows.push({ coach_id: a.id, facility_id: a.facility_id });
-      if (a.secondary_facility_id) {
-        coachFacilityRows.push({ coach_id: a.id, facility_id: a.secondary_facility_id });
-      }
+  /** Junction can be partially filled — always union primary + secondary athletes columns (matches map/booking logic). */
+  const pairSeen = new Set(coachFacilityRows.map((r) => `${r.coach_id}:${r.facility_id}`));
+  for (const a of athletesList) {
+    if (a.facility_id && !pairSeen.has(`${a.id}:${a.facility_id}`)) {
+      coachFacilityRows.push({ coach_id: a.id, facility_id: a.facility_id });
+      pairSeen.add(`${a.id}:${a.facility_id}`);
+    }
+    if (
+      a.secondary_facility_id &&
+      a.secondary_facility_id !== a.facility_id &&
+      !pairSeen.has(`${a.id}:${a.secondary_facility_id}`)
+    ) {
+      coachFacilityRows.push({ coach_id: a.id, facility_id: a.secondary_facility_id });
+      pairSeen.add(`${a.id}:${a.secondary_facility_id}`);
     }
   }
   const activeCoachIdSet = new Set(athleteIds);
@@ -467,7 +475,7 @@ export default async function TrainingPage({
       </div>
       <div className="px-4">
       <TrainingClient
-        key={`training-${tab}-${sp.coach ?? 'all'}-${sp.type ?? 'all'}`}
+        key={`training-${tab}-${sp.coach ?? 'all'}-${sp.type ?? 'all'}-${sp.location ?? 'all'}-${sp.date ?? ''}-${sp.time ?? 'any'}`}
         initialTab={tab}
         athletesWithNext={athletesWithNext}
         facilities={facilities ?? []}

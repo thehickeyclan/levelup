@@ -28,6 +28,8 @@ const COACH_ROUTES = [
 
 const YOUTH_WRESTLER_ROUTES = [
   '/youth-dashboard',
+  '/training',
+  '/find-training',
   '/workspaces',
   '/small-group-sessions',
   '/browse',

@@ -57,7 +57,12 @@ export default async function SessionDetailPage({
     .single();
 
   const role = userData?.role;
-  if (role !== 'parent' && role !== 'admin' && role !== 'coach') {
+  if (
+    role !== 'parent' &&
+    role !== 'admin' &&
+    role !== 'coach' &&
+    role !== 'youth_wrestler'
+  ) {
     redirect('/dashboard');
   }
 

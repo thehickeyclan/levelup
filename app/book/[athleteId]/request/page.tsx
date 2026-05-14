@@ -50,7 +50,13 @@ export default async function RequestSessionPage({
 
   const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
   if (userData?.role === 'coach') redirect('/athlete-dashboard');
-  if (userData?.role !== 'parent' && userData?.role !== 'admin') redirect('/browse');
+  if (
+    userData?.role !== 'parent' &&
+    userData?.role !== 'admin' &&
+    userData?.role !== 'youth_wrestler'
+  ) {
+    redirect('/browse');
+  }
 
   redirect(bookPath);
 }

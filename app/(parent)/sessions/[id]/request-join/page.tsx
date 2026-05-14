@@ -2,7 +2,6 @@ import { redirect, notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { getTenantByDomain } from '@/config/tenants';
-import Link from 'next/link';
 import { BackLink } from '@/components/back-link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RequestJoinClient } from './request-join-client';
@@ -26,7 +25,14 @@ export default async function SessionRequestJoinPage({
   if (!user) redirect(`/login?redirect=/sessions/${sessionId}/request-join`);
 
   const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
-  if (userData?.role !== 'parent' && userData?.role !== 'admin') redirect('/dashboard');
+  const roleJoin = userData?.role;
+  if (
+    roleJoin !== 'parent' &&
+    roleJoin !== 'admin' &&
+    roleJoin !== 'youth_wrestler'
+  ) {
+    redirect('/dashboard');
+  }
 
   const { data: session, error: sessionErr } = await supabase
     .from('sessions')
@@ -78,12 +84,30 @@ export default async function SessionRequestJoinPage({
 
   if (!isJoinable || current >= max) notFound();
 
-  const { data: youthWrestlers } = await supabase
+  const { data: primaryIds } = await supabase
     .from('youth_wrestlers')
-    .select('id, first_name, last_name, age, weight_class, skill_level')
+    .select('id')
     .eq('parent_id', user.id)
-    .eq('active', true)
-    .order('created_at', { ascending: false });
+    .eq('active', true);
+  const { data: linkedRowsRJ } = await supabase
+    .from('youth_wrestler_parents')
+    .select('youth_wrestler_id')
+    .eq('parent_id', user.id);
+  const linkedIdsRJ = [...new Set((linkedRowsRJ ?? []).map((r: { youth_wrestler_id: string }) => r.youth_wrestler_id))];
+  const allIdsRJ = [
+    ...new Set([...(primaryIds ?? []).map((r: { id: string }) => r.id), ...linkedIdsRJ, user.id]),
+  ];
+
+  const { data: youthWrestlersRaw } =
+    allIdsRJ.length > 0
+      ? await supabase
+          .from('youth_wrestlers')
+          .select('id, first_name, last_name, age, weight_class, skill_level')
+          .in('id', allIdsRJ)
+          .eq('active', true)
+          .order('created_at', { ascending: false })
+      : { data: [] };
+  const youthWrestlers = youthWrestlersRaw ?? [];
 
   const coach = Array.isArray(s.athletes) ? s.athletes[0] : s.athletes;
   const fac = Array.isArray(s.facilities) ? s.facilities[0] : s.facilities;

@@ -96,8 +96,14 @@ export default async function BookPage({
     .single();
 
   if (userData?.role === 'coach') redirect('/athlete-dashboard');
-  if (userData?.role !== 'parent' && userData?.role !== 'admin') redirect('/browse');
-  // parent and admin can both book (admin can test flow)
+  if (
+    userData?.role !== 'parent' &&
+    userData?.role !== 'admin' &&
+    userData?.role !== 'youth_wrestler'
+  ) {
+    redirect('/browse');
+  }
+  // parent, athlete (self-managed), and admin can book
 
   // Fetch athlete data
   const { data: athlete, error: athleteError } = await supabase
@@ -166,7 +172,10 @@ export default async function BookPage({
     .eq('parent_id', user.id);
   const linkedIds = [...new Set((linkedRows ?? []).map((r: { youth_wrestler_id: string }) => r.youth_wrestler_id))];
   const primaryIds = [...new Set((primaryRows ?? []).map((r: { id: string }) => r.id))];
-  const allYouthIds = [...new Set([...primaryIds, ...linkedIds])];
+  let allYouthIds = [...new Set([...primaryIds, ...linkedIds])];
+  if (userData?.role === 'youth_wrestler' && !allYouthIds.includes(user.id)) {
+    allYouthIds = [...allYouthIds, user.id];
+  }
   const { data: youthWrestlers } =
     allYouthIds.length > 0
       ? await supabase

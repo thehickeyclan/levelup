@@ -155,7 +155,7 @@ export default function SignupPage() {
         return;
       }
 
-      // Parents go to dashboard and get prompted to add wrestler
+      // Parents land on home (same as login); add wrestler prompts live on /dashboard
       router.push('/dashboard');
       router.refresh();
     } catch (err) {

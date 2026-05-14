@@ -22,6 +22,7 @@ import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
 import { getCoachFacilityIds } from '@/lib/coach-facilities';
 import { fetchCoachDaySlotsMerged } from '@/lib/fetch-coach-day-slots';
 import { normalizeRequestSlotHHmm } from '@/lib/availability';
+import { verifyWrestlerBelongsToParentOrSelf } from '@/lib/wrestlers-for-parent';
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,11 +38,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
-    if (userData?.role !== 'parent' && userData?.role !== 'admin') {
+    if (
+      userData?.role !== 'parent' &&
+      userData?.role !== 'admin' &&
+      userData?.role !== 'youth_wrestler'
+    ) {
       return NextResponse.json(
         {
           error:
-            'Booking is only available for parent accounts. Sign in with a parent login, or contact us if you signed up under the wrong account type.',
+            'Booking is only available for parent accounts or wrestler accounts through The Guild.',
         },
         { status: 403 }
       );
@@ -150,6 +155,22 @@ export async function POST(req: NextRequest) {
       .in('id', youthWrestlerIdsNorm);
     if (!ywPhoneRows || ywPhoneRows.length !== youthWrestlerIdsNorm.length) {
       return NextResponse.json({ error: 'One or more athletes not found' }, { status: 400 });
+    }
+
+    const roleBooking = userData?.role ?? '';
+    for (const ywId of youthWrestlerIdsNorm) {
+      if (roleBooking === 'youth_wrestler' && ywId !== user.id) {
+        return NextResponse.json(
+          { error: 'Sign in with a parent account to book for multiple wrestlers or family members.' },
+          { status: 403 }
+        );
+      }
+      if (roleBooking === 'parent' || roleBooking === 'admin') {
+        const ok = await verifyWrestlerBelongsToParentOrSelf(supabase, user.id, ywId);
+        if (!ok) {
+          return NextResponse.json({ error: 'One or more athletes are not on your account.' }, { status: 403 });
+        }
+      }
     }
     for (const row of ywPhoneRows) {
       if (!hasMinPhoneDigits(row.phone)) {

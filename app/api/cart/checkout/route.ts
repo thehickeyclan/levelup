@@ -14,30 +14,9 @@ import { createNotification } from '@/lib/notifications';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
 import { sessionPricePerParticipantUsd } from '@/lib/session-price';
+import { verifyWrestlerBelongsToParentOrSelf } from '@/lib/wrestlers-for-parent';
 
 type CartLine = { sessionId: string; wrestlerId: string };
-
-async function verifyWrestlerBelongsToParent(
-  supabase: SupabaseClient,
-  userId: string,
-  wrestlerId: string
-): Promise<boolean> {
-  const { data: yw } = await supabase
-    .from('youth_wrestlers')
-    .select('id, parent_id')
-    .eq('id', wrestlerId)
-    .maybeSingle();
-  if (!yw) return false;
-  const ywParentId = (yw as { parent_id?: string }).parent_id;
-  if (ywParentId === userId) return true;
-  const { data: link } = await supabase
-    .from('youth_wrestler_parents')
-    .select('id')
-    .eq('youth_wrestler_id', wrestlerId)
-    .eq('parent_id', userId)
-    .maybeSingle();
-  return !!link;
-}
 
 /**
  * POST - Multi-session checkout: pay for multiple sessions in one Stripe transaction.
@@ -56,11 +35,11 @@ export async function POST(req: NextRequest) {
 
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
     const role = userData?.role;
-    if (role !== 'parent' && role !== 'admin') {
+    if (role !== 'parent' && role !== 'admin' && role !== 'youth_wrestler') {
       return NextResponse.json(
         {
           error:
-            'Checkout is only available for parent accounts. Sign in with the parent email you used to register, or contact us if you need help.',
+            'Checkout is only available for parent or wrestler accounts through The Guild.',
         },
         { status: 403 }
       );
@@ -102,7 +81,13 @@ export async function POST(req: NextRequest) {
 
     const uniqueWrestlerIds = [...new Set(lines.map((l) => l.wrestlerId))];
     for (const wid of uniqueWrestlerIds) {
-      const ok = await verifyWrestlerBelongsToParent(supabase, user.id, wid);
+      if (role === 'youth_wrestler' && wid !== user.id) {
+        return NextResponse.json(
+          { error: 'Use a parent account to check out for multiple wrestlers.' },
+          { status: 403 }
+        );
+      }
+      const ok = await verifyWrestlerBelongsToParentOrSelf(supabase, user.id, wid);
       if (!ok) {
         return NextResponse.json({ error: 'Wrestler not found or not yours' }, { status: 400 });
       }

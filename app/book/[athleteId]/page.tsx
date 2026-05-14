@@ -8,6 +8,7 @@ import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
 import { coachPayoutFromParentPrice } from '@/lib/pricing';
 import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
 import { getCoachFacilityIds } from '@/lib/coach-facilities';
+import { isSessionInProgressOrUpcoming, sessionListQueryLowerBoundIso } from '@/lib/sessions';
 import { BookingFlow } from './booking-flow';
 import {
   CoachUpcomingSessionsSection,
@@ -271,7 +272,6 @@ export default async function BookPage({
       });
   }
 
-  const nowISO = new Date().toISOString();
   const { data: coachSessionRows } = await admin
     .from('sessions')
     .select(
@@ -281,6 +281,7 @@ export default async function BookPage({
       athlete_id,
       athlete_paid,
       scheduled_datetime,
+      duration_minutes,
       session_type,
       session_mode,
       join_policy,
@@ -294,7 +295,7 @@ export default async function BookPage({
     )
     .eq('athlete_id', athleteId)
     .eq('status', 'scheduled')
-    .gte('scheduled_datetime', nowISO)
+    .gte('scheduled_datetime', sessionListQueryLowerBoundIso())
     .order('scheduled_datetime', { ascending: true })
     .limit(200);
 
@@ -305,6 +306,9 @@ export default async function BookPage({
       athlete_id?: string | null;
       athlete_paid?: boolean | null;
       current_participants?: number | null;
+      scheduled_datetime?: string;
+      duration_minutes?: number | null;
+      status?: string | null;
     };
     const pid = r.parent_id ?? null;
     const aid = r.athlete_id ?? null;
@@ -312,7 +316,11 @@ export default async function BookPage({
     if (r.athlete_paid === true) return true;
     if ((r.current_participants ?? 0) > 0) return true;
     return false;
-  });
+  }).filter((row) =>
+    isSessionInProgressOrUpcoming(
+      row as { scheduled_datetime: string; duration_minutes?: number | null; status?: string | null }
+    )
+  );
 
   const sessionsBase = coachSessionRowsFiltered as Omit<CoachSessionForBookList, 'session_participants'>[];
   const coachSessionIds = sessionsBase.map((s) => s.id);

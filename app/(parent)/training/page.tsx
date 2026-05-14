@@ -15,7 +15,11 @@ import {
   patchSessionsWithCoachReviewStats,
   sortAthletesForBrowse,
 } from '@/lib/coach-review-stats';
-import { isSessionOpenForParentBrowse } from '@/lib/sessions';
+import {
+  isSessionInProgressOrUpcoming,
+  isSessionOpenForParentBrowse,
+  sessionListQueryLowerBoundIso,
+} from '@/lib/sessions';
 import { isBookingCheckoutShellSession, isOpenSessionStatus } from '@/lib/session-checkout-shell';
 import { buildServiceTypesByCoach } from '@/lib/coach-offered-session-types';
 
@@ -161,30 +165,36 @@ export default async function TrainingPage({
   }));
 
   /** Coaches tab: optional date filter (Eastern calendar) — next ~120 days of index data. */
-  const nowIso = new Date().toISOString();
   const todayEastern = formatEST(new Date(), 'yyyy-MM-dd');
   const coachDateHorizonEnd = formatEST(addDays(parseISO(todayEastern), 120), 'yyyy-MM-dd');
   const horizonUtcEnd = new Date(Date.now() + 130 * 86400000).toISOString();
 
   /** Service role: RLS on `sessions` can hide some coaches' public rows from the user client — same as find-training. */
+  const sessionListLowerIso = sessionListQueryLowerBoundIso();
   const { data: pubSessionsForDateFilter } = athleteIds.length
     ? await admin
         .from('sessions')
         .select(
-          `athlete_id, scheduled_datetime, join_policy, status, current_participants, max_participants, session_participants(id)`
+          `athlete_id, scheduled_datetime, duration_minutes, join_policy, status, current_participants, max_participants, session_participants(id)`
         )
         .in('athlete_id', athleteIds)
         .eq('join_policy', 'public')
         .eq('status', 'scheduled')
-        .gte('scheduled_datetime', nowIso)
+        .gte('scheduled_datetime', sessionListLowerIso)
         .lte('scheduled_datetime', horizonUtcEnd)
     : { data: [] };
 
   const openPublicCoachIdsByDate: Record<string, string[]> = {};
   const pubDateSets = new Map<string, Set<string>>();
   for (const row of pubSessionsForDateFilter ?? []) {
+    const r = row as {
+      athlete_id: string;
+      scheduled_datetime: string;
+      duration_minutes?: number | null;
+      status?: string | null;
+    };
+    if (!isSessionInProgressOrUpcoming(r)) continue;
     if (!isSessionOpenForParentBrowse(row as Parameters<typeof isSessionOpenForParentBrowse>[0])) continue;
-    const r = row as { athlete_id: string; scheduled_datetime: string };
     const dateKey = formatEST(r.scheduled_datetime, 'yyyy-MM-dd');
     if (dateKey < todayEastern || dateKey > coachDateHorizonEnd) continue;
     if (!pubDateSets.has(dateKey)) pubDateSets.set(dateKey, new Set());
@@ -270,14 +280,15 @@ export default async function TrainingPage({
   const { data: upcomingSessions } = athleteIds.length
     ? await admin
         .from('sessions')
-        .select('athlete_id, scheduled_datetime')
+        .select('athlete_id, scheduled_datetime, duration_minutes, status')
         .in('athlete_id', athleteIds)
         .eq('status', 'scheduled')
-        .gte('scheduled_datetime', nowIso)
+        .gte('scheduled_datetime', sessionListLowerIso)
         .order('scheduled_datetime', { ascending: true })
     : { data: [] };
   for (const row of upcomingSessions ?? []) {
-    const r = row as { athlete_id: string; scheduled_datetime: string };
+    const r = row as { athlete_id: string; scheduled_datetime: string; duration_minutes?: number | null; status?: string | null };
+    if (!isSessionInProgressOrUpcoming(r)) continue;
     if (nextByAthlete.has(r.athlete_id)) continue;
     const zoned = toZonedTime(new Date(r.scheduled_datetime), APP_TIMEZONE);
     const y = zoned.getFullYear();
@@ -300,11 +311,11 @@ export default async function TrainingPage({
   const dayStart = dateParam
     ? (() => {
         const d = new Date(dateParam);
-        if (Number.isNaN(d.getTime())) return now.toISOString();
+        if (Number.isNaN(d.getTime())) return sessionListQueryLowerBoundIso();
         const dateOnly = dateParam.split('T')[0];
         return `${dateOnly}T00:00:00.000Z`;
       })()
-    : now.toISOString();
+    : sessionListQueryLowerBoundIso();
   const dayEnd = dateParam
     ? (() => {
         const d = new Date(dateParam);
@@ -371,6 +382,7 @@ export default async function TrainingPage({
       session_participants: r.session_participants,
     });
   });
+  list = list.filter((r) => isSessionInProgressOrUpcoming(r));
   list.sort((a, b) => a.scheduled_datetime.localeCompare(b.scheduled_datetime));
   const timeWindow = sp.time;
   if (timeWindow && timeWindow !== 'any') {
@@ -397,6 +409,7 @@ export default async function TrainingPage({
           status,
           join_policy,
           scheduled_datetime,
+          duration_minutes,
           current_participants,
           max_participants,
           session_participants(id)
@@ -405,12 +418,19 @@ export default async function TrainingPage({
         .in('athlete_id', athleteIds)
         .in('join_policy', ['public', 'invite_only'])
         .eq('status', 'scheduled')
-        .gte('scheduled_datetime', nowIso)
+        .gte('scheduled_datetime', sessionListLowerIso)
     : { data: [] };
   const coachHasBookablePublicSession = new Set<string>();
   for (const row of publicSessionsForOpenCheck ?? []) {
+    const r = row as {
+      athlete_id: string;
+      scheduled_datetime: string;
+      duration_minutes?: number | null;
+      status?: string | null;
+    };
+    if (!isSessionInProgressOrUpcoming(r)) continue;
     if (isSessionOpenForParentBrowse(row as Parameters<typeof isSessionOpenForParentBrowse>[0])) {
-      coachHasBookablePublicSession.add((row as { athlete_id: string }).athlete_id);
+      coachHasBookablePublicSession.add(r.athlete_id);
     }
   }
   const coachIdsWithPublicOpen = [...coachHasBookablePublicSession].sort();

@@ -94,6 +94,35 @@ export const NOTIFICATION_TITLES: Record<NotificationType, string> = {
 
 const TERMINAL_SESSION_STATUSES = new Set(['completed', 'cancelled', 'no-show']);
 
+/** How far back to query session start times before filtering to in-progress/future (covers long sessions). */
+const SESSION_LIST_QUERY_LOOKBACK_HOURS = 8;
+
+/** Lower bound ISO timestamp for parent-facing session lists (Training, Book) so in-progress sessions still load. */
+export function sessionListQueryLowerBoundIso(lookbackHours = SESSION_LIST_QUERY_LOOKBACK_HOURS): string {
+  return new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString();
+}
+
+/**
+ * True if the session has not ended yet (scheduled, by wall clock) — still bookable/joinable in UI lists.
+ * Uses `duration_minutes` when set; otherwise assumes {@link DEFAULT_LISTING_DURATION_FALLBACK_MIN}.
+ */
+const DEFAULT_LISTING_DURATION_FALLBACK_MIN = 120;
+
+export function isSessionInProgressOrUpcoming(s: {
+  scheduled_datetime: string;
+  duration_minutes?: number | null;
+  status?: string | null;
+}): boolean {
+  if (TERMINAL_SESSION_STATUSES.has((s.status ?? '') as string)) return false;
+  const startMs = new Date(s.scheduled_datetime).getTime();
+  if (Number.isNaN(startMs)) return false;
+  if (startMs >= Date.now()) return true;
+  const dm = Number(s.duration_minutes);
+  const mins = Number.isFinite(dm) && dm > 0 ? dm : DEFAULT_LISTING_DURATION_FALLBACK_MIN;
+  const endMs = startMs + mins * 60_000;
+  return endMs > Date.now();
+}
+
 /**
  * Seats filled for capacity UI and gates.
  *

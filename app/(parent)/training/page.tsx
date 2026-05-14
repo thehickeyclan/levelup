@@ -162,8 +162,9 @@ export default async function TrainingPage({
   const coachDateHorizonEnd = formatEST(addDays(parseISO(todayEastern), 120), 'yyyy-MM-dd');
   const horizonUtcEnd = new Date(Date.now() + 130 * 86400000).toISOString();
 
+  /** Service role: RLS on `sessions` can hide some coaches' public rows from the user client — same as find-training. */
   const { data: pubSessionsForDateFilter } = athleteIds.length
-    ? await supabase
+    ? await admin
         .from('sessions')
         .select(
           `athlete_id, scheduled_datetime, join_policy, status, current_participants, max_participants, session_participants(id)`
@@ -263,7 +264,7 @@ export default async function TrainingPage({
 
   // Fallback: coaches with no availability slots — use their earliest upcoming session (e.g. small group)
   const { data: upcomingSessions } = athleteIds.length
-    ? await supabase
+    ? await admin
         .from('sessions')
         .select('athlete_id, scheduled_datetime')
         .in('athlete_id', athleteIds)
@@ -332,7 +333,7 @@ export default async function TrainingPage({
     session_participants(id, youth_wrestler_id, youth_wrestlers:youth_wrestler_id(id, first_name, last_name))
   `;
   const sessionQuery = (start: string, end: string) =>
-    supabase.from('sessions').select(baseSelect).gte('scheduled_datetime', start).lte('scheduled_datetime', end);
+    admin.from('sessions').select(baseSelect).gte('scheduled_datetime', start).lte('scheduled_datetime', end);
   const withOptFilters = (q: ReturnType<typeof sessionQuery>) => {
     if (sp.location && sp.location !== 'all') q = q.eq('facility_id', sp.location);
     if (sp.coach && sp.coach !== 'all') q = q.eq('athlete_id', sp.coach);
@@ -372,7 +373,7 @@ export default async function TrainingPage({
 
   /** Coaches with at least one future public session that still has spots (grid "Available" + request CTA contrast). */
   const { data: publicSessionsForOpenCheck } = athleteIds.length
-    ? await supabase
+    ? await admin
         .from('sessions')
         .select(
           `

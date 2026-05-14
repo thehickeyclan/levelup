@@ -146,10 +146,13 @@ export function FindTrainingClient({
     // Hide full invite-only sessions
     if (isInviteOnly && isFull) return false;
     
-    // Session type filter
+    // Session type filter (DB uses `small_group`; UI "Small Group" uses value `group`)
     if (sessionType === 'partner_private') {
       const st = s.session_type;
       if (st !== 'private' && st !== '2-athlete' && st !== 'partner') return false;
+    } else if (sessionType === 'group') {
+      const st = s.session_type;
+      if (st !== 'group' && st !== 'small_group') return false;
     } else if (sessionType !== 'all' && s.session_type !== sessionType) return false;
 
     if (dowFilter !== 'all') {

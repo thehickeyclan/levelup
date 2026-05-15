@@ -23,7 +23,7 @@ export default async function AdminCreateSessionPage() {
 
   const admin = createAdminClient(tenant.slug);
   const [athletesRes, facilitiesRes] = await Promise.all([
-    admin.from('athletes').select('id, first_name, last_name, school').order('last_name'),
+    admin.from('athletes').select('id, first_name, last_name, school').eq('status', 'active').order('last_name'),
     admin.from('facilities').select('id, name, school, address').order('name'),
   ]);
 

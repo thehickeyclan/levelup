@@ -25,7 +25,7 @@ export default async function AdminParentAnnouncementsPage() {
   const { data: coachRows } = await admin
     .from('athletes')
     .select('id, first_name, last_name, school')
-    .eq('active', true)
+    .eq('status', 'active')
     .order('last_name', { ascending: true })
     .limit(800);
 

@@ -57,6 +57,7 @@ export default async function ProgramReportPage({
   const { data: athleteRows } = await admin
     .from('athletes')
     .select('id, school, average_rating, review_count')
+    .eq('status', 'active')
     .order('school');
 
   const ratingByCoach = new Map<string, { average_rating: number | null; review_count: number }>();

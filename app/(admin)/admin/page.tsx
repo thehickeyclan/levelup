@@ -153,6 +153,7 @@ export default async function AdminPage() {
     admin
       .from('athletes')
       .select('id, first_name, last_name, school, average_rating, review_count, active')
+      .eq('status', 'active')
       .order('last_name'),
     admin.from('reviews').select('athlete_id, rating'),
     admin

@@ -36,6 +36,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const errorParam = searchParams.get('error');
   const messageParam = searchParams.get('message');
+  const loginRedirect = searchParams.get('redirect');
+  const signupHref =
+    loginRedirect &&
+    loginRedirect.startsWith('/') &&
+    !loginRedirect.startsWith('//') &&
+    !loginRedirect.includes(':')
+      ? `/signup?redirect=${encodeURIComponent(loginRedirect)}`
+      : '/signup';
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -190,7 +198,7 @@ export default function LoginPage() {
           <div className="mt-4 text-center text-sm">
             <p className="text-muted-foreground">
               Don&apos;t have an account?{' '}
-              <Link href="/signup" className="text-accent hover:underline">
+              <Link href={signupHref} className="text-accent hover:underline">
                 Sign up
               </Link>
             </p>

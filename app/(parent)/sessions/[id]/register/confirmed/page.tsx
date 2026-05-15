@@ -141,6 +141,9 @@ export default async function SessionRegisterConfirmedPage({
           </p>
 
           <div className="space-y-2 pt-2">
+            <Button asChild className="w-full" size="lg" variant="secondary">
+              <Link href={`/sessions/${sessionId}/register`}>Register another athlete for this session</Link>
+            </Button>
             {session.athlete_id && (
               <Button asChild className="w-full" size="lg">
                 <Link href={`/training?tab=sessions&coach=${session.athlete_id}`}>

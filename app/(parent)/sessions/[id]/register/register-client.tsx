@@ -99,6 +99,15 @@ export function SessionRegisterClient({
     localPromoPercent,
   ]);
 
+  /** Same path we send users back to after add-wrestler / edit profile (keeps invite ?code= when present). */
+  const registerReturnPath = useMemo(() => {
+    const base = `/sessions/${sessionId}/register`;
+    const code = partnerInviteCode.trim();
+    if (!code) return base;
+    return `${base}?code=${encodeURIComponent(code)}`;
+  }, [sessionId, partnerInviteCode]);
+  const addWrestlerHref = `/wrestlers/add?redirect=${encodeURIComponent(registerReturnPath)}`;
+
   const selectedWrestler = youthWrestlers.find((yw) => yw.id === selectedWrestlerId);
   const selectedHasCell = selectedWrestler?.hasValidCell !== false;
 
@@ -210,14 +219,15 @@ export function SessionRegisterClient({
   };
 
   if (youthWrestlers.length === 0) {
-    const addUrl = `/wrestlers/add?redirect=${encodeURIComponent(`/sessions/${sessionId}/register`)}`;
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          You don’t have a wrestler profile yet. Add one, then come back here to add them to this session.
+          Add a wrestler profile—you’ll return here to pay and register. If you have more than one athlete
+          for this session, use <span className="text-foreground font-medium">Add another wrestler</span> on
+          the next screen to set up the second before paying, or pay for one and come back for the next.
         </p>
         <Button asChild className="bg-accent text-black hover:bg-accent-hover">
-          <Link href={addUrl}>Add a wrestler</Link>
+          <Link href={addWrestlerHref}>Add a wrestler</Link>
         </Button>
       </div>
     );
@@ -254,6 +264,14 @@ export function SessionRegisterClient({
             })}
           </SelectContent>
         </Select>
+        <p className="text-sm text-muted-foreground">
+          <Link href={addWrestlerHref} className="text-accent underline-offset-4 hover:underline font-medium">
+            Add another wrestler
+          </Link>
+          {isOwner
+            ? ' if someone else still needs to join.'
+            : ' if another athlete needs a profile before you pay.'}
+        </p>
         {selectedWrestlerId && !selectedHasCell && (
           <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm space-y-2">
             <p className="text-destructive font-medium">
@@ -264,7 +282,7 @@ export function SessionRegisterClient({
             </p>
             <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
               <Link
-                href={`/wrestlers/${selectedWrestlerId}/edit?redirect=${encodeURIComponent(`/sessions/${sessionId}/register`)}`}
+                href={`/wrestlers/${selectedWrestlerId}/edit?redirect=${encodeURIComponent(registerReturnPath)}`}
               >
                 Edit {selectedWrestler?.first_name ?? 'athlete'} — add cell
               </Link>

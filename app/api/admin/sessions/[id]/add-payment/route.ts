@@ -32,7 +32,7 @@ export async function POST(
   }
 
   const body = await request.json();
-  const { amount, paymentMethod, notes } = body;
+  const { amount, paymentMethod } = body;
 
   if (typeof amount !== 'number' || amount < 0) {
     return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
@@ -57,16 +57,20 @@ export async function POST(
     .from('session_participants')
     .insert({
       session_id: sessionId,
+      /** Organizer’s user id (session owner); required FK. No youth row for pure revenue / drop-in cash. */
       parent_id: session.parent_id,
       amount_paid: amount,
+      paid: true,
       payment_method: paymentMethod || 'cash',
-      notes: notes || `Manual payment recorded by admin`,
-      created_at: new Date().toISOString(),
+      status: 'confirmed',
     });
 
   if (insertError) {
     console.error('[Admin] Failed to add manual payment:', insertError);
-    return NextResponse.json({ error: 'Failed to add payment' }, { status: 500 });
+    return NextResponse.json(
+      { error: insertError.message || 'Failed to add payment' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true });

@@ -14,7 +14,8 @@ import { Calendar, Heart } from 'lucide-react';
 import { ProfileImage } from '@/components/profile-image';
 import { SchoolLogo } from '@/components/school-logo';
 import { StarRating } from '@/components/star-rating';
-import { formatEST } from '@/lib/format-date';
+import { APP_TIMEZONE, formatEST } from '@/lib/format-date';
+import { fromZonedTime } from 'date-fns-tz';
 import { cn } from '@/lib/utils';
 import {
   coachIdsMatchingDateFilter,
@@ -53,9 +54,20 @@ type Props = {
   initialFacilityId?: string;
 };
 
-function formatCoachNextLine(slot_date: string, _start_time: string): string {
-  const d = new Date(slot_date + 'T12:00:00');
-  return `Next: ${formatEST(d, 'EEE MMM d')}`;
+/** Eastern wall time so mobile Safari never treats the calendar day as local TZ. */
+function formatCoachNextLine(slot_date: string, start_time: string): string {
+  const ymd = slot_date.split('T')[0];
+  const raw = (start_time || '12:00').trim();
+  const parts = raw.split(':');
+  const hh = Math.min(23, Math.max(0, parseInt(parts[0] ?? '12', 10) || 12));
+  const mm = Math.min(59, Math.max(0, parseInt(parts[1] ?? '0', 10) || 0));
+  const ss =
+    parts[2] != null && parts[2] !== ''
+      ? Math.min(59, Math.max(0, parseInt(parts[2], 10) || 0))
+      : 0;
+  const t = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+  const instant = fromZonedTime(`${ymd}T${t}`, APP_TIMEZONE);
+  return `Next: ${formatEST(instant, 'EEE MMM d')}`;
 }
 
 export function TrainingCoachesGrid({

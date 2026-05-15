@@ -259,24 +259,7 @@ export default async function TrainingPage({
     athletesList.map((a) => mergeCoachReviewStatsIntoAthlete(a, reviewStatsMap))
   );
 
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: slots } = athleteIds.length
-    ? await supabase
-        .from('athlete_availability_slots')
-        .select('athlete_id, slot_date, start_time')
-        .in('athlete_id', athleteIds)
-        .gte('slot_date', today)
-        .order('slot_date', { ascending: true })
-        .order('start_time', { ascending: true })
-    : { data: [] };
-
-  const nextByAthlete = new Map<string, { slot_date: string; start_time: string }>();
-  for (const row of slots ?? []) {
-    const r = row as { athlete_id: string; slot_date: string; start_time: string };
-    if (!nextByAthlete.has(r.athlete_id)) nextByAthlete.set(r.athlete_id, { slot_date: r.slot_date, start_time: r.start_time });
-  }
-
-  // Fallback: coaches with no availability slots — use their earliest upcoming session (e.g. small group)
+  /** Next session ribbon: prefer real scheduled sessions; slot grid is fallback only. */
   const { data: upcomingSessions } = athleteIds.length
     ? await admin
         .from('sessions')
@@ -286,6 +269,8 @@ export default async function TrainingPage({
         .gte('scheduled_datetime', sessionListLowerIso)
         .order('scheduled_datetime', { ascending: true })
     : { data: [] };
+
+  const nextByAthlete = new Map<string, { slot_date: string; start_time: string }>();
   for (const row of upcomingSessions ?? []) {
     const r = row as { athlete_id: string; scheduled_datetime: string; duration_minutes?: number | null; status?: string | null };
     if (!isSessionInProgressOrUpcoming(r)) continue;
@@ -297,6 +282,20 @@ export default async function TrainingPage({
     const slotDate = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const startTime = `${String(zoned.getHours()).padStart(2, '0')}:${String(zoned.getMinutes()).padStart(2, '0')}`;
     nextByAthlete.set(r.athlete_id, { slot_date: slotDate, start_time: startTime });
+  }
+
+  const { data: slots } = athleteIds.length
+    ? await supabase
+        .from('athlete_availability_slots')
+        .select('athlete_id, slot_date, start_time')
+        .in('athlete_id', athleteIds)
+        .gte('slot_date', todayEastern)
+        .order('slot_date', { ascending: true })
+        .order('start_time', { ascending: true })
+    : { data: [] };
+  for (const row of slots ?? []) {
+    const r = row as { athlete_id: string; slot_date: string; start_time: string };
+    if (!nextByAthlete.has(r.athlete_id)) nextByAthlete.set(r.athlete_id, { slot_date: r.slot_date, start_time: r.start_time });
   }
 
   const athletesWithNext = athletesMerged.map((a) => ({
@@ -446,7 +445,7 @@ export default async function TrainingPage({
         .from('athlete_availability_slots')
         .select('athlete_id')
         .in('athlete_id', athleteIds)
-        .gte('slot_date', today)
+        .gte('slot_date', todayEastern)
     : { data: [] };
   const datedAvailSet = new Set(
     (datedSlotIds ?? []).map((r: { athlete_id: string }) => r.athlete_id)

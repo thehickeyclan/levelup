@@ -21,7 +21,8 @@ import { SchoolLogo } from '@/components/school-logo';
 import { CoachSessionBadge } from '@/components/coach-session-badge';
 import { ProfileImage } from '@/components/profile-image';
 import { StarRating } from '@/components/star-rating';
-import { formatEST } from '@/lib/format-date';
+import { APP_TIMEZONE, formatEST } from '@/lib/format-date';
+import { fromZonedTime } from 'date-fns-tz';
 import { Athlete } from '@/types';
 import { FollowCoachButton } from '@/components/follow-coach-button';
 import { getSchoolBadgeColors, schoolBadgeClassName } from '@/lib/school-logos';
@@ -42,13 +43,18 @@ interface BrowseAthletesClientProps {
 }
 
 function formatNextAvailable(slot_date: string, start_time: string): string {
-  const [h, m] = start_time.split(':').map((x) => parseInt(x, 10) || 0);
-  const h12 = h % 12 || 12;
-  const ampm = h < 12 ? 'AM' : 'PM';
-  const timeStr = `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
-  const d = new Date(slot_date + 'T12:00:00');
-  const dateStr = formatEST(d, 'EEE, MMM d');
-  return `${dateStr} · ${timeStr}`;
+  const ymd = slot_date.split('T')[0];
+  const raw = (start_time || '12:00').trim();
+  const parts = raw.split(':');
+  const hh = Math.min(23, Math.max(0, parseInt(parts[0] ?? '12', 10) || 12));
+  const mm = Math.min(59, Math.max(0, parseInt(parts[1] ?? '0', 10) || 0));
+  const ss =
+    parts[2] != null && parts[2] !== ''
+      ? Math.min(59, Math.max(0, parseInt(parts[2], 10) || 0))
+      : 0;
+  const t = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+  const instant = fromZonedTime(`${ymd}T${t}`, APP_TIMEZONE);
+  return `${formatEST(instant, 'EEE, MMM d')} · ${formatEST(instant, 'h:mm a')}`;
 }
 
 /** Avoid duplicating last name when first_name already ends with it (e.g. "Liam Hickey" + "Hickey"). */

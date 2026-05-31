@@ -1,6 +1,7 @@
 /**
  * Twilio SMS for coach alerts (e.g. when someone signs up for their session).
- * Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER in env.
+ * Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and either TWILIO_MESSAGING_SERVICE_SID
+ * or TWILIO_FROM_NUMBER / TWILIO_PHONE_NUMBER in env (Messaging Service SID is preferred).
  * Coaches store cell on users.phone; we send only when present (with zelle-shaped fallback).
  */
 
@@ -11,9 +12,15 @@ export type SupabaseAdmin = import('@supabase/supabase-js').SupabaseClient;
 const getConfig = () => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_FROM_NUMBER;
-  if (!accountSid || !authToken || !from) return null;
-  return { accountSid, authToken, from };
+  // Support TWILIO_PHONE_NUMBER (common Vercel misname); FROM wins if both set.
+  const from =
+    process.env.TWILIO_FROM_NUMBER?.trim() ||
+    process.env.TWILIO_PHONE_NUMBER?.trim() ||
+    '';
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim() || '';
+  if (!accountSid || !authToken) return null;
+  if (!messagingServiceSid && !from) return null;
+  return { accountSid, authToken, from, messagingServiceSid };
 };
 
 /** Normalize to E.164-ish: digits only, assume US +1 if 10 digits. */
@@ -62,7 +69,7 @@ export async function sendSms(to: string, body: string, logCtx?: SmsLogContext):
 
   if (!config) {
     await logFailure(
-      'Twilio not configured (set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER on the server).',
+      'Twilio not configured (set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and either TWILIO_MESSAGING_SERVICE_SID, TWILIO_FROM_NUMBER, or TWILIO_PHONE_NUMBER on the server).',
     );
     return false;
   }
@@ -72,6 +79,15 @@ export async function sendSms(to: string, body: string, logCtx?: SmsLogContext):
   }
 
   try {
+    const params = new URLSearchParams({
+      To: phone,
+      Body: body.slice(0, 1600),
+    });
+    if (config.messagingServiceSid) {
+      params.set('MessagingServiceSid', config.messagingServiceSid);
+    } else {
+      params.set('From', config.from);
+    }
     const res = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${config.accountSid}/Messages.json`,
       {
@@ -80,11 +96,7 @@ export async function sendSms(to: string, body: string, logCtx?: SmsLogContext):
           Authorization: 'Basic ' + Buffer.from(`${config.accountSid}:${config.authToken}`).toString('base64'),
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({
-          To: phone,
-          From: config.from,
-          Body: body.slice(0, 1600),
-        }),
+        body: params,
       }
     );
     if (!res.ok) {

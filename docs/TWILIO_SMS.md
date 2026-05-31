@@ -11,8 +11,31 @@ Add to `.env.local` (and your host’s env, e.g. Vercel):
 
 - `TWILIO_ACCOUNT_SID` — from Twilio console
 - `TWILIO_AUTH_TOKEN` — from Twilio console  
-- `TWILIO_FROM_NUMBER` — Twilio phone number (e.g. +1XXXXXXXXXX)
+- **`TWILIO_MESSAGING_SERVICE_SID`** (recommended for production US messaging) — a [Messaging Service](https://console.twilio.com/us1/develop/sms/services) **MG…** SID. Attach your registered **long code pool** or **verified toll‑free number** here. When this is set, the app sends SMS with **Messaging Service** only — you **do not** send `TWILIO_FROM_NUMBER` alone for that path (Twilio: use **either** Messaging Service SID **or** `From`, not both). If both env vars exist, **`TWILIO_MESSAGING_SERVICE_SID` wins**.
+- **`TWILIO_FROM_NUMBER`** — Twilio phone number in E.164 (e.g. `+1XXXXXXXXXX`). Use when you **are not** using a Messaging Service; the number itself must already be compliant for your traffic type (see **US regulation** below).
 - **`ADMIN_BOOKING_ALERT_PHONES`** (optional) — comma-separated cell numbers (10-digit US or E.164) that receive an **ops** copy of every booking/signup SMS (in addition to the coach). Same number as the coach is only texted once (coach copy).
+
+## US regulation (why SMS “stopped working”)
+
+US carriers filter application traffic. If messages fail with Twilio REST errors mentioning **registration**, **A2P**, **10DLC**, **campaign**, or **verified toll‑free**, the fix is **in Twilio / carrier compliance**, not in this codebase.
+
+Rough map:
+
+| Your sender | What Twilio/console usually needs |
+|-------------|-----------------------------------|
+| **US local long code (-10-digit)** | [A2P 10DLC](https://www.twilio.com/docs/sms/a2p-10dlc): Business profile **+** Brand **+** **approved** Messaging Campaign linked to your numbers (often via a **Messaging Service**). |
+| **Toll‑free (+1‑8xx)** | [Toll‑free verification](https://support.twilio.com/hc/en-us/articles/360045061934); until verified or approved, outbound to many handsets can fail. |
+| **Short code** | Short code provisioning and carrier approval — separate workflow. |
+
+**Recommended setup:** Create a Messaging Service (**MG…**), add only numbers that already meet the row above, set **`TWILIO_MESSAGING_SERVICE_SID`** in production (see env vars).
+
+### Debug failures
+
+1. **Admin UI** → **Message log** (if your deployment logs Twilio failures) — entries often include `Twilio HTTP …` and the REST body Twilio returned.
+2. **Twilio Console** → **Monitor** → **Logs** → **Messaging** → open the failed message and read Twilio **error code** (e.g. unregistered toll‑free traffic, inactive campaign).
+
+Common codes worth searching Twilio docs for: **21610**, **30034**, **30035**, **60200** ranges (Messaging / compliance).
+
 
 You can also omit that env and rely on **`users.phone`** for every user with **`role = admin`** — those numbers get the same ops copy (deduped with the env list).
 

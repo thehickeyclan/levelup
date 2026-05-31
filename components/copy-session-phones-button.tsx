@@ -28,13 +28,13 @@ export function CopySessionPhonesButton({ sessionId, className }: Props) {
     void (async () => {
       try {
         const r = await fetch(`/api/sessions/${sessionId}/sms-phones`);
-        const data = (await r.json()) as { commaAll?: string; error?: string };
+        const data = (await r.json()) as { commaParents?: string; error?: string };
         if (cancelled) return;
         if (!r.ok) {
           setPrefetch({ status: 'error', message: data.error });
           return;
         }
-        setPrefetch({ status: 'ready', text: (data.commaAll ?? '').trim() });
+        setPrefetch({ status: 'ready', text: (data.commaParents ?? '').trim() });
       } catch {
         if (!cancelled) setPrefetch({ status: 'error' });
       }
@@ -51,12 +51,12 @@ export function CopySessionPhonesButton({ sessionId, className }: Props) {
 
       if (prefetch.status === 'loading' || prefetch.status === 'error') {
         const r = await fetch(`/api/sessions/${sessionId}/sms-phones`);
-        const data = (await r.json()) as { commaAll?: string; error?: string };
+        const data = (await r.json()) as { commaParents?: string; error?: string };
         if (!r.ok) {
           window.alert(data.error || 'Could not load numbers.');
           return;
         }
-        text = (data.commaAll ?? '').trim();
+        text = (data.commaParents ?? '').trim();
         setPrefetch({ status: 'ready', text });
       }
 

@@ -418,54 +418,6 @@ export default async function AthleteProfilePage({
         </CardContent>
       </Card>
 
-      {canInteractAsParentOrAdmin && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Calendar className="h-5 w-5 text-accent" />
-              Book a new session
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Start here for a fresh private or partner time — you&apos;ll pick the slot next.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xl min-w-0">
-              <Link href={bookHref('private')} className="w-full min-w-0 sm:flex-1">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full h-auto min-h-[52px] touch-manipulation flex flex-col gap-0.5 py-3 px-4 whitespace-normal text-center border-border text-foreground hover:bg-muted/45 hover:text-foreground hover:border-accent/40"
-                >
-                  <span className="leading-snug">Private session</span>
-                  <span className="text-xs font-normal opacity-90 leading-tight">
-                    1 wrestler · 1-on-1 with coach
-                  </span>
-                </Button>
-              </Link>
-              <Link href={bookHref('partner')} className="w-full min-w-0 sm:flex-1">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full h-auto min-h-[52px] touch-manipulation flex flex-col gap-0.5 py-3 px-4 whitespace-normal text-center border-border text-foreground hover:bg-muted/45 hover:text-foreground hover:border-accent/40"
-                >
-                  <span className="leading-snug">Partner session</span>
-                  <span className="text-xs font-normal opacity-90 leading-tight">
-                    2 wrestlers · shared hour
-                  </span>
-                </Button>
-              </Link>
-            </div>
-            <p className="text-sm text-muted-foreground max-w-xl">
-              <Link href={`/coach/${athlete.id}`} className="text-accent font-medium underline">
-                Public schedule link
-              </Link>{' '}
-              — share with families who don&apos;t have an account yet.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       {(joinExistingOpenSessions.length > 0 || otherOpenSessions.length > 0) && (
         <Card className="mb-6">
           <CardHeader>
@@ -513,6 +465,54 @@ export default async function AthleteProfilePage({
                 />
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {canInteractAsParentOrAdmin && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Calendar className="h-5 w-5 text-accent" />
+              Book a new session
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Start here for a fresh private or partner time — you&apos;ll pick the slot next.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xl min-w-0">
+              <Link href={bookHref('private')} className="w-full min-w-0 sm:flex-1">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full h-auto min-h-[52px] touch-manipulation flex flex-col gap-0.5 py-3 px-4 whitespace-normal text-center border-border text-foreground hover:bg-muted/45 hover:text-foreground hover:border-accent/40"
+                >
+                  <span className="leading-snug">Private session</span>
+                  <span className="text-xs font-normal opacity-90 leading-tight">
+                    1 wrestler · 1-on-1 with coach
+                  </span>
+                </Button>
+              </Link>
+              <Link href={bookHref('partner')} className="w-full min-w-0 sm:flex-1">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full h-auto min-h-[52px] touch-manipulation flex flex-col gap-0.5 py-3 px-4 whitespace-normal text-center border-border text-foreground hover:bg-muted/45 hover:text-foreground hover:border-accent/40"
+                >
+                  <span className="leading-snug">Partner session</span>
+                  <span className="text-xs font-normal opacity-90 leading-tight">
+                    2 wrestlers · shared hour
+                  </span>
+                </Button>
+              </Link>
+            </div>
+            <p className="text-sm text-muted-foreground max-w-xl">
+              <Link href={`/coach/${athlete.id}`} className="text-accent font-medium underline">
+                Public schedule link
+              </Link>{' '}
+              — share with families who don&apos;t have an account yet.
+            </p>
           </CardContent>
         </Card>
       )}

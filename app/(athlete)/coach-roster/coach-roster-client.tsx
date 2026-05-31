@@ -20,7 +20,7 @@ function linesForCopy(texts: (string | null)[]): string {
     .filter((t): t is string => Boolean(t && t.trim()))
     .map((t) => formatPhoneForSmsPaste(t))
     .filter((line) => line.length > 0);
-  return [...new Set(parts)].join('\n');
+  return [...new Set(parts)].join('\r\n');
 }
 
 /** One row: parent # first, then kid # (if different). */
@@ -31,7 +31,7 @@ function rowPhonesParentFirst(e: CoachRosterEntry): string {
     const k = formatPhoneForSmsPaste(e.kidPhone);
     if (k && k !== lines[0]) lines.push(k);
   }
-  return lines.join('\n');
+  return lines.join('\r\n');
 }
 
 /** Unique phones in roster order: every parent cell first, then every kid cell (skips duplicates). */
@@ -47,12 +47,12 @@ function linesForCopyParentsThenKids(entries: CoachRosterEntry[]): string {
   };
   for (const e of entries) push(e.parentPhone);
   for (const e of entries) push(e.kidPhone);
-  return lines.join('\n');
+  return lines.join('\r\n');
 }
 
 function lineCount(multiline: string): number {
   if (!multiline.trim()) return 0;
-  return multiline.split('\n').filter(Boolean).length;
+  return multiline.split(/\r?\n/).filter(Boolean).length;
 }
 
 /** Safe for TSV / Sheets paste — strip tabs and newlines inside a cell. */

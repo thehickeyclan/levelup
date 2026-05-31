@@ -257,10 +257,18 @@ export async function getSessionSmsPhonesForPersonalText(
     if (kid) parentKidNames.get(pid)!.add(kid);
   }
 
+  /** First wrestler on the session per parent — used to fall back to athlete cell when parent account has no phone. */
+  const parentYwId = new Map<string, string | null>();
+  for (const r of rows) {
+    const pid = r.parent_id as string | undefined;
+    if (!pid || parentYwId.has(pid)) continue;
+    parentYwId.set(pid, (r as { youth_wrestler_id?: string | null }).youth_wrestler_id ?? null);
+  }
+
   const parentRows: SessionSmsPhoneRow[] = [];
   let skippedParents = 0;
   for (const pid of parentIds) {
-    const phone = await resolveParentAccountSmsPhone(admin, pid);
+    const phone = await resolveParentSmsPhone(admin, pid, parentYwId.get(pid) ?? null);
     if (!phone) {
       skippedParents += 1;
       continue;
@@ -295,20 +303,21 @@ export async function getSessionSmsPhonesForPersonalText(
   const rowsOut = [...parentRows, ...athleteRows];
 
   const fmt = (e164: string) => formatPhoneForSmsPaste(e164);
-  const sep = '\n';
+  /** CRLF pastes into Mac/iOS Messages “To” more reliably than LF alone. */
+  const sep = '\r\n';
   const commaParents = [...new Set(parentRows.map((r) => r.phone))].map(fmt).join(sep);
   const commaAthletes = [...new Set(athleteRows.map((r) => r.phone))].map(fmt).join(sep);
 
   /**
-   * "Copy all" / coach Text parents: one line per **session_participant** using parent account phone
-   * only (`resolveParentAccountSmsPhone` — no athlete cell fallback). Repeats when one parent has
-   * multiple kids on the session. Do **not** dedupe by E.164 here.
+   * One line per session_participant — parent cell with youth-wrestler fallback (same as SMS send).
+   * Repeats when one parent has multiple kids on the session.
    */
   const linesPerParticipant: string[] = [];
   for (const r of rows) {
     const pid = r.parent_id as string | undefined;
+    const ywid = (r as { youth_wrestler_id?: string | null }).youth_wrestler_id ?? null;
     if (!pid) continue;
-    const phone = await resolveParentAccountSmsPhone(admin, pid);
+    const phone = await resolveParentSmsPhone(admin, pid, ywid);
     if (!phone) continue;
     linesPerParticipant.push(fmt(phone));
   }
@@ -385,7 +394,7 @@ export async function getCoachAllTimeAthletePhonesForPersonalText(
   const commaAll = [...e164Unique]
     .sort((a, b) => a.localeCompare(b))
     .map((e) => formatPhoneForSmsPaste(e))
-    .join('\n');
+    .join('\r\n');
 
   return {
     commaAll,

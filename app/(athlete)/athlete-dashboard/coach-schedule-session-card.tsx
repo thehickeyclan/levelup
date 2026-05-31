@@ -131,17 +131,17 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
     }
     try {
       const r = await fetch(`/api/sessions/${session.id}/sms-phones`);
-      const data = (await r.json()) as { commaAll?: string; error?: string };
+      const data = (await r.json()) as { commaParents?: string; error?: string };
       if (!r.ok) {
         window.alert(data.error || 'Could not load numbers.');
         return;
       }
-      const raw = (data.commaAll ?? '').trim();
+      const raw = (data.commaParents ?? '').trim();
       if (!raw) {
         window.alert('No phone numbers on file for this session yet.');
         return;
       }
-      const lines = raw.split(/\n/).map((s) => s.replace(/\D/g, '')).filter(Boolean);
+      const lines = raw.split(/\r?\n/).map((s) => s.replace(/\D/g, '')).filter(Boolean);
       const uniq: string[] = [];
       for (const d of lines) {
         const ten = d.length === 11 && d.startsWith('1') ? d.slice(1) : d;

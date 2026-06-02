@@ -15,6 +15,11 @@ import { getEffectiveFilledCount } from '@/lib/sessions';
 import { ensureAutoFamilyDiscountForParent } from '@/lib/family-auto-discount';
 import { checkoutAllowSavedAccountPercent, resolveCheckoutPercentOff } from '@/lib/checkout-promo';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
+import {
+  buildGuildCheckoutMetadata,
+  formatGuildProductName,
+  guildPaymentIntentData,
+} from '@/lib/stripe/guild-checkout-metadata';
 import { applyCredits, getCreditUsageSumForParentSession, getUserCreditBalance } from '@/lib/credits';
 import { sessionPricePerParticipantUsd } from '@/lib/session-price';
 
@@ -198,7 +203,7 @@ export async function POST(
 
     const { data: yw } = await supabase
       .from('youth_wrestlers')
-      .select('id, parent_id, phone')
+      .select('id, parent_id, phone, first_name, last_name')
       .eq('id', youthWrestlerId)
       .single();
     const ywParentId = (yw as { parent_id?: string } | null)?.parent_id;
@@ -381,8 +386,51 @@ export async function POST(
     const sessionForStripe = session as {
       athlete_id?: string | null;
       session_type?: string | null;
+      session_mode?: string | null;
+      scheduled_datetime?: string | null;
+      duration_minutes?: number | null;
     };
     const coachId = sessionForStripe.athlete_id ?? '';
+    let coachName = '';
+    if (coachId) {
+      const { data: coachAth } = await admin
+        .from('athletes')
+        .select('first_name, last_name')
+        .eq('id', coachId)
+        .maybeSingle();
+      coachName = coachAth
+        ? [coachAth.first_name, coachAth.last_name].filter(Boolean).join(' ').trim()
+        : '';
+    }
+    const wrestlerName = yw
+      ? [yw.first_name, yw.last_name].filter(Boolean).join(' ').trim()
+      : '';
+    const productName = formatGuildProductName({
+      sessionType: sessionForStripe.session_type,
+      sessionMode: sessionForStripe.session_mode,
+      durationMinutes: (sessionForStripe as { duration_minutes?: number }).duration_minutes ?? 60,
+      scheduledDatetime: sessionForStripe.scheduled_datetime,
+      coachName: coachName || undefined,
+    });
+    const metadata = buildGuildCheckoutMetadata({
+      source: 'guild_register',
+      tenantSlug: tenant.slug,
+      parentId: user.id,
+      parentEmail: user.email,
+      athleteName: wrestlerName || undefined,
+      bookingId: sessionId,
+      productName,
+      extras: {
+        category: 'booking',
+        session_type: String(sessionForStripe.session_type ?? ''),
+        coach_id: String(coachId),
+        platform_fee_pct: '20',
+        youth_wrestler_id: String(youthWrestlerId),
+        register: 'true',
+        credits_to_use: creditsToUse.toString(),
+        register_catalog_dollars: catalogStr,
+      },
+    });
 
     /**
      * Must include amount (and any discount) in the idempotency key. Stripe rejects reuse of the same key
@@ -402,28 +450,15 @@ export async function POST(
               currency: 'usd',
               unit_amount: amountCents,
               product_data: {
-                name: 'The Guild – Session registration',
+                name: productName,
                 description: desc,
+                metadata: { channel: 'guild', business: 'wrestling_guild', app: 'the-guild' },
               },
             },
           },
         ],
-        metadata: {
-          business: 'guild',
-          channel: 'bookings',
-          category: 'booking',
-          session_type: String(sessionForStripe.session_type ?? ''),
-          coach_id: String(coachId),
-          platform_fee_pct: '20',
-          app: 'the-guild',
-          tenant_slug: String(tenant.slug),
-          session_id: String(sessionId),
-          youth_wrestler_id: String(youthWrestlerId),
-          parent_id: String(user.id),
-          register: 'true',
-          credits_to_use: creditsToUse.toString(),
-          register_catalog_dollars: catalogStr,
-        },
+        metadata,
+        payment_intent_data: guildPaymentIntentData(metadata),
         success_url: successUrl,
         cancel_url: cancelUrl,
         customer_email: user.email ?? undefined,

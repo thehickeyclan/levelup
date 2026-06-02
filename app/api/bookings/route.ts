@@ -19,6 +19,11 @@ import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
 import { applyCredits, getUserCreditBalance } from '@/lib/credits';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
+import {
+  buildGuildCheckoutMetadata,
+  formatGuildProductName,
+  guildPaymentIntentData,
+} from '@/lib/stripe/guild-checkout-metadata';
 import { getCoachFacilityIds } from '@/lib/coach-facilities';
 import { fetchCoachDaySlotsMerged } from '@/lib/fetch-coach-day-slots';
 import { normalizeRequestSlotHHmm } from '@/lib/availability';
@@ -414,21 +419,39 @@ export async function POST(req: NextRequest) {
         const bookingLines = youthWrestlerIdsNorm
           .map((ywId) => `${ywId}|${perWrestlerAmount}`)
           .join(';');
-        const metadata: Record<string, string> = {
-          business: 'guild',
-          channel: 'bookings',
-          category: 'booking',
-          session_type: sessionType,
-          coach_id: athleteIdNorm,
-          platform_fee_pct: '20',
-          session_id: session.id,
-          app: 'the-guild',
-          tenant_slug: tenant.slug,
-          test_mode: testModePenny ? 'true' : 'false',
-          parent_id: user.id,
-          booking_lines: bookingLines,
-          ...(creditsToUse > 0 && { credits_to_use: creditsToUse.toFixed(2) }),
-        };
+        const coachName = [coachCheck.coach.first_name, coachCheck.coach.last_name]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+        const athleteNames = (ywPhoneRows ?? [])
+          .map((yw) => [yw.first_name, yw.last_name].filter(Boolean).join(' ').trim())
+          .filter(Boolean)
+          .join(', ');
+        const productName = formatGuildProductName({
+          sessionType,
+          sessionMode,
+          durationMinutes,
+          scheduledDatetime,
+          coachName: coachName || undefined,
+        });
+        const metadata = buildGuildCheckoutMetadata({
+          source: 'guild_booking',
+          tenantSlug: tenant.slug,
+          parentId: user.id,
+          parentEmail: user.email,
+          athleteName: athleteNames || undefined,
+          bookingId: session.id,
+          productName,
+          extras: {
+            category: 'booking',
+            session_type: sessionType,
+            coach_id: athleteIdNorm,
+            platform_fee_pct: '20',
+            test_mode: testModePenny ? 'true' : 'false',
+            booking_lines: bookingLines,
+            ...(creditsToUse > 0 && { credits_to_use: creditsToUse.toFixed(2) }),
+          },
+        });
 
         const stripeSession = await stripe.checkout.sessions.create(
           {
@@ -441,16 +464,17 @@ export async function POST(req: NextRequest) {
                   currency: 'usd',
                   unit_amount: amountCents,
                   product_data: {
-                    name: 'The Guild – Wrestling Session',
+                    name: productName,
                     description: testModePenny
                       ? `TEST MODE: Session on ${scheduledDate} at ${scheduledTime} (actual price: $${totalPrice.toFixed(2)})`
                       : `Session on ${scheduledDate} at ${scheduledTime}`,
-                    metadata: { app: 'the-guild', test_mode: testModePenny ? 'true' : 'false' },
+                    metadata: { channel: 'guild', business: 'wrestling_guild', app: 'the-guild' },
                   },
                 },
               },
             ],
             metadata,
+            payment_intent_data: guildPaymentIntentData(metadata),
             success_url: `${stripeRedirectOrigin}/book/${athleteIdNorm}/confirmed?${successParams.toString()}`,
             cancel_url: `${stripeRedirectOrigin}/book/${athleteIdNorm}`,
             customer_email: user.email ?? undefined,

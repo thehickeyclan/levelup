@@ -13,6 +13,11 @@ import { checkoutAllowSavedAccountPercent, resolveCheckoutPercentOff } from '@/l
 import { createNotification } from '@/lib/notifications';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
+import {
+  buildGuildCheckoutMetadata,
+  formatGuildProductName,
+  guildPaymentIntentData,
+} from '@/lib/stripe/guild-checkout-metadata';
 import { sessionPricePerParticipantUsd } from '@/lib/session-price';
 import { verifyWrestlerBelongsToParentOrSelf } from '@/lib/wrestlers-for-parent';
 
@@ -435,26 +440,57 @@ export async function POST(req: NextRequest) {
 
     const stripeLineItems = adjustedLineItems.filter((i) => i.price_data.unit_amount > 0);
 
+    const primarySessionId = sessionIdsUnique[0] ?? '';
+    const primaryS = primarySessionId ? sessionById.get(primarySessionId) : undefined;
+    const primaryCoach = primaryS
+      ? (Array.isArray(primaryS.athletes) ? primaryS.athletes[0] : primaryS.athletes) as
+          | { first_name?: string; last_name?: string }
+          | undefined
+      : undefined;
+    const primaryCoachName = primaryCoach
+      ? [primaryCoach.first_name, primaryCoach.last_name].filter(Boolean).join(' ').trim()
+      : '';
+    const cartAthleteNames = uniqueWrestlerIds
+      .map((id) => nameByWrestler.get(id))
+      .filter(Boolean)
+      .join(', ');
+    const cartProductName =
+      lines.length === 1 && primaryS
+        ? formatGuildProductName({
+            sessionType: (primaryS.session_type as string) ?? cartSessionType,
+            sessionMode: (primaryS.session_mode as string) ?? null,
+            scheduledDatetime: (primaryS.scheduled_datetime as string) ?? null,
+            coachName: primaryCoachName || undefined,
+          })
+        : `Cart checkout · ${lines.length} spot${lines.length !== 1 ? 's' : ''}`.slice(0, 500);
+
+    const metadata = buildGuildCheckoutMetadata({
+      source: 'guild_cart',
+      tenantSlug: tenant.slug,
+      parentId: user.id,
+      parentEmail: user.email,
+      athleteName: cartAthleteNames || undefined,
+      bookingId: primarySessionId || undefined,
+      productName: cartProductName,
+      extras: {
+        category: 'booking',
+        session_type: cartSessionType,
+        platform_fee_pct: '20',
+        cart_checkout: 'true',
+        cart_lines: cartLinesMeta,
+        session_ids: sessionIdsUnique.join(','),
+        session_prices: sessionMetadata.map((m) => `${m.session_id}:${m.price}`).join(','),
+        credits_to_use: creditsToUse.toString(),
+      },
+    });
+
     const stripeSession = await stripe.checkout.sessions.create(
       {
         mode: 'payment',
         payment_method_types: ['card'],
         line_items: stripeLineItems,
-        metadata: {
-          business: 'guild',
-          channel: 'bookings',
-          category: 'booking',
-          session_type: cartSessionType,
-          platform_fee_pct: '20',
-          app: 'the-guild',
-          tenant_slug: tenant.slug,
-          cart_checkout: 'true',
-          parent_id: user.id,
-          cart_lines: cartLinesMeta,
-          session_ids: sessionIdsUnique.join(','),
-          session_prices: sessionMetadata.map((m) => `${m.session_id}:${m.price}`).join(','),
-          credits_to_use: creditsToUse.toString(),
-        },
+        metadata,
+        payment_intent_data: guildPaymentIntentData(metadata),
         success_url: successUrl,
         cancel_url: cancelUrl,
         customer_email: user.email ?? undefined,

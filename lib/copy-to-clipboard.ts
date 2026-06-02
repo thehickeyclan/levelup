@@ -34,15 +34,22 @@ function copyViaExecCommand(text: string): boolean {
   }
 }
 
+/** Messages on Mac/iOS parses CRLF in the To field more reliably than LF alone. */
+function normalizeClipboardText(text: string): string {
+  if (!text.includes('\n') && !text.includes('\r')) return text;
+  return text.replace(/\r?\n/g, '\r\n');
+}
+
 export async function copyTextToClipboard(text: string): Promise<boolean> {
   if (typeof window === 'undefined' || !text) return false;
+  const payload = normalizeClipboardText(text);
 
   // 1) Sync — best chance on mobile Safari for multiline phone lists
-  if (copyViaExecCommand(text)) return true;
+  if (copyViaExecCommand(payload)) return true;
 
   if (window.isSecureContext && navigator.clipboard?.writeText) {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(payload);
       return true;
     } catch {
       /* try ClipboardItem */
@@ -52,7 +59,7 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
   if (window.isSecureContext && navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
     try {
       await navigator.clipboard.write([
-        new ClipboardItem({ 'text/plain': new Blob([text], { type: 'text/plain' }) }),
+        new ClipboardItem({ 'text/plain': new Blob([payload], { type: 'text/plain' }) }),
       ]);
       return true;
     } catch {
@@ -60,5 +67,5 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
     }
   }
 
-  return copyViaExecCommand(text);
+  return copyViaExecCommand(payload);
 }

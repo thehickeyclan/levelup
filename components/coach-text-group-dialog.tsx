@@ -48,11 +48,12 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
     commaAll: string;
     commaParents: string;
     commaAthletes: string;
+    commaBoth: string;
     skippedParents: number;
     skippedAthletes: number;
   } | null>(null);
   const [loadingPhones, setLoadingPhones] = useState(false);
-  const [copiedKind, setCopiedKind] = useState<'all' | 'parents' | 'athletes' | null>(null);
+  const [copiedKind, setCopiedKind] = useState<'parents' | 'athletes' | 'both' | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -88,6 +89,7 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
           commaAll?: string;
           commaParents?: string;
           commaAthletes?: string;
+          commaBoth?: string;
           skippedParents?: number;
           skippedAthletes?: number;
         }) => {
@@ -96,6 +98,7 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
             commaAll: data.commaAll ?? '',
             commaParents: data.commaParents ?? '',
             commaAthletes: data.commaAthletes ?? '',
+            commaBoth: data.commaBoth ?? '',
             skippedParents: data.skippedParents ?? 0,
             skippedAthletes: data.skippedAthletes ?? 0,
           });
@@ -112,7 +115,7 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
     };
   }, [open, sessionId]);
 
-  const copyPhones = async (kind: 'all' | 'parents' | 'athletes', value: string) => {
+  const copyPhones = async (kind: 'parents' | 'athletes' | 'both', value: string) => {
     if (!value.trim()) return;
     const ok = await copyTextToClipboard(value);
     if (ok) {
@@ -279,11 +282,11 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
                       variant="outline"
                       size="sm"
                       className="justify-start min-h-[44px]"
-                      disabled={!phones.commaAll}
-                      onClick={() => copyPhones('all', phones.commaAll)}
+                      disabled={!phones.commaBoth}
+                      onClick={() => copyPhones('both', phones.commaBoth)}
                     >
                       <Copy className="h-4 w-4 mr-2 shrink-0" />
-                      {copiedKind === 'all' ? 'Copied!' : 'Copy all #s (one line per signup)'}
+                      {copiedKind === 'both' ? 'Copied!' : 'Copy parents + kids (deduped)'}
                     </Button>
                     <Button
                       type="button"
@@ -303,7 +306,8 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
                       profile is a fallback.
                     </p>
                   )}
-                  {(phones.skippedParents > 0 || phones.skippedAthletes > 0) && phones.commaAll && (
+                  {(phones.skippedParents > 0 || phones.skippedAthletes > 0) &&
+                    (phones.commaParents || phones.commaAthletes || phones.commaBoth) && (
                     <p className="text-xs text-muted-foreground">
                       {phones.skippedParents > 0 &&
                         `${phones.skippedParents} parent${phones.skippedParents === 1 ? '' : 's'} with no phone. `}

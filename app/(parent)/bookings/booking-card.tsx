@@ -27,7 +27,7 @@ import { StarRating } from '@/components/star-rating';
 import { CapacityBadge } from '@/components/capacity-badge';
 import { isSessionOpenForParentBrowse } from '@/lib/sessions';
 import { showSessionSmsCopyAndTextGroup } from '@/lib/session-sms-tools';
-import { CopySessionPhonesButton } from '@/components/copy-session-phones-button';
+import { SessionPhonesCopyButtons } from '@/components/session-phones-copy-buttons';
 import { CoachTextGroupDialog } from '@/components/coach-text-group-dialog';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 import { AddToCalendarButton } from '@/components/add-to-calendar-button';
@@ -397,11 +397,8 @@ export function BookingCard({
                   </p>
                 ) : null}
                 {coachBookedCount > 0 && (
-                  <div className="flex flex-col sm:flex-row gap-2 pt-0.5">
-                    <CopySessionPhonesButton
-                      sessionId={session.id}
-                      className="min-h-[44px] touch-manipulation w-full sm:flex-1 border-accent/40"
-                    />
+                  <div className="flex flex-col gap-2 pt-0.5">
+                    <SessionPhonesCopyButtons sessionId={session.id} />
                     {showSessionSmsCopyAndTextGroup(session) && (
                       <Button
                         type="button"
@@ -470,7 +467,7 @@ export function BookingCard({
               )}
               {adminSmsRow && (
                 <div className="flex flex-col gap-2 w-full sm:w-auto sm:items-end">
-                  <CopySessionPhonesButton sessionId={session.id} className="min-h-[40px] text-xs px-2 w-full sm:w-auto" />
+                  <SessionPhonesCopyButtons sessionId={session.id} layout="row" />
                   <Button
                     type="button"
                     variant="outline"

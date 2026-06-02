@@ -7,11 +7,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, X, DollarSign, Smartphone, Trash2, Loader2, Share2, ExternalLink, CalendarPlus, Pencil, CalendarClock } from 'lucide-react';
 import { CoachTextGroupDialog } from '@/components/coach-text-group-dialog';
-import { CopySessionPhonesButton } from '@/components/copy-session-phones-button';
+import { SessionPhonesCopyButtons } from '@/components/session-phones-copy-buttons';
 import { formatEST } from '@/lib/format-date';
 import { coachPayoutUsd } from '@/lib/coach-session-payout';
 import { COACH_REVENUE_FRACTION } from '@/lib/pricing';
 import { showSessionSmsCopyAndTextGroup } from '@/lib/session-sms-tools';
+import { sessionParticipantDisplayNames } from '@/lib/session-participant-display-name';
 import { AddToCalendarButton } from '@/components/add-to-calendar-button';
 import { SessionTypeBadge } from '@/components/session-type-badge';
 import { CapacityBadge } from '@/components/capacity-badge';
@@ -36,14 +37,13 @@ function participantPaidSum(s: CoachSession): number {
 }
 
 function wrestlerNames(s: CoachSession): string[] {
-  const parts = s.session_participants ?? [];
-  return parts
-    .map((p) => {
-      const yw = p.youth_wrestlers;
-      const o = Array.isArray(yw) ? yw[0] : yw;
-      return o && (o.first_name || o.last_name) ? [o.first_name, o.last_name].filter(Boolean).join(' ') : null;
-    })
-    .filter((n): n is string => Boolean(n));
+  return sessionParticipantDisplayNames(s.session_participants);
+}
+
+function registeredCount(s: CoachSession): number {
+  const names = wrestlerNames(s);
+  const rows = Array.isArray(s.session_participants) ? s.session_participants.length : 0;
+  return Math.max(s.current_participants ?? 0, rows, names.length);
 }
 
 type Tab = 'mine' | 'requests' | 'completed' | 'all';
@@ -275,10 +275,10 @@ export function CoachSessionsClient({
                         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Athletes</p>
                         <p className="text-base font-semibold text-foreground mt-0.5">
                           {(() => {
-                            const n = session.current_participants ?? wrestlerNames(session).length;
+                            const n = registeredCount(session);
                             const names = wrestlerNames(session);
                             if (n === 0 && names.length === 0) return 'No bookings yet';
-                            const label = `${Math.max(n, names.length)} athlete${Math.max(n, names.length) !== 1 ? 's' : ''}`;
+                            const label = `${n} athlete${n !== 1 ? 's' : ''}`;
                             return names.length > 0 ? `${label}: ${names.join(', ')}` : label;
                           })()}
                         </p>
@@ -309,13 +309,11 @@ export function CoachSessionsClient({
                         }).toFixed(2)}
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-2 sm:justify-end">
-                      {(session.current_participants ?? 0) > 0 && (
-                        <CopySessionPhonesButton
-                          sessionId={session.id}
-                          className="min-h-[44px] touch-manipulation border-accent/40"
-                        />
+                    <div className="flex flex-col gap-3 sm:items-end w-full sm:w-auto min-w-0">
+                      {registeredCount(session) > 0 && (
+                        <SessionPhonesCopyButtons sessionId={session.id} layout="row" className="w-full sm:justify-end" />
                       )}
+                      <div className="flex flex-wrap gap-2 sm:justify-end">
                       {showSessionSmsCopyAndTextGroup(session) && (
                         <Button
                           type="button"
@@ -376,13 +374,14 @@ export function CoachSessionsClient({
                           </>
                         )}
                       </Button>
+                      </div>
                     </div>
                   </div>
                   
                   {/* Expandable contact info */}
                   <SessionContactsPanel
                     sessionId={session.id}
-                    participantCount={session.current_participants ?? 0}
+                    participantCount={registeredCount(session)}
                   />
                 </CardContent>
               </Card>

@@ -14,6 +14,7 @@ import {
   issueSessionEarnedForCheckoutLines,
   isRewardsProgramEnabled,
 } from '@/lib/rewards';
+import { isGuildDeferredBookingCheckout } from '@/lib/stripe/guild-checkout-metadata';
 
 /**
  * Fetch the actual Stripe fee from a PaymentIntent's balance transaction.
@@ -475,8 +476,7 @@ export async function POST(req: NextRequest) {
 
       /* --- Private booking checkout: roster rows only after payment (booking_lines metadata) --- */
       const bookingLinesRaw = session.metadata?.booking_lines?.trim();
-      const isDeferredPrivateBooking =
-        session.metadata?.channel === 'bookings' && Boolean(bookingLinesRaw);
+      const isDeferredPrivateBooking = isGuildDeferredBookingCheckout(session.metadata);
 
       if (isDeferredPrivateBooking) {
         const parentIdBooking = session.metadata?.parent_id;

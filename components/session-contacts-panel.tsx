@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Cake, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ContactInfoRow } from '@/components/contact-info-row';
+import { SessionPhonesCopyButtons } from '@/components/session-phones-copy-buttons';
 import { ageFromDob, formatBirthdayWithCountdown, isBirthdaySoon } from '@/lib/age-from-dob';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +39,12 @@ export function SessionContactsPanel({ sessionId, participantCount = 0, classNam
   const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
+    setContacts([]);
+    setFetched(false);
+    setExpanded(false);
+  }, [sessionId]);
+
+  useEffect(() => {
     if (expanded && !fetched) {
       setLoading(true);
       fetch(`/api/sessions/${sessionId}/contacts`)
@@ -55,7 +62,9 @@ export function SessionContactsPanel({ sessionId, participantCount = 0, classNam
     }
   }, [expanded, fetched, sessionId]);
 
-  if (participantCount === 0) {
+  const displayCount = Math.max(participantCount, contacts.length);
+
+  if (displayCount === 0 && !expanded) {
     return null;
   }
 
@@ -68,13 +77,14 @@ export function SessionContactsPanel({ sessionId, participantCount = 0, classNam
         className="w-full justify-between text-muted-foreground hover:text-foreground h-8 px-2"
       >
         <span className="text-sm">
-          {participantCount} registered — {expanded ? 'Hide' : 'Show'} contact info
+          {displayCount} registered — {expanded ? 'Hide' : 'Show'} contact info
         </span>
         {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </Button>
 
       {expanded && (
         <div className="mt-2 space-y-4">
+          <SessionPhonesCopyButtons sessionId={sessionId} />
           {loading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -104,10 +114,12 @@ export function SessionContactsPanel({ sessionId, participantCount = 0, classNam
                         </span>
                       </div>
                       {birthdayDisplay && (
-                        <div className={cn(
-                          'flex items-center gap-1.5 text-xs',
-                          birthdaySoon ? 'text-[#D4AF37] font-medium' : 'text-muted-foreground'
-                        )}>
+                        <div
+                          className={cn(
+                            'flex items-center gap-1.5 text-xs',
+                            birthdaySoon ? 'text-[#D4AF37] font-medium' : 'text-muted-foreground'
+                          )}
+                        >
                           <Cake className="h-3 w-3" />
                           {birthdayDisplay}
                         </div>
@@ -123,9 +135,7 @@ export function SessionContactsPanel({ sessionId, participantCount = 0, classNam
                     />
                   )}
 
-                  {athlete?.phone && (
-                    <ContactInfoRow label="Athlete" phone={athlete.phone} />
-                  )}
+                  {athlete?.phone && <ContactInfoRow label="Athlete" phone={athlete.phone} />}
 
                   {parent?.phone && athlete?.phone && (
                     <p className="text-[10px] text-muted-foreground pt-1">

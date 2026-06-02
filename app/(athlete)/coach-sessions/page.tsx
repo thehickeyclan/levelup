@@ -6,7 +6,6 @@ import { getTenantByDomain } from '@/config/tenants';
 import { purgeEmptyPastSessions } from '@/lib/purge-empty-past-sessions';
 import { CoachSessionsClient, type CommunitySession } from './coach-sessions-client';
 import type { CoachSession } from '@/app/(athlete)/athlete-dashboard/coach-schedule-card';
-import { CopyCoachAllAthletePhonesButton } from '@/components/copy-coach-all-athlete-phones-button';
 import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
@@ -63,17 +62,21 @@ export default async function CoachSessionsPage({
 
   const now = new Date().toISOString();
 
-  const { data: upcoming } = await supabase
+  const { data: upcoming } = await admin
     .from('sessions')
-    .select('*, facilities(name), session_participants(youth_wrestler_id, youth_wrestlers(id, first_name, last_name))')
+    .select(
+      '*, facilities(name), session_participants(youth_wrestler_id, roster_first_name, roster_last_name, amount_paid, youth_wrestlers(id, first_name, last_name))'
+    )
     .eq('athlete_id', coachId)
     .eq('status', 'scheduled')
     .gte('scheduled_datetime', now)
     .order('scheduled_datetime', { ascending: true });
 
-  const { data: completed } = await supabase
+  const { data: completed } = await admin
     .from('sessions')
-    .select('*, facilities(name), session_participants(youth_wrestler_id, youth_wrestlers(id, first_name, last_name))')
+    .select(
+      '*, facilities(name), session_participants(youth_wrestler_id, roster_first_name, roster_last_name, amount_paid, youth_wrestlers(id, first_name, last_name))'
+    )
     .eq('athlete_id', coachId)
     .or('status.eq.completed,status.eq.cancelled,status.eq.no-show,scheduled_datetime.lt.' + now)
     .order('scheduled_datetime', { ascending: false })

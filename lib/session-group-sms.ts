@@ -219,6 +219,9 @@ export async function getSessionSmsPhonesForPersonalText(
   /** Newline-separated 10-digit numbers (Mac/iOS Messages parses lines into separate recipients better than commas). */
   commaParents: string;
   commaAthletes: string;
+  /** Unique parent cells, then unique athlete cells not already listed. */
+  commaBoth: string;
+  /** One parent line per signup (can repeat when one parent has multiple kids). */
   commaAll: string;
   skippedParents: number;
   skippedAthletes: number;
@@ -234,6 +237,7 @@ export async function getSessionSmsPhonesForPersonalText(
       rows: [],
       commaParents: '',
       commaAthletes: '',
+      commaBoth: '',
       commaAll: '',
       skippedParents: 0,
       skippedAthletes: 0,
@@ -308,6 +312,22 @@ export async function getSessionSmsPhonesForPersonalText(
   const commaParents = [...new Set(parentRows.map((r) => r.phone))].map(fmt).join(sep);
   const commaAthletes = [...new Set(athleteRows.map((r) => r.phone))].map(fmt).join(sep);
 
+  const seenBoth = new Set<string>();
+  const bothLines: string[] = [];
+  for (const phone of parentRows.map((r) => r.phone)) {
+    const line = fmt(phone);
+    if (seenBoth.has(line)) continue;
+    seenBoth.add(line);
+    bothLines.push(line);
+  }
+  for (const phone of athleteRows.map((r) => r.phone)) {
+    const line = fmt(phone);
+    if (seenBoth.has(line)) continue;
+    seenBoth.add(line);
+    bothLines.push(line);
+  }
+  const commaBoth = bothLines.join(sep);
+
   /**
    * One line per session_participant — parent cell with youth-wrestler fallback (same as SMS send).
    * Repeats when one parent has multiple kids on the session.
@@ -327,6 +347,7 @@ export async function getSessionSmsPhonesForPersonalText(
     rows: rowsOut,
     commaParents,
     commaAthletes,
+    commaBoth,
     commaAll,
     skippedParents,
     skippedAthletes,

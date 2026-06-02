@@ -7,6 +7,7 @@ import { Link2, Loader2, MessageCircle, Share2, Check, CalendarClock } from 'luc
 import { Button } from '@/components/ui/button';
 import { AddToCalendarButton } from '@/components/add-to-calendar-button';
 import { ContactInfoRow } from '@/components/contact-info-row';
+import { SessionPhonesCopyButtons } from '@/components/session-phones-copy-buttons';
 import { formatEST } from '@/lib/format-date';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 import { fillTemplate, getTemplate } from '@/lib/playbook-templates';
@@ -259,8 +260,8 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
               </div>
             ) : showNames ? (
               <ul className="space-y-1">
-                {effectiveNames.map((name) => (
-                  <li key={name} className="text-sm font-medium text-foreground">
+                {effectiveNames.map((name, i) => (
+                  <li key={`${session.id}-${i}-${name}`} className="text-sm font-medium text-foreground">
                     {name}
                   </li>
                 ))}
@@ -318,6 +319,7 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
           <p className="text-xs text-muted-foreground">
             Text the <span className="font-medium text-foreground/90">parent</span> first when possible — they usually handle booking and follow-up.
           </p>
+          {nRegistered > 0 && <SessionPhonesCopyButtons sessionId={session.id} />}
           {contactsLoading ? (
             <div className="flex justify-center py-4">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

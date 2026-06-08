@@ -7,6 +7,11 @@ import Link from 'next/link';
 import { BackLink } from '@/components/back-link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SessionRegisterClient } from './register-client';
+import { SessionRosterList } from '@/components/session-roster-badges';
+import {
+  buildSessionRosterParticipant,
+  type SessionRosterParticipant,
+} from '@/lib/wrestler-roster-display';
 import { User, Calendar, MapPin, Users } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
 import { SchoolLogo } from '@/components/school-logo';
@@ -53,6 +58,7 @@ export default async function SessionRegisterPage({
   const sessionSelect = `
       id,
       parent_id,
+      status,
       join_policy,
       partner_invite_code,
       athlete_id,
@@ -73,7 +79,7 @@ export default async function SessionRegisterPage({
     .from('sessions')
     .select(sessionSelect)
     .eq('id', sessionId)
-    .eq('status', 'scheduled')
+    .in('status', ['scheduled', 'completed'])
     .single();
 
   if (sessionErr || !session) {
@@ -83,10 +89,23 @@ export default async function SessionRegisterPage({
         .select(sessionSelect)
         .eq('id', sessionId)
         .eq('partner_invite_code', partnerInviteFromUrl)
-        .eq('status', 'scheduled')
+        .in('status', ['scheduled', 'completed'])
         .maybeSingle();
       if (sAdmin) {
         session = sAdmin;
+        sessionErr = null;
+      }
+    }
+    if (sessionErr || !session) {
+      const { data: sLate } = await admin
+        .from('sessions')
+        .select(sessionSelect)
+        .eq('id', sessionId)
+        .in('join_policy', ['public', 'invite_only'])
+        .in('status', ['scheduled', 'completed'])
+        .maybeSingle();
+      if (sLate) {
+        session = sLate;
         sessionErr = null;
       }
     }
@@ -96,6 +115,7 @@ export default async function SessionRegisterPage({
 
   const s = session as {
     parent_id?: string;
+    status?: string;
     join_policy?: string;
     partner_invite_code?: string | null;
     session_type?: string;
@@ -114,15 +134,6 @@ export default async function SessionRegisterPage({
 
   const current = s.current_participants ?? 1;
   const max = s.max_participants ?? 2;
-  if (current >= max) notFound();
-
-  const rawPrice = s.price_per_participant;
-  const pricePer = sessionPricePerParticipantUsd(rawPrice);
-  const isSmallGroup =
-    s.session_type === 'group' ||
-    s.session_type === '2-athlete' ||
-    s.session_type === 'small_group' ||
-    (max >= 2 && s.session_type !== '1-on-1');
 
   // Youth wrestlers this user can add (primary parent or linked parent)
   const { data: primaryIds } = await supabase
@@ -136,6 +147,28 @@ export default async function SessionRegisterPage({
     .eq('parent_id', user.id);
   const linkedIds = [...new Set((linkedRows ?? []).map((r: { youth_wrestler_id: string }) => r.youth_wrestler_id))];
   const allIds = [...new Set([...(primaryIds ?? []).map((r: { id: string }) => r.id), ...linkedIds, user.id])];
+
+  const { data: unpaidFamilySpot } =
+    allIds.length > 0
+      ? await admin
+          .from('session_participants')
+          .select('id')
+          .eq('session_id', sessionId)
+          .eq('paid', false)
+          .in('youth_wrestler_id', allIds)
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
+
+  if (current >= max && !unpaidFamilySpot) notFound();
+
+  const rawPrice = s.price_per_participant;
+  const pricePer = sessionPricePerParticipantUsd(rawPrice);
+  const isSmallGroup =
+    s.session_type === 'group' ||
+    s.session_type === '2-athlete' ||
+    s.session_type === 'small_group' ||
+    (max >= 2 && s.session_type !== '1-on-1');
   const { data: youthWrestlersRaw } = allIds.length > 0
     ? await supabase
         .from('youth_wrestlers')
@@ -153,6 +186,8 @@ export default async function SessionRegisterPage({
   const coach = Array.isArray(s.athletes) ? s.athletes[0] : s.athletes;
   const fac = Array.isArray(s.facilities) ? s.facilities[0] : s.facilities;
   const dt = s.scheduled_datetime ? new Date(s.scheduled_datetime) : null;
+  const isLatePayment =
+    s.status === 'completed' || (dt != null && !Number.isNaN(dt.getTime()) && dt.getTime() < Date.now());
 
   if (role === 'parent' && checkoutAllowSavedAccountPercent()) {
     await ensureAutoFamilyDiscountForParent(admin, user.id, user.email);
@@ -178,19 +213,38 @@ export default async function SessionRegisterPage({
 
   const { data: participants } = await admin
     .from('session_participants')
-    .select('youth_wrestlers(id, first_name, last_name, age, weight_class, skill_level)')
+    .select(
+      'youth_wrestlers(id, first_name, last_name, age, weight_class, skill_level, graduation_year)'
+    )
     .eq('session_id', sessionId);
-  const participantsList = (participants ?? []).map((p) => {
-    const raw = (p as { youth_wrestlers?: { first_name?: string; last_name?: string; age?: number; weight_class?: string } | { first_name?: string; last_name?: string; age?: number; weight_class?: string }[] | null }).youth_wrestlers;
-    const yw = Array.isArray(raw) ? raw[0] : raw;
-    if (!yw) return null;
-    const name = `${yw.first_name ?? ''} ${yw.last_name ?? ''}`.trim();
-    if (!name) return null;
-    const parts = [name];
-    if (yw.age != null) parts.push(`${yw.age} yrs`);
-    if (yw.weight_class) parts.push(`${yw.weight_class} lbs`);
-    return parts.join(' · ');
-  }).filter(Boolean) as string[];
+  const rosterParticipants = (participants ?? [])
+    .map((p) => {
+      const raw = (
+        p as {
+          youth_wrestlers?:
+            | {
+                first_name?: string;
+                last_name?: string;
+                age?: number;
+                weight_class?: string;
+                skill_level?: string;
+                graduation_year?: number;
+              }
+            | Array<{
+                first_name?: string;
+                last_name?: string;
+                age?: number;
+                weight_class?: string;
+                skill_level?: string;
+                graduation_year?: number;
+              }>
+            | null;
+        }
+      ).youth_wrestlers;
+      const yw = Array.isArray(raw) ? raw[0] : raw;
+      return yw ? buildSessionRosterParticipant(yw) : null;
+    })
+    .filter((r): r is SessionRosterParticipant => r != null);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-lg">
@@ -210,6 +264,11 @@ export default async function SessionRegisterPage({
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isLatePayment && !isOwner && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200/90">
+              This session has already taken place. You can still complete payment here if you owe the coach.
+            </div>
+          )}
           <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
             <p className="font-medium flex items-center gap-2">
               <User className="h-4 w-4" />
@@ -251,15 +310,8 @@ export default async function SessionRegisterPage({
                 </>
               )}
             </p>
-            {participantsList.length > 0 && (
-              <div className="text-sm pt-1">
-                <p className="font-medium text-foreground mb-1">Registered ({participantsList.length}):</p>
-                <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
-                  {participantsList.map((line, i) => (
-                    <li key={i}>{line}</li>
-                  ))}
-                </ul>
-              </div>
+            {rosterParticipants.length > 0 && (
+              <SessionRosterList participants={rosterParticipants} className="pt-1" />
             )}
           </div>
           <SessionRegisterClient

@@ -160,6 +160,9 @@ export default async function CoachSessionsPage({
           athlete?.payout_rate != null ? Number(athlete.payout_rate) : null
         )}
         communitySessions={(communitySessions ?? []) as unknown as CommunitySession[]}
+        coachDisplayName={
+          [athlete?.first_name, athlete?.last_name].filter(Boolean).join(' ').trim() || 'Coach'
+        }
       />
     </div>
   );

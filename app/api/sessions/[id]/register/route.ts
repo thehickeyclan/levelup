@@ -22,6 +22,10 @@ import {
 } from '@/lib/stripe/guild-checkout-metadata';
 import { applyCredits, getCreditUsageSumForParentSession, getUserCreditBalance } from '@/lib/credits';
 import { sessionPricePerParticipantUsd } from '@/lib/session-price';
+import {
+  isSessionOpenForRegistrationPayment,
+  registrationPaymentBlockedMessage,
+} from '@/lib/session-payment-open';
 
 /**
  * POST — register a youth wrestler for a session (public or invite-only).
@@ -83,6 +87,19 @@ export async function POST(
           sessionErr = null;
         }
       }
+      if (sessionErr || !session) {
+        const { data: sLate } = await admin
+          .from('sessions')
+          .select('id, parent_id, athlete_id, join_policy, session_mode, session_type, partner_invite_code, current_participants, max_participants, price_per_participant, scheduled_datetime, status')
+          .eq('id', sessionId)
+          .in('join_policy', ['public', 'invite_only'])
+          .in('status', ['scheduled', 'completed'])
+          .maybeSingle();
+        if (sLate) {
+          session = sLate;
+          sessionErr = null;
+        }
+      }
     }
 
     if (sessionErr || !session) {
@@ -119,7 +136,19 @@ export async function POST(
       },
       participantRowCount ?? 0
     );
-    if (filled >= max) {
+
+    const { data: existingParticipantEarly } = await admin
+      .from('session_participants')
+      .select('id, paid, parent_id')
+      .eq('session_id', sessionId)
+      .eq('youth_wrestler_id', youthWrestlerId)
+      .maybeSingle();
+    const payingExistingUnpaid =
+      existingParticipantEarly != null &&
+      existingParticipantEarly.paid === false &&
+      existingParticipantEarly.parent_id === user.id;
+
+    if (filled >= max && !payingExistingUnpaid) {
       return NextResponse.json({ error: 'Session is full' }, { status: 400 });
     }
 
@@ -192,8 +221,11 @@ export async function POST(
     if (joinPol !== 'public' && joinPol !== 'invite_only' && !inviteVerified) {
       return NextResponse.json({ error: 'This session is not open for registration' }, { status: 400 });
     }
-    if (s.status !== 'scheduled') {
-      return NextResponse.json({ error: 'Session is not open for registration' }, { status: 400 });
+    if (!isSessionOpenForRegistrationPayment(s.status)) {
+      return NextResponse.json(
+        { error: registrationPaymentBlockedMessage(s.status) },
+        { status: 400 }
+      );
     }
 
     const rawPrice = s.price_per_participant;
@@ -223,12 +255,17 @@ export async function POST(
 
     const { data: existing } = await supabase
       .from('session_participants')
-      .select('id')
+      .select('id, paid, parent_id')
       .eq('session_id', sessionId)
       .eq('youth_wrestler_id', youthWrestlerId)
       .maybeSingle();
     if (existing) {
-      return NextResponse.json({ error: 'This wrestler is already registered for this session' }, { status: 409 });
+      const row = existing as { paid?: boolean | null; parent_id?: string | null };
+      if (row.paid === false && row.parent_id === user.id) {
+        // Late payment: wrestler is on the roster but unpaid — proceed to Stripe without a new insert.
+      } else {
+        return NextResponse.json({ error: 'This wrestler is already registered for this session' }, { status: 409 });
+      }
     }
 
     // Family / percentage discount (e.g. 10% off)
@@ -282,18 +319,39 @@ export async function POST(
         needApplyCredits = Math.max(0, creditsToUse - usageSum);
       }
 
-      const { error: insertErr } = await admin.from('session_participants').insert({
-        session_id: sessionId,
-        youth_wrestler_id: youthWrestlerId,
-        parent_id: user.id,
-        paid: true,
-        amount_paid: priceAfterDiscount,
-        payment_method: 'credit',
-        status: 'confirmed',
-      });
-      if (insertErr) {
-        console.error('Register credit-only insert failed', insertErr);
-        return NextResponse.json({ error: insertErr.message }, { status: 500 });
+      if (existing) {
+        const { error: updateErr } = await admin
+          .from('session_participants')
+          .update({
+            paid: true,
+            amount_paid: priceAfterDiscount,
+            payment_method: 'credit',
+            status: 'confirmed',
+          })
+          .eq('session_id', sessionId)
+          .eq('youth_wrestler_id', youthWrestlerId);
+        if (updateErr) {
+          console.error('Register credit-only update failed', updateErr);
+          return NextResponse.json({ error: updateErr.message }, { status: 500 });
+        }
+      } else {
+        const { error: insertErr } = await admin.from('session_participants').insert({
+          session_id: sessionId,
+          youth_wrestler_id: youthWrestlerId,
+          parent_id: user.id,
+          paid: true,
+          amount_paid: priceAfterDiscount,
+          payment_method: 'credit',
+          status: 'confirmed',
+        });
+        if (insertErr) {
+          console.error('Register credit-only insert failed', insertErr);
+          return NextResponse.json({ error: insertErr.message }, { status: 500 });
+        }
+        await admin
+          .from('sessions')
+          .update({ current_participants: current + 1, updated_at: new Date().toISOString() })
+          .eq('id', sessionId);
       }
 
       if (needApplyCredits > 0.01) {
@@ -305,11 +363,19 @@ export async function POST(
           tenantSlug: tenant.slug,
         });
         if (applied.usedAmount + 0.02 < needApplyCredits) {
-          await admin
-            .from('session_participants')
-            .delete()
-            .eq('session_id', sessionId)
-            .eq('youth_wrestler_id', youthWrestlerId);
+          if (!existing) {
+            await admin
+              .from('session_participants')
+              .delete()
+              .eq('session_id', sessionId)
+              .eq('youth_wrestler_id', youthWrestlerId);
+          } else {
+            await admin
+              .from('session_participants')
+              .update({ paid: false, amount_paid: null, payment_method: null, status: null })
+              .eq('session_id', sessionId)
+              .eq('youth_wrestler_id', youthWrestlerId);
+          }
           console.error('Register credit-only: applyCredits incomplete', {
             needApplyCredits,
             usedAmount: applied.usedAmount,
@@ -326,10 +392,6 @@ export async function POST(
         { session_id: sessionId, youth_wrestler_id: youthWrestlerId },
         ywSnap ?? {}
       );
-      await admin
-        .from('sessions')
-        .update({ current_participants: current + 1, updated_at: new Date().toISOString() })
-        .eq('id', sessionId);
 
       const coachId = (session as { athlete_id?: string }).athlete_id;
       const dtNotify = s.scheduled_datetime;

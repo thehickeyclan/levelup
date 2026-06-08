@@ -24,6 +24,8 @@ import {
   getEffectiveFilledCount,
   isSessionOpenForParentBrowse,
 } from '@/lib/sessions';
+import { SessionRosterList, WrestlerFitLegend } from '@/components/session-roster-badges';
+import type { SessionRosterParticipant } from '@/lib/wrestler-roster-display';
 
 type Facility = { id: string; name?: string; school?: string; address?: string | null };
 type SessionRow = {
@@ -105,22 +107,22 @@ export function FindTrainingClient({
   const [dateOpen, setDateOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
-  const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
+  const [sessionRosters, setSessionRosters] = useState<Record<string, SessionRosterParticipant[]>>({});
 
-  // Fetch participant names from API (bypasses RLS)
+  // Fetch participant rosters from API (bypasses RLS)
   useEffect(() => {
-    const sessionIds = initialSessions.map(s => s.id);
+    const sessionIds = initialSessions.map((s) => s.id);
     if (sessionIds.length === 0) return;
-    
+
     fetch('/api/sessions/participant-names', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionIds }),
     })
-      .then(r => r.json())
-      .then(data => {
-        if (data.names) {
-          setParticipantNames(data.names);
+      .then((r) => r.json())
+      .then((data: { rosters?: Record<string, SessionRosterParticipant[]> }) => {
+        if (data.rosters) {
+          setSessionRosters(data.rosters);
         }
       })
       .catch(() => {});
@@ -475,14 +477,13 @@ export function FindTrainingClient({
               </span>
             </div>
 
-            {/* Desktop: Registered section - uses API-fetched names */}
             {current > 0 && (
-              <div className="mt-2 text-xs">
-                <span className="text-zinc-500">Registered: </span>
-                <span className="text-zinc-400">
-                  {participantNames[session.id] || `${current} registered`}
-                </span>
-              </div>
+              <SessionRosterList
+                participants={sessionRosters[session.id] ?? []}
+                label="Registered"
+                className="mt-2"
+                emptyFallback={`${current} registered — athlete details loading…`}
+              />
             )}
           </div>
 
@@ -525,14 +526,13 @@ export function FindTrainingClient({
               </span>
             </div>
 
-            {/* Mobile: Registered section - uses API-fetched names */}
             {current > 0 && (
-              <div className="mt-2 text-xs">
-                <span className="text-zinc-500">Registered: </span>
-                <span className="text-zinc-400">
-                  {participantNames[session.id] || `${current} registered`}
-                </span>
-              </div>
+              <SessionRosterList
+                participants={sessionRosters[session.id] ?? []}
+                label="Registered"
+                className="mt-2"
+                emptyFallback={`${current} registered — athlete details loading…`}
+              />
             )}
           </div>
 
@@ -1001,11 +1001,14 @@ export function FindTrainingClient({
       )}
 
       {/* Results Header */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-400">
-          {openSessions.length} public session{openSessions.length !== 1 ? 's' : ''} you can join
-          {defaultRangeLabel && !date && <span className="text-zinc-500"> · {defaultRangeLabel}</span>}
-        </p>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-zinc-400">
+            {openSessions.length} public session{openSessions.length !== 1 ? 's' : ''} you can join
+            {defaultRangeLabel && !date && <span className="text-zinc-500"> · {defaultRangeLabel}</span>}
+          </p>
+        </div>
+        <WrestlerFitLegend />
       </div>
 
       {/* Sessions List */}

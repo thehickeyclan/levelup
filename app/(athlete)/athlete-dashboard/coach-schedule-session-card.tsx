@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Link2, Loader2, MessageCircle, Share2, Check, CalendarClock } from 'lucide-react';
+import { Loader2, MessageCircle, CalendarClock } from 'lucide-react';
+import { CoachSessionLinkActions } from '@/components/coach-session-link-actions';
 import { Button } from '@/components/ui/button';
 import { AddToCalendarButton } from '@/components/add-to-calendar-button';
 import { ContactInfoRow } from '@/components/contact-info-row';
 import { SessionPhonesCopyButtons } from '@/components/session-phones-copy-buttons';
 import { formatEST } from '@/lib/format-date';
-import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 import { fillTemplate, getTemplate } from '@/lib/playbook-templates';
 import { sessionParticipantDisplayNames } from '@/lib/session-participant-display-name';
 import { cn } from '@/lib/utils';
@@ -53,11 +53,9 @@ type Props = {
 export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis = 'default' }: Props) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactsFetched, setContactsFetched] = useState(false);
-  const [regCopied, setRegCopied] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
   const dur = (session as { duration_minutes?: number }).duration_minutes ?? 60;
@@ -170,32 +168,6 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
     }
   };
 
-  const handleShare = async () => {
-    const url = `${window.location.origin}/sessions/${session.id}/register`;
-    try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({ title: 'Book this session', url });
-        return;
-      }
-    } catch {
-      /* user cancelled or share failed */
-    }
-    const ok = await copyTextToClipboard(url);
-    if (ok) {
-      setShareCopied(true);
-      window.setTimeout(() => setShareCopied(false), 2000);
-    }
-  };
-
-  const copyRegLink = async () => {
-    const url = `${window.location.origin}/sessions/${session.id}/register`;
-    const ok = await copyTextToClipboard(url);
-    if (ok) {
-      setRegCopied(true);
-      window.setTimeout(() => setRegCopied(false), 2000);
-    }
-  };
-
   const handleCancel = async () => {
     if (
       !window.confirm(
@@ -273,41 +245,37 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
         </div>
       </button>
 
-      <div className="px-4 pb-4 flex flex-col sm:flex-row gap-2" onClick={(e) => e.stopPropagation()}>
-        <Button
-          type="button"
-          variant="default"
-          className="min-h-[44px] touch-manipulation flex-1"
-          onClick={() => void openCombinedSms()}
-          disabled={nRegistered === 0}
-        >
-          <MessageCircle className="h-4 w-4 mr-2 shrink-0" />
-          Text parents
-        </Button>
-        <Button variant="outline" asChild className="min-h-[44px] touch-manipulation flex-1 border-[#D4AF37]/40">
-          <Link href={`/sessions/${session.id}/reschedule`}>
-            <CalendarClock className="h-4 w-4 mr-2 shrink-0" />
-            Reschedule
-          </Link>
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-[44px] touch-manipulation flex-1 border-[#D4AF37]/40"
-          onClick={() => void handleShare()}
-        >
-          {shareCopied ? (
-            <>
-              <Check className="h-4 w-4 mr-2 text-emerald-500" />
-              Copied!
-            </>
-          ) : (
-            <>
-              <Share2 className="h-4 w-4 mr-2 shrink-0" />
-              Share
-            </>
-          )}
-        </Button>
+      <div className="px-4 pb-3 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            type="button"
+            variant="default"
+            className="min-h-[44px] touch-manipulation flex-1"
+            onClick={() => void openCombinedSms()}
+            disabled={nRegistered === 0}
+          >
+            <MessageCircle className="h-4 w-4 mr-2 shrink-0" />
+            Text parents
+          </Button>
+          <Button variant="outline" asChild className="min-h-[44px] touch-manipulation flex-1 border-[#D4AF37]/40">
+            <Link href={`/sessions/${session.id}/reschedule`}>
+              <CalendarClock className="h-4 w-4 mr-2 shrink-0" />
+              Reschedule
+            </Link>
+          </Button>
+        </div>
+        <CoachSessionLinkActions
+          session={{
+            id: session.id,
+            join_policy: session.join_policy,
+            partner_invite_code: session.partner_invite_code,
+            scheduled_datetime: session.scheduled_datetime,
+            session_type: session.session_type,
+            session_mode: session.session_mode,
+          }}
+          coachDisplayName={coachDisplayName}
+          facility={fac}
+        />
       </div>
 
       {expanded && (
@@ -363,19 +331,6 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
               disabled={cancelling}
             >
               {cancelling ? 'Cancelling…' : 'Cancel session'}
-            </Button>
-            <Button type="button" variant="outline" className="min-h-[44px] touch-manipulation w-full" onClick={() => void copyRegLink()}>
-              {regCopied ? (
-                <>
-                  <Check className="h-4 w-4 mr-2 text-emerald-500" />
-                  Copied registration link
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-4 w-4 mr-2" />
-                  Copy registration link
-                </>
-              )}
             </Button>
             <AddToCalendarButton
               sessionId={session.id}

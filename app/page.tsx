@@ -9,9 +9,9 @@ import { CoachMapSection } from '@/components/map/coach-map-section';
 import { TrainingPathCards } from '@/components/home/training-path-cards';
 
 export const metadata = {
-  title: 'The Wrestling Guild | Access Elite Master Technique',
+  title: 'The Wrestling Guild | Youth Wrestling — All Levels',
   description:
-    'Train with Division I wrestlers and elite coaches for private technique instruction. Access elite master technique that separates good from great.',
+    'Book NCAA and elite coaches for youth wrestling — beginners through high school. Private sessions on their calendar, or join open small groups and partner spots.',
 };
 
 export default async function HomePage({
@@ -65,18 +65,19 @@ export default async function HomePage({
           The Wrestling Guild
         </p>
         <h1 className="mb-2 text-center font-serif text-3xl font-black uppercase tracking-wide text-accent sm:text-4xl md:text-5xl">
-          Find DI coaching near you
+          Youth wrestling coaching — all levels
         </h1>
         <p className="mb-3 max-w-2xl text-center text-sm text-white/70 sm:text-base md:text-lg">
-          Train with Division I wrestlers—technique, training, and mentorship—where you live.
+          Book a coach on their calendar anytime, or join an open small group or partner session.
+          Division I and elite coaches — beginners through high school.
         </p>
         <p className="mb-8 text-center text-base text-white/75 sm:text-lg">How do you want to train?</p>
 
         <TrainingPathCards />
 
         <p className="mx-auto mt-8 max-w-xl text-center text-xs text-white/50">
-          Coaches post availability in Eastern time. Open sessions refresh as coaches add them—check back if you don&apos;t
-          see a fit yet.
+          Coaches update availability weekly — you can book privates and partners even when no open group is posted.
+          Open sessions refresh as coaches add them.
         </p>
 
         <div className="mt-8 flex w-full max-w-[280px] flex-col gap-3">
@@ -137,10 +138,11 @@ export default async function HomePage({
               <span className="text-sm font-bold text-accent">1</span>
             </div>
             <div>
-              <h3 className="mb-1 font-semibold text-white">Pick how you train</h3>
+              <h3 className="mb-1 font-semibold text-white">Book a coach or join open</h3>
               <p className="text-sm text-white/60">
-                Use the four paths up top: private with a coach, join a posted partner session, start a partner booking
-                with your training partner, or join a small group when one is open.
+                <strong className="font-medium text-white/80">Book a coach</strong> for a private or partner session on
+                their calendar. Or <strong className="font-medium text-white/80">join open</strong> partner and small-group
+                spots already posted — with athlete age, weight, and level on each card.
               </p>
             </div>
           </div>
@@ -149,13 +151,13 @@ export default async function HomePage({
               <span className="text-sm font-bold text-accent">2</span>
             </div>
             <div>
-              <h3 className="mb-1 font-semibold text-white">Use the map or open sessions</h3>
+              <h3 className="mb-1 font-semibold text-white">Map, calendar, or open list</h3>
               <p className="text-sm text-white/60">
-                Explore coaches on the map for your own booking, or scroll to{' '}
+                Pick a coach on the map and book their next open slot, or scroll to{' '}
                 <Link href="#open-sessions" className="text-accent underline-offset-2 hover:underline">
                   open sessions
                 </Link>{' '}
-                when a posted time works.
+                to join a spot someone already started.
               </p>
             </div>
           </div>

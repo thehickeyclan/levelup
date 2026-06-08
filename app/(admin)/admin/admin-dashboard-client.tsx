@@ -676,6 +676,14 @@ export function AdminDashboardClient({
   const [transferTargetSearch, setTransferTargetSearch] = useState('');
   const [transferLoading, setTransferLoading] = useState(false);
   const [deletingParticipantId, setDeletingParticipantId] = useState<string | null>(null);
+  const [markPaidParticipant, setMarkPaidParticipant] = useState<{
+    id: string;
+    wrestlerName: string;
+    amountPaid: number;
+  } | null>(null);
+  const [markPaidAmount, setMarkPaidAmount] = useState('');
+  const [markPaidMethod, setMarkPaidMethod] = useState<'cash' | 'check' | 'venmo' | 'zelle' | 'other'>('cash');
+  const [markPaidSaving, setMarkPaidSaving] = useState(false);
 
   const transferTargetOptions = useMemo(() => {
     const q = transferTargetSearch.trim().toLowerCase();
@@ -787,6 +795,42 @@ export function AdminDashboardClient({
       alert('Remove failed: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setDeletingParticipantId(null);
+    }
+  };
+
+  const handleMarkRosterParticipantPaid = async () => {
+    if (!markPaidParticipant || !rosterSessionId) return;
+    const amount = parseFloat(markPaidAmount);
+    if (Number.isNaN(amount) || amount < 0) {
+      alert('Enter a valid amount');
+      return;
+    }
+    setMarkPaidSaving(true);
+    try {
+      const res = await fetch(
+        `/api/admin/sessions/${rosterSessionId}/participants/${markPaidParticipant.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount_paid: amount,
+            payment_method: markPaidMethod,
+          }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || 'Could not mark paid');
+        return;
+      }
+      setMarkPaidParticipant(null);
+      setMarkPaidAmount('');
+      await openRoster(rosterSessionId);
+      router.refresh();
+    } catch {
+      alert('Could not mark paid');
+    } finally {
+      setMarkPaidSaving(false);
     }
   };
 
@@ -6438,10 +6482,15 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
           </DialogHeader>
           {rosterSessionId && (
             <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2 text-sm">
-              <p className="font-medium text-foreground">Pay a parent (Stripe) for this session</p>
+              <p className="font-medium text-foreground">Collect payment (Stripe or manual)</p>
               <p className="text-muted-foreground text-xs leading-relaxed">
-                Parent or admin opens the link, picks the wrestler, and pays the coach for this session. The parent must be linked to the kid (primary or{' '}
-                <code className="text-[11px]">youth_wrestler_parents</code>) or use the primary parent account.
+                {(() => {
+                  const sess = sessions.find((s) => s.id === rosterSessionId);
+                  if (sess?.status === 'completed') {
+                    return 'Session is complete — parents can still pay via the register link below. For cash/Venmo, use Mark paid on each wrestler.';
+                  }
+                  return 'Parent opens the register link and pays by card, or use Mark paid for cash/check/Venmo on each row.';
+                })()}
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button
@@ -6519,10 +6568,33 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                         {p.paid ? (
                           <Badge variant="outline" className="text-xs border-emerald-600 bg-emerald-600/20 text-emerald-400">Paid</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-xs border-amber-600 bg-amber-600/20 text-amber-400">Pending</Badge>
+                          <Badge variant="outline" className="text-xs border-amber-600 bg-amber-600/20 text-amber-400">Unpaid</Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                        {!p.paid && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-emerald-400 hover:text-emerald-300"
+                            onClick={() => {
+                              setMarkPaidParticipant({
+                                id: p.id,
+                                wrestlerName: p.wrestlerName,
+                                amountPaid: p.amountPaid,
+                              });
+                              const sess = sessions.find((s) => s.id === rosterSessionId);
+                              const suggested =
+                                p.amountPaid > 0
+                                  ? p.amountPaid
+                                  : sess?.price_per_participant ?? 0;
+                              setMarkPaidAmount(suggested > 0 ? String(suggested) : '');
+                              setMarkPaidMethod('cash');
+                            }}
+                          >
+                            Mark paid
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -6561,6 +6633,58 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
               </div>
             )}
             
+            {markPaidParticipant && (
+              <div className="mt-4 p-4 rounded-lg border border-emerald-600/40 bg-emerald-600/10 space-y-3">
+                <p className="font-medium text-emerald-400">
+                  Mark {markPaidParticipant.wrestlerName} as paid
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Amount ($)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      className="w-28 h-9"
+                      value={markPaidAmount}
+                      onChange={(e) => setMarkPaidAmount(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Method</Label>
+                    <Select value={markPaidMethod} onValueChange={(v) => setMarkPaidMethod(v as typeof markPaidMethod)}>
+                      <SelectTrigger className="w-28 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="check">Check</SelectItem>
+                        <SelectItem value="venmo">Venmo</SelectItem>
+                        <SelectItem value="zelle">Zelle</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={markPaidSaving || markPaidAmount.trim() === ''}
+                    onClick={() => void handleMarkRosterParticipantPaid()}
+                  >
+                    {markPaidSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setMarkPaidParticipant(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Transfer participant form */}
             {transferringParticipant && (
               <div className="mt-4 p-4 rounded-lg border border-blue-600/50 bg-blue-600/10">

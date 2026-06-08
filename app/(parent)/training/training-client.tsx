@@ -21,9 +21,9 @@ interface AthleteWithNext extends Athlete {
   nextAvailable?: { slot_date: string; start_time: string } | null;
 }
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'coaches', label: 'Coaches' },
-  { id: 'sessions', label: 'Sessions' },
+const TABS: { id: TabId; label: string; description: string }[] = [
+  { id: 'coaches', label: 'Book a coach', description: 'Pick a coach and book on their calendar' },
+  { id: 'sessions', label: 'Open sessions', description: 'Join posted partner & group spots' },
 ];
 
 type Props = {
@@ -114,21 +114,29 @@ export function TrainingClient({
 
   return (
     <>
-      <div className="flex gap-2 mb-6">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setActiveTab(t.id)}
-            className={`min-h-[44px] px-5 py-2.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
-              activeTab === t.id
-                ? 'bg-[#D4AF37] text-black'
-                : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="mb-6 space-y-3">
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          <span className="text-foreground font-medium">Book a coach</span> anytime on their calendar, or{' '}
+          <span className="text-foreground font-medium">browse open sessions</span> to join a spot already posted.
+          Registered athletes show age, weight, and skill level.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveTab(t.id)}
+              title={t.description}
+              className={`min-h-[44px] px-5 py-2.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+                activeTab === t.id
+                  ? 'bg-[#D4AF37] text-black'
+                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {activeTab === 'sessions' && (

@@ -33,13 +33,13 @@ export async function generateMetadata(): Promise<Metadata> {
   const tenant = getTenantByDomain(host);
   const appleTitle = tenant?.productName ?? 'The Guild';
   const title = tenant
-    ? `${tenant.productName} | Elite Wrestling Technique Instruction`
-    : 'The Guild | Elite Wrestling Technique Instruction';
+    ? `${tenant.productName} | Youth Wrestling — All Levels`
+    : 'The Guild | Youth Wrestling — All Levels';
 
   return {
     title,
     description:
-      'Train with NCAA wrestlers and elite coaches in your community for private technique instruction. Master your wrestling through top-level coaching.',
+      'Book NCAA and elite coaches for youth wrestling — beginners through high school. Private sessions on their calendar, or join open groups and partner spots.',
     keywords:
       'the guild wrestling, wrestling lessons, NCAA wrestlers, elite coaches, elite technique, private lessons',
     icons: {

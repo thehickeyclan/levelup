@@ -311,7 +311,7 @@ export default async function HomePage() {
             ? `${firstName}, your upcoming sessions and reminders show up here.`
             : 'Your upcoming sessions and reminders show up here.'}{' '}
           <span className="text-zinc-500">
-            New coach or location alerts appear above when we post them.
+            Book a coach on their calendar anytime — or join open sessions when a posted spot fits.
           </span>
         </p>
       </div>
@@ -375,16 +375,19 @@ export default async function HomePage() {
             <div className="space-y-1">
               <p className="text-zinc-300 font-medium">No upcoming sessions</p>
               <p className="text-sm text-zinc-500 max-w-md mx-auto">
-                When you book or join a session, it will appear here. Use Training to find coaches and open
-                sessions.
+                Book a coach for a private or partner session — or join an open small group. Sessions you book
+                show up here.
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-              <Button variant="outline" className="min-h-[44px] border-zinc-700" asChild>
-                <Link href="/bookings">My bookings</Link>
+              <Button
+                className="min-h-[44px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold"
+                asChild
+              >
+                <Link href="/training?tab=coaches">Book a coach</Link>
               </Button>
               <Button variant="outline" className="min-h-[44px] border-zinc-700" asChild>
-                <Link href="/my-wrestlers">My wrestlers</Link>
+                <Link href="/training?tab=sessions">Open sessions</Link>
               </Button>
             </div>
           </div>
@@ -400,22 +403,27 @@ export default async function HomePage() {
         }))}
       />
 
-      <section className="px-4 pb-8 space-y-3">
-        <Button
-          className="w-full min-h-[52px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold text-base"
-          asChild
-        >
-          <Link href="/training">{hasUpcoming ? 'Find more training →' : 'Find training →'}</Link>
-        </Button>
-        {!hasUpcoming ? (
-          <p className="text-center text-xs text-zinc-500">
-            Tip: open sessions you can add to cart also live under{' '}
-            <Link href="/find-training" className="text-[#D4AF37]/90 underline underline-offset-2">
-              Find training
+      <section className="px-4 pb-8 space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Button
+            className="w-full min-h-[52px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold text-base"
+            asChild
+          >
+            <Link href="/training?tab=coaches">
+              {hasUpcoming ? 'Book a coach →' : 'Book a coach →'}
             </Link>
-            .
-          </p>
-        ) : null}
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full min-h-[52px] border-zinc-700 font-semibold text-base"
+            asChild
+          >
+            <Link href="/training?tab=sessions">Open sessions →</Link>
+          </Button>
+        </div>
+        <p className="text-center text-xs text-zinc-500">
+          Open sessions show who&apos;s registered — age, weight, and skill badges — before you join.
+        </p>
       </section>
     </div>
   );

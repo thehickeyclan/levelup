@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Check, X, DollarSign, Smartphone, Trash2, Loader2, Share2, ExternalLink, CalendarPlus, Pencil, CalendarClock } from 'lucide-react';
+import { Check, X, DollarSign, Smartphone, Trash2, Loader2, ExternalLink, CalendarPlus, Pencil, CalendarClock } from 'lucide-react';
+import { CoachSessionLinkActions } from '@/components/coach-session-link-actions';
 import { CoachTextGroupDialog } from '@/components/coach-text-group-dialog';
 import { SessionPhonesCopyButtons } from '@/components/session-phones-copy-buttons';
 import { formatEST } from '@/lib/format-date';
@@ -105,6 +106,7 @@ type Props = {
   /** Other coaches’ public / invite-only upcoming sessions */
   communitySessions: CommunitySession[];
   payoutRate?: number;
+  coachDisplayName?: string;
 };
 
 export function CoachSessionsClient({
@@ -114,6 +116,7 @@ export function CoachSessionsClient({
   pendingRequests,
   communitySessions,
   payoutRate = COACH_REVENUE_FRACTION,
+  coachDisplayName = 'Coach',
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -135,15 +138,6 @@ export function CoachSessionsClient({
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [requests, setRequests] = useState<RequestItem[]>(pendingRequests);
   const [textGroupSession, setTextGroupSession] = useState<CoachSession | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const handleCopyLink = async (sessionId: string) => {
-    const url = `${window.location.origin}/sessions/${sessionId}`;
-    await navigator.clipboard.writeText(url);
-    setCopiedId(sessionId);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
   const handleCancelSession = async (sessionId: string) => {
     const confirmed = window.confirm(
       'Are you sure you want to cancel this session? All registered participants will receive a credit for their payment.'
@@ -326,24 +320,19 @@ export function CoachSessionsClient({
                           Text group
                         </Button>
                       )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="min-h-[44px] touch-manipulation"
-                        onClick={() => handleCopyLink(session.id)}
-                      >
-                        {copiedId === session.id ? (
-                          <>
-                            <Check className="h-4 w-4 mr-1 text-emerald-500" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Share2 className="h-4 w-4 mr-1" />
-                            Share
-                          </>
-                        )}
-                      </Button>
+                      <CoachSessionLinkActions
+                        session={{
+                          id: session.id,
+                          join_policy: session.join_policy,
+                          partner_invite_code: session.partner_invite_code,
+                          scheduled_datetime: session.scheduled_datetime,
+                          session_type: session.session_type,
+                          session_mode: session.session_mode,
+                        }}
+                        coachDisplayName={coachDisplayName}
+                        facility={facilityName(session)}
+                        className="w-full sm:justify-end"
+                      />
                       <AddToCalendarButton
                         sessionId={session.id}
                         title={`Session ${wrestlerNames(session).join(', ') || 'with athlete'}`}

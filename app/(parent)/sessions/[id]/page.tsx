@@ -22,6 +22,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 import { SessionDetailActions } from './session-detail-actions';
 import { CapacityBadge } from '@/components/capacity-badge';
+import { SessionRosterList } from '@/components/session-roster-badges';
+import {
+  buildSessionRosterParticipant,
+  type SessionRosterParticipant,
+} from '@/lib/wrestler-roster-display';
 import { Calendar, User, MapPin, Users } from 'lucide-react';
 
 export default async function SessionDetailPage({
@@ -85,7 +90,7 @@ export default async function SessionDetailPage({
     duration_minutes,
     athletes(id, first_name, last_name, school, photo_url, average_rating, review_count),
     facilities(id, name, address),
-    session_participants(youth_wrestler_id, amount_paid, youth_wrestlers(id, first_name, last_name))
+    session_participants(youth_wrestler_id, amount_paid, roster_first_name, roster_last_name, youth_wrestlers(id, first_name, last_name, age, weight_class, skill_level, graduation_year))
   `;
 
   const youthWrestlerIds = await getParentYouthWrestlerIds(supabase, user.id);
@@ -175,13 +180,30 @@ export default async function SessionDetailPage({
   const canLeave = canCancel && !isOwner;
   const max = s.max_participants ?? 1;
 
-  const participantsList = (s.session_participants ?? [])
+  const rosterParticipants = (s.session_participants ?? [])
     .map((p) => {
-      const yw = p.youth_wrestlers;
-      const o = Array.isArray(yw) ? yw[0] : yw;
-      return o ? `${o.first_name ?? ''} ${o.last_name ?? ''}`.trim() : null;
+      const ywRaw = p.youth_wrestlers;
+      const yw = Array.isArray(ywRaw) ? ywRaw[0] : ywRaw;
+      const pRow = p as { roster_first_name?: string | null; roster_last_name?: string | null };
+      return buildSessionRosterParticipant(
+        yw
+          ? {
+              first_name: yw.first_name,
+              last_name: yw.last_name,
+              age: (yw as { age?: number }).age,
+              weight_class: (yw as { weight_class?: string }).weight_class,
+              skill_level: (yw as { skill_level?: string }).skill_level,
+              graduation_year: (yw as { graduation_year?: number }).graduation_year,
+            }
+          : {
+              first_name: pRow.roster_first_name,
+              last_name: pRow.roster_last_name,
+            }
+      );
     })
-    .filter(Boolean) as string[];
+    .filter((r): r is SessionRosterParticipant => r != null);
+
+  const participantsList = rosterParticipants.map((r) => r.name);
 
   /** Badge must match visible roster; sessions.current_participants often lags after manual SQL. */
   const current = getEffectiveFilledCountWithListedNames(
@@ -399,10 +421,10 @@ export default async function SessionDetailPage({
               </span>
             )}
           </div>
-          {participantsList.length > 0 && (
-            <p className="text-sm text-muted-foreground pl-6">
-              {participantsList.join(', ')}
-            </p>
+          {rosterParticipants.length > 0 && (
+            <div className="pl-6">
+              <SessionRosterList participants={rosterParticipants} label="Athletes registered" />
+            </div>
           )}
 
           <div className="pt-2">

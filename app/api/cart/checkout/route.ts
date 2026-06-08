@@ -20,6 +20,10 @@ import {
 } from '@/lib/stripe/guild-checkout-metadata';
 import { sessionPricePerParticipantUsd } from '@/lib/session-price';
 import { verifyWrestlerBelongsToParentOrSelf } from '@/lib/wrestlers-for-parent';
+import {
+  isSessionOpenForRegistrationPayment,
+  registrationPaymentBlockedMessage,
+} from '@/lib/session-payment-open';
 
 type CartLine = { sessionId: string; wrestlerId: string };
 
@@ -136,8 +140,11 @@ export async function POST(req: NextRequest) {
       if (joinPolicy !== 'public' && joinPolicy !== 'invite_only') {
         return NextResponse.json({ error: 'Session is not open for registration' }, { status: 400 });
       }
-      if (status !== 'scheduled') {
-        return NextResponse.json({ error: 'Session is not open for registration' }, { status: 400 });
+      if (!isSessionOpenForRegistrationPayment(status)) {
+        return NextResponse.json(
+          { error: registrationPaymentBlockedMessage(status) },
+          { status: 400 }
+        );
       }
 
       const { count: participantRowCount } = await admin

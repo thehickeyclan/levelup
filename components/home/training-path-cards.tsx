@@ -28,58 +28,72 @@ export function TrainingPathCards() {
   const partnerStartHref = trainingPath(isBooker, { type: 'partner' });
 
   return (
-    <div className="grid w-full max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2">
-      <Link href={privateHref.href} className={cn(cardBase, 'min-h-[140px]')}>
-        <User className="mb-3 h-8 w-8 text-[#D4AF37]" aria-hidden />
-        <h3 className="font-serif text-base font-bold uppercase tracking-wide text-[#D4AF37]">
-          Private training
-        </h3>
-        <p className="mt-2 text-sm text-white/70">
-          Browse coaches and request a private session on your schedule.
+    <div className="w-full max-w-4xl space-y-6">
+      <div>
+        <p className="mb-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-[#D4AF37]/80">
+          Book a coach — you pick the time
         </p>
-        <span className="mt-auto pt-4 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]/90 group-hover:underline">
-          Browse coaches
-        </span>
-      </Link>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Link href={privateHref.href} className={cn(cardBase, 'min-h-[132px]')}>
+            <User className="mb-3 h-8 w-8 text-[#D4AF37]" aria-hidden />
+            <h3 className="font-serif text-base font-bold uppercase tracking-wide text-[#D4AF37]">
+              Private training
+            </h3>
+            <p className="mt-2 text-sm text-white/70">
+              Browse coaches and book a 1:1 session on their live calendar — all skill levels.
+            </p>
+            <span className="mt-auto pt-4 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]/90 group-hover:underline">
+              Browse coaches
+            </span>
+          </Link>
 
-      <Link href="/?table=partner#open-sessions" className={cn(cardBase, 'min-h-[140px]')}>
-        <Users className="mb-3 h-8 w-8 text-[#D4AF37]" aria-hidden />
-        <h3 className="font-serif text-base font-bold uppercase tracking-wide text-[#D4AF37]">
-          Join a partner session
-        </h3>
-        <p className="mt-2 text-sm text-white/70">
-          Grab a spot open on a scheduled partner session when a coach has posted one.
-        </p>
-        <span className="mt-auto pt-4 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]/90 group-hover:underline">
-          See open sessions
-        </span>
-      </Link>
+          <Link href={partnerStartHref.href} className={cn(cardBase, 'min-h-[132px]')}>
+            <UserPlus className="mb-3 h-8 w-8 text-[#D4AF37]" aria-hidden />
+            <h3 className="font-serif text-base font-bold uppercase tracking-wide text-[#D4AF37]">
+              Start a partner booking
+            </h3>
+            <p className="mt-2 text-sm text-white/70">
+              You book the coach, then share a link so your partner can join and pay.
+            </p>
+            <span className="mt-auto pt-4 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]/90 group-hover:underline">
+              Start booking
+            </span>
+          </Link>
+        </div>
+      </div>
 
-      <Link href={partnerStartHref.href} className={cn(cardBase, 'min-h-[140px]')}>
-        <UserPlus className="mb-3 h-8 w-8 text-[#D4AF37]" aria-hidden />
-        <h3 className="font-serif text-base font-bold uppercase tracking-wide text-[#D4AF37]">
-          Start a partner booking
-        </h3>
-        <p className="mt-2 text-sm text-white/70">
-          You, your training partner, and a coach—pick a coach and line up both wrestlers in the flow.
+      <div>
+        <p className="mb-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">
+          Join open sessions — spots already posted
         </p>
-        <span className="mt-auto pt-4 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]/90 group-hover:underline">
-          Start booking
-        </span>
-      </Link>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Link href="/?table=partner#open-sessions" className={cn(cardBase, 'min-h-[132px]')}>
+            <Users className="mb-3 h-8 w-8 text-[#D4AF37]" aria-hidden />
+            <h3 className="font-serif text-base font-bold uppercase tracking-wide text-[#D4AF37]">
+              Join a partner session
+            </h3>
+            <p className="mt-2 text-sm text-white/70">
+              Grab an open partner spot — see who&apos;s registered (age, weight, level) before you join.
+            </p>
+            <span className="mt-auto pt-4 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]/90 group-hover:underline">
+              See open sessions
+            </span>
+          </Link>
 
-      <Link href="/?table=group#open-sessions" className={cn(cardBase, 'min-h-[140px]')}>
-        <UsersRound className="mb-3 h-8 w-8 text-[#D4AF37]" aria-hidden />
-        <h3 className="font-serif text-base font-bold uppercase tracking-wide text-[#D4AF37]">
-          Small group
-        </h3>
-        <p className="mt-2 text-sm text-white/70">
-          Train with a coach and a few athletes—limited spots when coaches post a group.
-        </p>
-        <span className="mt-auto pt-4 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]/90 group-hover:underline">
-          View groups
-        </span>
-      </Link>
+          <Link href="/?table=group#open-sessions" className={cn(cardBase, 'min-h-[132px]')}>
+            <UsersRound className="mb-3 h-8 w-8 text-[#D4AF37]" aria-hidden />
+            <h3 className="font-serif text-base font-bold uppercase tracking-wide text-[#D4AF37]">
+              Small group
+            </h3>
+            <p className="mt-2 text-sm text-white/70">
+              Join a posted group when a coach has opened spots — athlete fit shown on each card.
+            </p>
+            <span className="mt-auto pt-4 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]/90 group-hover:underline">
+              View groups
+            </span>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

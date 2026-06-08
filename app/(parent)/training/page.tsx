@@ -25,7 +25,8 @@ import { buildServiceTypesByCoach } from '@/lib/coach-offered-session-types';
 
 export const metadata = {
   title: 'Training | The Guild',
-  description: 'Find and book sessions. Filter by day, time, facility, and coach.',
+  description:
+    'Book a coach on their calendar or join open sessions. Youth wrestling — all skill levels. See athlete age, weight, and level before you join.',
 };
 
 export const dynamic = 'force-dynamic';

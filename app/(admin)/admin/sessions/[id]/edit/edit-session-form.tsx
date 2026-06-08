@@ -481,7 +481,8 @@ export function EditSessionForm({
         <div className="pt-4 border-t border-border">
           <Label className="text-sm font-medium">Add Manual Payment (Cash/Check)</Label>
           <p className="text-xs text-muted-foreground mb-3">
-            Record a payment that didn&apos;t go through Stripe. This adds to the gross revenue for this session.
+            Record cash, check, or Venmo after the session is marked complete — or anytime parents paid outside Stripe.
+            This adds to gross revenue for this session.
           </p>
           <form
             className="flex flex-wrap items-end gap-3"

@@ -54,6 +54,8 @@ export async function POST(req: NextRequest) {
       parent_id: parentId,
       paid: true,
       amount_paid: amountPaid,
+      payment_method: paymentMethod || 'cash',
+      status: 'confirmed',
     });
 
     if (insertError) {

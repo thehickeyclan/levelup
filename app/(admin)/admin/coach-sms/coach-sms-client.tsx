@@ -170,35 +170,45 @@ export function AdminCoachSmsClient() {
             </div>
           ) : loadError ? (
             <p className="text-sm text-destructive">{loadError}</p>
-          ) : withoutPhone.length > 0 ? (
-            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-destructive mt-0.5" />
-                <div>
-                  <p className="font-medium text-foreground">Cannot text coaches until every active coach has a cell</p>
-                  <ul className="mt-1 list-disc pl-4 text-muted-foreground">
-                    {withoutPhone.map((c) => (
-                      <li key={c.id}>
-                        {c.name}
-                        {c.email ? ` (${c.email})` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2">
-                    Add numbers in{' '}
-                    <Link href="/admin/users" className="text-[#B89D60] hover:underline">
-                      Admin → Users
-                    </Link>{' '}
-                    — coaches cannot go live without a cell on file.
-                  </p>
-                </div>
-              </div>
-            </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Ready to text <strong className="text-foreground">{withPhone.length}</strong> active coach
-              {withPhone.length === 1 ? '' : 'es'}.
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Ready to text <strong className="text-foreground">{withPhone.length}</strong> active coach
+                {withPhone.length === 1 ? '' : 'es'}
+                {withoutPhone.length > 0 && (
+                  <>
+                    {' '}
+                    · <strong className="text-foreground">{withoutPhone.length}</strong> skipped (no cell on file)
+                  </>
+                )}
+                .
+              </p>
+              {withoutPhone.length > 0 && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-foreground">These coaches won&apos;t receive this text</p>
+                      <ul className="mt-1 list-disc pl-4 text-muted-foreground">
+                        {withoutPhone.map((c) => (
+                          <li key={c.id}>
+                            {c.name}
+                            {c.email ? ` (${c.email})` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2">
+                        Add cells in{' '}
+                        <Link href="/admin/users" className="text-[#B89D60] hover:underline">
+                          Admin → Users
+                        </Link>
+                        .
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="space-y-2">
@@ -282,7 +292,7 @@ export function AdminCoachSmsClient() {
           <Button
             type="button"
             onClick={handleSend}
-            disabled={sending || loading || withPhone.length === 0 || withoutPhone.length > 0}
+            disabled={sending || loading || withPhone.length === 0 || selectedWithPhone === 0 || !message.trim()}
             className="bg-[#B89D60] hover:bg-[#B89D60]/90 text-white"
           >
             {sending ? (

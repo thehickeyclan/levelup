@@ -51,18 +51,6 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient(auth.tenantSlug);
   try {
-    const coaches = await listCoachSmsRecipients(admin);
-    const missing = coaches.filter((c) => !c.hasPhone);
-    if (missing.length > 0) {
-      return NextResponse.json(
-        {
-          error: `Cannot send: ${missing.length} active coach${missing.length === 1 ? '' : 'es'} missing a cell phone. Fix in Admin → Users first.`,
-          missingCoaches: missing,
-        },
-        { status: 409 }
-      );
-    }
-
     const result = await sendCoachAdminBroadcast(admin, message, { coachIds });
     return NextResponse.json(result);
   } catch (e) {

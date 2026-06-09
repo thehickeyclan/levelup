@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Eye, Pencil, Archive, ArchiveRestore, Trash2, Search, Gift, CheckCircle, EyeOff } from 'lucide-react';
+import { hasMinPhoneDigits } from '@/lib/phone';
 import { formatEST } from '@/lib/format-date';
 
 export type AdminUserRow = {
@@ -165,8 +166,15 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: AdminUserRow[
     }
   };
 
+  const coachPhoneRequired = editRole === 'coach';
+  const coachPhoneValid = !coachPhoneRequired || hasMinPhoneDigits(editPhone);
+
   const handleSaveEdit = async () => {
     if (!editUser || editRole === '') return;
+    if (editRole === 'coach' && !hasMinPhoneDigits(editPhone)) {
+      setError('Coaches must have a cell phone on file (at least 10 digits).');
+      return;
+    }
     const roleDirty = editRole !== editUser.role;
     const phoneDirty = (editPhone.trim() || '') !== (editUser.phone ?? '').trim();
     const zipDirty = (editZip.trim() || '') !== (editUser.zip_code ?? '').trim();
@@ -614,7 +622,17 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: AdminUserRow[
                 value={editPhone}
                 onChange={(e) => setEditPhone(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground mt-1">Leave blank to clear. Used for SMS and alerts.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {coachPhoneRequired
+                  ? 'Required for coaches — used for booking alerts and ops texts.'
+                  : 'Required for SMS and alerts. Cannot be cleared once set.'}
+              </p>
+              {coachPhoneRequired && !coachPhoneValid && editPhone.trim() !== '' && (
+                <p className="text-xs text-destructive mt-1">Enter at least 10 digits.</p>
+              )}
+              {coachPhoneRequired && editPhone.trim() === '' && (
+                <p className="text-xs text-destructive mt-1">Cell phone is required for coaches.</p>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block" htmlFor="admin-user-zip">
@@ -646,6 +664,7 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: AdminUserRow[
               onClick={() => void handleSaveEdit()}
               disabled={
                 loading ||
+                !coachPhoneValid ||
                 (!!editUser &&
                   editRole === editUser.role &&
                   (editPhone.trim() || '') === (editUser.phone ?? '').trim() &&

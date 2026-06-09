@@ -68,6 +68,21 @@ export async function PATCH(
     }
     updates.updated_at = new Date().toISOString();
 
+    const admin = createAdminClient(tenant.slug);
+    const { data: target } = await admin.from('users').select('role, phone').eq('id', id).maybeSingle();
+    if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    const effectiveRole = updates.role ?? target.role;
+    if (effectiveRole === 'coach') {
+      const effectivePhone = updates.phone !== undefined ? updates.phone : target.phone;
+      if (!effectivePhone || !hasMinPhoneDigits(effectivePhone)) {
+        return NextResponse.json(
+          { error: 'Coaches must have a cell phone on file (at least 10 digits).' },
+          { status: 400 }
+        );
+      }
+    }
+
     const hasChange =
       'role' in updates ||
       'archived_at' in updates ||
@@ -75,7 +90,6 @@ export async function PATCH(
       'zip_code' in updates;
     if (!hasChange) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
 
-    const admin = createAdminClient(tenant.slug);
     // Do not select archived_at here — some DBs predate that migration and the column may not exist.
     const { data, error } = await admin
       .from('users')

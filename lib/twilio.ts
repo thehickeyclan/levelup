@@ -136,7 +136,7 @@ function pickCoachPhone(row: { phone?: string; zelle_email?: string } | null): s
   return null;
 }
 
-async function resolveCoachSmsE164(admin: SupabaseAdmin, coachUserId: string): Promise<string | null> {
+export async function resolveCoachSmsE164(admin: SupabaseAdmin, coachUserId: string): Promise<string | null> {
   const [{ data: userRow }, { data: athleteRow }] = await Promise.all([
     admin.from('users').select('phone').eq('id', coachUserId).maybeSingle(),
     admin.from('athletes').select('zelle_email').eq('id', coachUserId).maybeSingle(),
@@ -168,15 +168,124 @@ async function collectAdminBookingAlertPhonesE164(admin: SupabaseAdmin): Promise
   return out;
 }
 
-function shortSessionRef(sessionId: string): string {
-  return sessionId.replace(/-/g, '').slice(0, 10);
-}
-
 /** Optional parent context for booking confirmation SMS (separate from coach/ops alerts). */
 export type BookingSmsStakeholders = {
   parentId?: string | null;
   youthWrestlerId?: string | null;
 };
+
+function formatPersonName(first?: string | null, last?: string | null): string | null {
+  const n = [first, last].filter(Boolean).join(' ').trim();
+  return n || null;
+}
+
+type BookingSmsContext = {
+  coachName: string;
+  wrestlerName: string | null;
+  facilityName: string | null;
+  sessionUrl: string | null;
+  dateStr: string;
+};
+
+async function loadBookingSmsContext(
+  admin: SupabaseAdmin,
+  opts: {
+    coachUserId: string;
+    dateStr: string;
+    sessionId?: string;
+    youthWrestlerId?: string | null;
+    parentId?: string | null;
+  }
+): Promise<BookingSmsContext> {
+  const origin = bookingLinksBase();
+  const sessionUrl = opts.sessionId && origin ? `${origin}/sessions/${opts.sessionId}` : null;
+
+  const [{ data: athlete }, sessionRes, ywRes] = await Promise.all([
+    admin.from('athletes').select('first_name, last_name').eq('id', opts.coachUserId).maybeSingle(),
+    opts.sessionId
+      ? admin.from('sessions').select('facilities(name)').eq('id', opts.sessionId).maybeSingle()
+      : Promise.resolve({ data: null as null }),
+    opts.youthWrestlerId
+      ? admin
+          .from('youth_wrestlers')
+          .select('first_name, last_name')
+          .eq('id', opts.youthWrestlerId)
+          .maybeSingle()
+      : Promise.resolve({ data: null as null }),
+  ]);
+
+  const coachName = formatPersonName(athlete?.first_name, athlete?.last_name) ?? 'Coach';
+
+  let wrestlerName = formatPersonName(ywRes.data?.first_name, ywRes.data?.last_name);
+
+  if (!wrestlerName && opts.sessionId && opts.parentId) {
+    const { data: part } = await admin
+      .from('session_participants')
+      .select('roster_first_name, roster_last_name, youth_wrestlers(first_name, last_name)')
+      .eq('session_id', opts.sessionId)
+      .eq('parent_id', opts.parentId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (part) {
+      const raw = (
+        part as {
+          youth_wrestlers?:
+            | { first_name?: string; last_name?: string }
+            | { first_name?: string; last_name?: string }[]
+            | null;
+        }
+      ).youth_wrestlers;
+      const yw = Array.isArray(raw) ? raw[0] : raw;
+      wrestlerName =
+        formatPersonName(yw?.first_name, yw?.last_name) ??
+        formatPersonName(
+          (part as { roster_first_name?: string }).roster_first_name,
+          (part as { roster_last_name?: string }).roster_last_name
+        );
+    }
+  }
+
+  const facRaw = (sessionRes.data as { facilities?: { name?: string } | { name?: string }[] | null } | null)
+    ?.facilities;
+  const facility = Array.isArray(facRaw) ? facRaw[0] : facRaw;
+  const facilityName = (facility as { name?: string } | undefined)?.name?.trim() || null;
+
+  return { coachName, wrestlerName, facilityName, sessionUrl, dateStr: opts.dateStr };
+}
+
+function bookingSmsFacilitySuffix(facilityName: string | null): string {
+  return facilityName ? ` @ ${facilityName}` : '';
+}
+
+function buildParentBookingConfirmBody(ctx: BookingSmsContext): string {
+  const who = ctx.wrestlerName ?? 'Your athlete';
+  const place = bookingSmsFacilitySuffix(ctx.facilityName);
+  const link = ctx.sessionUrl ? ` ${ctx.sessionUrl}` : ' Open The Guild app → My bookings.';
+  return `The Guild: ${who} is booked with Coach ${ctx.coachName}, ${ctx.dateStr}${place}.${link}`.slice(
+    0,
+    1600
+  );
+}
+
+function buildCoachNewSignupBody(ctx: BookingSmsContext): string {
+  const wrestler = ctx.wrestlerName ?? 'A wrestler';
+  const place = bookingSmsFacilitySuffix(ctx.facilityName);
+  const link = ctx.sessionUrl ? ` ${ctx.sessionUrl}` : ' Check My sessions in the app.';
+  return `The Guild: New signup — ${wrestler} for your session ${ctx.dateStr}${place}.${link}`.slice(
+    0,
+    1600
+  );
+}
+
+function buildAdminBookingAlertBody(ctx: BookingSmsContext): string {
+  const wrestler = ctx.wrestlerName ?? 'New athlete';
+  const place = bookingSmsFacilitySuffix(ctx.facilityName);
+  return `The Guild (ops): ${wrestler} booked · Coach ${ctx.coachName} · ${ctx.dateStr}${place}`.slice(
+    0,
+    1600
+  );
+}
 
 async function resolveParentPhoneE164(
   admin: SupabaseAdmin,
@@ -319,11 +428,22 @@ export async function notifyCoachAndAdminsNewBooking(
   stakeholders?: BookingSmsStakeholders
 ): Promise<void> {
   const sid = sessionId ?? '';
+  const parentId = stakeholders?.parentId?.trim() || null;
+  const ywid = stakeholders?.youthWrestlerId ?? null;
 
-  await sendCoachNewSignupSms(admin, coachUserId, dateStr, sessionId);
+  const ctx = await loadBookingSmsContext(admin, {
+    coachUserId,
+    dateStr,
+    sessionId,
+    youthWrestlerId: ywid,
+    parentId,
+  });
+
+  await sendCoachNewSignupSms(admin, coachUserId, dateStr, sessionId, ctx);
 
   const coachE164 = await resolveCoachSmsE164(admin, coachUserId);
   const opsTargets = await collectAdminBookingAlertPhonesE164(admin);
+  const adminBody = buildAdminBookingAlertBody(ctx);
 
   if (opsTargets.length === 0) {
     await logSmsSkipped(admin, {
@@ -335,22 +455,9 @@ export async function notifyCoachAndAdminsNewBooking(
         'No admin alert numbers configured. Set ADMIN_BOOKING_ALERT_PHONES (comma-separated) and/or add cell numbers to users.phone for admin accounts.',
     });
   } else {
-    const { data: athlete } = await admin
-      .from('athletes')
-      .select('first_name, last_name')
-      .eq('id', coachUserId)
-      .maybeSingle();
-    const coachLabel = athlete
-      ? [athlete.first_name, athlete.last_name].filter(Boolean).join(' ').trim() || 'Coach'
-      : 'Coach';
-    const ref = sessionId ? shortSessionRef(sessionId) : '';
-    const body = ref
-      ? `LevelUp (ops): New booking ${dateStr} · ${coachLabel}. Ref ${ref}`
-      : `LevelUp (ops): New booking ${dateStr} · ${coachLabel}.`;
-
     for (const to of opsTargets) {
       if (coachE164 && to === coachE164) continue;
-      await sendSms(to, body, {
+      await sendSms(to, adminBody, {
         admin,
         messageType: 'admin_booking_alert',
         recipientLabel: 'Admin ops',
@@ -360,16 +467,10 @@ export async function notifyCoachAndAdminsNewBooking(
     }
   }
 
-  const parentId = stakeholders?.parentId?.trim();
   if (!parentId) return;
 
-  const ywid = stakeholders?.youthWrestlerId ?? null;
   const parentPhone = await resolveParentPhoneE164(admin, parentId, ywid);
-  const origin = bookingLinksBase();
-  const bookingsUrl = origin ? `${origin}/bookings` : '';
-  const parentBody = bookingsUrl
-    ? `The Guild: You're booked for ${dateStr}. Details: ${bookingsUrl}`
-    : `The Guild: You're booked for ${dateStr}. Open the app → My bookings for details.`;
+  const parentBody = buildParentBookingConfirmBody(ctx);
 
   if (!parentPhone) {
     await logSmsSkipped(admin, {
@@ -402,7 +503,8 @@ export async function sendCoachNewSignupSms(
   admin: SupabaseAdmin,
   coachUserId: string,
   dateStr: string,
-  sessionId?: string
+  sessionId?: string,
+  ctxIn?: BookingSmsContext
 ): Promise<void> {
   const phone = await resolveCoachSmsE164(admin, coachUserId);
   if (!phone) {
@@ -417,7 +519,10 @@ export async function sendCoachNewSignupSms(
     });
     return;
   }
-  const body = `LevelUp: New booking for ${dateStr}. Check My sessions in the app.`;
+  const ctx =
+    ctxIn ??
+    (await loadBookingSmsContext(admin, { coachUserId, dateStr, sessionId }));
+  const body = buildCoachNewSignupBody(ctx);
   await sendSms(phone, body, {
     admin,
     messageType: 'coach_new_signup',

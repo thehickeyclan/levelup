@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { RescheduleClient } from './reschedule-client';
+import { isSessionEditableBeforeStart } from '@/lib/session-editable';
 
 export default async function ReschedulePage({
   params,
@@ -64,8 +65,8 @@ export default async function ReschedulePage({
     redirect('/dashboard');
   }
 
-  if (session.status !== 'scheduled') {
-    redirect('/bookings');
+  if (!isSessionEditableBeforeStart(session)) {
+    redirect(isCoach ? '/coach-sessions' : '/bookings');
   }
 
   const coachName = athlete

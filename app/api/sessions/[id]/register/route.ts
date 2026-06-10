@@ -218,7 +218,16 @@ export async function POST(
     const pinv = (s.partner_invite_code ?? '').trim().toUpperCase();
     const inviteVerified = Boolean(partnerInviteCodeNorm && pinv === partnerInviteCodeNorm);
     const joinPol = s.join_policy ?? 'private';
-    if (joinPol !== 'public' && joinPol !== 'invite_only' && !inviteVerified) {
+    const payingExistingUnpaidForJoinCheck =
+      existingParticipantEarly != null &&
+      (existingParticipantEarly as { paid?: boolean | null }).paid === false &&
+      (existingParticipantEarly as { parent_id?: string | null }).parent_id === user.id;
+    if (
+      joinPol !== 'public' &&
+      joinPol !== 'invite_only' &&
+      !inviteVerified &&
+      !payingExistingUnpaidForJoinCheck
+    ) {
       return NextResponse.json({ error: 'This session is not open for registration' }, { status: 400 });
     }
     if (!isSessionOpenForRegistrationPayment(s.status)) {

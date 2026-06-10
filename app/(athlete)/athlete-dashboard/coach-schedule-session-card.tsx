@@ -263,6 +263,11 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
               Reschedule
             </Link>
           </Button>
+          <Button variant="outline" asChild className="min-h-[44px] touch-manipulation flex-1">
+            <Link href={`/coach-sessions/${session.id}/edit`}>
+              Edit session
+            </Link>
+          </Button>
         </div>
         <CoachSessionLinkActions
           session={{

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, CalendarClock, X } from 'lucide-react';
+import { MessageCircle, CalendarClock, X, Pencil } from 'lucide-react';
 type Props = {
   sessionId: string;
   scheduledDatetime: string;
@@ -46,6 +46,12 @@ export function UpcomingSessionActions({ sessionId, scheduledDatetime, totalPric
         <Button variant="outline" size="sm">
           <CalendarClock className="h-4 w-4 mr-1" />
           Reschedule
+        </Button>
+      </Link>
+      <Link href={`/coach-sessions/${sessionId}/edit`}>
+        <Button variant="outline" size="sm">
+          <Pencil className="h-4 w-4 mr-1" />
+          Edit
         </Button>
       </Link>
       <Link href={`/messages/${sessionId}`}>

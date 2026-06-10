@@ -127,11 +127,6 @@ export default async function SessionRegisterPage({
     facilities?: { id: string; name?: string; address?: string } | { id: string; name?: string; address?: string }[];
   };
 
-  const isOwner = s.parent_id === user.id;
-  const pinv = (s.partner_invite_code ?? '').trim().toUpperCase();
-  const inviteVerified = Boolean(partnerInviteFromUrl && pinv === partnerInviteFromUrl);
-  if (!isOwner && s.join_policy !== 'public' && s.join_policy !== 'invite_only' && !inviteVerified) notFound();
-
   const current = s.current_participants ?? 1;
   const max = s.max_participants ?? 2;
 
@@ -148,17 +143,32 @@ export default async function SessionRegisterPage({
   const linkedIds = [...new Set((linkedRows ?? []).map((r: { youth_wrestler_id: string }) => r.youth_wrestler_id))];
   const allIds = [...new Set([...(primaryIds ?? []).map((r: { id: string }) => r.id), ...linkedIds, user.id])];
 
-  const { data: unpaidFamilySpot } =
+  const { data: familyParticipantRows } =
     allIds.length > 0
       ? await admin
           .from('session_participants')
-          .select('id')
+          .select('id, paid, youth_wrestler_id')
           .eq('session_id', sessionId)
-          .eq('paid', false)
           .in('youth_wrestler_id', allIds)
-          .limit(1)
-          .maybeSingle()
-      : { data: null };
+      : { data: [] };
+
+  const unpaidFamilySpot = (familyParticipantRows ?? []).find(
+    (r) => (r as { paid?: boolean | null }).paid === false
+  ) as { id: string; youth_wrestler_id?: string } | undefined;
+  const hasFamilySpot = (familyParticipantRows ?? []).length > 0;
+
+  const isOwner = s.parent_id === user.id;
+  const pinv = (s.partner_invite_code ?? '').trim().toUpperCase();
+  const inviteVerified = Boolean(partnerInviteFromUrl && pinv === partnerInviteFromUrl);
+  if (
+    !isOwner &&
+    s.join_policy !== 'public' &&
+    s.join_policy !== 'invite_only' &&
+    !inviteVerified &&
+    !hasFamilySpot
+  ) {
+    notFound();
+  }
 
   if (current >= max && !unpaidFamilySpot) notFound();
 
@@ -182,6 +192,14 @@ export default async function SessionRegisterPage({
     const { phone, ...rest } = row;
     return { ...rest, hasValidCell: hasMinPhoneDigits(phone) };
   });
+
+  const unpaidWrestlerId = unpaidFamilySpot?.youth_wrestler_id ?? '';
+  const defaultWrestlerId =
+    preselectedWrestlerId && youthWrestlers.some((yw) => yw.id === preselectedWrestlerId)
+      ? preselectedWrestlerId
+      : unpaidWrestlerId && youthWrestlers.some((yw) => yw.id === unpaidWrestlerId)
+        ? unpaidWrestlerId
+        : '';
 
   const coach = Array.isArray(s.athletes) ? s.athletes[0] : s.athletes;
   const fac = Array.isArray(s.facilities) ? s.facilities[0] : s.facilities;
@@ -255,12 +273,18 @@ export default async function SessionRegisterPage({
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="h-5 w-5" />
-            {isOwner ? 'Add your wrestler to this session' : 'Pay & register for session'}
+            {isOwner
+              ? 'Add your wrestler to this session'
+              : isLatePayment
+                ? 'Complete payment for session'
+                : 'Pay & register for session'}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             {isOwner
               ? 'Choose a wrestler to add. No extra charge — you’re the session owner.'
-              : 'Choose a wrestler and pay to secure the spot. You’ll complete payment on the next screen.'}
+              : isLatePayment
+                ? 'Choose your wrestler and pay by card or wallet credit.'
+                : 'Choose a wrestler and pay to secure the spot. You’ll complete payment on the next screen.'}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -323,7 +347,7 @@ export default async function SessionRegisterPage({
             percentOff={percentOff ?? undefined}
             youthWrestlers={youthWrestlers as Array<{ id: string; first_name?: string; last_name?: string; age?: number; weight_class?: string; skill_level?: string; hasValidCell: boolean }>}
             checkoutUsesSavedAccountDiscount={checkoutAllowSavedAccountPercent()}
-            initialWrestlerId={preselectedWrestlerId && youthWrestlers.some((yw) => yw.id === preselectedWrestlerId) ? preselectedWrestlerId : ''}
+            initialWrestlerId={defaultWrestlerId}
             partnerInviteCode={partnerInviteFromUrl || undefined}
           />
         </CardContent>

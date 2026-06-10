@@ -6,6 +6,12 @@ import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { easternWallDateTimeToUtcIso } from '@/lib/format-date';
 import { notifySessionScheduledFollowers } from '@/lib/notify-session-scheduled-followers';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
+import { coachHasFacility, normalizeFacilityIdParam } from '@/lib/coach-facilities';
+import { isSessionEditableBeforeStart, SESSION_NOT_EDITABLE_ERROR } from '@/lib/session-editable';
+import {
+  notifyParentsSessionFacilityChange,
+  notifyParentsSessionTimeChange,
+} from '@/lib/notify-session-reschedule';
 
 /**
  * PATCH - Admin updates a session (focus_area, join_policy, max_participants, price_per_participant).
@@ -39,6 +45,7 @@ export async function PATCH(
       price_per_participant?: number;
       scheduledDate?: string;
       scheduledTime?: string;
+      facility_id?: string | null;
       published?: boolean;
     };
     try {
@@ -51,7 +58,21 @@ export async function PATCH(
 
     const { data: session, error: fetchErr } = await admin
       .from('sessions')
-      .select('id, status, session_type, athlete_id, scheduled_datetime, partner_invite_code, duration_minutes')
+      .select(
+        `
+        id,
+        status,
+        session_type,
+        athlete_id,
+        parent_id,
+        scheduled_datetime,
+        partner_invite_code,
+        duration_minutes,
+        facility_id,
+        facilities(name),
+        athletes(first_name, last_name)
+      `
+      )
       .eq('id', sessionId)
       .single();
     
@@ -64,13 +85,28 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Allow admin or owning coach to edit any session that isn't cancelled
     if (session.status === 'cancelled') {
       return NextResponse.json(
         { error: 'Cancelled sessions cannot be edited' },
         { status: 400 }
       );
     }
+
+    if (isCoach && !isSessionEditableBeforeStart(session)) {
+      return NextResponse.json({ error: SESSION_NOT_EDITABLE_ERROR }, { status: 400 });
+    }
+
+    const coachRow = session.athletes as
+      | { first_name?: string | null; last_name?: string | null }
+      | { first_name?: string | null; last_name?: string | null }[]
+      | null;
+    const coachOne = Array.isArray(coachRow) ? coachRow[0] : coachRow;
+    const coachName = coachOne
+      ? [coachOne.first_name, coachOne.last_name].filter(Boolean).join(' ').trim() || 'Coach'
+      : 'Coach';
+    const facRow = session.facilities as { name?: string } | { name?: string }[] | null;
+    const facOne = Array.isArray(facRow) ? facRow[0] : facRow;
+    const previousFacilityName = facOne?.name?.trim() || '—';
 
     const updates: Record<string, unknown> = {};
     if (body.session_type !== undefined && ['small_group', 'partner', 'private'].includes(body.session_type)) {
@@ -116,8 +152,37 @@ export async function PATCH(
       const price = Math.max(0, Number(body.price_per_participant) ?? 0);
       updates.price_per_participant = price;
     }
+    if (body.facility_id !== undefined) {
+      const fid = normalizeFacilityIdParam(body.facility_id);
+      if (!fid) {
+        return NextResponse.json({ error: 'Invalid facility' }, { status: 400 });
+      }
+      if (isCoach) {
+        const allowed =
+          fid === session.facility_id ||
+          (await coachHasFacility(admin, session.athlete_id, fid));
+        if (!allowed) {
+          return NextResponse.json({ error: 'That location is not on your coach profile' }, { status: 403 });
+        }
+      } else {
+        const { data: fac } = await admin.from('facilities').select('id').eq('id', fid).maybeSingle();
+        if (!fac) {
+          return NextResponse.json({ error: 'Facility not found' }, { status: 400 });
+        }
+      }
+      updates.facility_id = fid;
+    }
+
+    let newScheduledIso: string | null = null;
     if (body.scheduledDate && body.scheduledTime) {
       const newIso = easternWallDateTimeToUtcIso(body.scheduledDate, body.scheduledTime);
+      const newDt = new Date(newIso);
+      if (Number.isNaN(newDt.getTime())) {
+        return NextResponse.json({ error: 'Invalid date or time' }, { status: 400 });
+      }
+      if (newDt <= new Date()) {
+        return NextResponse.json({ error: 'Session time must be in the future' }, { status: 400 });
+      }
       try {
         const conflict = await findCoachSessionTimeOverlap(admin, {
           coachAthleteId: session.athlete_id,
@@ -132,6 +197,7 @@ export async function PATCH(
         console.error('[admin session PATCH] coach overlap check', overlapErr);
         return NextResponse.json({ error: 'Could not verify schedule availability' }, { status: 500 });
       }
+      newScheduledIso = newIso;
       updates.scheduled_datetime = newIso;
     }
     
@@ -152,7 +218,33 @@ export async function PATCH(
     if (updateErr) {
       return NextResponse.json({ error: updateErr.message }, { status: 500 });
     }
-    
+
+    const previousIso = session.scheduled_datetime as string;
+    if (newScheduledIso && newScheduledIso !== previousIso) {
+      void notifyParentsSessionTimeChange(admin, {
+        sessionId,
+        athleteId: session.athlete_id as string,
+        parentId: (session.parent_id as string | null) ?? null,
+        coachName,
+        previousIso,
+        newIso: newScheduledIso,
+        excludeUserId: user.id,
+      });
+    }
+
+    if (body.facility_id !== undefined && updates.facility_id !== session.facility_id) {
+      const newFid = updates.facility_id as string;
+      const { data: newFac } = await admin.from('facilities').select('name').eq('id', newFid).maybeSingle();
+      void notifyParentsSessionFacilityChange(admin, {
+        sessionId,
+        coachName,
+        previousFacilityName,
+        newFacilityName: (newFac as { name?: string } | null)?.name?.trim() || '—',
+        excludeUserId: user.id,
+        parentId: (session.parent_id as string | null) ?? null,
+      });
+    }
+
     // If session was just published, notify followers
     if (isNewlyPublished && session.athlete_id && session.partner_invite_code) {
       void notifySessionScheduledFollowers(tenant.slug, session.athlete_id, {

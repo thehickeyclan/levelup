@@ -41,6 +41,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
+import { cockpitPeriodLabel, type CockpitPeriod } from '@/lib/cockpit-date-ranges';
 import Link from 'next/link';
 import {
   Select,
@@ -50,15 +51,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-function formatRange(start: string, end: string, type: 'week' | 'month'): string {
+function formatRange(start: string, end: string, period: CockpitPeriod): string {
   const s = new Date(start + 'T12:00:00.000Z');
   const e = new Date(end + 'T12:00:00.000Z');
-  if (type === 'month') return formatEST(s, 'MMMM yyyy');
+  if (period === 'month') return formatEST(s, 'MMMM yyyy');
+  if (period === 'year') return formatEST(s, 'yyyy');
+  if (start === end) return formatEST(s, 'MMMM d, yyyy');
   return `${formatEST(s, 'MMM d')} – ${formatEST(e, 'MMM d, yyyy')}`;
 }
 
+const COCKPIT_PERIODS: CockpitPeriod[] = ['today', 'week', 'month', '90d', 'year'];
+
 export type CockpitData = {
   date: string;
+  period?: CockpitPeriod;
   range?: 'today' | 'week' | 'month';
   rangeStart?: string;
   rangeEnd?: string;
@@ -162,14 +168,6 @@ const COCKPIT_TIMEZONE = 'America/New_York';
 
 function todayInTz(tz: string): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: tz });
-}
-
-function yesterdayInTz(tz: string): string {
-  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: tz });
-  const [y, m, d] = todayStr.split('-').map(Number);
-  const todayNoon = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  const yesterdayNoon = new Date(todayNoon.getTime() - 24 * 60 * 60 * 1000);
-  return yesterdayNoon.toLocaleDateString('en-CA', { timeZone: tz });
 }
 
 function formatChartCurrency(n: number): string {
@@ -514,8 +512,7 @@ function CockpitSkeleton() {
 export function AdminCockpitView() {
   const today = todayInTz(COCKPIT_TIMEZONE);
   const [date, setDate] = useState(today);
-  const [range, setRange] = useState<'today' | 'yesterday' | 'week' | 'month'>('today');
-  const [trendPeriod, setTrendPeriod] = useState<'7d' | '90d' | '3w' | '12m'>('7d');
+  const [period, setPeriod] = useState<CockpitPeriod>('today');
   const [trendMetric, setTrendMetric] = useState<
     'parents' | 'coaches' | 'athletes' | 'sessions' | 'bookings' | 'bookingGross' | 'reviews'
   >('bookings');
@@ -535,7 +532,7 @@ export function AdminCockpitView() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/admin/cockpit?date=${range === 'yesterday' ? yesterdayInTz(COCKPIT_TIMEZONE) : date}&range=${range === 'yesterday' ? 'today' : range}&trendPeriod=${trendPeriod}&timezone=${encodeURIComponent(COCKPIT_TIMEZONE)}`)
+    fetch(`/api/admin/cockpit?date=${date}&period=${period}&timezone=${encodeURIComponent(COCKPIT_TIMEZONE)}`)
       .then((r) => r.json())
       .then((json) => {
         if (json.error) {
@@ -550,7 +547,7 @@ export function AdminCockpitView() {
         setData(null);
       })
       .finally(() => setLoading(false));
-  }, [date, range, trendPeriod]);
+  }, [date, period]);
 
   const reviewsAll = data?.trendDetailReviews ?? [];
   const filteredReviews = useMemo(() => {
@@ -652,42 +649,39 @@ export function AdminCockpitView() {
             </div>
             
             <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
-              <div className="flex items-center rounded-lg border border-border bg-background p-1">
-                {(['today', 'yesterday', 'week', 'month'] as const).map((r) => (
+              <div className="flex items-center rounded-lg border border-border bg-background p-1 overflow-x-auto">
+                {COCKPIT_PERIODS.map((p) => (
                   <button
-                    key={r}
+                    key={p}
                     type="button"
                     onClick={() => {
-                      setRange(r);
-                      if (r === 'today') setDate(todayInTz(COCKPIT_TIMEZONE));
-                      if (r === 'yesterday') setDate(yesterdayInTz(COCKPIT_TIMEZONE));
+                      setPeriod(p);
+                      if (p === 'today') setDate(todayInTz(COCKPIT_TIMEZONE));
                     }}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                      range === r 
-                        ? 'bg-[#B89D60] text-black shadow-sm' 
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-all ${
+                      period === p
+                        ? 'bg-[#B89D60] text-black shadow-sm'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     }`}
                   >
-                    {r === 'today' ? 'Today' : r === 'yesterday' ? 'Yesterday' : r === 'week' ? 'Week' : 'Month'}
+                    {cockpitPeriodLabel(p)}
                   </button>
                 ))}
               </div>
-              
-              {(range === 'week' || range === 'month') && (
+
+              {period !== 'today' && (
                 <Input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="w-40 bg-background"
+                  aria-label="End date for selected period"
                 />
               )}
-              
-              {data && (
+
+              {data?.rangeStart && data?.rangeEnd && (
                 <span className="text-sm font-medium text-muted-foreground">
-                  {range === 'today' && date}
-                  {range === 'yesterday' && date}
-                  {range === 'week' && data.rangeStart && data.rangeEnd && formatRange(data.rangeStart, data.rangeEnd, 'week')}
-                  {range === 'month' && data.rangeStart && data.rangeEnd && formatRange(data.rangeStart, data.rangeEnd, 'month')}
+                  {formatRange(data.rangeStart, data.rangeEnd, period)}
                 </span>
               )}
             </div>
@@ -702,7 +696,7 @@ export function AdminCockpitView() {
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">
-                  {range === 'today' ? 'Today' : range === 'yesterday' ? 'Yesterday' : range === 'week' ? 'This Week' : 'This Month'} Revenue
+                  {cockpitPeriodLabel(period)} Revenue
                 </p>
                 <div className="flex items-baseline gap-3">
                   <span className="text-4xl font-bold tabular-nums">${d.revenueThatDay.toFixed(0)}</span>
@@ -837,24 +831,6 @@ export function AdminCockpitView() {
                 ))}
               </div>
               
-              {/* Period selector */}
-              <div className="flex items-center rounded-lg border border-border bg-background p-1">
-                {(['7d', '90d', '3w', '12m'] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setTrendPeriod(p)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      trendPeriod === p 
-                        ? 'bg-foreground text-background' 
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                    }`}
-                  >
-                    {p === '7d' ? '7 Days' : p === '90d' ? '90 Days' : p === '3w' ? '3 Weeks' : '12 Months'}
-                  </button>
-                ))}
-              </div>
-              
               {/* Chart style */}
               <div className="flex items-center rounded-lg border border-border bg-background p-1">
                 <button
@@ -975,13 +951,9 @@ export function AdminCockpitView() {
             {selectedMetric?.label ?? ''} Details
           </CardTitle>
           <CardDescription>
-            {trendPeriod === '7d'
-              ? 'Last 7 days'
-              : trendPeriod === '90d'
-                ? 'Last 90 days'
-                : trendPeriod === '3w'
-                  ? 'Last 3 weeks'
-                  : 'Last 12 months'}
+            {data?.rangeStart && data?.rangeEnd
+              ? formatRange(data.rangeStart, data.rangeEnd, period)
+              : cockpitPeriodLabel(period)}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1235,7 +1207,7 @@ export function AdminCockpitView() {
                 <Calendar className="h-6 w-6 text-muted-foreground" />
               </div>
               <p className="text-muted-foreground">
-                No activity {range === 'today' ? `on ${formatEST(new Date(d.date + 'T12:00:00'), 'MMMM d, yyyy')}` : d.rangeStart && d.rangeEnd ? `for ${range === 'month' ? formatRange(d.rangeStart, d.rangeEnd, 'month') : formatRange(d.rangeStart, d.rangeEnd, 'week')}` : 'for this period'}.
+                No activity {d.rangeStart && d.rangeEnd ? `for ${formatRange(d.rangeStart, d.rangeEnd, period)}` : `for ${cockpitPeriodLabel(period).toLowerCase()}`}.
               </p>
               <p className="text-sm text-muted-foreground mt-1">Change the period or check back later.</p>
             </CardContent>

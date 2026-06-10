@@ -24,7 +24,9 @@ import {
 import { SESSION_FOCUS_AREAS } from '@/lib/focus-areas';
 import { formatEST } from '@/lib/format-date';
 import { coachPayoutUsd, resolveCoachPayoutRate } from '@/lib/coach-session-payout';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, MapPin } from 'lucide-react';
+import { CoachNewLocationDialog } from '@/components/coach-new-location-dialog';
+import type { CoachFacilityOption } from '@/lib/coach-facilities';
 
 type Props = {
   sessionId: string;
@@ -38,6 +40,11 @@ type Props = {
   currentParticipants: number;
   scheduledDate: string;
   scheduledTime: string;
+  facilityId?: string;
+  facilities?: CoachFacilityOption[];
+  coachId?: string;
+  /** False once the session has started or is no longer scheduled */
+  editable?: boolean;
   /** Coach UI hides org financial tools */
   formMode?: 'admin' | 'coach';
   /** Gross coach payout for this session (from bookings), if any */
@@ -63,6 +70,10 @@ export function EditSessionForm({
   currentParticipants,
   scheduledDate: initialDate,
   scheduledTime: initialTime,
+  facilityId: initialFacilityId = '',
+  facilities: initialFacilities = [],
+  coachId,
+  editable = true,
   formMode = 'admin',
   athletePayment = null,
   athletePayoutDate = null,
@@ -79,6 +90,9 @@ export function EditSessionForm({
   const [price, setPrice] = useState(String(pricePerParticipant));
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(initialTime);
+  const [facilities, setFacilities] = useState<CoachFacilityOption[]>(initialFacilities);
+  const [facilityId, setFacilityId] = useState(initialFacilityId);
+  const [newLocationOpen, setNewLocationOpen] = useState(false);
   
   // Session type presets for auto-fill
   const SESSION_PRESETS = {
@@ -163,8 +177,19 @@ export function EditSessionForm({
   const isGroup =
     sessionTypeState === 'group' || sessionTypeState === 'small_group';
 
+  const selectedFacility = facilities.find((f) => f.id === facilityId);
+
+  const handleLocationCreated = (facility: CoachFacilityOption) => {
+    setFacilities((prev) => {
+      if (prev.some((f) => f.id === facility.id)) return prev;
+      return [...prev, facility].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    setFacilityId(facility.id);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editable) return;
     setError(null);
     setLoading(true);
     try {
@@ -180,6 +205,7 @@ export function EditSessionForm({
           price_per_participant: Math.max(0, parseFloat(price) || 0),
           scheduledDate: date,
           scheduledTime: time,
+          facility_id: facilityId || null,
         }),
       });
       const data = await res.json();
@@ -202,11 +228,16 @@ export function EditSessionForm({
       <CardHeader>
         <CardTitle>Session details</CardTitle>
         <CardDescription>
-          Update date/time (Eastern), topic, who can join, max spots, and price. Only scheduled sessions can be edited.
+          Update type, date/time (Eastern), location, topic, who can join, max spots, and price until the session starts.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!editable && (
+            <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-2">
+              This session has already started or was cancelled and can no longer be edited.
+            </p>
+          )}
           {error && (
             <p className="text-sm text-destructive">{error}</p>
           )}
@@ -214,7 +245,7 @@ export function EditSessionForm({
           {/* Session Type Selector */}
           <div>
             <Label htmlFor="session-type">Session Type</Label>
-            <Select value={sessionTypeState} onValueChange={handleSessionTypeChange}>
+            <Select value={sessionTypeState} onValueChange={handleSessionTypeChange} disabled={!editable}>
               <SelectTrigger id="session-type">
                 <SelectValue placeholder="Select session type" />
               </SelectTrigger>
@@ -238,6 +269,7 @@ export function EditSessionForm({
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
+                disabled={!editable}
               />
             </div>
             <div>
@@ -248,8 +280,66 @@ export function EditSessionForm({
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 required
+                disabled={!editable}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="edit-facility">Location</Label>
+              {editable && (formMode === 'coach' || coachId) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setNewLocationOpen(true)}
+                >
+                  <MapPin className="h-3.5 w-3.5 mr-1" />
+                  New location
+                </Button>
+              )}
+            </div>
+            {facilities.length === 0 ? (
+              <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-3">
+                No saved locations. Add one with New location.
+              </p>
+            ) : (
+              <Select
+                value={facilityId || undefined}
+                onValueChange={setFacilityId}
+                disabled={!editable}
+              >
+                <SelectTrigger id="edit-facility">
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {facilities.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
+                      {f.address ? ` — ${f.address}` : f.school ? ` — ${f.school}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {selectedFacility && (
+              <div className="text-xs text-muted-foreground space-y-1 rounded-md bg-muted/40 px-3 py-2">
+                {selectedFacility.address && <p>{selectedFacility.address}</p>}
+                {selectedFacility.directions && (
+                  <p className="italic">{selectedFacility.directions}</p>
+                )}
+              </div>
+            )}
+            {(formMode === 'coach' || coachId) && (
+              <CoachNewLocationDialog
+                open={newLocationOpen}
+                onOpenChange={setNewLocationOpen}
+                onCreated={handleLocationCreated}
+                coachId={coachId}
+              />
+            )}
           </div>
 
           {/* Who Can Join */}
@@ -399,7 +489,7 @@ export function EditSessionForm({
             </div>
           )}
           <div className="flex items-center gap-4">
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !editable}>
               {loading ? 'Saving…' : 'Save changes'}
             </Button>
             {sessionStatus === 'scheduled' && (

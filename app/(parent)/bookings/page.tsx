@@ -7,6 +7,7 @@ import { getTenantByDomain } from '@/config/tenants';
 import { getParentYouthWrestlerIds } from '@/lib/parent-wrestlers';
 import { APP_TIMEZONE } from '@/lib/format-date';
 import { fetchCoachReviewStatsMap, getCoachReviewStatsForId } from '@/lib/coach-review-stats';
+import { isSessionOpenForRegistrationPayment } from '@/lib/session-payment-open';
 import { BookingCard, type BookingSession } from './booking-card';
 import { BookingsTabsClient } from './bookings-tabs-client';
 
@@ -91,6 +92,7 @@ export default async function MyBookingsPage() {
     session_participants?: Array<{
       youth_wrestler_id: string;
       amount_paid?: number | null;
+      paid?: boolean | null;
       youth_wrestlers?: { id: string; first_name: string; last_name: string } | { id: string; first_name: string; last_name: string }[] | null;
     }>;
   }>;
@@ -214,25 +216,39 @@ export default async function MyBookingsPage() {
   // Session is not "tentative" just because it's a group with open spots — once you're booked, you're confirmed
   const isTentative = (_s: (typeof all)[0]) => false;
 
-  // Amount this family paid (sum of amount_paid for their participants in this session)
-  const amountPaid = (s: (typeof all)[0]) => {
+  const familyPaymentState = (s: (typeof all)[0]) => {
     const parts = s.session_participants ?? [];
     let sum = 0;
+    let needsPayment = false;
+    let unpaidWrestlerId: string | null = null;
     for (const p of parts) {
-      const amt = (p as { amount_paid?: number | null }).amount_paid;
+      const row = p as {
+        amount_paid?: number | null;
+        paid?: boolean | null;
+        youth_wrestler_id?: string;
+      };
+      const amt = row.amount_paid;
       if (amt != null && Number(amt) > 0) sum += Number(amt);
+      if (row.paid === false && isSessionOpenForRegistrationPayment(s.status)) {
+        needsPayment = true;
+        if (!unpaidWrestlerId && row.youth_wrestler_id) unpaidWrestlerId = row.youth_wrestler_id;
+      }
     }
-    return sum;
+    return { sum, needsPayment, unpaidWrestlerId };
   };
 
   // Transform sessions for BookingCard (include facility_id, primaryWrestlerId, isOwner for Leave vs Cancel)
-  const transformSession = (s: (typeof all)[0]): BookingSession => ({
+  const transformSession = (s: (typeof all)[0]): BookingSession => {
+    const payState = familyPaymentState(s);
+    return {
     id: s.id,
     scheduled_datetime: s.scheduled_datetime,
     status: s.status,
     total_price: s.total_price,
     price_per_participant: s.price_per_participant ?? undefined,
-    amountPaid: amountPaid(s) || undefined,
+    amountPaid: payState.sum > 0 ? payState.sum : undefined,
+    needsPayment: payState.needsPayment,
+    unpaidWrestlerId: payState.unpaidWrestlerId,
     session_type: s.session_type,
     session_mode: s.session_mode,
     focus_area: s.focus_area ?? null,
@@ -251,7 +267,9 @@ export default async function MyBookingsPage() {
     wrestlers: wrestlers(s),
     primaryWrestlerId: primaryWrestlerId(s),
     hasReviewed: s.status === 'completed' ? reviewedCoachIds.has(coach(s).id) : undefined,
-  });
+    isFamilyParticipant: true,
+  };
+  };
 
   const thisWeekSessions = thisWeek.map(transformSession);
   const thisMonthSessions = thisMonth.map(transformSession);

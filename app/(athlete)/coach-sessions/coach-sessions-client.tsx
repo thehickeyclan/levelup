@@ -342,6 +342,12 @@ export function CoachSessionsClient({
                         className="min-h-[44px] touch-manipulation"
                       />
                       <Button variant="outline" size="sm" className="min-h-[44px] touch-manipulation" asChild>
+                        <Link href={`/sessions/${session.id}/reschedule`}>
+                          <CalendarClock className="h-4 w-4 mr-1" />
+                          Reschedule
+                        </Link>
+                      </Button>
+                      <Button variant="outline" size="sm" className="min-h-[44px] touch-manipulation" asChild>
                         <Link href={`/coach-sessions/${session.id}/edit`}>
                           <Pencil className="h-4 w-4 mr-1" />
                           Edit

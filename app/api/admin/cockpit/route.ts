@@ -3,27 +3,18 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
-import { startOfDay, endOfDay, subDays, subMonths } from 'date-fns';
-import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { APP_TIMEZONE } from '@/lib/format-date';
 import { COACH_REVENUE_FRACTION } from '@/lib/pricing';
-
-/** Given a date YYYY-MM-DD in Eastern, return ISO range for that calendar day (for DB queries). */
-function dayRangeInTz(dateStr: string, tz: string): { start: string; end: string } {
-  const ref = new Date(dateStr + 'T12:00:00.000Z');
-  const zoned = toZonedTime(ref, tz);
-  const startZoned = startOfDay(zoned);
-  const endZoned = endOfDay(zoned);
-  const startUTC = fromZonedTime(startZoned, tz);
-  const endUTC = fromZonedTime(endZoned, tz);
-  return {
-    start: startUTC.toISOString(),
-    end: endUTC.toISOString(),
-  };
-}
+import {
+  parseCockpitPeriod,
+  resolveCockpitRange,
+  todayYmdInTz,
+  type CockpitPeriod,
+} from '@/lib/cockpit-date-ranges';
 
 /**
- * GET /api/admin/cockpit?date=YYYY-MM-DD&range=today|week|month&trendPeriod=7d|90d|3w|12m&timezone=America/New_York
+ * GET /api/admin/cockpit?date=YYYY-MM-DD&period=today|week|month|90d|year&timezone=America/New_York
+ * Legacy: range=today|week|month and trendPeriod=7d|90d|3w|12m still accepted.
  * All dates/times are Eastern (EST/EDT). "Today" = current Eastern calendar day.
  */
 export async function GET(req: NextRequest) {
@@ -46,83 +37,31 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get('date');
+    const periodParam = searchParams.get('period');
     const rangeParam = searchParams.get('range');
     const rawTrend = searchParams.get('trendPeriod');
-    const trendPeriod: '7d' | '90d' | '3w' | '12m' =
-      rawTrend === '90d' || rawTrend === '3w' || rawTrend === '12m' ? rawTrend : '7d';
     const tz = searchParams.get('timezone') || APP_TIMEZONE;
-    // Default "today" to current date in Eastern so admins see their real day
-    const todayEastern = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+    const todayEastern = todayYmdInTz(tz);
     const date = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayEastern;
-    const range = rangeParam === 'week' || rangeParam === 'month' ? rangeParam : 'today';
+    const period: CockpitPeriod = parseCockpitPeriod(periodParam, rangeParam, rawTrend);
 
-    let rangeStart = date;
-    let rangeEnd = date;
-    if (range === 'week') {
-      const d = new Date(date + 'T12:00:00.000Z');
-      d.setUTCDate(d.getUTCDate() - 6);
-      rangeStart = d.toISOString().slice(0, 10);
-    } else if (range === 'month') {
-      const d = new Date(date + 'T12:00:00.000Z');
-      d.setUTCDate(1);
-      rangeStart = d.toISOString().slice(0, 10);
-    }
+    const {
+      rangeStart,
+      rangeEnd,
+      dayStart,
+      dayEnd,
+      trendRanges,
+    } = resolveCockpitRange(period, date, tz);
 
-    // Use Eastern (or requested tz) day boundaries so "Today" matches real signups/sessions
-    const rangeStartBounds = dayRangeInTz(rangeStart, tz);
-    const rangeEndBounds = dayRangeInTz(rangeEnd, tz);
-    const dayStart = rangeStartBounds.start;
-    const dayEnd = rangeEndBounds.end;
     const startMs = new Date(dayStart).getTime();
     const endMs = new Date(dayEnd).getTime();
 
     const admin = createAdminClient(tenant.slug);
 
-    // Trend buckets: 7d / 90d = daily, 3w = weekly, 12m = monthly
-    const trendEndDate = date;
-    let trendRanges: { start: string; end: string; label: string }[] = [];
-    if (trendPeriod === '7d' || trendPeriod === '90d') {
-      const n = trendPeriod === '7d' ? 7 : 90;
-      const days = lastNDays(trendEndDate, n);
-      trendRanges = days.map((ds) => {
-        const { start, end } = dayRangeInTz(ds, tz);
-        const label = new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: tz });
-        return { start, end, label };
-      });
-    } else if (trendPeriod === '3w') {
-      const endRef = new Date(trendEndDate + 'T12:00:00.000Z');
-      for (let i = 2; i >= 0; i--) {
-        const weekEnd = subDays(endRef, i * 7);
-        const weekStart = subDays(weekEnd, 6);
-        const startStr = weekStart.toISOString().slice(0, 10);
-        const endStr = weekEnd.toISOString().slice(0, 10);
-        const { start, end } = dayRangeInTz(startStr, tz);
-        const endRange = dayRangeInTz(endStr, tz);
-        trendRanges.push({
-          start,
-          end: endRange.end,
-          label: new Date(weekStart).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: tz }) + '–' + new Date(weekEnd).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: tz }),
-        });
-      }
-    } else {
-      // 12m: one bucket per month
-      const endRef = new Date(trendEndDate + 'T12:00:00.000Z');
-      for (let i = 11; i >= 0; i--) {
-        const m = subMonths(endRef, i);
-        const y = m.getUTCFullYear();
-        const mon = m.getUTCMonth();
-        const firstDay = `${y}-${String(mon + 1).padStart(2, '0')}-01`;
-        const lastDate = new Date(Date.UTC(y, mon + 1, 0));
-        const lastDay = `${y}-${String(mon + 1).padStart(2, '0')}-${String(lastDate.getUTCDate()).padStart(2, '0')}`;
-        const startRange = dayRangeInTz(firstDay, tz);
-        const endRange = dayRangeInTz(lastDay, tz);
-        trendRanges.push({
-          start: startRange.start,
-          end: endRange.end,
-          label: m.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: tz }),
-        });
-      }
-    }
+    // Legacy field for older clients
+    const range = period === 'week' || period === 'month' ? period : 'today';
+    const trendPeriod =
+      period === '90d' ? '90d' : period === 'year' ? '12m' : period === 'month' ? '3w' : '7d';
 
     const [
       newParentsRes,
@@ -489,6 +428,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       date,
+      period,
       range,
       rangeStart,
       rangeEnd,
@@ -524,17 +464,6 @@ export async function GET(req: NextRequest) {
     console.error('Cockpit API error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
-
-function lastNDays(untilDate: string, n: number): string[] {
-  const out: string[] = [];
-  const d = new Date(untilDate + 'T12:00:00.000Z');
-  for (let i = n - 1; i >= 0; i--) {
-    const x = new Date(d);
-    x.setUTCDate(x.getUTCDate() - i);
-    out.push(x.toISOString().slice(0, 10));
-  }
-  return out;
 }
 
 async function trendCountByRanges(

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { formatEST } from '@/lib/format-date';
+import { getCoachFacilitiesForEdit } from '@/lib/coach-facilities';
 import { EditSessionForm } from './edit-session-form';
 import { BackLink } from '@/components/back-link';
 
@@ -42,6 +43,8 @@ export default async function AdminEditSessionPage({
       athlete_payment,
       athlete_payout_date,
       session_payout_rate,
+      athlete_id,
+      facility_id,
       athletes(id, first_name, last_name, school, payout_rate),
       facilities(id, name),
       session_participants(amount_paid)
@@ -69,6 +72,11 @@ export default async function AdminEditSessionPage({
     : dbSessionType === '2-athlete' ? 'partner'
     : dbSessionType === '1-on-1' ? 'private'
     : dbSessionType || 'small_group';
+
+  const athleteId = (session as { athlete_id?: string }).athlete_id ?? '';
+  const facilityId = (session as { facility_id?: string | null }).facility_id ?? '';
+  const facilities = athleteId ? await getCoachFacilitiesForEdit(admin, athleteId, facilityId) : [];
+  const editable = (session as { status?: string }).status !== 'cancelled';
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-lg">
@@ -109,6 +117,10 @@ export default async function AdminEditSessionPage({
         }
         scheduledDate={formatEST((session as { scheduled_datetime?: string }).scheduled_datetime ?? '', 'yyyy-MM-dd')}
         scheduledTime={formatEST((session as { scheduled_datetime?: string }).scheduled_datetime ?? '', 'HH:mm')}
+        facilityId={facilityId}
+        facilities={facilities}
+        coachId={athleteId}
+        editable={editable}
       />
     </div>
   );

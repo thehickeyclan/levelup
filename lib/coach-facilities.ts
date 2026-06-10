@@ -40,3 +40,31 @@ export async function coachHasFacility(
 export function normalizeFacilityIdParam(raw: unknown): string | null {
   return normalizeUuidParam(raw);
 }
+
+export type CoachFacilityOption = {
+  id: string;
+  name: string;
+  school?: string | null;
+  address?: string | null;
+  directions?: string | null;
+};
+
+/** Facilities a coach may pick when editing a session (includes current session facility if orphaned). */
+export async function getCoachFacilitiesForEdit(
+  admin: SupabaseClient,
+  coachId: string,
+  currentFacilityId?: string | null
+): Promise<CoachFacilityOption[]> {
+  const ids = await getCoachFacilityIds(admin, coachId);
+  const merged =
+    currentFacilityId && !ids.includes(currentFacilityId) ? [...ids, currentFacilityId] : ids;
+  if (merged.length === 0) return [];
+
+  const { data, error } = await admin
+    .from('facilities')
+    .select('id, name, school, address, directions')
+    .in('id', merged)
+    .order('name');
+  if (error) return [];
+  return (data ?? []) as CoachFacilityOption[];
+}

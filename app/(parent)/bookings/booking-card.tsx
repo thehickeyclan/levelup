@@ -60,6 +60,10 @@ export type BookingSession = {
   price_per_participant?: number;
   /** What this family actually paid (from session_participants.amount_paid). Shown when set. */
   amountPaid?: number;
+  /** Family has an unpaid roster spot on a session that still accepts payment. */
+  needsPayment?: boolean;
+  /** Wrestler to preselect on the register / pay page. */
+  unpaidWrestlerId?: string | null;
   session_type?: string;
   session_mode?: string;
   /** Session focus/topic for group/small_group (e.g. "Neutral Re-Attacks"). */
@@ -234,6 +238,13 @@ export function BookingCard({
     !isPast &&
     isSessionOpenForParentBrowse(session) &&
     (session.joinPolicy === 'public' || session.joinPolicy === 'invite_only');
+
+  const payRegisterHref =
+    session.unpaidWrestlerId
+      ? `/sessions/${session.id}/register?wrestler=${encodeURIComponent(session.unpaidWrestlerId)}`
+      : `/sessions/${session.id}/register`;
+  const showPayNow =
+    variant === 'parent' && session.needsPayment === true && session.status !== 'cancelled';
   const handleLeaveSession = async () => {
     setLeaving(true);
     try {
@@ -479,6 +490,13 @@ export function BookingCard({
                     Text group
                   </Button>
                 </div>
+              )}
+              {showPayNow && (
+                <Link href={payRegisterHref} className="inline-flex w-full sm:w-auto" prefetch={false}>
+                  <Button size="sm" className="min-h-[44px] px-4 w-full sm:w-auto bg-accent text-primary hover:bg-accent/90">
+                    Pay now
+                  </Button>
+                </Link>
               )}
               {!isPast && showJoinWhenNotEnrolled && (
                 <Link href={`/sessions/${session.id}/register`} className="inline-flex" prefetch={false}>

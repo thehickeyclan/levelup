@@ -40,6 +40,7 @@ export default async function AdminEditSessionPage({
       current_participants,
       max_participants,
       price_per_participant,
+      duration_minutes,
       athlete_payment,
       athlete_payout_date,
       session_payout_rate,
@@ -117,6 +118,7 @@ export default async function AdminEditSessionPage({
         }
         scheduledDate={formatEST((session as { scheduled_datetime?: string }).scheduled_datetime ?? '', 'yyyy-MM-dd')}
         scheduledTime={formatEST((session as { scheduled_datetime?: string }).scheduled_datetime ?? '', 'HH:mm')}
+        durationMinutes={(session as { duration_minutes?: number }).duration_minutes ?? 60}
         facilityId={facilityId}
         facilities={facilities}
         coachId={athleteId}

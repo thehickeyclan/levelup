@@ -40,6 +40,7 @@ type Props = {
   currentParticipants: number;
   scheduledDate: string;
   scheduledTime: string;
+  durationMinutes?: number;
   facilityId?: string;
   facilities?: CoachFacilityOption[];
   coachId?: string;
@@ -70,6 +71,7 @@ export function EditSessionForm({
   currentParticipants,
   scheduledDate: initialDate,
   scheduledTime: initialTime,
+  durationMinutes: initialDurationMinutes = 60,
   facilityId: initialFacilityId = '',
   facilities: initialFacilities = [],
   coachId,
@@ -90,6 +92,9 @@ export function EditSessionForm({
   const [price, setPrice] = useState(String(pricePerParticipant));
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(initialTime);
+  const [durationMinutes, setDurationMinutes] = useState(
+    [45, 60, 90].includes(initialDurationMinutes) ? initialDurationMinutes : 60
+  );
   const [facilities, setFacilities] = useState<CoachFacilityOption[]>(initialFacilities);
   const [facilityId, setFacilityId] = useState(initialFacilityId);
   const [newLocationOpen, setNewLocationOpen] = useState(false);
@@ -191,6 +196,11 @@ export function EditSessionForm({
     e.preventDefault();
     if (!editable) return;
     setError(null);
+    const maxNum = Math.min(20, Math.max(1, parseInt(max, 10) || 2));
+    if (maxNum < currentParticipants) {
+      setError(`Max participants cannot be less than ${currentParticipants} already registered`);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/sessions/${sessionId}`, {
@@ -201,10 +211,11 @@ export function EditSessionForm({
           focus_area: focus.trim() || null,
           focus_area_2: focus2.trim() || null,
           join_policy: join,
-          max_participants: Math.min(20, Math.max(1, parseInt(max, 10) || 2)),
+          max_participants: maxNum,
           price_per_participant: Math.max(0, parseFloat(price) || 0),
           scheduledDate: date,
           scheduledTime: time,
+          duration_minutes: durationMinutes,
           facility_id: facilityId || null,
         }),
       });
@@ -228,14 +239,14 @@ export function EditSessionForm({
       <CardHeader>
         <CardTitle>Session details</CardTitle>
         <CardDescription>
-          Update type, date/time (Eastern), location, topic, who can join, max spots, and price until the session starts.
+          Update type, date/time (Eastern), duration, location, topic, who can join, max spots, and price for scheduled sessions.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {!editable && (
             <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-2">
-              This session has already started or was cancelled and can no longer be edited.
+              Only scheduled sessions can be edited. This session is completed or cancelled.
             </p>
           )}
           {error && (
@@ -283,6 +294,24 @@ export function EditSessionForm({
                 disabled={!editable}
               />
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="edit-duration">Duration</Label>
+            <Select
+              value={String(durationMinutes)}
+              onValueChange={(v) => setDurationMinutes(Number(v))}
+              disabled={!editable}
+            >
+              <SelectTrigger id="edit-duration">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="45">45 min</SelectItem>
+                <SelectItem value="60">60 min</SelectItem>
+                <SelectItem value="90">90 min</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
@@ -345,7 +374,11 @@ export function EditSessionForm({
           {/* Who Can Join */}
           <div>
             <Label htmlFor="join">Who Can Join</Label>
-            <Select value={join === 'private' ? 'invite_only' : join} onValueChange={(v) => setJoin(v as Props['joinPolicy'])}>
+            <Select
+              value={join === 'private' ? 'invite_only' : join}
+              onValueChange={(v) => setJoin(v as Props['joinPolicy'])}
+              disabled={!editable}
+            >
               <SelectTrigger id="join">
                 <SelectValue />
               </SelectTrigger>
@@ -359,14 +392,17 @@ export function EditSessionForm({
           {/* Published Status */}
           <div>
             <Label htmlFor="published">Published</Label>
-            <Select value={join === 'private' ? 'no' : 'yes'} onValueChange={(v) => {
-              if (v === 'no') {
-                setJoin('private');
-              } else {
-                // Keep current join policy or default to public
-                if (join === 'private') setJoin('public');
-              }
-            }}>
+            <Select
+              value={join === 'private' ? 'no' : 'yes'}
+              onValueChange={(v) => {
+                if (v === 'no') {
+                  setJoin('private');
+                } else if (join === 'private') {
+                  setJoin('public');
+                }
+              }}
+              disabled={!editable}
+            >
               <SelectTrigger id="published">
                 <SelectValue />
               </SelectTrigger>
@@ -389,7 +425,7 @@ export function EditSessionForm({
             <>
               <div>
                 <Label htmlFor="focus">Topic / focus (1)</Label>
-                <Select value={focus || 'none'} onValueChange={(v) => setFocus(v === 'none' ? '' : v)}>
+                <Select value={focus || 'none'} onValueChange={(v) => setFocus(v === 'none' ? '' : v)} disabled={!editable}>
                   <SelectTrigger id="focus">
                     <SelectValue placeholder="e.g. Takedowns, Escapes" />
                   </SelectTrigger>
@@ -405,7 +441,7 @@ export function EditSessionForm({
               </div>
               <div>
                 <Label htmlFor="focus2">Topic / focus (2) — optional</Label>
-                <Select value={focus2 || 'none'} onValueChange={(v) => setFocus2(v === 'none' ? '' : v)}>
+                <Select value={focus2 || 'none'} onValueChange={(v) => setFocus2(v === 'none' ? '' : v)} disabled={!editable}>
                   <SelectTrigger id="focus2">
                     <SelectValue placeholder="Second topic" />
                   </SelectTrigger>
@@ -433,10 +469,11 @@ export function EditSessionForm({
                   <Input
                     id="max"
                     type="number"
-                    min={2}
+                    min={Math.max(2, currentParticipants)}
                     max={20}
                     value={max}
                     onChange={(e) => setMax(e.target.value)}
+                    disabled={!editable}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Currently {currentParticipants} registered
@@ -451,6 +488,7 @@ export function EditSessionForm({
                     step={0.01}
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
+                    disabled={!editable}
                   />
                 </div>
               </div>
@@ -463,7 +501,11 @@ export function EditSessionForm({
                 <Input
                   id="max-other"
                   type="number"
-                  min={sessionTypeState === 'private' ? 1 : 2}
+                  min={
+                    sessionTypeState === 'private'
+                      ? Math.max(1, currentParticipants)
+                      : Math.max(2, currentParticipants)
+                  }
                   max={
                     sessionTypeState === 'partner'
                       ? 2
@@ -473,6 +515,7 @@ export function EditSessionForm({
                   }
                   value={max}
                   onChange={(e) => setMax(e.target.value)}
+                  disabled={!editable}
                 />
               </div>
               <div>
@@ -484,6 +527,7 @@ export function EditSessionForm({
                   step={0.01}
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
+                  disabled={!editable}
                 />
               </div>
             </div>

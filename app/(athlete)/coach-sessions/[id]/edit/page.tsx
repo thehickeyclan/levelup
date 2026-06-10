@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { formatEST } from '@/lib/format-date';
 import { getCoachFacilitiesForEdit } from '@/lib/coach-facilities';
-import { isSessionEditableBeforeStart } from '@/lib/session-editable';
+import { isScheduledSessionEditable } from '@/lib/session-editable';
 import { EditSessionForm } from '@/app/(admin)/admin/sessions/[id]/edit/edit-session-form';
 import { BackLink } from '@/components/back-link';
 
@@ -57,6 +57,7 @@ export default async function CoachEditSessionPage({
       current_participants,
       max_participants,
       price_per_participant,
+      duration_minutes,
       athlete_payment,
       athlete_payout_date,
       session_payout_rate,
@@ -105,10 +106,7 @@ export default async function CoachEditSessionPage({
   const facilityId = (session as { facility_id?: string | null }).facility_id ?? '';
   const ownerCoachId = athleteId ?? user.id;
   const facilities = await getCoachFacilitiesForEdit(admin, ownerCoachId, facilityId);
-  const editable = isSessionEditableBeforeStart({
-    status: (session as { status?: string }).status ?? '',
-    scheduled_datetime: (session as { scheduled_datetime?: string }).scheduled_datetime ?? '',
-  });
+  const editable = isScheduledSessionEditable((session as { status?: string }).status ?? '');
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-lg">
@@ -154,6 +152,7 @@ export default async function CoachEditSessionPage({
         }
         scheduledDate={formatEST((session as { scheduled_datetime?: string }).scheduled_datetime ?? '', 'yyyy-MM-dd')}
         scheduledTime={formatEST((session as { scheduled_datetime?: string }).scheduled_datetime ?? '', 'HH:mm')}
+        durationMinutes={(session as { duration_minutes?: number }).duration_minutes ?? 60}
         facilityId={facilityId}
         facilities={facilities}
         coachId={ownerCoachId}

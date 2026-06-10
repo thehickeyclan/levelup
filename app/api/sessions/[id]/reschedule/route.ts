@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { easternWallDateTimeToUtcIso } from '@/lib/format-date';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
-import { isSessionEditableBeforeStart, SESSION_NOT_EDITABLE_ERROR } from '@/lib/session-editable';
+import { isSessionEditableBeforeStart, SESSION_NOT_RESCHEDULABLE_ERROR } from '@/lib/session-editable';
 import { notifyParentsSessionTimeChange } from '@/lib/notify-session-reschedule';
 
 export async function PATCH(
@@ -89,7 +89,7 @@ export async function PATCH(
     }
 
     if (!isSessionEditableBeforeStart(session)) {
-      return NextResponse.json({ error: SESSION_NOT_EDITABLE_ERROR }, { status: 400 });
+      return NextResponse.json({ error: SESSION_NOT_RESCHEDULABLE_ERROR }, { status: 400 });
     }
 
     try {

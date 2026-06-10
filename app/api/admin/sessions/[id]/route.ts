@@ -7,7 +7,7 @@ import { easternWallDateTimeToUtcIso } from '@/lib/format-date';
 import { notifySessionScheduledFollowers } from '@/lib/notify-session-scheduled-followers';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
 import { coachHasFacility, normalizeFacilityIdParam } from '@/lib/coach-facilities';
-import { isSessionEditableBeforeStart, SESSION_NOT_EDITABLE_ERROR } from '@/lib/session-editable';
+import { isScheduledSessionEditable, SESSION_NOT_EDITABLE_ERROR } from '@/lib/session-editable';
 import {
   notifyParentsSessionFacilityChange,
   notifyParentsSessionTimeChange,
@@ -45,6 +45,7 @@ export async function PATCH(
       price_per_participant?: number;
       scheduledDate?: string;
       scheduledTime?: string;
+      duration_minutes?: number;
       facility_id?: string | null;
       published?: boolean;
     };
@@ -68,6 +69,7 @@ export async function PATCH(
         scheduled_datetime,
         partner_invite_code,
         duration_minutes,
+        current_participants,
         facility_id,
         facilities(name),
         athletes(first_name, last_name)
@@ -92,7 +94,7 @@ export async function PATCH(
       );
     }
 
-    if (isCoach && !isSessionEditableBeforeStart(session)) {
+    if (isCoach && !isScheduledSessionEditable(session.status)) {
       return NextResponse.json({ error: SESSION_NOT_EDITABLE_ERROR }, { status: 400 });
     }
 
@@ -143,6 +145,13 @@ export async function PATCH(
       if (effectiveType === '2-athlete') {
         max = 2;
       }
+      const enrolled = Number(session.current_participants) || 0;
+      if (max < enrolled) {
+        return NextResponse.json(
+          { error: `Max participants cannot be less than ${enrolled} already registered` },
+          { status: 400 }
+        );
+      }
       updates.max_participants = max;
     }
     if (body.session_type === 'partner') {
@@ -151,6 +160,13 @@ export async function PATCH(
     if (body.price_per_participant !== undefined) {
       const price = Math.max(0, Number(body.price_per_participant) ?? 0);
       updates.price_per_participant = price;
+    }
+    if (body.duration_minutes !== undefined) {
+      const duration = Number(body.duration_minutes);
+      if (![45, 60, 90].includes(duration)) {
+        return NextResponse.json({ error: 'Duration must be 45, 60, or 90 minutes' }, { status: 400 });
+      }
+      updates.duration_minutes = duration;
     }
     if (body.facility_id !== undefined) {
       const fid = normalizeFacilityIdParam(body.facility_id);
@@ -180,14 +196,25 @@ export async function PATCH(
       if (Number.isNaN(newDt.getTime())) {
         return NextResponse.json({ error: 'Invalid date or time' }, { status: 400 });
       }
-      if (newDt <= new Date()) {
-        return NextResponse.json({ error: 'Session time must be in the future' }, { status: 400 });
-      }
+      newScheduledIso = newIso;
+      updates.scheduled_datetime = newIso;
+    }
+
+    const effectiveDuration =
+      (updates.duration_minutes as number | undefined) ?? session.duration_minutes;
+    const effectiveStartIso =
+      newScheduledIso ?? (session.scheduled_datetime as string);
+    const scheduleChanged =
+      newScheduledIso != null ||
+      (body.duration_minutes !== undefined &&
+        body.duration_minutes !== session.duration_minutes);
+
+    if (scheduleChanged && effectiveStartIso) {
       try {
         const conflict = await findCoachSessionTimeOverlap(admin, {
           coachAthleteId: session.athlete_id,
-          scheduledStartIso: newIso,
-          durationMinutes: session.duration_minutes,
+          scheduledStartIso: effectiveStartIso,
+          durationMinutes: effectiveDuration,
           excludeSessionId: sessionId,
         });
         if (conflict) {
@@ -197,8 +224,6 @@ export async function PATCH(
         console.error('[admin session PATCH] coach overlap check', overlapErr);
         return NextResponse.json({ error: 'Could not verify schedule availability' }, { status: 500 });
       }
-      newScheduledIso = newIso;
-      updates.scheduled_datetime = newIso;
     }
     
     // published column doesn't exist in DB - skip this logic

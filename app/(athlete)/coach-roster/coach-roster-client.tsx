@@ -238,7 +238,7 @@ export function CoachRosterClient({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Numbers come from what families saved in LevelUp. Same cell twice only appears once. Paste into Messages{' '}
+          Numbers come from what families saved in The Guild. Same cell twice only appears once. Paste into Messages{' '}
           <strong className="text-foreground/90">To</strong> — one number per line (not commas). The gold button is every
           parent number for weekly texts.
         </p>

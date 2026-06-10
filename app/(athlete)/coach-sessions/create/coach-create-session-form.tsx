@@ -13,13 +13,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Check, Plus, X, Share2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, Plus, X, Share2, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
 import { SESSION_FOCUS_AREAS } from '@/lib/focus-areas';
 import type { CoachCreateSessionType } from '@/lib/coach-session-pricing';
 import { COACH_SESSION_FALLBACK_USD } from '@/lib/coach-session-pricing';
+import {
+  CoachNewLocationDialog,
+  type CoachLocationOption,
+} from '@/components/coach-new-location-dialog';
 
-type Facility = { id: string; name: string; school: string; address?: string | null };
+type Facility = CoachLocationOption;
 
 /** Format only — price comes from recommendedPrices (rate card) with coach override in the price field */
 const SESSION_FORMAT = {
@@ -34,7 +38,7 @@ type DateTimeEntry = { date: string; time: string };
 export function CoachCreateSessionForm({
   coachId,
   coachName,
-  facilities,
+  facilities: initialFacilities,
   recommendedPrices,
 }: {
   coachId: string;
@@ -42,9 +46,11 @@ export function CoachCreateSessionForm({
   facilities: Facility[];
   recommendedPrices: Record<SessionTypeKey, number>;
 }) {
+  const [facilities, setFacilities] = useState<Facility[]>(initialFacilities);
+  const [newLocationOpen, setNewLocationOpen] = useState(false);
   const [sessionType, setSessionType] = useState<SessionTypeKey>('small_group');
   const [joinPolicy, setJoinPolicy] = useState<'public' | 'invite_only'>('public');
-  const [facilityId, setFacilityId] = useState(facilities[0]?.id || '');
+  const [facilityId, setFacilityId] = useState(initialFacilities[0]?.id || '');
   const [dateTimes, setDateTimes] = useState<DateTimeEntry[]>([{ date: '', time: '' }]);
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [maxParticipants, setMaxParticipants] = useState(6);
@@ -72,6 +78,17 @@ export function CoachCreateSessionForm({
   }, []);
 
   const focusOptions = focusAreaList.length > 0 ? focusAreaList : [...SESSION_FOCUS_AREAS];
+  const selectedFacility = facilities.find((f) => f.id === facilityId);
+
+  const handleLocationCreated = (facility: Facility) => {
+    setFacilities((prev) => {
+      if (prev.some((f) => f.id === facility.id)) {
+        return prev.map((f) => (f.id === facility.id ? facility : f));
+      }
+      return [...prev, facility].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    setFacilityId(facility.id);
+  };
 
   const handleSessionTypeChange = (type: SessionTypeKey) => {
     setSessionType(type);
@@ -111,7 +128,11 @@ export function CoachCreateSessionForm({
     
     const validDateTimes = dateTimes.filter(dt => dt.date && dt.time);
     if (!facilityId || validDateTimes.length === 0) {
-      setError('Please select facility and at least one date/time.');
+      setError(
+        facilities.length === 0
+          ? 'Add a location, then pick at least one date/time.'
+          : 'Please select a location and at least one date/time.'
+      );
       return;
     }
     
@@ -261,21 +282,54 @@ export function CoachCreateSessionForm({
               </Select>
             </div>
 
-            <div>
-              <Label>Facility</Label>
-              <Select value={facilityId} onValueChange={setFacilityId} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select facility" />
-                </SelectTrigger>
-                <SelectContent>
-                  {facilities.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.name}
-                      {f.school ? ` — ${f.school}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Location</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setNewLocationOpen(true)}
+                >
+                  <MapPin className="h-3.5 w-3.5 mr-1" />
+                  New location
+                </Button>
+              </div>
+              {facilities.length === 0 ? (
+                <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-3">
+                  No saved locations yet. Tap <span className="font-medium text-foreground">New location</span> to
+                  add where this session will be held.
+                </p>
+              ) : (
+                <Select value={facilityId} onValueChange={setFacilityId} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {facilities.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                        {f.address ? ` — ${f.address}` : f.school ? ` — ${f.school}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {selectedFacility && (
+                <div className="text-xs text-muted-foreground space-y-1 rounded-md bg-muted/40 px-3 py-2">
+                  {selectedFacility.address && <p>{selectedFacility.address}</p>}
+                  {selectedFacility.directions && (
+                    <p className="italic">{selectedFacility.directions}</p>
+                  )}
+                </div>
+              )}
+              <CoachNewLocationDialog
+                open={newLocationOpen}
+                onOpenChange={setNewLocationOpen}
+                onCreated={handleLocationCreated}
+                coachId={coachId}
+              />
             </div>
 
             <div>

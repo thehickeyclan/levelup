@@ -1,0 +1,21 @@
+# The Guild branding (not LevelUp)
+
+User-facing product copy must say **The Guild** — never **LevelUp**, **Level Up**, or **level up** as the product name.
+
+## Applies to
+
+- UI strings, page titles, metadata, SMS/email copy, notifications, error messages shown to users
+- Coach/parent/admin surfaces, PWA install prompts (use `tenant.productName` / `tenant.orgName` from `config/tenants.ts`)
+
+## Does not apply to
+
+- Internal cookie keys, localStorage keys, npm package name, repo folder name, SQL seed test emails
+- Docs/scripts unless they are user-facing help content
+
+## SMS
+
+Outbound SMS bodies are prefixed with `The Guild: ` in `lib/twilio.ts` — do not add a second brand name in templates.
+
+## Default
+
+When unsure, use **The Guild** or pull from tenant config (`productName` is `"The Guild"` for the guild tenant).

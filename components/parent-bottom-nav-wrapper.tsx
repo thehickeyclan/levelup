@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/use-auth';
 import { ParentBottomNav } from './parent-bottom-nav';
@@ -36,8 +37,6 @@ const YOUTH_WRESTLER_ROUTES = [
   '/notifications',
 ];
 
-const ADMIN_ROUTES = ['/dashboard', '/admin', '/account'];
-
 function isCoachRoute(pathname: string | null): boolean {
   if (!pathname) return false;
   return COACH_ROUTES.some(
@@ -58,9 +57,8 @@ function isYouthWrestlerRoute(pathname: string | null): boolean {
 
 function isAdminRoute(pathname: string | null): boolean {
   if (!pathname) return false;
-  return ADMIN_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(route + '/')
-  );
+  if (pathname === '/account' || pathname.startsWith('/account/')) return true;
+  return pathname === '/admin' || pathname.startsWith('/admin/');
 }
 
 /** One menu system on mobile: bottom nav for everyone (parent, coach, youth_wrestler, admin). */
@@ -94,7 +92,11 @@ export function ParentBottomNavWrapper({ children }: { children: React.ReactNode
       {showParentNav && <ParentBottomNav />}
       {showCoachNav && <CoachBottomNav />}
       {showYouthNav && <YouthWrestlerBottomNav />}
-      {showAdminNav && <AdminBottomNav />}
+      {showAdminNav && (
+        <Suspense fallback={null}>
+          <AdminBottomNav />
+        </Suspense>
+      )}
     </>
   );
 }

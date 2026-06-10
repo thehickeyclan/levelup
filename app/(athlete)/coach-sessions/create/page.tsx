@@ -6,6 +6,7 @@ import { getTenantByDomain } from '@/config/tenants';
 import { BackLink } from '@/components/back-link';
 import { CoachCreateSessionForm } from './coach-create-session-form';
 import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
+import { getCoachFacilityIds } from '@/lib/coach-facilities';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,25 +43,21 @@ export default async function CoachCreateSessionPage() {
     redirect('/onboarding');
   }
 
-  // Get coach's facilities (primary + secondary)
-  const facilityIds = [athlete.facility_id, athlete.secondary_facility_id].filter(Boolean) as string[];
-  
-  let facilities: Array<{ id: string; name: string; school: string; address?: string | null }> = [];
+  const facilityIds = await getCoachFacilityIds(admin, coachId);
+  let facilities: Array<{
+    id: string;
+    name: string;
+    school: string;
+    address?: string | null;
+    directions?: string | null;
+  }> = [];
   if (facilityIds.length > 0) {
     const { data: coachFacilities } = await admin
       .from('facilities')
       .select('id, name, school, address')
-      .in('id', facilityIds);
-    facilities = coachFacilities ?? [];
-  }
-
-  // If coach has no facilities, get all facilities as fallback
-  if (facilities.length === 0) {
-    const { data: allFacilities } = await admin
-      .from('facilities')
-      .select('id, name, school, address')
+      .in('id', facilityIds)
       .order('name');
-    facilities = allFacilities ?? [];
+    facilities = coachFacilities ?? [];
   }
 
   const coachName = [athlete.first_name, athlete.last_name].filter(Boolean).join(' ') || 'Coach';

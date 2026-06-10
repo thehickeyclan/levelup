@@ -50,8 +50,6 @@ import {
   TrendingDown,
   Star,
   ChevronRight,
-  Menu,
-  X,
   Trophy,
   ArrowUpDown,
   ChevronUp,
@@ -493,7 +491,6 @@ export function AdminDashboardClient({
   
   const [section, setSection] = useState<SectionId>(sectionParam || 'overview');
   const [subSection, setSubSection] = useState<SubSectionId>(subParam || 'dashboard');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const [markingAthleteId, setMarkingAthleteId] = useState<string | null>(null);
   const [recordingAthleteId, setRecordingAthleteId] = useState<string | null>(null);
@@ -930,21 +927,33 @@ export function AdminDashboardClient({
   const [kidsLoading, setKidsLoading] = useState(false);
   const [linkingKidId, setLinkingKidId] = useState<string | null>(null);
 
-  // Navigation change handler
-  const handleNavChange = (newSection: SectionId, newSubSection?: SubSectionId) => {
-    setSection(newSection);
-    if (newSubSection) {
-      setSubSection(newSubSection);
-    } else {
-      // Set default sub-section for each section
-      switch (newSection) {
-        case 'overview': setSubSection('dashboard'); break;
-        case 'bookings': setSubSection('sessions'); break;
-        case 'money': setSubSection('payments'); break;
-        case 'people': setSubSection('coaches'); break;
-      }
+  const defaultSubForSection = (s: SectionId): SubSectionId => {
+    switch (s) {
+      case 'overview':
+        return 'dashboard';
+      case 'bookings':
+        return 'sessions';
+      case 'money':
+        return 'payments';
+      case 'people':
+        return 'coaches';
     }
-    setMobileMenuOpen(false);
+  };
+
+  useEffect(() => {
+    const s = (sectionParam as SectionId | null) || 'overview';
+    const sub = (subParam as SubSectionId | null) || defaultSubForSection(s);
+    setSection(s);
+    setSubSection(sub);
+  }, [sectionParam, subParam]);
+
+  // Navigation change handler — keep URL in sync for mobile bottom nav
+  const handleNavChange = (newSection: SectionId, newSubSection?: SubSectionId) => {
+    const sub = newSubSection ?? defaultSubForSection(newSection);
+    const params = new URLSearchParams();
+    params.set('section', newSection);
+    params.set('sub', sub);
+    router.push(`/admin?${params.toString()}`, { scroll: false });
   };
 
   const setPresetThisWeek = () => {
@@ -5797,21 +5806,8 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
-      {/* Mobile Menu Toggle */}
-      <button
-        className="lg:hidden fixed bottom-4 right-4 z-50 p-3 rounded-full bg-[#B89D60] text-black shadow-lg"
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-      >
-        {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </button>
-
-      {/* Sidebar Navigation */}
-      <aside className={`
-        fixed lg:sticky top-0 left-0 z-40 h-screen lg:h-auto
-        w-64 bg-card border-r border-border
-        transform transition-transform duration-200 ease-in-out
-        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+      {/* Sidebar Navigation — desktop only; mobile uses bottom nav */}
+      <aside className="hidden lg:block sticky top-0 w-64 shrink-0 bg-card border-r border-border h-[calc(100vh-4rem)]">
         <div className="p-4 space-y-6 h-full overflow-y-auto">
           {/* Create Session Button */}
           <Link href="/admin/sessions/create" className="block">
@@ -5967,16 +5963,8 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
         </div>
       </aside>
 
-      {/* Mobile Overlay */}
-      {mobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
       {/* Main Content */}
-      <main className="flex-1 p-6 lg:p-8 overflow-x-hidden">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden min-w-0">
         {textGroupAdminSession && (
           <CoachTextGroupDialog
             sessionId={textGroupAdminSession.id}

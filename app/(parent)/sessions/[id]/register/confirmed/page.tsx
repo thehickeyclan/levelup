@@ -69,7 +69,9 @@ export default async function SessionRegisterConfirmedPage({
   const athletesRaw = session.athletes as unknown;
   const athlete: AthleteRow | null = Array.isArray(athletesRaw) ? (athletesRaw[0] as AthleteRow) ?? null : (athletesRaw as AthleteRow | null);
   const facilitiesRaw = session.facilities as unknown;
-  const facility: { id: string; name?: string; address?: string } | null = Array.isArray(facilitiesRaw) ? (facilitiesRaw[0] as { id: string; name?: string; address?: string }) ?? null : (facilitiesRaw as { id: string; name?: string; address?: string } | null);
+  const facility: { id: string; name?: string; address?: string } | null = Array.isArray(facilitiesRaw)
+    ? (facilitiesRaw[0] as { id: string; name?: string; address?: string }) ?? null
+    : (facilitiesRaw as { id: string; name?: string; address?: string } | null);
   const coachName = athlete
     ? `${athlete.first_name ?? ''} ${athlete.last_name ?? ''}`.trim() || 'Your coach'
     : 'Your coach';

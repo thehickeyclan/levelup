@@ -444,7 +444,9 @@ export async function POST(
     const confirmToken = createRegisterConfirmationToken(sessionId);
     // stripe_cs lets the confirmed page finalize the DB row if the webhook is slow (fixes missing Home/bookings).
     const successUrl = `${stripeRedirectOrigin}/sessions/${sessionId}/register/confirmed?t=${encodeURIComponent(confirmToken)}&stripe_cs={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = req.headers.get('referer') || `${stripeRedirectOrigin}/training`;
+    const cancelUrl = partnerInviteCodeNorm
+      ? `${stripeRedirectOrigin}/join/${partnerInviteCodeNorm}`
+      : `${stripeRedirectOrigin}/sessions/${sessionId}/register`;
 
     const dt = s.scheduled_datetime ? new Date(s.scheduled_datetime) : null;
     let desc = dt
@@ -508,7 +510,10 @@ export async function POST(
      * with different parameters — e.g. user applies a promo after a first attempt → 500 without this.
      */
     const idempotencyKey =
-      `reg-${sessionId}-${youthWrestlerId}-${user.id}-${amountCents}-c${Math.round(creditsToUse * 100)}`.slice(0, 255);
+      `reg-${sessionId}-${youthWrestlerId}-${user.id}-${amountCents}-c${Math.round(creditsToUse * 100)}-p${Math.round(percentOff)}`.slice(
+        0,
+        255
+      );
 
     const stripeSession = await stripe.checkout.sessions.create(
       {
@@ -557,10 +562,15 @@ export async function POST(
   } catch (e) {
     const err = e as Error & { type?: string; message?: string };
     console.error('Session register API error:', err?.message ?? e, err);
-    const msg =
-      typeof err?.message === 'string' && err.message.length > 0 && err.message.length < 400
-        ? err.message
+    const raw =
+      typeof err?.message === 'string' && err.message.length > 0 ? err.message : '';
+    const isIdempotency =
+      raw.includes('idempotent') || raw.includes('Idempotency');
+    const msg = isIdempotency
+      ? 'Checkout is still processing from your last attempt. Wait a moment and tap Pay again.'
+      : raw.length > 0 && raw.length < 400
+        ? raw
         : 'Internal server error';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: isIdempotency ? 409 : 500 });
   }
 }

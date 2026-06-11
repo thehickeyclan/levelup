@@ -9,9 +9,13 @@ function sign(sessionId: string, expiryUnix: number): string {
   return `${expiryUnix}.${hmac}`;
 }
 
-/** Generate a short-lived token to allow viewing the register-confirmed page after Stripe redirect (e.g. if auth cookie is lost). */
+/**
+ * Generate a short-lived token for the register-confirmed page after Stripe redirect.
+ * Expiry is bucketed to TTL_SEC windows so Stripe idempotency retries reuse the same success_url.
+ */
 export function createRegisterConfirmationToken(sessionId: string): string {
-  const expiryUnix = Math.floor(Date.now() / 1000) + TTL_SEC;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const expiryUnix = Math.floor(nowSec / TTL_SEC) * TTL_SEC + TTL_SEC;
   return sign(sessionId, expiryUnix);
 }
 

@@ -24,6 +24,8 @@ type CartContextType = {
   addItem: (session: CartSession) => void;
   removeItem: (lineId: string) => void;
   clearCart: () => void;
+  /** Replace cart with an exact set of lines (e.g. multi-session package link). */
+  replaceAllItems: (sessions: CartSession[]) => void;
   isInCart: (sessionId: string) => boolean;
   /** Number of cart lines for this session (e.g. 2 kids = 2) */
   sessionLineCount: (sessionId: string) => number;
@@ -195,6 +197,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems([]);
   }, []);
 
+  const replaceAllItems = useCallback((sessions: CartSession[]) => {
+    const next = sessions.map((s) => ensureLineId({ ...s, lineId: s.lineId || crypto.randomUUID() }));
+    setItems(next);
+    try {
+      sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const isInCart = useCallback(
     (sessionId: string) => items.some((item) => item.id === sessionId),
     [items]
@@ -221,6 +233,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         addItem,
         removeItem,
         clearCart,
+        replaceAllItems,
         isInCart,
         sessionLineCount,
         setAthleteForItem,

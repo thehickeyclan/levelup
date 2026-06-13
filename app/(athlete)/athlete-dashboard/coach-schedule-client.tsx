@@ -138,31 +138,40 @@ export function CoachScheduleClient({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <CoachScheduleWelcomeBanner
         coachFirstName={coachFirstName}
         calendarLastUpdatedAt={calendarLastUpdatedAt}
       />
 
       <Tabs value={tab} onValueChange={(v) => goTab(v as ScheduleTab)} className="w-full">
-        <TabsList className="w-full grid grid-cols-3 h-11 p-1 bg-muted/60">
-          <TabsTrigger value="upcoming" className="min-h-[40px] touch-manipulation text-sm">
+        <TabsList className="w-full grid grid-cols-3 h-10 p-0.5 rounded-lg bg-zinc-900/60 border border-border/60">
+          <TabsTrigger
+            value="upcoming"
+            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-[#D4AF37]/15 data-[state=active]:text-[#D4AF37] data-[state=active]:shadow-none"
+          >
             Upcoming
           </TabsTrigger>
-          <TabsTrigger value="past" className="min-h-[40px] touch-manipulation text-sm">
+          <TabsTrigger
+            value="past"
+            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-[#D4AF37]/15 data-[state=active]:text-[#D4AF37] data-[state=active]:shadow-none"
+          >
             Past
           </TabsTrigger>
-          <TabsTrigger value="requests" className="min-h-[40px] touch-manipulation text-sm relative">
+          <TabsTrigger
+            value="requests"
+            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-[#D4AF37]/15 data-[state=active]:text-[#D4AF37] data-[state=active]:shadow-none relative"
+          >
             Requests
             {pendingCount > 0 ? (
-              <span className="ml-1.5 inline-flex min-w-[18px] h-[18px] px-1 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-black">
+              <span className="ml-1 inline-flex min-w-[16px] h-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-black">
                 {pendingCount > 99 ? '99+' : pendingCount}
               </span>
             ) : null}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="upcoming" className="mt-4 space-y-6">
+        <TabsContent value="upcoming" className="mt-3 space-y-4">
           {today.length > 0 && (
             <section className="space-y-3" aria-label="Today">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

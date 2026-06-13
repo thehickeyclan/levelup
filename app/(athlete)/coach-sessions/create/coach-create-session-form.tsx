@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/select';
 import { Check, Plus, X, Share2, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
-import { SESSION_FOCUS_AREAS } from '@/lib/focus-areas';
 import type { CoachCreateSessionType } from '@/lib/coach-session-pricing';
 import { COACH_SESSION_FALLBACK_USD } from '@/lib/coach-session-pricing';
 import {
@@ -55,8 +54,6 @@ export function CoachCreateSessionForm({
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [maxParticipants, setMaxParticipants] = useState(6);
   const [pricePerParticipant, setPricePerParticipant] = useState(() => recommendedPrices.small_group);
-  const [focusArea, setFocusArea] = useState('');
-  const [focusArea2, setFocusArea2] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,17 +64,8 @@ export function CoachCreateSessionForm({
     pricePerParticipant: number;
   }>>([]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-  const [focusAreaList, setFocusAreaList] = useState<string[]>([]);
   const [moreOpen, setMoreOpen] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/focus-areas')
-      .then((r) => r.json())
-      .then((data) => data.focusAreas && data.focusAreas.length > 0 && setFocusAreaList(data.focusAreas))
-      .catch(() => {});
-  }, []);
-
-  const focusOptions = focusAreaList.length > 0 ? focusAreaList : [...SESSION_FOCUS_AREAS];
   const selectedFacility = facilities.find((f) => f.id === facilityId);
 
   const handleLocationCreated = (facility: Facility) => {
@@ -154,8 +142,6 @@ export function CoachCreateSessionForm({
             pricePerParticipant,
             sessionType,
             joinPolicy,
-            focusArea: focusArea || undefined,
-            focusArea2: focusArea2 || undefined,
           }),
         });
         const data = await res.json();
@@ -416,37 +402,7 @@ export function CoachCreateSessionForm({
               </button>
               {moreOpen && (
                 <div className="space-y-4 px-3 pb-3 pt-0 border-t border-border/80">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
-                    <div>
-                      <Label>Focus</Label>
-                      <Select value={focusArea || '__none__'} onValueChange={(v) => setFocusArea(v === '__none__' ? '' : v)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Optional" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">None</SelectItem>
-                          {focusOptions.map((area) => (
-                            <SelectItem key={area} value={area}>{area}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Second focus</Label>
-                      <Select value={focusArea2 || '__none__'} onValueChange={(v) => setFocusArea2(v === '__none__' ? '' : v)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Optional" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">None</SelectItem>
-                          {focusOptions.filter((a) => a !== focusArea).map((area) => (
-                            <SelectItem key={area} value={area}>{area}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 pt-3">
                     <div>
                       <Label>Duration</Label>
                       <Select value={String(durationMinutes)} onValueChange={(v) => setDurationMinutes(Number(v))}>

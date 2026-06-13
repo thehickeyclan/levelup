@@ -171,22 +171,23 @@ export async function PATCH(
     if (body.facility_id !== undefined) {
       const fid = normalizeFacilityIdParam(body.facility_id);
       if (!fid) {
-        return NextResponse.json({ error: 'Invalid facility' }, { status: 400 });
-      }
-      if (isCoach) {
-        const allowed =
-          fid === session.facility_id ||
-          (await coachHasFacility(admin, session.athlete_id, fid));
-        if (!allowed) {
-          return NextResponse.json({ error: 'That location is not on your coach profile' }, { status: 403 });
-        }
+        // Omit or null — keep existing facility (e.g. form did not load facility_id)
       } else {
-        const { data: fac } = await admin.from('facilities').select('id').eq('id', fid).maybeSingle();
-        if (!fac) {
-          return NextResponse.json({ error: 'Facility not found' }, { status: 400 });
+        if (isCoach) {
+          const allowed =
+            fid === session.facility_id ||
+            (await coachHasFacility(admin, session.athlete_id, fid));
+          if (!allowed) {
+            return NextResponse.json({ error: 'That location is not on your coach profile' }, { status: 403 });
+          }
+        } else {
+          const { data: fac } = await admin.from('facilities').select('id').eq('id', fid).maybeSingle();
+          if (!fac) {
+            return NextResponse.json({ error: 'Facility not found' }, { status: 400 });
+          }
         }
+        updates.facility_id = fid;
       }
-      updates.facility_id = fid;
     }
 
     let newScheduledIso: string | null = null;

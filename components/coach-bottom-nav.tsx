@@ -20,7 +20,7 @@ const ITEMS: readonly {
   },
   {
     href: '/coach-sessions/create',
-    label: 'New session',
+    label: 'Create',
     icon: CirclePlus,
     match: (p) => p === '/coach-sessions/create' || p.startsWith('/coach-sessions/create/'),
   },
@@ -32,7 +32,7 @@ const ITEMS: readonly {
   },
   {
     href: '/coach-dashboard',
-    label: 'Dashboard',
+    label: 'Stats',
     icon: LayoutDashboard,
     match: (p) => p === '/coach-dashboard' || p.startsWith('/coach-dashboard/'),
   },
@@ -83,7 +83,7 @@ export function CoachBottomNav() {
             </div>
             <span
               className={cn(
-                'mt-1 transition-all duration-200 max-w-[3.75rem] sm:max-w-[4.5rem] truncate leading-tight',
+                'mt-1 transition-all duration-200 leading-tight text-[10px]',
                 isActive ? 'opacity-100' : 'opacity-70'
               )}
             >

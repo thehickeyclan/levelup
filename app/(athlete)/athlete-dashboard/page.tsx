@@ -163,7 +163,7 @@ export default async function CoachHomePage({
       : null;
 
   return (
-    <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-full">
+    <div className="container mx-auto px-4 py-4 pb-24 md:py-8 max-w-lg md:max-w-full">
       <CoachScheduleClient
         upcomingSessions={(upcomingSessions ?? []) as CoachSession[]}
         pastSessions={(pastSessions ?? []) as CoachSession[]}

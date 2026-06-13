@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, MapPin } from 'lucide-react';
+import { Loader2, MapPin, MoreHorizontal } from 'lucide-react';
 import { CoachSessionTileActions } from '@/components/coach-session-tile-actions';
 import { formatEST } from '@/lib/format-date';
 import { sessionParticipantDisplayNames } from '@/lib/session-participant-display-name';
@@ -46,13 +46,8 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
   const [fetchedNames, setFetchedNames] = useState<string[] | undefined>(undefined);
   const [rosterLoading, setRosterLoading] = useState(nRegistered > 0);
 
-  // Authoritative roster from coach API (admin); page embed often returns partial names.
   const effectiveNames =
-    fetchedNames !== undefined
-      ? fetchedNames
-      : fromJoin.length > 0
-        ? fromJoin
-        : [];
+    fetchedNames !== undefined ? fetchedNames : fromJoin.length > 0 ? fromJoin : [];
 
   useEffect(() => {
     if (nRegistered === 0) {
@@ -93,29 +88,36 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
     };
   }, [session.id, nRegistered]);
 
-  const showNameSpinner = nRegistered > 0 && rosterLoading && effectiveNames.length < nRegistered;
   const athleteCount = Math.max(effectiveNames.length, nRegistered);
+  const rosterReady = !rosterLoading || effectiveNames.length >= nRegistered;
 
   return (
     <div
       className={cn(
-        'rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden',
-        emphasis === 'today' ? 'border-[#D4AF37]/40 bg-[#D4AF37]/8 dark:bg-[#D4AF37]/12' : 'border-border'
+        'rounded-xl border bg-card overflow-hidden',
+        emphasis === 'today' ? 'border-[#D4AF37]/35' : 'border-border/80'
       )}
     >
-      <div className="px-4 pt-4 pb-4 space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{typeLabel}</p>
-            <p className="text-base font-semibold text-foreground leading-tight">
+      <div className="px-4 py-3.5">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-medium text-[#D4AF37]/90 bg-[#D4AF37]/10 px-2 py-0.5 rounded-full">
+                {typeLabel}
+              </span>
+              {emphasis === 'today' ? (
+                <span className="text-[11px] font-medium text-foreground/80">Today</span>
+              ) : null}
+            </div>
+            <p className="text-[15px] font-semibold text-foreground leading-tight">
               {formatEST(dt, 'EEEE, MMM d')}
             </p>
-            <p className="text-sm text-foreground">
+            <p className="text-sm text-muted-foreground">
               {formatEST(dt, 'h:mm a')} · {dur} min
             </p>
-            <p className="text-sm text-muted-foreground flex items-start gap-1.5 pt-0.5">
-              <MapPin className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
-              <span>{fac}</span>
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-[#D4AF37]/80" aria-hidden />
+              <span className="truncate">{fac}</span>
             </p>
           </div>
           <CoachSessionTileActions
@@ -134,43 +136,34 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
             durationMinutes={dur}
             athleteNames={effectiveNames}
             nRegistered={nRegistered}
+            triggerIcon={<MoreHorizontal className="h-5 w-5" />}
+            triggerLabel="Session actions"
           />
         </div>
 
-        <div className="border-t border-border/60 pt-3">
+        <div className="mt-3 pt-3 border-t border-border/50">
           {nRegistered === 0 ? (
             <p className="text-sm text-muted-foreground">No athletes registered yet</p>
-          ) : showNameSpinner ? (
+          ) : !rosterReady && effectiveNames.length === 0 ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
               <span>Loading roster…</span>
             </div>
           ) : effectiveNames.length > 0 ? (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            <>
+              <p className="text-xs text-muted-foreground mb-2">
                 {athleteCount} {athleteCount === 1 ? 'athlete' : 'athletes'}
-                {rosterLoading && effectiveNames.length < nRegistered ? (
-                  <span className="normal-case font-normal text-muted-foreground/80"> · loading…</span>
-                ) : null}
               </p>
-              <ul className="space-y-1">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                 {effectiveNames.map((name, i) => (
-                  <li key={`${session.id}-${i}-${name}`} className="text-sm font-medium text-foreground">
+                  <li key={`${session.id}-${i}-${name}`} className="text-sm text-foreground truncate">
                     {name}
                   </li>
                 ))}
               </ul>
-              {rosterLoading && effectiveNames.length < nRegistered ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                  <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
-                  <span>Loading full roster…</span>
-                </div>
-              ) : null}
-            </div>
+            </>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              {nRegistered} registered — names loading…
-            </p>
+            <p className="text-sm text-muted-foreground">{nRegistered} registered</p>
           )}
         </div>
       </div>

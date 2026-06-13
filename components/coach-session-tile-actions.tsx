@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -8,7 +8,6 @@ import {
   CalendarPlus,
   ChevronDown,
   Loader2,
-  MapPin,
   MessageCircle,
   Pencil,
   Share2,
@@ -69,6 +68,9 @@ type Props = {
   athleteNames: string[];
   nRegistered: number;
   className?: string;
+  /** Compact icon trigger for session cards (default: text "Actions"). */
+  triggerIcon?: ReactNode;
+  triggerLabel?: string;
 };
 
 function menuBtn(className?: string) {
@@ -88,6 +90,8 @@ export function CoachSessionTileActions({
   athleteNames,
   nRegistered,
   className,
+  triggerIcon,
+  triggerLabel = 'Session actions',
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -252,16 +256,32 @@ export function CoachSessionTileActions({
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={cn('min-h-[36px] h-9 shrink-0 touch-manipulation gap-1', className)}
-            disabled={cancelling}
-          >
-            Actions
-            <ChevronDown className="h-4 w-4 opacity-70" />
-          </Button>
+          {triggerIcon ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'h-9 w-9 shrink-0 touch-manipulation text-muted-foreground hover:text-foreground',
+                className
+              )}
+              disabled={cancelling}
+              aria-label={triggerLabel}
+            >
+              {triggerIcon}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn('min-h-[36px] h-9 shrink-0 touch-manipulation gap-1', className)}
+              disabled={cancelling}
+            >
+              Actions
+              <ChevronDown className="h-4 w-4 opacity-70" />
+            </Button>
+          )}
         </PopoverTrigger>
         <PopoverContent className="w-56 p-1" align="end" onOpenAutoFocus={(e) => e.preventDefault()}>
           <button

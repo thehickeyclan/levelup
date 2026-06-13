@@ -62,6 +62,7 @@ export default async function CoachEditSessionPage({
       athlete_payout_date,
       session_payout_rate,
       athlete_id,
+      facility_id,
       athletes(id, first_name, last_name, school, payout_rate),
       facilities(id, name),
       session_participants(amount_paid)
@@ -103,7 +104,10 @@ export default async function CoachEditSessionPage({
           ? 'private'
           : dbSessionType || 'small_group';
 
-  const facilityId = (session as { facility_id?: string | null }).facility_id ?? '';
+  const facilityId =
+    (session as { facility_id?: string | null }).facility_id ??
+    (fac as { id?: string } | null)?.id ??
+    '';
   const ownerCoachId = athleteId ?? user.id;
   const facilities = await getCoachFacilitiesForEdit(admin, ownerCoachId, facilityId);
   const editable = isScheduledSessionEditable((session as { status?: string }).status ?? '');
@@ -112,17 +116,17 @@ export default async function CoachEditSessionPage({
     <div className="container mx-auto px-4 py-8 max-w-lg">
       <div className="mb-4 -ml-2">
         <BackLink
-          fallbackHref="/coach-sessions"
-          label="Back to sessions"
+          fallbackHref="/athlete-dashboard"
+          label="Back to schedule"
           className="inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
         />
       </div>
-      <h1 className="text-2xl font-bold mb-1">Edit session</h1>
-      <p className="text-muted-foreground text-sm mb-6">
+      <h1 className="text-xl font-bold mb-1">Edit session</h1>
+      <p className="text-muted-foreground text-sm mb-5">
         {coach
-          ? `${(coach as { first_name?: string }).first_name ?? ''} ${(coach as { last_name?: string }).last_name ?? ''}`.trim()
+          ? `${[(coach as { first_name?: string }).first_name, (coach as { last_name?: string }).last_name].filter(Boolean).join(' ').trim()}`.trim()
           : '—'}
-        {(fac as { name?: string })?.name && ` · ${(fac as { name?: string }).name}`}
+        {(fac as { name?: string })?.name ? ` · ${(fac as { name?: string }).name}` : ''}
       </p>
       <EditSessionForm
         formMode="coach"

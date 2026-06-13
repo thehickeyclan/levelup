@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/select';
 import { Copy, Check, Plus, X } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
-import { SESSION_FOCUS_AREAS } from '@/lib/focus-areas';
 
 type Athlete = { id: string; name: string; school: string };
 type Facility = { id: string; name: string; school: string; address?: string | null };
@@ -47,8 +46,6 @@ export function CreateSessionForm({
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [maxParticipants, setMaxParticipants] = useState(6);
   const [pricePerParticipant, setPricePerParticipant] = useState(30);
-  const [focusArea, setFocusArea] = useState('');
-  const [focusArea2, setFocusArea2] = useState('');
 
   // Auto-fill fields when session type changes
   const handleSessionTypeChange = (type: SessionTypeKey) => {
@@ -68,16 +65,6 @@ export function CreateSessionForm({
     pricePerParticipant: number;
   }>>([]);
   const [copied, setCopied] = useState(false);
-  const [focusAreaList, setFocusAreaList] = useState<string[]>([]);
-
-  useEffect(() => {
-    fetch('/api/focus-areas')
-      .then((r) => r.json())
-      .then((data) => data.focusAreas && data.focusAreas.length > 0 && setFocusAreaList(data.focusAreas))
-      .catch(() => {});
-  }, []);
-
-  const focusOptions = focusAreaList.length > 0 ? focusAreaList : [...SESSION_FOCUS_AREAS];
 
   // Add a new date/time entry
   const addDateTime = () => {
@@ -132,8 +119,6 @@ export function CreateSessionForm({
             sessionType,
             joinPolicy,
             published: joinPolicy !== 'private',
-            focusArea: focusArea || undefined,
-            focusArea2: focusArea2 || undefined,
           }),
         });
         const data = await res.json();
@@ -306,44 +291,6 @@ export function CreateSessionForm({
                 </SelectContent>
               </Select>
             </div>
-<div>
-                <Label htmlFor="focus">Focus area (1)</Label>
-                <Select
-                  value={focusArea || '__none__'}
-                  onValueChange={(v) => setFocusArea(v === '__none__' ? '' : v)}
-                >
-                  <SelectTrigger id="focus">
-                    <SelectValue placeholder="e.g. Takedowns, Escapes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">None</SelectItem>
-                    {focusOptions.map((area) => (
-                      <SelectItem key={area} value={area}>
-                        {area}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="focus2">Focus area (2) — optional</Label>
-                <Select
-                  value={focusArea2 || '__none__'}
-                  onValueChange={(v) => setFocusArea2(v === '__none__' ? '' : v)}
-                >
-                  <SelectTrigger id="focus2">
-                    <SelectValue placeholder="Second topic" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">None</SelectItem>
-                    {focusOptions.filter((a) => a !== focusArea).map((area) => (
-                      <SelectItem key={area} value={area}>
-                        {area}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             <div>
                 <Label htmlFor="facility">Facility</Label>
                 <Select value={facilityId} onValueChange={setFacilityId} required>

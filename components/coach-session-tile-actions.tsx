@@ -33,7 +33,8 @@ import {
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 import { fillTemplate, getTemplate } from '@/lib/playbook-templates';
 import { formatEST } from '@/lib/format-date';
-import { openPersonalGroupSms } from '@/lib/personal-sms';
+import { planPersonalGroupSms, phonesFromPasteList, type GroupSmsPlan } from '@/lib/personal-sms';
+import { CoachGroupSmsDialog } from '@/components/coach-group-sms-dialog';
 import { cn } from '@/lib/utils';
 
 type Contact = {
@@ -102,6 +103,9 @@ export function CoachSessionTileActions({
   const [contactsLoading, setContactsLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [smsPlan, setSmsPlan] = useState<Extract<GroupSmsPlan, { mode: 'paste' }> | null>(null);
+  const [smsDialogOpen, setSmsDialogOpen] = useState(false);
+  const [smsRecipientLabel, setSmsRecipientLabel] = useState('recipient');
 
   const dt = new Date(scheduledDatetime);
   const endIso = new Date(dt.getTime() + durationMinutes * 60 * 1000).toISOString();
@@ -145,26 +149,46 @@ export function CoachSessionTileActions({
     });
   };
 
-  const textGroup = async (kind: 'parents' | 'athletes' | 'both') => {
+  const textGroup = (kind: 'parents' | 'athletes' | 'both') => {
     if (!hasAthletes) {
       window.alert('No athletes registered yet.');
       return;
     }
-    const lists = await loadPhones();
-    if (!lists) return;
+    if (!phones) {
+      window.alert('Phone list still loading — open Actions again in a moment.');
+      void loadPhones();
+      return;
+    }
     const pasteList =
-      kind === 'parents' ? lists.commaParents : kind === 'athletes' ? lists.commaAthletes : lists.commaBoth;
+      kind === 'parents' ? phones.commaParents : kind === 'athletes' ? phones.commaAthletes : phones.commaBoth;
     if (!pasteList) {
       const label = kind === 'parents' ? 'parent' : kind === 'athletes' ? 'kid' : 'family';
       window.alert(`No ${label} numbers on file for this session yet.`);
       return;
     }
+    const plan = planPersonalGroupSms({ pasteList, body: reminderBody() });
+    if (!plan) {
+      window.alert('No valid numbers on file.');
+      return;
+    }
+    const who = kind === 'parents' ? 'parent' : kind === 'athletes' ? 'kid' : 'family';
     setOpen(false);
-    openPersonalGroupSms({
-      pasteList,
-      body: reminderBody(),
-      recipientLabel: kind === 'parents' ? 'parent' : kind === 'athletes' ? 'kid' : 'family',
-    });
+
+    if (plan.mode === 'single') {
+      const resolved = phonesFromPasteList(pasteList).length;
+      if (resolved < nRegistered && kind === 'parents') {
+        const ok = window.confirm(
+          `Only ${resolved} parent number on file for ${nRegistered} athletes. Open Messages to text that number anyway?`
+        );
+        if (!ok) return;
+      }
+      window.location.href = plan.href;
+      return;
+    }
+
+    setSmsRecipientLabel(who);
+    setSmsPlan(plan);
+    setSmsDialogOpen(true);
   };
 
   const onShare = async () => {
@@ -418,6 +442,13 @@ export function CoachSessionTileActions({
           )}
         </DialogContent>
       </Dialog>
+
+      <CoachGroupSmsDialog
+        open={smsDialogOpen}
+        onOpenChange={setSmsDialogOpen}
+        plan={smsPlan}
+        recipientLabel={smsRecipientLabel}
+      />
     </>
   );
 }

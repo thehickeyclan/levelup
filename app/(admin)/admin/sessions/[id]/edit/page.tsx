@@ -2,11 +2,13 @@ import { redirect, notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getTenantByDomain } from '@/config/tenants';
+import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { formatEST } from '@/lib/format-date';
 import { getAllFacilitiesForEdit } from '@/lib/coach-facilities';
 import { EditSessionForm } from './edit-session-form';
 import { BackLink } from '@/components/back-link';
+
+export const dynamic = 'force-dynamic';
 
 export default async function AdminEditSessionPage({
   params,
@@ -15,9 +17,8 @@ export default async function AdminEditSessionPage({
 }) {
   const { id: sessionId } = await params;
   const headersList = await headers();
-  const host = headersList.get('host') || '';
-  const tenant = getTenantByDomain(host);
-  if (!tenant) redirect('/404');
+  const tenant = getTenantFromRequestHeaders(headersList);
+  if (!tenant) notFound();
 
   const supabase = await createClient(tenant.slug);
   const { data: { user } } = await supabase.auth.getUser();

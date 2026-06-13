@@ -1,4 +1,4 @@
-import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
+import { copyTextToClipboardSync } from '@/lib/copy-to-clipboard';
 
 /** Normalize to 10-digit US numbers for sms: URLs and dedupe. */
 export function uniqueTenDigitPhones(phones: string[]): string[] {
@@ -22,47 +22,79 @@ export function phonesFromPasteList(pasteList: string): string[] {
   return uniqueTenDigitPhones(parts);
 }
 
-/** Build sms: deep link — Apple docs allow comma-separated recipients. */
-export function buildPersonalGroupSmsHref(phones: string[], body: string): string | null {
-  const uniq = uniqueTenDigitPhones(phones);
+/** CRLF list for pasting into iOS Messages "To" (one number per line). */
+export function buildMessagesPasteList(phones: string[]): string {
+  return uniqueTenDigitPhones(phones).join('\r\n');
+}
+
+/** Single-recipient sms: link. */
+export function buildSingleSmsHref(phone10: string, body: string): string {
+  return `sms:${phone10}?body=${encodeURIComponent(body)}`;
+}
+
+/** Compose-only link (no To field) — used after copying numbers on iOS. */
+export function buildComposeOnlySmsHref(body: string): string {
+  return `sms:&body=${encodeURIComponent(body)}`;
+}
+
+export type GroupSmsPlan =
+  | { mode: 'single'; href: string; count: 1 }
+  | { mode: 'paste'; pasteList: string; body: string; count: number; href: string };
+
+export function planPersonalGroupSms(options: {
+  pasteList: string;
+  body: string;
+}): GroupSmsPlan | null {
+  const uniq = phonesFromPasteList(options.pasteList);
   if (uniq.length === 0) return null;
-  const encodedBody = encodeURIComponent(body);
-  if (uniq.length === 1) return `sms:${uniq[0]}?body=${encodedBody}`;
-  return `sms:${uniq.join(',')}?body=${encodedBody}`;
+
+  const body = options.body;
+  if (uniq.length === 1) {
+    return { mode: 'single', href: buildSingleSmsHref(uniq[0], body), count: 1 };
+  }
+
+  // iOS (and many mobile browsers) only honor the first number in sms:a,b,c — paste is required.
+  const pasteList = buildMessagesPasteList(uniq);
+  return {
+    mode: 'paste',
+    pasteList,
+    body,
+    count: uniq.length,
+    href: buildComposeOnlySmsHref(body),
+  };
+}
+
+/** Open SMS for a single recipient immediately. */
+export function openSinglePersonalSms(phone10: string, body: string): void {
+  if (typeof window === 'undefined') return;
+  window.location.href = buildSingleSmsHref(phone10, body);
 }
 
 /**
- * Open the device SMS app from the coach's personal number.
- * Uses comma-separated recipients in the sms: URL (works on iOS and Android).
+ * Copy numbers and open Messages with body prefilled.
+ * Must run directly inside a click handler (sync copy before navigation).
  */
+export function openPasteGroupSms(plan: Extract<GroupSmsPlan, { mode: 'paste' }>): boolean {
+  if (typeof window === 'undefined') return false;
+  const copied = copyTextToClipboardSync(plan.pasteList);
+  window.location.href = plan.href;
+  return copied;
+}
+
+/** @deprecated Use planPersonalGroupSms + dialog for groups. */
 export function openPersonalGroupSms(options: {
-  /** Raw list from sms-phones API (CRLF or comma-separated). */
   pasteList: string;
   body: string;
   recipientLabel?: string;
 }): void {
-  if (typeof window === 'undefined') return;
-
-  const pasteList = options.pasteList.trim();
-  if (!pasteList) {
-    window.alert('No phone numbers on file.');
-    return;
-  }
-
-  const uniq = phonesFromPasteList(pasteList);
-  if (uniq.length === 0) {
+  const plan = planPersonalGroupSms(options);
+  if (!plan) {
     window.alert('No valid numbers on file.');
     return;
   }
-
-  const href = buildPersonalGroupSmsHref(uniq, options.body);
-  if (!href) {
-    window.alert('No valid numbers on file.');
+  if (plan.mode === 'single') {
+    window.location.href = plan.href;
     return;
   }
-
-  // Best-effort clipboard backup (sync path inside — do not await before navigation).
-  void copyTextToClipboard(uniq.join(', '));
-
-  window.location.href = href;
+  openPasteGroupSms(plan);
 }

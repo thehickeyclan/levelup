@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildPersonalGroupSmsHref,
+  buildMessagesPasteList,
+  buildSingleSmsHref,
   phonesFromPasteList,
+  planPersonalGroupSms,
   uniqueTenDigitPhones,
 } from '@/lib/personal-sms';
 
@@ -25,14 +27,31 @@ describe('phonesFromPasteList', () => {
   });
 });
 
-describe('buildPersonalGroupSmsHref', () => {
-  it('builds single-recipient link', () => {
-    expect(buildPersonalGroupSmsHref(['9195551234'], 'Hi')).toBe('sms:9195551234?body=Hi');
+describe('buildMessagesPasteList', () => {
+  it('joins with CRLF for iOS paste', () => {
+    expect(buildMessagesPasteList(['9195551234', '7046903257'])).toBe('9195551234\r\n7046903257');
+  });
+});
+
+describe('planPersonalGroupSms', () => {
+  it('uses direct link for one number', () => {
+    const plan = planPersonalGroupSms({ pasteList: '9195551234', body: 'Hi' });
+    expect(plan).toEqual({ mode: 'single', href: 'sms:9195551234?body=Hi', count: 1 });
   });
 
-  it('builds comma-separated multi-recipient link', () => {
-    expect(buildPersonalGroupSmsHref(['9195551234', '9195555678'], 'Hi there')).toBe(
-      'sms:9195551234,9195555678?body=Hi%20there'
-    );
+  it('uses paste mode for multiple numbers (iOS cannot sms:a,b,c)', () => {
+    const plan = planPersonalGroupSms({ pasteList: '9195551234\r\n7046903257', body: 'Hi there' });
+    expect(plan?.mode).toBe('paste');
+    if (plan?.mode === 'paste') {
+      expect(plan.count).toBe(2);
+      expect(plan.pasteList).toBe('9195551234\r\n7046903257');
+      expect(plan.href).toBe('sms:&body=Hi%20there');
+    }
+  });
+});
+
+describe('buildSingleSmsHref', () => {
+  it('builds single-recipient link', () => {
+    expect(buildSingleSmsHref('9195551234', 'Hi')).toBe('sms:9195551234?body=Hi');
   });
 });

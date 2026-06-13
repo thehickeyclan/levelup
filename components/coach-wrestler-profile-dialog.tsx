@@ -198,17 +198,21 @@ export function CoachWrestlerProfileDialog({ wrestlerId, open, onOpenChange }: P
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-lg bg-muted/30 px-2 py-2">
                 <p className="text-lg font-semibold tabular-nums">{profile.sessionsWithCoach}</p>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Sessions</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">With you</p>
               </div>
               <div className="rounded-lg bg-muted/30 px-2 py-2">
                 <p className="text-lg font-semibold tabular-nums">{profile.completedWithCoach}</p>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Completed</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Done w/ you</p>
               </div>
               <div className="rounded-lg bg-muted/30 px-2 py-2">
                 <p className="text-lg font-semibold tabular-nums">{profile.upcomingWithCoach}</p>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Upcoming</p>
               </div>
             </div>
+
+            <p className="text-xs text-muted-foreground -mt-2">
+              Counts are sessions with you only — not other Guild coaches.
+            </p>
 
             {profile.lastSessionAt ? (
               <p className="text-xs text-muted-foreground">

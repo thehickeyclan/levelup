@@ -69,3 +69,9 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
 
   return copyViaExecCommand(payload);
 }
+
+/** Synchronous copy — required before sms: navigation on iOS (user gesture). */
+export function copyTextToClipboardSync(text: string): boolean {
+  if (typeof window === 'undefined' || !text) return false;
+  return copyViaExecCommand(normalizeClipboardText(text));
+}

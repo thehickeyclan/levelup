@@ -62,6 +62,7 @@ import {
   Ban,
   CalendarDays,
   ChevronLeft,
+  CircleCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { ProfileImage } from '@/components/profile-image';
@@ -521,6 +522,8 @@ export function AdminDashboardClient({
   const [singleDeleteLoading, setSingleDeleteLoading] = useState(false);
   const [cancelSessionTarget, setCancelSessionTarget] = useState<AdminSession | null>(null);
   const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
+  const [completeSessionTarget, setCompleteSessionTarget] = useState<AdminSession | null>(null);
+  const [completeSessionLoading, setCompleteSessionLoading] = useState(false);
   /** People → Coach week: Sunday (Eastern) yyyy-MM-dd of the visible week. */
   const [coachWeekStartYmd, setCoachWeekStartYmd] = useState(() => {
     const z = toZonedTime(new Date(), APP_TIMEZONE);
@@ -2783,6 +2786,26 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
         }
       };
 
+      const handleCompleteSessionConfirm = async () => {
+        if (!completeSessionTarget) return;
+        setCompleteSessionLoading(true);
+        try {
+          const res = await fetch(`/api/sessions/${completeSessionTarget.id}/complete`, {
+            method: 'POST',
+            credentials: 'same-origin',
+          });
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          if (!res.ok) {
+            window.alert(data.error || 'Failed to mark session complete');
+            return;
+          }
+          setCompleteSessionTarget(null);
+          router.refresh();
+        } finally {
+          setCompleteSessionLoading(false);
+        }
+      };
+
       return (
         <>
         <div className="space-y-6">
@@ -3098,6 +3121,18 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="h-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                                  title="Mark complete — close session after it ran"
+                                  aria-label={`Mark complete ${formatEST(new Date(s.scheduled_datetime), 'MMM d, yyyy h:mm a')}`}
+                                  onClick={() => setCompleteSessionTarget(s)}
+                                >
+                                  <CircleCheck className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              {s.status === 'scheduled' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="h-8 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
                                   title="Cancel session — wallet credit for paid bookings"
                                   aria-label={`Cancel session ${formatEST(new Date(s.scheduled_datetime), 'MMM d, yyyy h:mm a')}`}
@@ -3106,11 +3141,17 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                                   <Ban className="h-3.5 w-3.5" />
                                 </Button>
                               )}
-                              <Link href={`/admin/sessions/${s.id}/edit`}>
-                                <Button variant="ghost" size="sm" className="h-8 text-[#B89D60]">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-[#B89D60]"
+                                title="Edit session details"
+                                asChild
+                              >
+                                <Link href={`/admin/sessions/${s.id}/edit`}>
                                   <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                              </Link>
+                                </Link>
+                              </Button>
                               {canBulkDelete && (
                                 <Button
                                   variant="ghost"
@@ -3134,10 +3175,10 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
             </div>
           </Card>
           <p className="text-xs text-muted-foreground px-1">
-            Cancel open sessions with the ban icon to mark them cancelled and issue wallet credit for paid roster rows.
-            Delete scheduled, cancelled, or no-show sessions with the row trash icon or checkboxes for bulk delete.
-            Completed sessions are not deletable here. Coaches cannot delete sessions that already have paid
-            registrations (cancel those first).
+            Mark open sessions complete with the check icon after they run (moves to coach payout queue). Cancel with the
+            ban icon to issue wallet credit for paid bookings. Delete scheduled, cancelled, or no-show sessions with the
+            row trash icon or checkboxes for bulk delete. Completed sessions are not deletable here. Coaches cannot delete
+            sessions that already have paid registrations (cancel those first).
           </p>
         </div>
 
@@ -3182,6 +3223,58 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                   </>
                 ) : (
                   'Delete'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={!!completeSessionTarget}
+          onOpenChange={(open) => {
+            if (!open && !completeSessionLoading) setCompleteSessionTarget(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Mark this session complete?</DialogTitle>
+              <DialogDescription>
+                {completeSessionTarget ? (
+                  <>
+                    <span className="block text-foreground font-medium">
+                      {formatEST(new Date(completeSessionTarget.scheduled_datetime), 'EEE MMM d, yyyy · h:mm a')}
+                    </span>
+                    <span className="block mt-1">
+                      {completeSessionTarget.athlete_name} · {completeSessionTarget.facility_name}
+                    </span>
+                    <span className="block mt-2">
+                      Use this after the session has finished. It closes the session for payout tracking — families are
+                      not refunded. To cancel instead, use the ban icon on the list.
+                    </span>
+                  </>
+                ) : null}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setCompleteSessionTarget(null)}
+                disabled={completeSessionLoading}
+              >
+                Close
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => void handleCompleteSessionConfirm()}
+                disabled={completeSessionLoading}
+              >
+                {completeSessionLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Completing…
+                  </>
+                ) : (
+                  'Mark complete'
                 )}
               </Button>
             </DialogFooter>

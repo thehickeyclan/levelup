@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,7 @@ export function CoachCreateSessionForm({
     }
     return initialFacilities[0]?.id || '';
   });
+  const [facilitySearch, setFacilitySearch] = useState('');
   const [dateTimes, setDateTimes] = useState<DateTimeEntry[]>([{ date: '', time: '' }]);
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [maxParticipants, setMaxParticipants] = useState(6);
@@ -102,6 +103,15 @@ export function CoachCreateSessionForm({
   }, [coachId, defaultFacilityId]);
 
   const selectedFacility = facilities.find((f) => f.id === facilityId);
+
+  const filteredFacilities = useMemo(() => {
+    const q = facilitySearch.trim().toLowerCase();
+    if (!q) return facilities;
+    return facilities.filter((f) => {
+      const hay = [f.name, f.school, f.address].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [facilities, facilitySearch]);
 
   const handleLocationCreated = (facility: Facility) => {
     setFacilities((prev) => {
@@ -326,19 +336,38 @@ export function CoachCreateSessionForm({
                   No saved locations yet. Tap Add location to add where this session will be held.
                 </p>
               ) : (
-                <Select value={facilityId || undefined} onValueChange={setFacilityId} required>
-                  <SelectTrigger id="create-facility" className="min-h-[44px]">
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {facilities.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>
-                        {f.name}
-                        {f.address ? ` — ${f.address}` : f.school ? ` — ${f.school}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  {facilities.length > 4 ? (
+                    <Input
+                      id="create-facility-search"
+                      type="search"
+                      placeholder="Search locations…"
+                      value={facilitySearch}
+                      onChange={(e) => setFacilitySearch(e.target.value)}
+                      className="min-h-[44px]"
+                      autoComplete="off"
+                    />
+                  ) : null}
+                  <Select value={facilityId || undefined} onValueChange={setFacilityId} required>
+                    <SelectTrigger id="create-facility" className="min-h-[44px]">
+                      <SelectValue placeholder="Select location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredFacilities.length === 0 ? (
+                        <SelectItem value="__no_match__" disabled>
+                          No matches
+                        </SelectItem>
+                      ) : (
+                        filteredFacilities.map((f) => (
+                          <SelectItem key={f.id} value={f.id}>
+                            {f.name}
+                            {f.address ? ` — ${f.address}` : f.school ? ` — ${f.school}` : ''}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </>
               )}
               {selectedFacility && (
                 <div className="text-xs text-muted-foreground space-y-1 rounded-md bg-muted/40 px-3 py-2">

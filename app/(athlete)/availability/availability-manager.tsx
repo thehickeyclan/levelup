@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -56,8 +57,9 @@ export function AvailabilityManager() {
   const [coachFacilityOptions, setCoachFacilityOptions] = useState<
     { id: string; name: string; address?: string | null; school?: string }[]
   >([]);
-  /** `'__any__'` = parents may book at any linked site for this opening */
+  /** `'__any__'` = parents may book at any approved site for this opening */
   const [facilityForAdd, setFacilityForAdd] = useState<string>('__any__');
+  const [facilitySearch, setFacilitySearch] = useState('');
 
   /** Server DB missing `facility_id` on openings — saves work but room isn’t persisted */
   const [facilityScopesDisabled, setFacilityScopesDisabled] = useState(false);
@@ -138,6 +140,15 @@ export function AvailabilityManager() {
     return m;
   }, [coachFacilityOptions]);
 
+  const filteredFacilityOptions = useMemo(() => {
+    const q = facilitySearch.trim().toLowerCase();
+    if (!q) return coachFacilityOptions;
+    return coachFacilityOptions.filter((f) => {
+      const hay = [f.name, f.school, f.address].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [coachFacilityOptions, facilitySearch]);
+
   const handleAdd = async () => {
     if (selectedDates.length === 0) {
       window.alert('Please select one or more dates.');
@@ -151,7 +162,7 @@ export function AvailabilityManager() {
     }
     const facilityKey = facilityForAdd === '__any__' ? null : facilityForAdd;
     if (facilityKey && !coachFacilityOptions.some((f) => f.id === facilityKey)) {
-      window.alert('Pick a valid wrestling room, or Any linked room.');
+      window.alert('Pick a location from the approved list, or choose Any room.');
       return;
     }
 
@@ -336,22 +347,37 @@ export function AvailabilityManager() {
             </div>
             <div className="w-full max-w-sm space-y-1">
               <label className="text-sm font-medium block">Where you&apos;ll be</label>
+              {coachFacilityOptions.length > 4 ? (
+                <Input
+                  type="search"
+                  placeholder="Search locations…"
+                  value={facilitySearch}
+                  onChange={(e) => setFacilitySearch(e.target.value)}
+                  autoComplete="off"
+                />
+              ) : null}
               <Select value={facilityForAdd} onValueChange={setFacilityForAdd}>
                 <SelectTrigger>
                   <SelectValue placeholder="Facility" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__any__">Any linked wrestling room</SelectItem>
-                  {coachFacilityOptions.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.name}
+                  <SelectItem value="__any__">Any approved wrestling room</SelectItem>
+                  {filteredFacilityOptions.length === 0 ? (
+                    <SelectItem value="__no_match__" disabled>
+                      No matches
                     </SelectItem>
-                  ))}
+                  ) : (
+                    filteredFacilityOptions.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               {coachFacilityOptions.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Have your admin attach sites to your profile (primary / secondary locations) so you can tag a room here.
+                  No approved sites yet — ask your admin to add locations under Admin → Facilities.
                 </p>
               ) : null}
             </div>

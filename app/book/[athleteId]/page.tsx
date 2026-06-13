@@ -7,7 +7,7 @@ import { checkoutAllowSavedAccountPercent } from '@/lib/checkout-promo';
 import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
 import { coachPayoutFromParentPrice } from '@/lib/pricing';
 import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
-import { getCoachFacilityIds } from '@/lib/coach-facilities';
+import { getAllFacilitiesForEdit } from '@/lib/coach-facilities';
 import { isSessionInProgressOrUpcoming, sessionListQueryLowerBoundIso } from '@/lib/sessions';
 import { BookingFlow } from './booking-flow';
 import {
@@ -191,17 +191,13 @@ export default async function BookPage({
   // BookingFlow will show an "Add your wrestler to book" CTA instead of redirecting away.
   const youthWrestlersList = youthWrestlers ?? [];
 
-  // Wrestling rooms for book flow: coach_facilities ∪ primary ∪ secondary (see getCoachFacilityIds).
-  let coachFacilitiesBook: Array<{ id: string; name: string; school: string; address?: string | null }> = [];
-  const fidList = await getCoachFacilityIds(admin, athleteId);
-  if (fidList.length > 0) {
-    const { data: facRows } = await admin
-      .from('facilities')
-      .select('id, name, school, address')
-      .in('id', fidList)
-      .order('name', { ascending: true });
-    coachFacilitiesBook = facRows ?? [];
-  }
+  // Wrestling rooms for book flow: all admin-approved sites (coaches may train anywhere).
+  const coachFacilitiesBook = (await getAllFacilitiesForEdit(admin)).map((f) => ({
+    id: f.id,
+    name: f.name,
+    address: f.address,
+    school: f.school ?? '',
+  }));
   // per-coach overrides from `athlete_products` (same as getRecommendedPricesForCoach / profile).
   const recommendedByType = await getRecommendedPricesForCoach(admin, athleteId);
 

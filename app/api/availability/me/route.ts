@@ -6,7 +6,12 @@ import { getTenantByDomain } from '@/config/tenants';
 import { timeToHHmm } from '@/lib/availability';
 import { notifyAvailabilityFollowers } from '@/lib/notify-availability-followers';
 import { dbForCoachActor, resolveCoachActorId } from '@/lib/coach-actor-server';
-import { coachHasFacility, getCoachFacilityIds, normalizeFacilityIdParam } from '@/lib/coach-facilities';
+import {
+  getAllFacilitiesForEdit,
+  isApprovedFacility,
+  ensureCoachFacilityLinked,
+  normalizeFacilityIdParam,
+} from '@/lib/coach-facilities';
 import { isAthleteAvailabilitySlotsFacilityIdSchemaError } from '@/lib/supabase-postgrest-errors';
 
 export async function GET() {
@@ -24,17 +29,7 @@ export async function GET() {
     if (!actor.ok) return NextResponse.json({ error: actor.error }, { status: actor.status });
 
     const admin = createAdminClient(tenant.slug);
-    const facilityIdList = await getCoachFacilityIds(admin, actor.coachId);
-    const { data: facilityRows } =
-      facilityIdList.length > 0
-        ? await admin
-            .from('facilities')
-            .select('id, name, address, school')
-            .in('id', facilityIdList)
-            .order('name', { ascending: true })
-        : { data: [] as { id: string; name: string; address?: string | null; school?: string }[] };
-
-    const coachFacilities = facilityRows ?? [];
+    const coachFacilities = await getAllFacilitiesForEdit(admin);
 
     type SlotRow = {
       id: string;
@@ -155,15 +150,15 @@ export async function POST(req: NextRequest) {
       if (!facilityRowId) {
         return NextResponse.json({ error: 'Invalid facility' }, { status: 400 });
       }
-      if (!(await coachHasFacility(admin, actor.coachId, facilityRowId))) {
+      if (!(await isApprovedFacility(admin, facilityRowId))) {
         return NextResponse.json(
           {
-            error:
-              'Choose a facility linked to your profile (primary, secondary, or sites your admin assigned).',
+            error: 'Choose a location from the approved site list (Admin → Facilities).',
           },
           { status: 400 }
         );
       }
+      await ensureCoachFacilityLinked(admin, actor.coachId, facilityRowId);
     }
 
     /** Prod DB without migration — no `facility_id` column; omit from all queries/writes */

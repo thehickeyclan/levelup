@@ -24,7 +24,7 @@ import {
   formatGuildProductName,
   guildPaymentIntentData,
 } from '@/lib/stripe/guild-checkout-metadata';
-import { getCoachFacilityIds } from '@/lib/coach-facilities';
+import { isApprovedFacility, ensureCoachFacilityLinked } from '@/lib/coach-facilities';
 import { fetchCoachDaySlotsMerged } from '@/lib/fetch-coach-day-slots';
 import { normalizeRequestSlotHHmm } from '@/lib/availability';
 import { verifyWrestlerBelongsToParentOrSelf } from '@/lib/wrestlers-for-parent';
@@ -122,15 +122,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Facility required' }, { status: 400 });
     }
 
-    const allowedFacilityIds = new Set(await getCoachFacilityIds(admin, athleteIdNorm));
-    if (!allowedFacilityIds.has(facility_id)) {
-      return NextResponse.json(
-        {
-          error: 'That location is not linked to this coach. Pick one of their training locations.',
-        },
-        { status: 400 }
-      );
+    if (!(await isApprovedFacility(admin, facility_id))) {
+      return NextResponse.json({ error: 'That location is not on the approved site list.' }, { status: 400 });
     }
+    await ensureCoachFacilityLinked(admin, athleteIdNorm, facility_id);
 
     try {
       const merged = await fetchCoachDaySlotsMerged(admin, athleteIdNorm, scheduledDate);

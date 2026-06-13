@@ -2,8 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
 
 /**
- * Facility ids a coach may use: all rows in `coach_facilities` plus `athletes.facility_id`
- * and `athletes.secondary_facility_id` (so profile secondary is never dropped when the junction is incomplete).
+ * Coach ↔ facility model
+ * - `athletes.facility_id` / `secondary_facility_id`: home bases (defaults, map pin, profile).
+ * - `coach_facilities`: sites this coach has used (auto-linked); drives Training discovery filters.
+ * - Sessions, availability, booking: any row in global `facilities` (admin-approved list).
  */
 export async function getCoachFacilityIds(
   admin: SupabaseClient,
@@ -64,13 +66,21 @@ export async function ensureCoachFacilityLinked(
   }
 }
 
-export async function coachHasFacility(
+/** True when facility exists on the global admin-approved list. */
+export async function isApprovedFacility(
   admin: SupabaseClient,
-  coachId: string,
   facilityId: string
 ): Promise<boolean> {
-  const set = new Set(await getCoachFacilityIds(admin, coachId));
-  return set.has(facilityId);
+  const { data } = await admin.from('facilities').select('id').eq('id', facilityId).maybeSingle();
+  return !!data;
+}
+
+export async function coachHasFacility(
+  admin: SupabaseClient,
+  _coachId: string,
+  facilityId: string
+): Promise<boolean> {
+  return isApprovedFacility(admin, facilityId);
 }
 
 export function normalizeFacilityIdParam(raw: unknown): string | null {
@@ -95,34 +105,21 @@ export async function getAllFacilitiesForEdit(admin: SupabaseClient): Promise<Co
   return (data ?? []) as CoachFacilityOption[];
 }
 
-/** Facilities for coach session create/edit — full admin-approved list plus coach-specific rows. */
+/** Facilities for coach session create/edit — all admin-approved sites. */
 export async function getCoachFacilitiesForEdit(
   admin: SupabaseClient,
-  coachId: string,
+  _coachId: string,
   currentFacilityId?: string | null
 ): Promise<CoachFacilityOption[]> {
-  const [global, linkedIds] = await Promise.all([
-    getAllFacilitiesForEdit(admin),
-    getCoachFacilityIds(admin, coachId),
-  ]);
-
-  const byId = new Map<string, CoachFacilityOption>();
-  for (const f of global) byId.set(f.id, f);
-
-  const extraIds = [...new Set([...linkedIds, currentFacilityId].filter(Boolean))] as string[];
-  const missing = extraIds.filter((id) => !byId.has(id));
-  if (missing.length > 0) {
-    const { data, error } = await admin
-      .from('facilities')
-      .select('id, name, school, address')
-      .in('id', missing)
-      .order('name');
-    if (!error) {
-      for (const f of (data ?? []) as CoachFacilityOption[]) {
-        byId.set(f.id, f);
-      }
-    }
+  const global = await getAllFacilitiesForEdit(admin);
+  if (!currentFacilityId || global.some((f) => f.id === currentFacilityId)) {
+    return global;
   }
-
-  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const { data, error } = await admin
+    .from('facilities')
+    .select('id, name, school, address')
+    .eq('id', currentFacilityId)
+    .maybeSingle();
+  if (error || !data) return global;
+  return [...global, data as CoachFacilityOption].sort((a, b) => a.name.localeCompare(b.name));
 }

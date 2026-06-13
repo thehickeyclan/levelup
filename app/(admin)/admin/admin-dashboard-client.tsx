@@ -77,7 +77,7 @@ import { showSessionSmsCopyAndTextGroup } from '@/lib/session-sms-tools';
 import { AdminCockpitView } from './admin-cockpit-view';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { coachPayoutUsd } from '@/lib/coach-session-payout';
+import { coachPayoutUsd, resolveCoachPayoutRate } from '@/lib/coach-session-payout';
 import {
   Area,
   AreaChart,
@@ -524,6 +524,7 @@ export function AdminDashboardClient({
   const [cancelSessionLoading, setCancelSessionLoading] = useState(false);
   const [completeSessionTarget, setCompleteSessionTarget] = useState<AdminSession | null>(null);
   const [completeSessionLoading, setCompleteSessionLoading] = useState(false);
+  const [completePayoutAmount, setCompletePayoutAmount] = useState('');
   /** People → Coach week: Sunday (Eastern) yyyy-MM-dd of the visible week. */
   const [coachWeekStartYmd, setCoachWeekStartYmd] = useState(() => {
     const z = toZonedTime(new Date(), APP_TIMEZONE);
@@ -2786,20 +2787,52 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
         }
       };
 
+      const suggestedPayoutForSession = (s: AdminSession) =>
+        coachPayoutUsd({
+          athlete_payment: s.athlete_payment,
+          price_per_participant: s.price_per_participant,
+          current_participants: s.current_participants,
+          participant_amount_paid_sum: s.participant_amount_paid_sum,
+          session_payout_rate: s.session_payout_rate,
+          coach_payout_rate: s.coach_payout_rate,
+        });
+
       const handleCompleteSessionConfirm = async () => {
         if (!completeSessionTarget) return;
+        const val = parseFloat(completePayoutAmount);
+        if (Number.isNaN(val) || val < 0) {
+          window.alert('Enter a valid coach payout amount.');
+          return;
+        }
         setCompleteSessionLoading(true);
         try {
-          const res = await fetch(`/api/sessions/${completeSessionTarget.id}/complete`, {
+          const completeRes = await fetch(`/api/sessions/${completeSessionTarget.id}/complete`, {
             method: 'POST',
             credentials: 'same-origin',
           });
-          const data = (await res.json().catch(() => ({}))) as { error?: string };
-          if (!res.ok) {
-            window.alert(data.error || 'Failed to mark session complete');
+          const completeData = (await completeRes.json().catch(() => ({}))) as { error?: string };
+          if (!completeRes.ok) {
+            window.alert(completeData.error || 'Failed to mark session complete');
             return;
           }
+
+          const payoutRes = await fetch('/api/admin/record-session-payout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ sessionIds: [completeSessionTarget.id], amount: val }),
+          });
+          const payoutData = (await payoutRes.json().catch(() => ({}))) as { error?: string };
+          if (!payoutRes.ok) {
+            window.alert(
+              payoutData.error ||
+                'Session marked complete but payout was not recorded. Open Edit to record payout.'
+            );
+            return;
+          }
+
           setCompleteSessionTarget(null);
+          setCompletePayoutAmount('');
           router.refresh();
         } finally {
           setCompleteSessionLoading(false);
@@ -3122,9 +3155,12 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                                   variant="ghost"
                                   size="sm"
                                   className="h-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
-                                  title="Mark complete — close session after it ran"
-                                  aria-label={`Mark complete ${formatEST(new Date(s.scheduled_datetime), 'MMM d, yyyy h:mm a')}`}
-                                  onClick={() => setCompleteSessionTarget(s)}
+                                  title="Close session — mark complete and pay coach"
+                                  aria-label={`Close session ${formatEST(new Date(s.scheduled_datetime), 'MMM d, yyyy h:mm a')}`}
+                                  onClick={() => {
+                                    setCompletePayoutAmount(suggestedPayoutForSession(s).toFixed(2));
+                                    setCompleteSessionTarget(s);
+                                  }}
                                 >
                                   <CircleCheck className="h-3.5 w-3.5" />
                                 </Button>
@@ -3175,10 +3211,10 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
             </div>
           </Card>
           <p className="text-xs text-muted-foreground px-1">
-            Mark open sessions complete with the check icon after they run (moves to coach payout queue). Cancel with the
-            ban icon to issue wallet credit for paid bookings. Delete scheduled, cancelled, or no-show sessions with the
-            row trash icon or checkboxes for bulk delete. Completed sessions are not deletable here. Coaches cannot delete
-            sessions that already have paid registrations (cancel those first).
+            Mark open sessions with the check icon — enter coach payout and close in one step. Cancel with the ban icon to
+            issue wallet credit for paid bookings. Delete scheduled, cancelled, or no-show sessions with the row trash
+            icon or checkboxes for bulk delete. Completed sessions are not deletable here. Coaches cannot delete sessions
+            that already have paid registrations (cancel those first).
           </p>
         </div>
 
@@ -3232,49 +3268,83 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
         <Dialog
           open={!!completeSessionTarget}
           onOpenChange={(open) => {
-            if (!open && !completeSessionLoading) setCompleteSessionTarget(null);
+            if (!open && !completeSessionLoading) {
+              setCompleteSessionTarget(null);
+              setCompletePayoutAmount('');
+            }
           }}
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Mark this session complete?</DialogTitle>
-              <DialogDescription>
-                {completeSessionTarget ? (
-                  <>
-                    <span className="block text-foreground font-medium">
-                      {formatEST(new Date(completeSessionTarget.scheduled_datetime), 'EEE MMM d, yyyy · h:mm a')}
-                    </span>
-                    <span className="block mt-1">
-                      {completeSessionTarget.athlete_name} · {completeSessionTarget.facility_name}
-                    </span>
-                    <span className="block mt-2">
-                      Use this after the session has finished. It closes the session for payout tracking — families are
-                      not refunded. To cancel instead, use the ban icon on the list.
-                    </span>
-                  </>
-                ) : null}
+              <DialogTitle>Close session &amp; pay coach</DialogTitle>
+              <DialogDescription asChild>
+                <div className="space-y-3 text-sm text-muted-foreground pt-1">
+                  {completeSessionTarget ? (
+                    <>
+                      <p>
+                        <span className="block text-foreground font-medium">
+                          {formatEST(new Date(completeSessionTarget.scheduled_datetime), 'EEE MMM d, yyyy · h:mm a')}
+                        </span>
+                        <span className="block mt-1">
+                          {completeSessionTarget.athlete_name} · {completeSessionTarget.facility_name}
+                        </span>
+                      </p>
+                      <p>
+                        Collected ${completeSessionTarget.participant_amount_paid_sum.toFixed(2)} · suggested coach share{' '}
+                        {(
+                          resolveCoachPayoutRate({
+                            session_payout_rate: completeSessionTarget.session_payout_rate,
+                            coach_payout_rate: completeSessionTarget.coach_payout_rate,
+                          }) * 100
+                        ).toFixed(1)}
+                        %
+                      </p>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="complete-payout-amount" className="text-foreground">
+                          Coach payout ($)
+                        </Label>
+                        <Input
+                          id="complete-payout-amount"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={completePayoutAmount}
+                          onChange={(e) => setCompletePayoutAmount(e.target.value)}
+                          className="max-w-[160px]"
+                        />
+                      </div>
+                      <p className="text-xs">
+                        Marks the session complete and records what you paid the coach. To cancel instead (refund families),
+                        use the ban icon on the list.
+                      </p>
+                    </>
+                  ) : null}
+                </div>
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setCompleteSessionTarget(null)}
+                onClick={() => {
+                  setCompleteSessionTarget(null);
+                  setCompletePayoutAmount('');
+                }}
                 disabled={completeSessionLoading}
               >
-                Close
+                Cancel
               </Button>
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 onClick={() => void handleCompleteSessionConfirm()}
-                disabled={completeSessionLoading}
+                disabled={completeSessionLoading || completePayoutAmount.trim() === ''}
               >
                 {completeSessionLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Completing…
+                    Saving…
                   </>
                 ) : (
-                  'Mark complete'
+                  'Close & record payout'
                 )}
               </Button>
             </DialogFooter>

@@ -64,7 +64,7 @@ export type CoachFacilityOption = {
 export async function getAllFacilitiesForEdit(admin: SupabaseClient): Promise<CoachFacilityOption[]> {
   const { data, error } = await admin
     .from('facilities')
-    .select('id, name, school, address, directions')
+    .select('id, name, school, address')
     .order('name');
   if (error) return [];
   return (data ?? []) as CoachFacilityOption[];
@@ -84,7 +84,7 @@ export async function getCoachFacilitiesForEdit(
 
   const { data, error } = await admin
     .from('facilities')
-    .select('id, name, school, address, directions')
+    .select('id, name, school, address')
     .in('id', merged)
     .order('name');
   if (error) return [];

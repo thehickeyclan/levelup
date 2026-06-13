@@ -29,6 +29,7 @@ const BROWSE_WITHOUT_USER_PHONE_PREFIXES = [
   '/messages',
   '/workspaces',
   '/join',
+  '/admin',
   /** Booking/cart need a usable phone at checkout/API; allow opening the flow so parents aren’t bounced to Account. */
   '/book',
   '/cart',

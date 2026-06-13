@@ -64,7 +64,7 @@ export default async function CoachEditSessionPage({
       athlete_id,
       facility_id,
       athletes(id, first_name, last_name, school, payout_rate),
-      facilities(id, name, school, address, directions),
+      facilities(id, name, school, address),
       session_participants(amount_paid)
     `
     )

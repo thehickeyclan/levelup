@@ -146,8 +146,8 @@ export function CoachHelpQuestions({ videoKey, currentUserId, isAdmin, initialQu
                 {q.user_id === currentUserId ? 'You' : 'Coach'} · {formatDate(q.created_at)}
               </p>
               {q.answer_text ? (
-                <div className="mt-3 rounded border border-[#D4AF37]/30 bg-background/80 p-3">
-                  <p className="text-xs font-semibold text-[#D4AF37] uppercase tracking-wide mb-1">Answer</p>
+                <div className="mt-3 rounded border border-accent/30 bg-background/80 p-3">
+                  <p className="text-xs font-semibold text-accent uppercase tracking-wide mb-1">Answer</p>
                   <p className="text-foreground whitespace-pre-wrap">{q.answer_text}</p>
                   {q.answered_at ? (
                     <p className="text-xs text-muted-foreground mt-2">{formatDate(q.answered_at)}</p>

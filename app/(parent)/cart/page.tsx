@@ -63,7 +63,7 @@ export default function CartPage() {
           <p className="text-zinc-500 text-center mb-8 max-w-xs">
             Browse training sessions and add them to your cart to book
           </p>
-          <Button asChild className="bg-[#D4AF37] hover:bg-[#C4A030] text-black font-semibold px-8">
+          <Button asChild className="bg-accent hover:bg-[#C4A030] text-black font-semibold px-8">
             <Link href="/training">Find Training</Link>
           </Button>
         </div>
@@ -118,7 +118,7 @@ export default function CartPage() {
 
               {/* Date & Time */}
               <div className="flex items-center gap-2 mb-2">
-                <Calendar className="h-4 w-4 text-[#D4AF37]" />
+                <Calendar className="h-4 w-4 text-accent" />
                 <span className="font-semibold">
                   {formatEST(dt, 'EEE, MMM d')} · {formatEST(dt, 'h:mm a')}
                 </span>
@@ -142,7 +142,7 @@ export default function CartPage() {
                   <label className="text-sm text-zinc-500 mb-2 block">Booking for</label>
                   {wrestlers.length === 1 && availableWrestlers.length > 0 ? (
                     <div className="flex items-center gap-2 text-foreground">
-                      <div className="w-6 h-6 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-xs font-medium text-[#D4AF37]">
+                      <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-xs font-medium text-accent">
                         {wrestlers[0].first_name.charAt(0)}
                       </div>
                       <span className="font-medium">{wrestlers[0].first_name} {wrestlers[0].last_name}</span>
@@ -190,11 +190,11 @@ export default function CartPage() {
       {/* Wallet Credits Toggle */}
       {creditBalance > 0 && (
         <div className="px-4 mt-6">
-          <div className="bg-gradient-to-r from-[#D4AF37]/10 to-[#D4AF37]/5 border border-[#D4AF37]/20 rounded-2xl p-4">
+          <div className="bg-gradient-to-r from-accent/10 to-accent/5 border border-accent/20 rounded-2xl p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 flex items-center justify-center shrink-0">
-                  <Wallet className="h-5 w-5 text-[#D4AF37]" />
+                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                  <Wallet className="h-5 w-5 text-accent" />
                 </div>
                 <div>
                   <p className="font-medium text-foreground">Use Wallet Credit</p>
@@ -206,11 +206,11 @@ export default function CartPage() {
               <Switch
                 checked={useCredits}
                 onCheckedChange={setUseCredits}
-                className="data-[state=checked]:bg-[#D4AF37]"
+                className="data-[state=checked]:bg-accent"
               />
             </div>
             {useCredits && creditsToApply > 0 && (
-              <div className="mt-3 pt-3 border-t border-[#D4AF37]/20 flex items-center gap-2 text-[#D4AF37]">
+              <div className="mt-3 pt-3 border-t border-accent/20 flex items-center gap-2 text-accent">
                 <Sparkles className="h-4 w-4" />
                 <span className="text-sm font-medium">
                   -${creditsToApply.toFixed(2)} will be applied
@@ -253,7 +253,7 @@ export default function CartPage() {
                 router.push('/cart/checkout');
               }}
               disabled={!canCheckout}
-              className="bg-[#D4AF37] hover:bg-[#C4A030] text-black font-semibold px-8 h-12 text-base gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-accent hover:bg-[#C4A030] text-black font-semibold px-8 h-12 text-base gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Checkout
               <ChevronRight className="h-5 w-5" />

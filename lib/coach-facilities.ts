@@ -25,6 +25,17 @@ export async function getCoachFacilityIds(
   const merged: string[] = [...fromJunction];
   if (a?.facility_id) merged.push(a.facility_id);
   if (a?.secondary_facility_id) merged.push(a.secondary_facility_id);
+
+  const { data: sessionRows } = await admin
+    .from('sessions')
+    .select('facility_id')
+    .eq('athlete_id', coachId)
+    .not('facility_id', 'is', null);
+  for (const row of sessionRows ?? []) {
+    const fid = (row as { facility_id?: string | null }).facility_id;
+    if (fid) merged.push(fid);
+  }
+
   return [...new Set(merged.filter(Boolean))];
 }
 
@@ -49,15 +60,26 @@ export type CoachFacilityOption = {
   directions?: string | null;
 };
 
-/** Facilities a coach may pick when editing a session (includes current session facility if orphaned). */
+/** All tenant facilities (admin session edit). */
+export async function getAllFacilitiesForEdit(admin: SupabaseClient): Promise<CoachFacilityOption[]> {
+  const { data, error } = await admin
+    .from('facilities')
+    .select('id, name, school, address, directions')
+    .order('name');
+  if (error) return [];
+  return (data ?? []) as CoachFacilityOption[];
+}
+
+/** Facilities a coach may pick when editing a session (linked, profile, past sessions, current). */
 export async function getCoachFacilitiesForEdit(
   admin: SupabaseClient,
   coachId: string,
   currentFacilityId?: string | null
 ): Promise<CoachFacilityOption[]> {
-  const ids = await getCoachFacilityIds(admin, coachId);
-  const merged =
-    currentFacilityId && !ids.includes(currentFacilityId) ? [...ids, currentFacilityId] : ids;
+  const idSet = new Set(await getCoachFacilityIds(admin, coachId));
+  if (currentFacilityId) idSet.add(currentFacilityId);
+
+  const merged = [...idSet];
   if (merged.length === 0) return [];
 
   const { data, error } = await admin

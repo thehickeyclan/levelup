@@ -1167,11 +1167,11 @@ export function BookingFlow({
                     </div>
                   )}
                 {creditBalance > 0 && (
-                  <div className="space-y-2 rounded-lg border border-[#D4AF37]/25 bg-[#D4AF37]/5 p-4">
+                  <div className="space-y-2 rounded-lg border border-accent/25 bg-accent/5 p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/20">
-                          <Wallet className="h-5 w-5 text-[#D4AF37]" />
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20">
+                          <Wallet className="h-5 w-5 text-accent" />
                         </div>
                         <div>
                           <p className="font-medium text-foreground">Apply earned credits</p>
@@ -1184,11 +1184,11 @@ export function BookingFlow({
                       <Switch
                         checked={useCredits}
                         onCheckedChange={setUseCredits}
-                        className="data-[state=checked]:bg-[#D4AF37]"
+                        className="data-[state=checked]:bg-accent"
                       />
                     </div>
                     {useCredits && creditsToApplyBooking > 0 && (
-                      <div className="flex items-center gap-2 border-t border-[#D4AF37]/20 pt-3 text-[#D4AF37]">
+                      <div className="flex items-center gap-2 border-t border-accent/20 pt-3 text-accent">
                         <Sparkles className="h-4 w-4" />
                         <span className="text-sm font-medium">
                           -${creditsToApplyBooking.toFixed(2)} from your wallet

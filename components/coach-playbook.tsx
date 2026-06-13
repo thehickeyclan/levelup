@@ -121,7 +121,7 @@ function TextButton({ phone, message, onAction, actioned, loading, audience = 'a
       disabled={loading}
       className={
         isParent
-          ? 'h-8 min-h-[44px] touch-manipulation bg-[#D4AF37] hover:bg-[#c9a432] text-black border-0'
+          ? 'h-8 min-h-[44px] touch-manipulation bg-accent hover:bg-accent-hover text-black border-0'
           : 'h-8 min-h-[44px] touch-manipulation'
       }
     >
@@ -193,7 +193,7 @@ export function CoachPlaybook() {
   const coachName = data.coachFirstName;
 
   return (
-    <Card className="border-[#D4AF37]/30 bg-[#D4AF37]/5">
+    <Card className="border-accent/30 bg-accent/5">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -223,7 +223,7 @@ export function CoachPlaybook() {
           {data.newBookings.filter(b => !b.welcomed).length > 0 && (
             <div>
               <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
-                <UserPlus className="h-4 w-4 text-[#D4AF37]" />
+                <UserPlus className="h-4 w-4 text-accent" />
                 Welcome new bookings
               </h4>
               <div className="space-y-2">
@@ -450,7 +450,7 @@ export function CoachPlaybook() {
                         </p>
                         <p className={cn(
                           'text-xs',
-                          days === 0 ? 'text-[#D4AF37] font-medium' : 'text-muted-foreground'
+                          days === 0 ? 'text-accent font-medium' : 'text-muted-foreground'
                         )}>
                           {days === 0 ? "Today!" : days === 1 ? "Tomorrow" : `In ${days} days`}
                         </p>

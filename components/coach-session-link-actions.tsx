@@ -63,7 +63,7 @@ export function CoachSessionLinkActions({
       <Button
         type="button"
         variant="outline"
-        className="min-h-[44px] touch-manipulation flex-1 min-w-[7.5rem] border-[#D4AF37]/40"
+        className="min-h-[44px] touch-manipulation flex-1 min-w-[7.5rem] border-accent/40"
         onClick={() => void onShare()}
       >
         {shareState === 'copied' ? (

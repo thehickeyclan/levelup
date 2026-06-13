@@ -113,7 +113,7 @@ export function SessionRequestsClient({ initialRows }: { initialRows: SessionReq
           r.status === 'pending'
             ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
             : r.status === 'countered'
-              ? 'bg-[#D4AF37]/20 text-amber-800 dark:text-amber-200'
+              ? 'bg-accent/20 text-amber-800 dark:text-amber-200'
               : r.status === 'approved'
                 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                 : r.status === 'declined' || r.status === 'expired'
@@ -137,7 +137,7 @@ export function SessionRequestsClient({ initialRows }: { initialRows: SessionReq
                 </span>
               </div>
               {r.status === 'countered' && counterWhen && (
-                <div className="rounded-md border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 py-2 text-sm space-y-2">
+                <div className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm space-y-2">
                   <p>
                     <span className="font-medium">{coach || 'Coach'}</span> proposed{' '}
                     <span className="font-medium">{counterWhen}</span>.

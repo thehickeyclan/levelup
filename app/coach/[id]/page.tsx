@@ -391,7 +391,7 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
                             Full
                           </Button>
                         ) : (
-                          <Button size="sm" variant="default" className="bg-[#D4AF37] text-black hover:bg-[#c4a030]" asChild>
+                          <Button size="sm" variant="default" className="bg-accent text-black hover:bg-[#c4a030]" asChild>
                             <Link href={cta.href}>
                               {cta.label}
                               <ChevronRight className="h-4 w-4 ml-1" />

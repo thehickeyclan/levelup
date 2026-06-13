@@ -186,7 +186,7 @@ export function CoachRosterClient({
           <Button
             type="button"
             variant="default"
-            className="min-h-[44px] touch-manipulation bg-[#D4AF37] hover:bg-[#B8963C] text-black font-medium"
+            className="min-h-[44px] touch-manipulation bg-accent hover:bg-accent-hover text-black font-medium"
             disabled={!allParentPhones}
             onClick={() => onCopy('all-parents', allParentPhones, 'No parent numbers on file.')}
           >
@@ -201,7 +201,7 @@ export function CoachRosterClient({
           <Button
             type="button"
             variant="outline"
-            className="min-h-[44px] touch-manipulation border-[#D4AF37]/50"
+            className="min-h-[44px] touch-manipulation border-accent/50"
             disabled={!allKidPhones}
             onClick={() => onCopy('all-kids', allKidPhones, 'No kid / athlete numbers on file.')}
           >
@@ -284,7 +284,7 @@ export function CoachRosterClient({
                         type="button"
                         variant="default"
                         size="sm"
-                        className="min-h-[40px] touch-manipulation bg-[#D4AF37] hover:bg-[#B8963C] text-black"
+                        className="min-h-[40px] touch-manipulation bg-accent hover:bg-accent-hover text-black"
                         disabled={!e.parentPhone}
                         onClick={() =>
                           onCopy(

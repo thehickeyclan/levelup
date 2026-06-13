@@ -381,7 +381,7 @@ export default async function HomePage() {
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Button
-                className="min-h-[44px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold"
+                className="min-h-[44px] bg-accent hover:bg-accent-hover text-black font-semibold"
                 asChild
               >
                 <Link href="/training?tab=coaches">Book a coach</Link>
@@ -406,7 +406,7 @@ export default async function HomePage() {
       <section className="px-4 pb-8 space-y-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Button
-            className="w-full min-h-[52px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold text-base"
+            className="w-full min-h-[52px] bg-accent hover:bg-accent-hover text-black font-semibold text-base"
             asChild
           >
             <Link href="/training?tab=coaches">

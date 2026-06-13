@@ -329,7 +329,7 @@ export function BrowseAthletesClient({
                     {deletingId === athlete.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   </Button>
                 )}
-                <Card className={`h-full ${isFollowed ? 'ring-1 ring-[#D4AF37]/30 bg-[#D4AF37]/5' : ''}`}>
+                <Card className={`h-full ${isFollowed ? 'ring-1 ring-accent/30 bg-accent/5' : ''}`}>
                     <CardHeader>
                       <div className="flex items-center gap-4">
                         <ProfileImage
@@ -346,7 +346,7 @@ export function BrowseAthletesClient({
                         </Link>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           {isFollowed && (
-                            <Badge className="bg-[#D4AF37]/20 text-[#D4AF37] text-xs border-0">
+                            <Badge className="bg-accent/20 text-accent text-xs border-0">
                               <Heart className="h-3 w-3 mr-1 fill-current" />
                               Following
                             </Badge>
@@ -384,7 +384,7 @@ export function BrowseAthletesClient({
                         <FollowCoachButton coachId={athlete.id} />
                       </div>
                       <Button
-                        className="w-full min-h-[44px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold"
+                        className="w-full min-h-[44px] bg-accent hover:bg-accent-hover text-black font-semibold"
                         size="sm"
                         asChild
                       >

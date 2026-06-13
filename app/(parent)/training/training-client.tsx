@@ -129,7 +129,7 @@ export function TrainingClient({
               title={t.description}
               className={`min-h-[44px] px-5 py-2.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
                 activeTab === t.id
-                  ? 'bg-[#D4AF37] text-black'
+                  ? 'bg-accent text-black'
                   : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
               }`}
             >

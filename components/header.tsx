@@ -184,7 +184,7 @@ export function Header() {
                   </Link>
                   <Link
                     href="/coach-sessions/create"
-                    className="text-[#D4AF37] hover:text-[#e8c85c] transition-colors font-semibold"
+                    className="text-accent hover:text-accent-light transition-colors font-semibold"
                   >
                     Create
                   </Link>
@@ -455,7 +455,7 @@ export function Header() {
                 </span>
                 <Link
                   href="/signup"
-                  className="text-[#D4AF37] hover:text-[#e8c85c] font-semibold transition-colors whitespace-nowrap text-[11px] min-[400px]:text-xs"
+                  className="text-accent hover:text-accent-light font-semibold transition-colors whitespace-nowrap text-[11px] min-[400px]:text-xs"
                 >
                   Sign up
                 </Link>

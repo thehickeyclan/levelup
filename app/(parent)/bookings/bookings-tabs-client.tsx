@@ -49,7 +49,7 @@ export function BookingsTabsClient({
           onClick={() => setActiveTab('upcoming')}
           className={`min-h-[44px] px-5 py-2.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
             activeTab === 'upcoming'
-              ? 'bg-[#D4AF37] text-black'
+              ? 'bg-accent text-black'
               : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
           }`}
         >
@@ -60,14 +60,14 @@ export function BookingsTabsClient({
           onClick={() => setActiveTab('past')}
           className={`min-h-[44px] px-5 py-2.5 text-sm font-medium rounded-full transition-all touch-manipulation flex items-center gap-2 ${
             activeTab === 'past'
-              ? 'bg-[#D4AF37] text-black'
+              ? 'bg-accent text-black'
               : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
           }`}
         >
           Past
           {needsReview.length > 0 && (
             <span className={`min-w-[20px] h-5 flex items-center justify-center rounded-full text-xs font-bold px-1.5 ${
-              activeTab === 'past' ? 'bg-black/20 text-black' : 'bg-[#D4AF37] text-black'
+              activeTab === 'past' ? 'bg-black/20 text-black' : 'bg-accent text-black'
             }`}>
               {needsReview.length}
             </span>
@@ -85,7 +85,7 @@ export function BookingsTabsClient({
                 <p className="text-zinc-400 mb-1 text-lg">No upcoming sessions</p>
                 <p className="text-zinc-500 text-sm mb-6">Book training to see your sessions here</p>
                 <Link href="/training">
-                  <Button className="bg-[#D4AF37] hover:bg-[#B8963C] text-black font-medium px-6">
+                  <Button className="bg-accent hover:bg-accent-hover text-black font-medium px-6">
                     Find Training
                   </Button>
                 </Link>
@@ -96,7 +96,7 @@ export function BookingsTabsClient({
               {thisWeek.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <Clock className="h-4 w-4 text-[#D4AF37]" />
+                    <Clock className="h-4 w-4 text-accent" />
                     <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">This Week</h2>
                   </div>
                   <div className="space-y-3">
@@ -145,10 +145,10 @@ export function BookingsTabsClient({
             <>
               {/* Needs Review Section - Highlighted */}
               {needsReview.length > 0 && (
-                <div className="rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 p-4">
+                <div className="rounded-xl bg-accent/10 border border-accent/30 p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <Star className="h-4 w-4 text-[#D4AF37] fill-current" />
-                    <h2 className="text-sm font-semibold text-[#D4AF37] uppercase tracking-wide">
+                    <Star className="h-4 w-4 text-accent fill-current" />
+                    <h2 className="text-sm font-semibold text-accent uppercase tracking-wide">
                       Leave Feedback ({needsReview.length})
                     </h2>
                   </div>

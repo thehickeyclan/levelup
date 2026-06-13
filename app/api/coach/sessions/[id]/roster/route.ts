@@ -104,6 +104,7 @@ export async function GET(
       const name = wrestler ? `${wrestler.first_name} ${wrestler.last_name}`.trim() : 'Drop-in';
       return {
         id: p.id as string,
+        wrestlerId: youthId,
         wrestlerName: name,
         photoUrl: wrestler?.photo_url || null,
         parentEmail: null,

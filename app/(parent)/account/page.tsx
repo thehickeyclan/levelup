@@ -49,7 +49,7 @@ export default async function AccountPage() {
           <div className="pt-2 flex flex-col gap-2">
             <Link
               href="/youth-dashboard"
-              className="text-sm font-medium text-[#D4AF37] hover:text-[#E5C76B]"
+              className="text-sm font-medium text-accent hover:text-accent-light"
             >
               ← Back to Home
             </Link>
@@ -129,7 +129,7 @@ export default async function AccountPage() {
       <div className="px-4 mb-6">
         <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#B8960C] flex items-center justify-center">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-accent to-[#B8960C] flex items-center justify-center">
               <User className="h-7 w-7 text-black" />
             </div>
             <div className="flex-1 min-w-0">
@@ -139,7 +139,7 @@ export default async function AccountPage() {
               )}
               <div className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-800/50 pt-3">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Wallet className="h-4 w-4 shrink-0 text-[#D4AF37]" aria-hidden />
+                  <Wallet className="h-4 w-4 shrink-0 text-accent" aria-hidden />
                   <div className="min-w-0">
                     <p className="text-xs text-zinc-500">Available credit</p>
                     <p className="text-sm font-semibold tabular-nums text-foreground">
@@ -149,7 +149,7 @@ export default async function AccountPage() {
                 </div>
                 <Link
                   href="/wallet"
-                  className="shrink-0 self-center py-2 text-xs font-medium text-[#D4AF37] hover:text-[#E5C76B]"
+                  className="shrink-0 self-center py-2 text-xs font-medium text-accent hover:text-accent-light"
                 >
                   Details
                 </Link>
@@ -167,21 +167,21 @@ export default async function AccountPage() {
         <div className="grid grid-cols-3 gap-3">
           <Link href="/my-wrestlers">
             <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-4 text-center hover:border-zinc-700 transition-colors">
-              <Users className="h-5 w-5 mx-auto mb-2 text-[#D4AF37]" />
+              <Users className="h-5 w-5 mx-auto mb-2 text-accent" />
               <p className="text-2xl font-bold">{wrestlerCount}</p>
               <p className="text-xs text-zinc-500">Wrestlers</p>
             </div>
           </Link>
           <Link href="/wallet">
             <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-4 text-center hover:border-zinc-700 transition-colors">
-              <Wallet className="h-5 w-5 mx-auto mb-2 text-[#D4AF37]" />
+              <Wallet className="h-5 w-5 mx-auto mb-2 text-accent" />
               <p className="text-2xl font-bold tabular-nums">${creditBalance.toFixed(2)}</p>
               <p className="text-xs text-zinc-500">Credit</p>
             </div>
           </Link>
           <Link href="/bookings">
             <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-4 text-center hover:border-zinc-700 transition-colors">
-              <DollarSign className="h-5 w-5 mx-auto mb-2 text-[#D4AF37]" />
+              <DollarSign className="h-5 w-5 mx-auto mb-2 text-accent" />
               <p className="text-2xl font-bold">${totalSpent.toFixed(0)}</p>
               <p className="text-xs text-zinc-500">Paid</p>
             </div>
@@ -200,7 +200,7 @@ export default async function AccountPage() {
                   <li key={w.id}>
                     <Link
                       href={`/wrestlers/${w.id}`}
-                      className="flex items-center justify-between gap-2 py-2 text-sm font-medium text-foreground hover:text-[#D4AF37] border-b border-zinc-800/40 last:border-0"
+                      className="flex items-center justify-between gap-2 py-2 text-sm font-medium text-foreground hover:text-accent border-b border-zinc-800/40 last:border-0"
                     >
                       <span>{name}</span>
                       <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
@@ -211,7 +211,7 @@ export default async function AccountPage() {
             </ul>
             <Link
               href="/my-wrestlers"
-              className="mt-3 inline-block text-xs font-medium text-[#D4AF37] hover:text-[#E5C76B]"
+              className="mt-3 inline-block text-xs font-medium text-accent hover:text-accent-light"
             >
               View all & manage →
             </Link>
@@ -286,7 +286,7 @@ function MenuItem({
         <Icon className="h-5 w-5 text-zinc-400" />
         <span className="flex-1 font-medium">{label}</span>
         {badge && (
-          <span className="text-sm text-[#D4AF37] font-medium">{badge}</span>
+          <span className="text-sm text-accent font-medium">{badge}</span>
         )}
         <ChevronRight className="h-4 w-4 text-zinc-600" />
       </div>

@@ -327,7 +327,7 @@ export default function SignupPage() {
                 )}
               />
 
-              <Button type="submit" className="w-full bg-[#D4AF37] hover:bg-[#B8963C] text-black" disabled={loading}>
+              <Button type="submit" className="w-full bg-accent hover:bg-accent-hover text-black" disabled={loading}>
                 {loading ? 'Creating account...' : 'Create Account'}
               </Button>
             </form>
@@ -336,13 +336,13 @@ export default function SignupPage() {
           <div className="mt-6 text-center text-sm space-y-2">
             <p className="text-muted-foreground">
               Already have an account?{' '}
-              <Link href="/login" className="text-[#D4AF37] hover:underline">
+              <Link href="/login" className="text-accent hover:underline">
                 Sign in
               </Link>
             </p>
             <p className="text-muted-foreground">
               Want to coach?{' '}
-              <Link href="/signup/coach" className="text-[#D4AF37] hover:underline">
+              <Link href="/signup/coach" className="text-accent hover:underline">
                 Apply as a coach
               </Link>
             </p>

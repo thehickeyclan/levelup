@@ -223,11 +223,11 @@ export default async function CoachHelpPage() {
       </div>
 
       <div className="space-y-6">
-        <Card className="border-[#D4AF37]/40 shadow-sm">
+        <Card className="border-accent/40 shadow-sm">
           <CardHeader>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#D4AF37] mb-1">Start here</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent mb-1">Start here</p>
             <div className="flex items-center gap-2">
-              <Smartphone className="h-5 w-5 text-[#D4AF37]" aria-hidden />
+              <Smartphone className="h-5 w-5 text-accent" aria-hidden />
               <CardTitle className="text-lg">Add The Guild to your phone</CardTitle>
             </div>
             <CardDescription>
@@ -260,10 +260,10 @@ export default async function CoachHelpPage() {
             {extraWithEngagement.map((r) => {
               const emb = videoEmbedSrc(r.url);
               return (
-                <Card key={r.id} className="border-[#D4AF37]/40 shadow-sm">
+                <Card key={r.id} className="border-accent/40 shadow-sm">
                   <CardHeader>
                     <div className="flex items-center gap-2">
-                      <Video className="h-5 w-5 text-[#D4AF37]" aria-hidden />
+                      <Video className="h-5 w-5 text-accent" aria-hidden />
                       <CardTitle className="text-lg">{r.title}</CardTitle>
                     </div>
                     <CardDescription>
@@ -296,7 +296,7 @@ export default async function CoachHelpPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-[#D4AF37]" aria-hidden />
+              <CalendarClock className="h-5 w-5 text-accent" aria-hidden />
               <CardTitle className="text-lg">Availability</CardTitle>
             </div>
             <CardDescription>
@@ -318,7 +318,7 @@ export default async function CoachHelpPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <LayoutDashboard className="h-5 w-5 text-[#D4AF37]" aria-hidden />
+              <LayoutDashboard className="h-5 w-5 text-accent" aria-hidden />
               <CardTitle className="text-lg">Schedule, sessions &amp; earnings</CardTitle>
             </div>
             <CardDescription>Day-to-day coaching workflow in the app.</CardDescription>

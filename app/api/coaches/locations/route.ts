@@ -4,10 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { createCoachLocation } from '@/lib/coach-create-location';
-import { getCoachFacilityIds } from '@/lib/coach-facilities';
+import { getCoachFacilitiesForEdit } from '@/lib/coach-facilities';
 
-/** GET — facilities this coach can use for sessions. */
-export async function GET() {
+/** GET — facilities this coach can use for sessions. Optional `coachId` for admin. */
+export async function GET(req: NextRequest) {
   try {
     const headersList = await headers();
     const host = headersList.get('host') || '';
@@ -21,23 +21,23 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
-    if (userData?.role !== 'coach' && userData?.role !== 'admin') {
+    const role = userData?.role;
+    if (role !== 'coach' && role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const coachId = user.id;
+    const requestedCoachId = req.nextUrl.searchParams.get('coachId')?.trim() || '';
+    let coachId = user.id;
+    if (requestedCoachId) {
+      if (role !== 'admin' && requestedCoachId !== user.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      coachId = requestedCoachId;
+    }
+
     const admin = createAdminClient(tenant.slug);
-    const ids = await getCoachFacilityIds(admin, coachId);
-    if (ids.length === 0) return NextResponse.json({ facilities: [] });
-
-    const { data: facilities, error } = await admin
-      .from('facilities')
-      .select('id, name, school, address')
-      .in('id', ids)
-      .order('name');
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ facilities: facilities ?? [] });
+    const facilities = await getCoachFacilitiesForEdit(admin, coachId);
+    return NextResponse.json({ facilities });
   } catch (e) {
     console.error('Coach locations GET error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

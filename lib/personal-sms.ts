@@ -11,16 +11,36 @@ export function uniqueTenDigitPhones(phones: string[]): string[] {
   return uniq;
 }
 
+/** Parse newline- or comma-separated paste from sms-phones API. */
+export function phonesFromPasteList(pasteList: string): string[] {
+  const trimmed = pasteList.trim();
+  if (!trimmed) return [];
+  const parts =
+    trimmed.includes('\n') || trimmed.includes('\r')
+      ? trimmed.split(/\r?\n/)
+      : trimmed.split(/[,;]+/);
+  return uniqueTenDigitPhones(parts);
+}
+
+/** Build sms: deep link — Apple docs allow comma-separated recipients. */
+export function buildPersonalGroupSmsHref(phones: string[], body: string): string | null {
+  const uniq = uniqueTenDigitPhones(phones);
+  if (uniq.length === 0) return null;
+  const encodedBody = encodeURIComponent(body);
+  if (uniq.length === 1) return `sms:${uniq[0]}?body=${encodedBody}`;
+  return `sms:${uniq.join(',')}?body=${encodedBody}`;
+}
+
 /**
  * Open the device SMS app from the coach's personal number.
- * iOS ignores extra recipients in sms: URLs — for 2+, copy numbers and open compose with body only.
+ * Uses comma-separated recipients in the sms: URL (works on iOS and Android).
  */
-export async function openPersonalGroupSms(options: {
-  /** Raw multiline list from sms-phones API (CRLF preferred). */
+export function openPersonalGroupSms(options: {
+  /** Raw list from sms-phones API (CRLF or comma-separated). */
   pasteList: string;
   body: string;
   recipientLabel?: string;
-}): Promise<void> {
+}): void {
   if (typeof window === 'undefined') return;
 
   const pasteList = options.pasteList.trim();
@@ -29,25 +49,20 @@ export async function openPersonalGroupSms(options: {
     return;
   }
 
-  const uniq = uniqueTenDigitPhones(pasteList.split(/\r?\n/));
+  const uniq = phonesFromPasteList(pasteList);
   if (uniq.length === 0) {
     window.alert('No valid numbers on file.');
     return;
   }
 
-  const encodedBody = encodeURIComponent(options.body);
-  const who = options.recipientLabel ?? 'recipient';
-
-  if (uniq.length === 1) {
-    window.location.href = `sms:${uniq[0]}?body=${encodedBody}`;
+  const href = buildPersonalGroupSmsHref(uniq, options.body);
+  if (!href) {
+    window.alert('No valid numbers on file.');
     return;
   }
 
-  const copied = await copyTextToClipboard(pasteList);
-  const hint = copied
-    ? `${uniq.length} ${who} numbers copied. Tap OK to open Messages — paste into To, then send.`
-    : `Paste these numbers into Messages To (one per line), then send:\n\n${pasteList}`;
+  // Best-effort clipboard backup (sync path inside — do not await before navigation).
+  void copyTextToClipboard(uniq.join(', '));
 
-  if (!window.confirm(hint)) return;
-  window.location.href = `sms:?&body=${encodedBody}`;
+  window.location.href = href;
 }

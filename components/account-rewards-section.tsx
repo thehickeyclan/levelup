@@ -120,7 +120,7 @@ export function AccountRewardsSection() {
             disabled={!link}
             onClick={() => link && setShareOpen(true)}
             className={cn(
-              'group relative rounded-2xl p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950',
+              'group relative rounded-2xl p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950',
               'bg-gradient-to-br from-emerald-400/20 via-[#c9a227]/15 to-violet-500/25',
               'border border-white/10 hover:border-white/20 min-h-[120px] flex flex-col justify-between',
               !link && 'opacity-50 cursor-not-allowed'
@@ -142,7 +142,7 @@ export function AccountRewardsSection() {
             disabled={!link}
             onClick={() => link && setShareOpen(true)}
             className={cn(
-              'rounded-2xl p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950',
+              'rounded-2xl p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950',
               'bg-zinc-950/90 border border-zinc-600/70 hover:bg-zinc-900/95 hover:border-zinc-500/80 min-h-[120px] flex flex-col justify-between',
               !link && 'opacity-50 cursor-not-allowed'
             )}
@@ -219,7 +219,7 @@ export function AccountRewardsSection() {
               Sessions completed: {data.completedSessions} of {next.nextThreshold}
             </p>
             <div className="h-2 bg-zinc-800 rounded-full mt-2 overflow-hidden">
-              <div className="h-full bg-[#D4AF37] rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+              <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${progressPct}%` }} />
             </div>
             {next.creditAtNext != null && (
               <p className="text-xs text-zinc-500 mt-1.5">
@@ -238,7 +238,7 @@ export function AccountRewardsSection() {
           )}
         >
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
-            <Gift className="h-7 w-7 text-[#D4AF37]" aria-hidden />
+            <Gift className="h-7 w-7 text-accent" aria-hidden />
           </div>
 
           <DialogHeader className="space-y-3 text-center sm:text-center px-1">

@@ -43,7 +43,7 @@ export function ParentBottomNav() {
               'relative flex flex-col items-center justify-center min-h-[56px] min-w-0 flex-1 py-2 px-3 touch-manipulation select-none text-[11px] font-medium transition-colors duration-100 whitespace-nowrap',
               '-webkit-tap-highlight-color: transparent',
               isActive 
-                ? 'text-[#D4AF37]' 
+                ? 'text-accent' 
                 : 'text-zinc-500 active:text-zinc-400'
             )}
             aria-current={isActive ? 'page' : undefined}
@@ -58,7 +58,7 @@ export function ParentBottomNav() {
                 aria-hidden 
               />
               {showBadge && cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#D4AF37] text-black text-[10px] font-bold px-1">
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-accent text-black text-[10px] font-bold px-1">
                   {cartCount > 9 ? '9+' : cartCount}
                 </span>
               )}
@@ -70,7 +70,7 @@ export function ParentBottomNav() {
               {label}
             </span>
             {isActive && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#D4AF37] rounded-full" />
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-accent rounded-full" />
             )}
           </Link>
         );

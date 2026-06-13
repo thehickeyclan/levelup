@@ -218,7 +218,7 @@ export function TrainingCoachesGrid({
         <div
           className={cn(
             'flex min-h-[44px] shrink-0 snap-start items-stretch overflow-hidden rounded-full border bg-zinc-900',
-            filterDate ? 'border-[#D4AF37]/40' : 'border-zinc-800'
+            filterDate ? 'border-accent/40' : 'border-zinc-800'
           )}
         >
           <label className="sr-only" htmlFor="training-coach-date-native">
@@ -227,7 +227,7 @@ export function TrainingCoachesGrid({
           <div
             className={cn(
               'flex min-w-[7.5rem] items-center gap-1.5 px-2 sm:hidden',
-              filterDate ? 'text-[#D4AF37]' : 'text-zinc-300'
+              filterDate ? 'text-accent' : 'text-zinc-300'
             )}
           >
             <Calendar className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
@@ -238,7 +238,7 @@ export function TrainingCoachesGrid({
               max={coachDateFilterBounds.maxYmd}
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="min-h-[40px] w-[min(11rem,calc(100vw-6rem))] flex-1 cursor-pointer bg-transparent text-sm font-medium text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/50 rounded-md"
+              className="min-h-[40px] w-[min(11rem,calc(100vw-6rem))] flex-1 cursor-pointer bg-transparent text-sm font-medium text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded-md"
             />
           </div>
           <Popover open={dateOpen} onOpenChange={setDateOpen}>
@@ -246,8 +246,8 @@ export function TrainingCoachesGrid({
               <button
                 type="button"
                 className={cn(
-                  'hidden min-h-[44px] sm:flex min-w-[9rem] max-w-[12rem] items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/50',
-                  filterDate ? 'text-[#D4AF37]' : 'text-zinc-300'
+                  'hidden min-h-[44px] sm:flex min-w-[9rem] max-w-[12rem] items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+                  filterDate ? 'text-accent' : 'text-zinc-300'
                 )}
                 aria-label={
                   filterDate
@@ -306,7 +306,7 @@ export function TrainingCoachesGrid({
                 setFilterDate('');
                 setDateOpen(false);
               }}
-              className="border-l border-zinc-800 px-2.5 text-lg leading-none text-zinc-400 hover:text-[#D4AF37] touch-manipulation"
+              className="border-l border-zinc-800 px-2.5 text-lg leading-none text-zinc-400 hover:text-accent touch-manipulation"
               aria-label="Clear date filter"
             >
               ×
@@ -321,7 +321,7 @@ export function TrainingCoachesGrid({
           id="training-coach-location"
           value={facilityId}
           onChange={(e) => setFacilityId(e.target.value)}
-          className="min-h-[44px] w-full min-w-[10rem] max-w-[min(100%,20rem)] shrink-0 snap-start rounded-full border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/50 sm:w-auto"
+          className="min-h-[44px] w-full min-w-[10rem] max-w-[min(100%,20rem)] shrink-0 snap-start rounded-full border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 sm:w-auto"
         >
           <option value="all">All locations</option>
           {locationFacilities.map((f) => (
@@ -346,7 +346,7 @@ export function TrainingCoachesGrid({
                 className={cn(
                   'shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition-colors touch-manipulation sm:text-sm',
                   selected
-                    ? 'bg-[#D4AF37]/25 text-[#D4AF37] ring-1 ring-[#D4AF37]/40'
+                    ? 'bg-accent/25 text-accent ring-1 ring-accent/40'
                     : 'text-zinc-400 hover:text-zinc-200'
                 )}
               >
@@ -364,7 +364,7 @@ export function TrainingCoachesGrid({
           title="Coaches with upcoming open sessions only"
           className={`min-h-[44px] shrink-0 snap-start self-center whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
             availableOnly
-              ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30'
+              ? 'bg-accent/20 text-accent border-accent/30'
               : 'bg-zinc-900 text-zinc-300 border-zinc-800'
           }`}
         >
@@ -375,7 +375,7 @@ export function TrainingCoachesGrid({
           <button
             type="button"
             onClick={clearAllFilters}
-            className="min-h-[44px] shrink-0 snap-start whitespace-nowrap rounded-full border border-zinc-600 px-3 py-2 text-xs font-semibold text-zinc-300 hover:border-[#D4AF37]/40 hover:text-[#D4AF37] sm:text-sm"
+            className="min-h-[44px] shrink-0 snap-start whitespace-nowrap rounded-full border border-zinc-600 px-3 py-2 text-xs font-semibold text-zinc-300 hover:border-accent/40 hover:text-accent sm:text-sm"
           >
             Clear filters
           </button>
@@ -391,7 +391,7 @@ export function TrainingCoachesGrid({
           <Button
             type="button"
             variant="outline"
-            className="mt-4 min-h-[44px] w-full max-w-sm border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10"
+            className="mt-4 min-h-[44px] w-full max-w-sm border-accent text-accent hover:bg-accent/10"
             onClick={() => setFilterDate('')}
           >
             Clear date filter
@@ -448,7 +448,7 @@ export function TrainingCoachesGrid({
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <Button
                     size="sm"
-                    className="min-h-[44px] text-xs px-2 bg-[#D4AF37] hover:bg-[#c9a432] text-black border-0 font-semibold"
+                    className="min-h-[44px] text-xs px-2 bg-accent hover:bg-accent-hover text-black border-0 font-semibold"
                     asChild
                   >
                     <Link
@@ -545,7 +545,7 @@ function TrainingFollowHeartIcon({
       type="button"
       variant="outline"
       size="icon"
-      className={`${iconBtnClass} ${following ? 'bg-[#D4AF37] hover:bg-[#c9a432] text-black border-0 hover:text-black' : ''}`}
+      className={`${iconBtnClass} ${following ? 'bg-accent hover:bg-accent-hover text-black border-0 hover:text-black' : ''}`}
       onClick={() => void toggle()}
       disabled={loading}
       aria-pressed={following}

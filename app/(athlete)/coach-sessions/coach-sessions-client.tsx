@@ -211,7 +211,7 @@ export function CoachSessionsClient({
           <Button
             asChild
             size="lg"
-            className="w-full sm:flex-1 min-h-[48px] touch-manipulation bg-[#D4AF37] text-black hover:bg-[#c9a432] font-semibold shadow-sm"
+            className="w-full sm:flex-1 min-h-[48px] touch-manipulation bg-accent text-black hover:bg-accent-hover font-semibold shadow-sm"
           >
             <Link href="/coach-sessions/create">
               <CalendarPlus className="h-5 w-5 mr-2 shrink-0" />
@@ -491,7 +491,7 @@ export function CoachSessionsClient({
         <div className="space-y-3">
           {communityOnly ? (
             <p className="text-sm">
-              <Link href="/athlete-dashboard" className="text-[#D4AF37] font-medium hover:underline">
+              <Link href="/athlete-dashboard" className="text-accent font-medium hover:underline">
                 ← Back to my schedule
               </Link>
             </p>

@@ -149,7 +149,7 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
                 </p>
                 <Button
                   type="button"
-                  className="w-full min-h-[44px] touch-manipulation bg-[#D4AF37] text-black hover:bg-[#c9a432]"
+                  className="w-full min-h-[44px] touch-manipulation bg-accent text-black hover:bg-accent-hover"
                   onClick={() => void handleInstallClick()}
                   disabled={installTried}
                 >
@@ -202,8 +202,8 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
             )}
 
             {ctx.isIOSSafari && (
-              <div className="rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/5 p-3">
-                <p className="text-sm font-semibold text-[#D4AF37] mb-2">Safari — 3 taps</p>
+              <div className="rounded-lg border border-accent/30 bg-accent/5 p-3">
+                <p className="text-sm font-semibold text-accent mb-2">Safari — 3 taps</p>
                 <ol className="list-decimal pl-5 space-y-2.5 text-muted-foreground leading-relaxed text-xs sm:text-sm">
                   <li>
                     Tap <strong className="text-foreground">Share</strong>
@@ -332,12 +332,12 @@ export function PwaInstallBanner() {
 
   return (
     <div
-      className="border-b border-[#D4AF37]/40 bg-zinc-950 text-white px-3 py-2.5 md:hidden"
+      className="border-b border-accent/40 bg-zinc-950 text-white px-3 py-2.5 md:hidden"
       role="region"
       aria-label="Install app"
     >
       <div className="container mx-auto flex items-center gap-2">
-        <Smartphone className="h-5 w-5 shrink-0 text-[#D4AF37]" aria-hidden />
+        <Smartphone className="h-5 w-5 shrink-0 text-accent" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white leading-tight">{`Install ${productName}`}</p>
           <p className="text-[11px] text-zinc-400 leading-snug mt-0.5">{sub}</p>
@@ -346,7 +346,7 @@ export function PwaInstallBanner() {
           <Button
             type="button"
             size="sm"
-            className="h-9 min-h-[44px] sm:min-h-0 px-3 text-xs font-semibold bg-[#D4AF37] text-black hover:bg-[#c9a432] touch-manipulation"
+            className="h-9 min-h-[44px] sm:min-h-0 px-3 text-xs font-semibold bg-accent text-black hover:bg-accent-hover touch-manipulation"
             onClick={openDialog}
           >
             {chromeInstallReady ? 'Install' : 'How'}

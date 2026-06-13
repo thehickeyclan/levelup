@@ -152,7 +152,7 @@ export default async function AdminReviewsPage() {
           <CardContent className="pt-6">
             <div className="text-2xl font-bold flex items-center gap-1">
               {avgRating.toFixed(1)}
-              <Star className="h-5 w-5 text-[#D4AF37] fill-current" />
+              <Star className="h-5 w-5 text-accent fill-current" />
             </div>
             <p className="text-sm text-muted-foreground">Average Rating</p>
           </CardContent>
@@ -199,7 +199,7 @@ export default async function AdminReviewsPage() {
                     </CardTitle>
                     <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-[#D4AF37] fill-current" />
+                        <Star className="h-4 w-4 text-accent fill-current" />
                         {coachAvg.toFixed(1)} avg
                       </span>
                       <span>{coachReviews.length} review{coachReviews.length !== 1 ? 's' : ''}</span>
@@ -222,7 +222,7 @@ export default async function AdminReviewsPage() {
                                 key={i}
                                 className={`h-4 w-4 ${
                                   i < review.rating
-                                    ? 'text-[#D4AF37] fill-current'
+                                    ? 'text-accent fill-current'
                                     : 'text-zinc-700'
                                 }`}
                               />

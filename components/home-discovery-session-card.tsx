@@ -121,7 +121,7 @@ export function HomeDiscoverySessionCard({ session, parentWrestlerIds }: Props) 
           variant="outline"
           size="sm"
           disabled
-          className="h-9 min-w-[44px] shrink-0 border-[#D4AF37]/50 bg-transparent px-2 text-xs font-semibold text-zinc-300"
+          className="h-9 min-w-[44px] shrink-0 border-accent/50 bg-transparent px-2 text-xs font-semibold text-zinc-300"
         >
           In Cart
         </Button>
@@ -132,7 +132,7 @@ export function HomeDiscoverySessionCard({ session, parentWrestlerIds }: Props) 
           size="sm"
           onClick={handleAdd}
           disabled={openSlots <= 0 || cartQty >= maxCartQty}
-          className="h-9 min-w-[44px] shrink-0 border-[#D4AF37] bg-transparent px-2 text-xs font-semibold text-[#D4AF37] hover:bg-[#D4AF37]/10 hover:text-[#D4AF37]"
+          className="h-9 min-w-[44px] shrink-0 border-accent bg-transparent px-2 text-xs font-semibold text-accent hover:bg-accent/10 hover:text-accent"
         >
           + Add
         </Button>

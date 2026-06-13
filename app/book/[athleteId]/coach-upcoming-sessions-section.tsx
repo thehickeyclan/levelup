@@ -154,7 +154,7 @@ export function CoachUpcomingSessionsSection({
               </div>
               <div className="shrink-0 flex sm:flex-col items-stretch gap-2">
                 {href ? (
-                  <Button size="sm" className="bg-[#D4AF37] text-black hover:bg-[#c4a030] w-full sm:w-auto" asChild>
+                  <Button size="sm" className="bg-accent text-black hover:bg-[#c4a030] w-full sm:w-auto" asChild>
                     <Link href={href}>
                       {label}
                       <ChevronRight className="h-4 w-4 ml-1" />

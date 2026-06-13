@@ -91,7 +91,7 @@ export function CoachNewLocationDialog({ open, onOpenChange, onCreated, coachId 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-[#B89D60]" />
+            <MapPin className="h-5 w-5 text-accent" />
             New location
           </DialogTitle>
           <DialogDescription>

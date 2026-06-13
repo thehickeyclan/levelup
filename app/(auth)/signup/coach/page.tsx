@@ -224,9 +224,9 @@ export default function CoachApplicationPage() {
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
                     currentStep > step.id
-                      ? 'bg-[#D4AF37] text-black'
+                      ? 'bg-accent text-black'
                       : currentStep === step.id
-                      ? 'bg-[#D4AF37] text-black'
+                      ? 'bg-accent text-black'
                       : 'bg-muted text-muted-foreground'
                   }`}
                 >
@@ -235,7 +235,7 @@ export default function CoachApplicationPage() {
                 {index < STEPS.length - 1 && (
                   <div
                     className={`h-0.5 w-8 sm:w-12 mx-1 ${
-                      currentStep > step.id ? 'bg-[#D4AF37]' : 'bg-muted'
+                      currentStep > step.id ? 'bg-accent' : 'bg-muted'
                     }`}
                   />
                 )}
@@ -449,7 +449,7 @@ export default function CoachApplicationPage() {
                               <FormLabel>I have SafeSport Certification</FormLabel>
                               <FormDescription>
                                 Optional to submit — you can complete before or after approval. Get certified at{' '}
-                                <a href="https://safesport.org" target="_blank" rel="noopener noreferrer" className="text-[#D4AF37] underline">
+                                <a href="https://safesport.org" target="_blank" rel="noopener noreferrer" className="text-accent underline">
                                   safesport.org
                                 </a>
                               </FormDescription>
@@ -620,7 +620,7 @@ export default function CoachApplicationPage() {
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        <Link href="/coach-agreement" target="_blank" rel="noopener noreferrer" className="text-[#D4AF37] underline">
+                        <Link href="/coach-agreement" target="_blank" rel="noopener noreferrer" className="text-accent underline">
                           Open printable version
                         </Link>
                       </p>
@@ -714,12 +714,12 @@ export default function CoachApplicationPage() {
                   )}
                   
                   {currentStep < 6 ? (
-                    <Button type="button" onClick={nextStep} className="bg-[#D4AF37] hover:bg-[#B8963C] text-black">
+                    <Button type="button" onClick={nextStep} className="bg-accent hover:bg-accent-hover text-black">
                       Next
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                   ) : (
-                    <Button type="submit" disabled={loading} className="bg-[#D4AF37] hover:bg-[#B8963C] text-black">
+                    <Button type="submit" disabled={loading} className="bg-accent hover:bg-accent-hover text-black">
                       {loading ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />

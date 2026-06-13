@@ -119,7 +119,7 @@ export function CoachRankCard({ coachId, topSessionsListSize }: Props) {
     badges.push({ 
       icon: <Trophy className="h-4 w-4" />, 
       label: 'Most bookings', 
-      color: 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30' 
+      color: 'bg-accent/20 text-accent border-accent/30' 
     });
   }
 
@@ -127,7 +127,7 @@ export function CoachRankCard({ coachId, topSessionsListSize }: Props) {
     badges.push({
       icon: <DollarSign className="h-4 w-4" />,
       label: 'Top earnings',
-      color: 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30',
+      color: 'bg-accent/20 text-accent border-accent/30',
     });
   }
   
@@ -135,7 +135,7 @@ export function CoachRankCard({ coachId, topSessionsListSize }: Props) {
     badges.push({ 
       icon: <Star className="h-4 w-4" />, 
       label: 'Top rated', 
-      color: 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30' 
+      color: 'bg-accent/20 text-accent border-accent/30' 
     });
   }
   
@@ -177,8 +177,8 @@ export function CoachRankCard({ coachId, topSessionsListSize }: Props) {
           <>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-[#D4AF37]/20 flex items-center justify-center">
-                  <Medal className="h-6 w-6 text-[#D4AF37]" />
+                <div className="h-12 w-12 rounded-full bg-accent/20 flex items-center justify-center">
+                  <Medal className="h-6 w-6 text-accent" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{`Your rank ${rankLabel}`}</p>
@@ -223,7 +223,7 @@ export function CoachRankCard({ coachId, topSessionsListSize }: Props) {
             {averageRating != null && reviewCount > 0 && (
               <div className="pt-3 border-t border-accent/20 flex flex-wrap items-center gap-4 text-sm">
                 <div className="flex items-center gap-1">
-                  <Star className="h-4 w-4 text-[#D4AF37] fill-[#D4AF37]" />
+                  <Star className="h-4 w-4 text-accent fill-accent" />
                   <span className="font-medium">{averageRating.toFixed(1)}</span>
                   <span className="text-muted-foreground">({reviewCount} reviews)</span>
                 </div>
@@ -250,7 +250,7 @@ export function CoachRankCard({ coachId, topSessionsListSize }: Props) {
               {topList.map((c, idx) => (
                 <li
                   key={c.id}
-                  className={`flex items-center justify-between gap-2 text-sm ${c.id === coachId ? 'font-semibold text-[#D4AF37]' : ''}`}
+                  className={`flex items-center justify-between gap-2 text-sm ${c.id === coachId ? 'font-semibold text-accent' : ''}`}
                 >
                   <span className="min-w-0 truncate">
                     <span className="tabular-nums text-muted-foreground mr-2">{idx + 1}.</span>

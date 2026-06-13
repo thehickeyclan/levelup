@@ -149,7 +149,7 @@ export function PackageBundleClient({ sessions }: Props) {
           type="button"
           onClick={handleCheckout}
           disabled={noneSelected || loading}
-          className="w-full min-h-[48px] bg-[#D4AF37] hover:bg-[#B8963C] text-black font-medium"
+          className="w-full min-h-[48px] bg-accent hover:bg-accent-hover text-black font-medium"
         >
           {loading ? 'Preparing checkout…' : `Checkout — $${selectedTotal.toFixed(2)}`}
         </Button>

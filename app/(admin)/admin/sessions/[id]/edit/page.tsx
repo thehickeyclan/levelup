@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { formatEST } from '@/lib/format-date';
-import { getCoachFacilitiesForEdit } from '@/lib/coach-facilities';
+import { getAllFacilitiesForEdit } from '@/lib/coach-facilities';
 import { EditSessionForm } from './edit-session-form';
 import { BackLink } from '@/components/back-link';
 
@@ -47,7 +47,7 @@ export default async function AdminEditSessionPage({
       athlete_id,
       facility_id,
       athletes(id, first_name, last_name, school, payout_rate),
-      facilities(id, name),
+      facilities(id, name, school, address, directions),
       session_participants(amount_paid)
     `)
     .eq('id', sessionId)
@@ -60,7 +60,8 @@ export default async function AdminEditSessionPage({
     : (session as { athletes?: { first_name?: string; last_name?: string; school?: string; payout_rate?: number | null } }).athletes;
   const fac = Array.isArray((session as { facilities?: unknown }).facilities)
     ? (session as { facilities: unknown[] }).facilities[0]
-    : (session as { facilities?: { name?: string } }).facilities;
+    : (session as { facilities?: { id?: string; name?: string; school?: string | null; address?: string | null; directions?: string | null } })
+        .facilities;
 
   const partRows = (session as { session_participants?: { amount_paid?: number | null }[] }).session_participants;
   const participantAmountPaidSum = Array.isArray(partRows)
@@ -76,7 +77,24 @@ export default async function AdminEditSessionPage({
 
   const athleteId = (session as { athlete_id?: string }).athlete_id ?? '';
   const facilityId = (session as { facility_id?: string | null }).facility_id ?? '';
-  const facilities = athleteId ? await getCoachFacilitiesForEdit(admin, athleteId, facilityId) : [];
+  const facilities = await getAllFacilitiesForEdit(admin);
+  const facRow = fac as {
+    id?: string;
+    name?: string;
+    school?: string | null;
+    address?: string | null;
+    directions?: string | null;
+  } | null;
+  const currentFacility =
+    facilityId && facRow
+      ? {
+          id: facilityId,
+          name: facRow.name ?? 'Current location',
+          school: facRow.school ?? null,
+          address: facRow.address ?? null,
+          directions: facRow.directions ?? null,
+        }
+      : null;
   const editable = (session as { status?: string }).status !== 'cancelled';
 
   return (
@@ -121,6 +139,7 @@ export default async function AdminEditSessionPage({
         durationMinutes={(session as { duration_minutes?: number }).duration_minutes ?? 60}
         facilityId={facilityId}
         facilities={facilities}
+        currentFacility={currentFacility}
         coachId={athleteId}
         editable={editable}
       />

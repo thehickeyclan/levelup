@@ -16,13 +16,13 @@ export function CoachScheduleWelcomeBanner({ coachFirstName, calendarLastUpdated
     : null;
 
   return (
-    <section aria-label="Welcome" className="rounded-xl border border-[#D4AF37]/25 bg-card px-4 py-3.5">
+    <section aria-label="Welcome" className="rounded-xl border border-accent/25 bg-card px-4 py-3.5">
       <p className="text-lg font-semibold text-foreground leading-snug">
         {greeting}
         {name ? (
           <>
             {', '}
-            <span className="text-[#D4AF37]">{name}</span>
+            <span className="text-accent">{name}</span>
           </>
         ) : null}
       </p>
@@ -31,14 +31,14 @@ export function CoachScheduleWelcomeBanner({ coachFirstName, calendarLastUpdated
         {calendarLine ? (
           <>
             Calendar updated {calendarLine}.{' '}
-            <Link href="/availability" className="text-[#D4AF37] font-medium hover:underline">
+            <Link href="/availability" className="text-accent font-medium hover:underline">
               Update
             </Link>
           </>
         ) : (
           <>
             Set availability so parents can book.{' '}
-            <Link href="/availability" className="text-[#D4AF37] font-medium hover:underline">
+            <Link href="/availability" className="text-accent font-medium hover:underline">
               Set up calendar
             </Link>
           </>

@@ -139,8 +139,8 @@ export function CoachApplicationsClient({ applications }: Props) {
   const renderApplicationCard = (app: CoachApplication, showActions: boolean = false) => (
     <Card
       key={app.id}
-      className={`cursor-pointer transition-all hover:border-[#D4AF37] ${
-        selectedApp?.id === app.id ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]' : ''
+      className={`cursor-pointer transition-all hover:border-accent ${
+        selectedApp?.id === app.id ? 'border-accent ring-1 ring-accent' : ''
       }`}
       onClick={() => {
         setSelectedApp(app);
@@ -375,7 +375,7 @@ export function CoachApplicationsClient({ applications }: Props) {
           <TabsTrigger value="pending" className="relative">
             Pending
             {pendingApps.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 text-xs bg-[#D4AF37] text-black rounded-full">
+              <span className="ml-2 px-2 py-0.5 text-xs bg-accent text-black rounded-full">
                 {pendingApps.length}
               </span>
             )}

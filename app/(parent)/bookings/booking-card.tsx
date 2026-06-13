@@ -448,7 +448,7 @@ export function BookingCard({
                 isPast
                   ? 'font-bold'
                   : variant === 'coach'
-                    ? 'text-xl font-bold text-[#D4AF37]'
+                    ? 'text-xl font-bold text-accent'
                     : 'text-xl font-bold'
               }
             >

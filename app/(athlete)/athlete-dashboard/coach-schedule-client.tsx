@@ -148,23 +148,23 @@ export function CoachScheduleClient({
         <TabsList className="w-full grid grid-cols-3 h-10 p-0.5 rounded-lg bg-zinc-900/60 border border-border/60">
           <TabsTrigger
             value="upcoming"
-            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-[#D4AF37]/15 data-[state=active]:text-[#D4AF37] data-[state=active]:shadow-none"
+            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-accent/15 data-[state=active]:text-accent data-[state=active]:shadow-none"
           >
             Upcoming
           </TabsTrigger>
           <TabsTrigger
             value="past"
-            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-[#D4AF37]/15 data-[state=active]:text-[#D4AF37] data-[state=active]:shadow-none"
+            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-accent/15 data-[state=active]:text-accent data-[state=active]:shadow-none"
           >
             Past
           </TabsTrigger>
           <TabsTrigger
             value="requests"
-            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-[#D4AF37]/15 data-[state=active]:text-[#D4AF37] data-[state=active]:shadow-none relative"
+            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-accent/15 data-[state=active]:text-accent data-[state=active]:shadow-none relative"
           >
             Requests
             {pendingCount > 0 ? (
-              <span className="ml-1 inline-flex min-w-[16px] h-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-black">
+              <span className="ml-1 inline-flex min-w-[16px] h-4 px-1 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-black">
                 {pendingCount > 99 ? '99+' : pendingCount}
               </span>
             ) : null}
@@ -198,7 +198,7 @@ export function CoachScheduleClient({
                   <p className="text-sm text-muted-foreground">
                     Create one now so parents can book or use your share link.
                   </p>
-                  <Button asChild className="min-h-[44px] touch-manipulation bg-[#D4AF37] hover:bg-[#c9a432] text-black">
+                  <Button asChild className="min-h-[44px] touch-manipulation bg-accent hover:bg-accent-hover text-black">
                     <Link href="/coach-sessions/create">
                       <CalendarPlus className="h-4 w-4 mr-2" />
                       Schedule new session
@@ -244,7 +244,7 @@ export function CoachScheduleClient({
           <p className="text-center pt-2">
             <Link
               href="/coach-sessions?tab=all"
-              className="text-sm text-[#D4AF37] font-medium hover:underline"
+              className="text-sm text-accent font-medium hover:underline"
             >
               Browse all open sessions on the platform →
             </Link>

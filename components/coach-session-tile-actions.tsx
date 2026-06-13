@@ -160,7 +160,7 @@ export function CoachSessionTileActions({
       return;
     }
     setOpen(false);
-    await openPersonalGroupSms({
+    openPersonalGroupSms({
       pasteList,
       body: reminderBody(),
       recipientLabel: kind === 'parents' ? 'parent' : kind === 'athletes' ? 'kid' : 'family',
@@ -254,7 +254,13 @@ export function CoachSessionTileActions({
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (next && hasAthletes && !phones && !phonesLoading) void loadPhones();
+        }}
+      >
         <PopoverTrigger asChild>
           {triggerIcon ? (
             <Button

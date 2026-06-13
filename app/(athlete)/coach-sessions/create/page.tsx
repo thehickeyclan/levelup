@@ -6,7 +6,7 @@ import { getTenantByDomain } from '@/config/tenants';
 import { BackLink } from '@/components/back-link';
 import { CoachCreateSessionForm } from './coach-create-session-form';
 import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
-import { getCoachFacilityIds } from '@/lib/coach-facilities';
+import { getCoachFacilitiesForEdit } from '@/lib/coach-facilities';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,22 +43,7 @@ export default async function CoachCreateSessionPage() {
     redirect('/onboarding');
   }
 
-  const facilityIds = await getCoachFacilityIds(admin, coachId);
-  let facilities: Array<{
-    id: string;
-    name: string;
-    school: string;
-    address?: string | null;
-    directions?: string | null;
-  }> = [];
-  if (facilityIds.length > 0) {
-    const { data: coachFacilities } = await admin
-      .from('facilities')
-      .select('id, name, school, address')
-      .in('id', facilityIds)
-      .order('name');
-    facilities = coachFacilities ?? [];
-  }
+  const facilities = await getCoachFacilitiesForEdit(admin, coachId);
 
   const coachName = [athlete.first_name, athlete.last_name].filter(Boolean).join(' ') || 'Coach';
 
@@ -78,7 +63,8 @@ export default async function CoachCreateSessionPage() {
       <CoachCreateSessionForm
         coachId={coachId}
         coachName={coachName}
-        facilities={facilities}
+        facilities={facilities.map((f) => ({ ...f, school: f.school ?? '' }))}
+        defaultFacilityId={(athlete as { facility_id?: string | null }).facility_id ?? ''}
         recommendedPrices={recommendedPrices}
       />
     </div>

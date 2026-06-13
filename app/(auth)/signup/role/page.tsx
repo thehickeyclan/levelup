@@ -21,10 +21,10 @@ export default function RoleSelectionPage() {
           onClick={() => router.push('/signup?role=parent')}
           className="text-left"
         >
-          <Card className="h-full cursor-pointer transition-all hover:border-[#D4AF37] hover:shadow-lg group">
+          <Card className="h-full cursor-pointer transition-all hover:border-accent hover:shadow-lg group">
             <CardHeader className="pb-3">
-              <div className="w-12 h-12 rounded-full bg-[#D4AF37]/10 flex items-center justify-center mb-3 group-hover:bg-[#D4AF37]/20 transition-colors">
-                <Users className="h-6 w-6 text-[#D4AF37]" />
+              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mb-3 group-hover:bg-accent/20 transition-colors">
+                <Users className="h-6 w-6 text-accent" />
               </div>
               <CardTitle className="text-xl font-serif">I&apos;m a Parent</CardTitle>
               <CardDescription>
@@ -46,10 +46,10 @@ export default function RoleSelectionPage() {
           onClick={() => router.push('/signup?role=coach')}
           className="text-left"
         >
-          <Card className="h-full cursor-pointer transition-all hover:border-[#D4AF37] hover:shadow-lg group">
+          <Card className="h-full cursor-pointer transition-all hover:border-accent hover:shadow-lg group">
             <CardHeader className="pb-3">
-              <div className="w-12 h-12 rounded-full bg-[#D4AF37]/10 flex items-center justify-center mb-3 group-hover:bg-[#D4AF37]/20 transition-colors">
-                <GraduationCap className="h-6 w-6 text-[#D4AF37]" />
+              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mb-3 group-hover:bg-accent/20 transition-colors">
+                <GraduationCap className="h-6 w-6 text-accent" />
               </div>
               <CardTitle className="text-xl font-serif">I&apos;m a Coach</CardTitle>
               <CardDescription>
@@ -70,7 +70,7 @@ export default function RoleSelectionPage() {
       <div className="mt-8 text-center text-sm">
         <p className="text-muted-foreground">
           Already have an account?{' '}
-          <Link href="/login" className="text-[#D4AF37] hover:underline">
+          <Link href="/login" className="text-accent hover:underline">
             Sign in
           </Link>
         </p>

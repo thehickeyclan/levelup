@@ -182,7 +182,7 @@ export function ParentHomeReviewSheet({
                       aria-label={`${n} stars`}
                     >
                       <Star
-                        className={`h-10 w-10 ${n <= stars ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-zinc-600'}`}
+                        className={`h-10 w-10 ${n <= stars ? 'fill-accent text-accent' : 'text-zinc-600'}`}
                       />
                     </button>
                   ))}
@@ -208,7 +208,7 @@ export function ParentHomeReviewSheet({
               <Button
                 type="submit"
                 disabled={submitting}
-                className="w-full min-h-[48px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold"
+                className="w-full min-h-[48px] bg-accent hover:bg-accent-hover text-black font-semibold"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit'}
               </Button>

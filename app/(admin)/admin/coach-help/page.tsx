@@ -54,7 +54,7 @@ export default async function AdminCoachHelpPage() {
         </p>
       </div>
 
-      <Card className="mb-6 border-[#D4AF37]/30">
+      <Card className="mb-6 border-accent/30">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Coach-facing page</CardTitle>
           <CardDescription>

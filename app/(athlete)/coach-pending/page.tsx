@@ -79,8 +79,8 @@ export default async function CoachPendingPage() {
     <div className="container mx-auto px-4 py-16 flex items-center justify-center min-h-screen">
       <Card className="w-full max-w-md text-center">
         <CardHeader>
-          <div className="w-16 h-16 rounded-full bg-[#D4AF37]/10 flex items-center justify-center mx-auto mb-4">
-            <Clock className="h-8 w-8 text-[#D4AF37]" />
+          <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
+            <Clock className="h-8 w-8 text-accent" />
           </div>
           <CardTitle className="font-serif">Application Under Review</CardTitle>
           <CardDescription>
@@ -97,7 +97,7 @@ export default async function CoachPendingPage() {
               </div>
             </div>
             <div className="flex items-start gap-3 text-left">
-              <Clock className="h-5 w-5 text-[#D4AF37] mt-0.5 shrink-0" />
+              <Clock className="h-5 w-5 text-accent mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-medium">Under Review</p>
                 <p className="text-xs text-muted-foreground">We typically respond within 24-48 hours</p>

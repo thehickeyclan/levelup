@@ -94,7 +94,7 @@ export default async function CoachEarningsPage() {
           <p className="font-semibold text-foreground">
             {payoutPercentDisplay}%
             {payoutRate >= 0.9 && (
-              <span className="ml-1 text-xs text-[#D4AF37] font-medium">(Founding Coach)</span>
+              <span className="ml-1 text-xs text-accent font-medium">(Founding Coach)</span>
             )}
           </p>
         </div>
@@ -140,9 +140,9 @@ export default async function CoachEarningsPage() {
       </div>
 
       {projectedEarnings > 0 && (
-        <Card className="mb-6 border-[#D4AF37]/30 bg-[#D4AF37]/5">
+        <Card className="mb-6 border-accent/30 bg-accent/5">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-[#D4AF37] mb-1">
+            <div className="flex items-center gap-2 text-accent mb-1">
               <Clock className="h-4 w-4" />
               <span className="text-sm font-medium">Projected from upcoming sessions</span>
             </div>

@@ -3,11 +3,17 @@
 import { useState, useEffect } from 'react';
 import { Loader2, MapPin, MoreHorizontal } from 'lucide-react';
 import { CoachSessionTileActions } from '@/components/coach-session-tile-actions';
+import { CoachWrestlerProfileDialog } from '@/components/coach-wrestler-profile-dialog';
 import { formatEST } from '@/lib/format-date';
 import { sessionParticipantDisplayNames } from '@/lib/session-participant-display-name';
 import { cn } from '@/lib/utils';
 import { getSessionTypeDisplay } from '@/lib/session-type-display';
 import type { CoachSession } from './coach-schedule-card';
+
+type RosterEntry = {
+  wrestlerId: string | null;
+  wrestlerName: string;
+};
 
 function facilityLabel(s: CoachSession): string {
   const f = s.facilities;
@@ -43,11 +49,17 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
   const typeLabel = getSessionTypeDisplay(session.session_type, session.session_mode).label;
 
   const fromJoin = sessionParticipantDisplayNames(participantsFromSession(session));
-  const [fetchedNames, setFetchedNames] = useState<string[] | undefined>(undefined);
+  const [fetchedRoster, setFetchedRoster] = useState<RosterEntry[] | undefined>(undefined);
   const [rosterLoading, setRosterLoading] = useState(nRegistered > 0);
+  const [profileWrestlerId, setProfileWrestlerId] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
-  const effectiveNames =
-    fetchedNames !== undefined ? fetchedNames : fromJoin.length > 0 ? fromJoin : [];
+  const effectiveRoster: RosterEntry[] =
+    fetchedRoster !== undefined
+      ? fetchedRoster
+      : fromJoin.map((name) => ({ wrestlerId: null, wrestlerName: name }));
+
+  const effectiveNames = effectiveRoster.map((r) => r.wrestlerName);
 
   useEffect(() => {
     if (nRegistered === 0) {
@@ -56,29 +68,41 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
     }
     let cancelled = false;
     setRosterLoading(true);
-    setFetchedNames(undefined);
+    setFetchedRoster(undefined);
 
-    const loadRoster = async (attempt: number): Promise<string[]> => {
+    const loadRoster = async (attempt: number): Promise<RosterEntry[]> => {
       const r = await fetch(`/api/coach/sessions/${session.id}/roster`);
-      const data = (await r.json()) as { roster?: Array<{ wrestlerName: string }>; error?: string };
+      const data = (await r.json()) as {
+        roster?: Array<{ wrestlerId?: string | null; wrestlerName: string }>;
+        error?: string;
+      };
       if (data.error) console.error('[CoachScheduleSessionCard] roster', session.id, data.error);
-      const raw = (data.roster ?? []).map((x) => x.wrestlerName?.trim()).filter(Boolean) as string[];
-      const names = raw.filter((x) => x !== 'Drop-in');
-      if (names.length === 0 && nRegistered > 0 && attempt === 0) {
+      const seen = new Set<string>();
+      const entries: RosterEntry[] = [];
+      for (const row of data.roster ?? []) {
+        const name = row.wrestlerName?.trim();
+        if (!name || name === 'Drop-in') continue;
+        const wid = row.wrestlerId ?? null;
+        const dedupeKey = wid ?? name;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        entries.push({ wrestlerId: wid, wrestlerName: name });
+      }
+      if (entries.length === 0 && nRegistered > 0 && attempt === 0) {
         await new Promise((res) => setTimeout(res, 500));
         if (cancelled) return [];
         return loadRoster(1);
       }
-      return names;
+      return entries;
     };
 
     void loadRoster(0)
-      .then((names) => {
+      .then((entries) => {
         if (cancelled) return;
-        setFetchedNames(names);
+        setFetchedRoster(entries);
       })
       .catch(() => {
-        if (!cancelled) setFetchedNames([]);
+        if (!cancelled) setFetchedRoster([]);
       })
       .finally(() => {
         if (!cancelled) setRosterLoading(false);
@@ -91,18 +115,25 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
   const athleteCount = Math.max(effectiveNames.length, nRegistered);
   const rosterReady = !rosterLoading || effectiveNames.length >= nRegistered;
 
+  const openProfile = (wrestlerId: string | null) => {
+    if (!wrestlerId) return;
+    setProfileWrestlerId(wrestlerId);
+    setProfileOpen(true);
+  };
+
   return (
+    <>
     <div
       className={cn(
         'rounded-xl border bg-card overflow-hidden',
-        emphasis === 'today' ? 'border-[#D4AF37]/35' : 'border-border/80'
+        emphasis === 'today' ? 'border-accent/35' : 'border-border/80'
       )}
     >
       <div className="px-4 py-3.5">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-medium text-[#D4AF37]/90 bg-[#D4AF37]/10 px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-medium text-accent/90 bg-accent/10 px-2 py-0.5 rounded-full">
                 {typeLabel}
               </span>
               {emphasis === 'today' ? (
@@ -116,7 +147,7 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
               {formatEST(dt, 'h:mm a')} · {dur} min
             </p>
             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 shrink-0 text-[#D4AF37]/80" aria-hidden />
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-accent/80" aria-hidden />
               <span className="truncate">{fac}</span>
             </p>
           </div>
@@ -155,9 +186,19 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
                 {athleteCount} {athleteCount === 1 ? 'athlete' : 'athletes'}
               </p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                {effectiveNames.map((name, i) => (
-                  <li key={`${session.id}-${i}-${name}`} className="text-sm text-foreground truncate">
-                    {name}
+                {effectiveRoster.map((entry) => (
+                  <li key={`${session.id}-${entry.wrestlerId ?? entry.wrestlerName}`} className="truncate">
+                    {entry.wrestlerId ? (
+                      <button
+                        type="button"
+                        onClick={() => openProfile(entry.wrestlerId)}
+                        className="text-sm text-accent font-medium hover:underline text-left truncate max-w-full touch-manipulation"
+                      >
+                        {entry.wrestlerName}
+                      </button>
+                    ) : (
+                      <span className="text-sm text-foreground">{entry.wrestlerName}</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -168,5 +209,12 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
         </div>
       </div>
     </div>
+
+    <CoachWrestlerProfileDialog
+      wrestlerId={profileWrestlerId}
+      open={profileOpen}
+      onOpenChange={setProfileOpen}
+    />
+    </>
   );
 }

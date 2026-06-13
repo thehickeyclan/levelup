@@ -95,7 +95,7 @@ export function CoachHelpVideoEngagement({
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <Button
           asChild
-          className="min-h-[44px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold w-full sm:w-auto"
+          className="min-h-[44px] bg-accent hover:bg-accent-hover text-black font-semibold w-full sm:w-auto"
         >
           <a
             href={watchUrl}
@@ -128,7 +128,7 @@ export function CoachHelpVideoEngagement({
             variant="outline"
             size="sm"
             disabled={voteBusy}
-            className={cn('min-h-[40px] gap-1.5', summary.myVote === 1 && 'border-[#D4AF37] bg-[#D4AF37]/10')}
+            className={cn('min-h-[40px] gap-1.5', summary.myVote === 1 && 'border-accent bg-accent/10')}
             onClick={() => onThumb(1)}
           >
             <ThumbsUp className="h-4 w-4" aria-hidden />

@@ -563,7 +563,7 @@ export function FindTrainingClient({
                 <Button
                   size="sm"
                   onClick={handleAddOne}
-                  className="min-h-[44px] min-w-[44px] gap-1.5 transition-all bg-[#D4AF37] hover:bg-[#B8963C] text-black"
+                  className="min-h-[44px] min-w-[44px] gap-1.5 transition-all bg-accent hover:bg-accent-hover text-black"
                 >
                   <ShoppingCart className="h-4 w-4" />
                   Add
@@ -603,7 +603,7 @@ export function FindTrainingClient({
                       e.stopPropagation();
                       router.push('/cart');
                     }}
-                    className="h-8 text-xs text-[#D4AF37] hover:text-[#D4AF37]/90"
+                    className="h-8 text-xs text-accent hover:text-accent/90"
                   >
                     View cart
                   </Button>
@@ -643,7 +643,7 @@ export function FindTrainingClient({
                   <Button
                     size="sm"
                     onClick={handleAddOne}
-                    className="w-full min-h-[44px] gap-1.5 transition-all bg-[#D4AF37] hover:bg-[#B8963C] text-black"
+                    className="w-full min-h-[44px] gap-1.5 transition-all bg-accent hover:bg-accent-hover text-black"
                   >
                     <ShoppingCart className="h-4 w-4" />
                     Add to Cart
@@ -685,7 +685,7 @@ export function FindTrainingClient({
                       e.stopPropagation();
                       router.push('/cart');
                     }}
-                    className="w-full min-h-[44px] text-[#D4AF37] border-[#D4AF37]/30"
+                    className="w-full min-h-[44px] text-accent border-accent/30"
                   >
                     View cart · ${((price ?? 0) * cartQty).toFixed(0)}
                   </Button>
@@ -714,7 +714,7 @@ export function FindTrainingClient({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border",
                 date
-                  ? "bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30"
+                  ? "bg-accent/20 text-accent border-accent/30"
                   : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700"
               )}
             >
@@ -780,7 +780,7 @@ export function FindTrainingClient({
             className={cn(
               "px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border",
               time === opt.value
-                ? "bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30"
+                ? "bg-accent/20 text-accent border-accent/30"
                 : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700"
             )}
           >
@@ -799,7 +799,7 @@ export function FindTrainingClient({
             className={cn(
               "px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border",
               sessionType === opt.value
-                ? "bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30"
+                ? "bg-accent/20 text-accent border-accent/30"
                 : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700"
             )}
           >
@@ -815,7 +815,7 @@ export function FindTrainingClient({
             className={cn(
               'min-h-[44px] px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border',
               dowFilter === opt.v
-                ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30'
+                ? 'bg-accent/20 text-accent border-accent/30'
                 : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700'
             )}
           >
@@ -831,7 +831,7 @@ export function FindTrainingClient({
             className={cn(
               'min-h-[44px] px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border',
               durationFilter === opt.v
-                ? 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30'
+                ? 'bg-accent/20 text-accent border-accent/30'
                 : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700'
             )}
           >
@@ -847,7 +847,7 @@ export function FindTrainingClient({
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border",
                   coach !== 'all'
-                    ? "bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30"
+                    ? "bg-accent/20 text-accent border-accent/30"
                     : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700"
                 )}
               >
@@ -866,7 +866,7 @@ export function FindTrainingClient({
                 }}
                 className={cn(
                   "w-full text-left px-3 py-2 rounded text-sm hover:bg-zinc-800",
-                  coach === 'all' && "bg-zinc-800 text-[#D4AF37]"
+                  coach === 'all' && "bg-zinc-800 text-accent"
                 )}
               >
                 All Coaches
@@ -881,7 +881,7 @@ export function FindTrainingClient({
                   }}
                   className={cn(
                     "w-full text-left px-3 py-2 rounded text-sm hover:bg-zinc-800",
-                    coach === c.id && "bg-zinc-800 text-[#D4AF37]"
+                    coach === c.id && "bg-zinc-800 text-accent"
                   )}
                 >
                   {c.first_name} {c.last_name}
@@ -897,7 +897,7 @@ export function FindTrainingClient({
           className={cn(
             "flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border",
             location !== 'all'
-              ? "bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30"
+              ? "bg-accent/20 text-accent border-accent/30"
               : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700"
           )}
         >
@@ -939,7 +939,7 @@ export function FindTrainingClient({
                   onClick={() => setLocation('all')}
                   className={cn(
                     "px-3 py-2 rounded-lg text-sm transition-all",
-                    location === 'all' ? "bg-[#D4AF37] text-black" : "bg-zinc-800 text-zinc-300"
+                    location === 'all' ? "bg-accent text-black" : "bg-zinc-800 text-zinc-300"
                   )}
                 >
                   All locations
@@ -950,7 +950,7 @@ export function FindTrainingClient({
                     onClick={() => setLocation(f.id)}
                     className={cn(
                       "px-3 py-2 rounded-lg text-sm transition-all",
-                      location === f.id ? "bg-[#D4AF37] text-black" : "bg-zinc-800 text-zinc-300"
+                      location === f.id ? "bg-accent text-black" : "bg-zinc-800 text-zinc-300"
                     )}
                   >
                     {f.name}
@@ -968,7 +968,7 @@ export function FindTrainingClient({
                     onClick={() => setCoach('all')}
                     className={cn(
                       "px-3 py-2 rounded-lg text-sm transition-all",
-                      coach === 'all' ? "bg-[#D4AF37] text-black" : "bg-zinc-800 text-zinc-300"
+                      coach === 'all' ? "bg-accent text-black" : "bg-zinc-800 text-zinc-300"
                     )}
                   >
                     Any coach
@@ -979,7 +979,7 @@ export function FindTrainingClient({
                       onClick={() => setCoach(c.id)}
                       className={cn(
                         "px-3 py-2 rounded-lg text-sm transition-all",
-                        coach === c.id ? "bg-[#D4AF37] text-black" : "bg-zinc-800 text-zinc-300"
+                        coach === c.id ? "bg-accent text-black" : "bg-zinc-800 text-zinc-300"
                       )}
                     >
                       {[c.first_name, c.last_name].filter(Boolean).join(' ')}
@@ -992,7 +992,7 @@ export function FindTrainingClient({
             {/* Apply Button */}
             <Button 
               onClick={applyFilters}
-              className="w-full bg-[#D4AF37] hover:bg-[#B8963C] text-black font-medium h-12"
+              className="w-full bg-accent hover:bg-accent-hover text-black font-medium h-12"
             >
               Apply Filters
             </Button>
@@ -1026,7 +1026,7 @@ export function FindTrainingClient({
             {hasActiveFilters ? 'Try adjusting your filters.' : 'Try another day or time, or book directly with a coach.'}
           </p>
           <p className="text-sm text-zinc-500 mt-4 max-w-md mx-auto">
-            <Link href="/browse" className="text-[#D4AF37] hover:underline">
+            <Link href="/browse" className="text-accent hover:underline">
               Browse coaches
             </Link>{' '}
             to book from their availability—what you see here are only join-in sessions coaches have posted.
@@ -1074,7 +1074,7 @@ export function FindTrainingClient({
                     ) : null}
                   </div>
                   <Button
-                    className="shrink-0 min-h-[44px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold text-sm"
+                    className="shrink-0 min-h-[44px] bg-accent hover:bg-accent-hover text-black font-semibold text-sm"
                     asChild
                   >
                     <Link href={bookHref}>See availability</Link>

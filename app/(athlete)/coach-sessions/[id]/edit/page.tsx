@@ -64,7 +64,7 @@ export default async function CoachEditSessionPage({
       athlete_id,
       facility_id,
       athletes(id, first_name, last_name, school, payout_rate),
-      facilities(id, name),
+      facilities(id, name, school, address, directions),
       session_participants(amount_paid)
     `
     )
@@ -87,7 +87,8 @@ export default async function CoachEditSessionPage({
         .athletes;
   const fac = Array.isArray((session as { facilities?: unknown }).facilities)
     ? (session as { facilities: unknown[] }).facilities[0]
-    : (session as { facilities?: { name?: string } }).facilities;
+    : (session as { facilities?: { id?: string; name?: string; school?: string | null; address?: string | null; directions?: string | null } })
+        .facilities;
 
   const partRows = (session as { session_participants?: { amount_paid?: number | null }[] }).session_participants;
   const participantAmountPaidSum = Array.isArray(partRows)
@@ -110,6 +111,23 @@ export default async function CoachEditSessionPage({
     '';
   const ownerCoachId = athleteId ?? user.id;
   const facilities = await getCoachFacilitiesForEdit(admin, ownerCoachId, facilityId);
+  const facRow = fac as {
+    id?: string;
+    name?: string;
+    school?: string | null;
+    address?: string | null;
+    directions?: string | null;
+  } | null;
+  const currentFacility =
+    facilityId && facRow
+      ? {
+          id: facilityId,
+          name: facRow.name ?? 'Current location',
+          school: facRow.school ?? null,
+          address: facRow.address ?? null,
+          directions: facRow.directions ?? null,
+        }
+      : null;
   const editable = isScheduledSessionEditable((session as { status?: string }).status ?? '');
 
   return (
@@ -159,6 +177,7 @@ export default async function CoachEditSessionPage({
         durationMinutes={(session as { duration_minutes?: number }).duration_minutes ?? 60}
         facilityId={facilityId}
         facilities={facilities}
+        currentFacility={currentFacility}
         coachId={ownerCoachId}
         editable={editable}
       />

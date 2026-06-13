@@ -45,9 +45,9 @@ export function ParentHomeAnnouncementBanners({ items }: { items: ParentHomeAnno
       {visible.map((a) => (
         <div
           key={a.id}
-          className="flex items-start gap-3 rounded-xl border-2 border-[#D4AF37]/60 bg-zinc-900/80 px-3 py-3 pr-2"
+          className="flex items-start gap-3 rounded-xl border-2 border-accent/60 bg-zinc-900/80 px-3 py-3 pr-2"
         >
-          <span className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-zinc-800/90 border border-[#D4AF37]/25">
+          <span className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-zinc-800/90 border border-accent/25">
             {a.school?.trim() && hasSchoolLogo(a.school.trim()) ? (
               <SchoolLogo school={a.school.trim()} size="sm" className="max-w-[28px] max-h-[28px]" />
             ) : (
@@ -60,7 +60,7 @@ export function ParentHomeAnnouncementBanners({ items }: { items: ParentHomeAnno
             <p className="text-sm text-foreground leading-snug">{a.headline}</p>
             <Button
               variant="link"
-              className="h-auto min-h-[44px] p-0 mt-1 text-[#D4AF37] font-semibold"
+              className="h-auto min-h-[44px] p-0 mt-1 text-accent font-semibold"
               asChild
             >
               <Link href={a.cta_path}>{a.cta_label}</Link>

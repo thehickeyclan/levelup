@@ -151,7 +151,7 @@ export function CoachProfileOpenSessions({
                   type="button"
                   size="sm"
                   onClick={handleAddOne}
-                  className="min-h-[44px] gap-1.5 bg-[#D4AF37] text-black hover:bg-[#B8963C]"
+                  className="min-h-[44px] gap-1.5 bg-accent text-black hover:bg-accent-hover"
                 >
                   <ShoppingCart className="h-4 w-4" />
                   Add to cart

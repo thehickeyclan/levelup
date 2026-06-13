@@ -65,7 +65,7 @@ export default async function CoachReviewsPage() {
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <Star className="h-8 w-8 fill-[#D4AF37] text-[#D4AF37]" />
+              <Star className="h-8 w-8 fill-accent text-accent" />
               <span className="text-3xl font-bold">
                 {athlete?.average_rating?.toFixed(1) ?? '—'}
               </span>
@@ -107,7 +107,7 @@ export default async function CoachReviewsPage() {
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
                             key={i}
-                            className={`h-4 w-4 ${i < review.rating ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-muted-foreground/30'}`}
+                            className={`h-4 w-4 ${i < review.rating ? 'fill-accent text-accent' : 'text-muted-foreground/30'}`}
                           />
                         ))}
                       </div>

@@ -117,7 +117,7 @@ export function SessionContactsPanel({ sessionId, participantCount = 0, classNam
                         <div
                           className={cn(
                             'flex items-center gap-1.5 text-xs',
-                            birthdaySoon ? 'text-[#D4AF37] font-medium' : 'text-muted-foreground'
+                            birthdaySoon ? 'text-accent font-medium' : 'text-muted-foreground'
                           )}
                         >
                           <Cake className="h-3 w-3" />

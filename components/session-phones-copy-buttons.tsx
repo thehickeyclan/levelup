@@ -134,7 +134,7 @@ export function SessionPhonesCopyButtons({
         type="button"
         variant="default"
         size="sm"
-        className={cn(btnClass, 'bg-[#D4AF37] hover:bg-[#B8963C] text-black font-medium')}
+        className={cn(btnClass, 'bg-accent hover:bg-accent-hover text-black font-medium')}
         disabled={disabled || loadingKind !== null || (prefetch.status === 'ready' && nParents === 0)}
         onClick={() => void onCopy('parents')}
         title="Copy all parent cells — paste into Messages To, one line per number"

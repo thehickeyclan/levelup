@@ -52,7 +52,7 @@ export function CoachDashboardClient({
         </div>
         <Link
           href="/athlete-dashboard"
-          className="text-sm font-semibold text-[#D4AF37] hover:underline whitespace-nowrap"
+          className="text-sm font-semibold text-accent hover:underline whitespace-nowrap"
         >
           ← Schedule
         </Link>
@@ -93,7 +93,7 @@ export function CoachDashboardClient({
               <p className="text-lg font-semibold text-foreground">
                 {Math.round(payoutRate * 100)}%
                 {payoutRate >= 0.9 && (
-                  <span className="ml-2 text-xs text-[#D4AF37] font-medium">(Founding Coach)</span>
+                  <span className="ml-2 text-xs text-accent font-medium">(Founding Coach)</span>
                 )}
               </p>
             </div>
@@ -132,7 +132,7 @@ export function CoachDashboardClient({
                       {Array.from({ length: 5 }).map((_, i) => (
                         <Star
                           key={i}
-                          className={`h-3.5 w-3.5 ${i < review.rating ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-muted-foreground/30'}`}
+                          className={`h-3.5 w-3.5 ${i < review.rating ? 'fill-accent text-accent' : 'text-muted-foreground/30'}`}
                         />
                       ))}
                     </div>

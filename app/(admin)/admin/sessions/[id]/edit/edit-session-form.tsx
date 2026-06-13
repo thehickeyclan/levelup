@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,8 @@ type Props = {
   durationMinutes?: number;
   facilityId?: string;
   facilities?: CoachFacilityOption[];
+  /** Session's current facility — kept in dropdown even if not in coach list yet */
+  currentFacility?: CoachFacilityOption | null;
   coachId?: string;
   editable?: boolean;
   formMode?: 'admin' | 'coach';
@@ -74,6 +76,7 @@ export function EditSessionForm({
   durationMinutes: initialDurationMinutes = 60,
   facilityId: initialFacilityId = '',
   facilities: initialFacilities = [],
+  currentFacility = null,
   coachId,
   editable = true,
   formMode = 'admin',
@@ -152,7 +155,38 @@ export function EditSessionForm({
     coachPayoutRate,
   ]);
 
-  const selectedFacility = facilities.find((f) => f.id === facilityId);
+  const facilityOptions = useMemo(() => {
+    const byId = new Map<string, CoachFacilityOption>();
+    for (const f of facilities) byId.set(f.id, f);
+    if (currentFacility?.id && !byId.has(currentFacility.id)) {
+      byId.set(currentFacility.id, currentFacility);
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [facilities, currentFacility]);
+
+  useEffect(() => {
+    if (!coachId || !isCoach) return;
+    const url = `/api/coaches/locations?coachId=${encodeURIComponent(coachId)}`;
+    fetch(url)
+      .then((r) => r.json())
+      .then((data: { facilities?: CoachFacilityOption[] }) => {
+        const list = data.facilities ?? [];
+        if (list.length === 0) return;
+        setFacilities((prev) => {
+          const byId = new Map(prev.map((f) => [f.id, f]));
+          for (const f of list) {
+            byId.set(f.id, { ...byId.get(f.id), ...f });
+          }
+          if (currentFacility?.id && !byId.has(currentFacility.id)) {
+            byId.set(currentFacility.id, currentFacility);
+          }
+          return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+        });
+      })
+      .catch(() => {});
+  }, [coachId, currentFacility]);
+
+  const selectedFacility = facilityOptions.find((f) => f.id === facilityId);
 
   const handleSessionTypeChange = (newType: string) => {
     setSessionTypeState(newType);
@@ -189,7 +223,7 @@ export function EditSessionForm({
       setError(`Max spots can't be less than ${currentParticipants} already registered`);
       return;
     }
-    if (!facilityId && facilities.length > 0) {
+    if (!facilityId && facilityOptions.length > 0) {
       setError('Select a location');
       return;
     }
@@ -311,7 +345,7 @@ export function EditSessionForm({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-8 text-xs text-[#D4AF37] hover:text-[#D4AF37]"
+                    className="h-8 text-xs text-accent hover:text-accent"
                     onClick={() => setNewLocationOpen(true)}
                   >
                     <MapPin className="h-3.5 w-3.5 mr-1" />
@@ -319,7 +353,7 @@ export function EditSessionForm({
                   </Button>
                 ) : null}
               </div>
-              {facilities.length === 0 ? (
+              {facilityOptions.length === 0 ? (
                 <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-3">
                   No locations yet. Tap Add location.
                 </p>
@@ -333,10 +367,10 @@ export function EditSessionForm({
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
-                    {facilities.map((f) => (
+                    {facilityOptions.map((f) => (
                       <SelectItem key={f.id} value={f.id}>
                         {f.name}
-                        {f.address ? ` — ${f.address}` : ''}
+                        {f.address ? ` — ${f.address}` : f.school ? ` — ${f.school}` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -409,7 +443,7 @@ export function EditSessionForm({
                 disabled={loading || !editable}
                 className={
                   isCoach
-                    ? 'min-h-[48px] w-full bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold'
+                    ? 'min-h-[48px] w-full bg-accent hover:bg-accent-hover text-black font-semibold'
                     : 'min-h-[44px]'
                 }
               >

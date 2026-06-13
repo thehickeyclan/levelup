@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,18 +38,27 @@ export function CoachCreateSessionForm({
   coachId,
   coachName,
   facilities: initialFacilities,
+  defaultFacilityId = '',
   recommendedPrices,
 }: {
   coachId: string;
   coachName: string;
   facilities: Facility[];
+  /** Coach profile primary facility — pre-selected when in list */
+  defaultFacilityId?: string;
   recommendedPrices: Record<SessionTypeKey, number>;
 }) {
   const [facilities, setFacilities] = useState<Facility[]>(initialFacilities);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(initialFacilities.length === 0);
   const [newLocationOpen, setNewLocationOpen] = useState(false);
   const [sessionType, setSessionType] = useState<SessionTypeKey>('small_group');
   const [joinPolicy, setJoinPolicy] = useState<'public' | 'invite_only'>('public');
-  const [facilityId, setFacilityId] = useState(initialFacilities[0]?.id || '');
+  const [facilityId, setFacilityId] = useState(() => {
+    if (defaultFacilityId && initialFacilities.some((f) => f.id === defaultFacilityId)) {
+      return defaultFacilityId;
+    }
+    return initialFacilities[0]?.id || '';
+  });
   const [dateTimes, setDateTimes] = useState<DateTimeEntry[]>([{ date: '', time: '' }]);
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [maxParticipants, setMaxParticipants] = useState(6);
@@ -65,6 +74,32 @@ export function CoachCreateSessionForm({
   }>>([]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/coaches/locations?coachId=${encodeURIComponent(coachId)}`)
+      .then((r) => r.json())
+      .then((data: { facilities?: Facility[] }) => {
+        if (cancelled) return;
+        const list = (data.facilities ?? []).map((f) => ({ ...f, school: f.school ?? '' }));
+        if (list.length === 0) return;
+        setFacilities(list);
+        setFacilityId((prev) => {
+          if (prev && list.some((f) => f.id === prev)) return prev;
+          if (defaultFacilityId && list.some((f) => f.id === defaultFacilityId)) {
+            return defaultFacilityId;
+          }
+          return list[0]?.id ?? '';
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setFacilitiesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [coachId, defaultFacilityId]);
 
   const selectedFacility = facilities.find((f) => f.id === facilityId);
 
@@ -270,26 +305,29 @@ export function CoachCreateSessionForm({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <Label>Location</Label>
+                <Label htmlFor="create-facility">Location</Label>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="h-8 text-xs"
+                  className="h-8 text-xs text-accent hover:text-accent"
                   onClick={() => setNewLocationOpen(true)}
                 >
                   <MapPin className="h-3.5 w-3.5 mr-1" />
-                  New location
+                  Add location
                 </Button>
               </div>
-              {facilities.length === 0 ? (
+              {facilitiesLoading && facilities.length === 0 ? (
                 <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-3">
-                  No saved locations yet. Tap <span className="font-medium text-foreground">New location</span> to
-                  add where this session will be held.
+                  Loading your locations…
+                </p>
+              ) : facilities.length === 0 ? (
+                <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-3">
+                  No saved locations yet. Tap Add location to add where this session will be held.
                 </p>
               ) : (
-                <Select value={facilityId} onValueChange={setFacilityId} required>
-                  <SelectTrigger>
+                <Select value={facilityId || undefined} onValueChange={setFacilityId} required>
+                  <SelectTrigger id="create-facility" className="min-h-[44px]">
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
@@ -431,7 +469,7 @@ export function CoachCreateSessionForm({
               )}
             </div>
 
-            <Button type="submit" disabled={loading} className="w-full min-h-[48px] bg-[#D4AF37] hover:bg-[#B8963C] text-black font-medium">
+            <Button type="submit" disabled={loading} className="w-full min-h-[48px] bg-accent hover:bg-accent-hover text-black font-medium">
               {loading 
                 ? 'Creating…' 
                 : dateTimes.filter(dt => dt.date && dt.time).length > 1 

@@ -50,7 +50,7 @@ export function ParentHomeReviewsSection({
               {athleteLine ? <p className="text-sm text-zinc-400">{athleteLine}</p> : null}
               <Button
                 type="button"
-                className="w-full min-h-[48px] bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold gap-2"
+                className="w-full min-h-[48px] bg-accent hover:bg-accent-hover text-black font-semibold gap-2"
                 onClick={() => {
                   setActive(s);
                   setSheetOpen(true);

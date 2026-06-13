@@ -62,7 +62,7 @@ export function CoachBottomNav() {
             href={href}
             className={cn(
               'relative flex flex-col items-center justify-center min-h-[56px] min-w-0 flex-1 py-2 px-2 touch-manipulation text-[11px] font-medium transition-all duration-200 whitespace-nowrap',
-              isActive ? 'text-[#D4AF37]' : 'text-zinc-500 active:text-zinc-400'
+              isActive ? 'text-accent' : 'text-zinc-500 active:text-zinc-400'
             )}
             aria-current={isActive ? 'page' : undefined}
           >
@@ -76,7 +76,7 @@ export function CoachBottomNav() {
                 aria-hidden
               />
               {showBadge && (
-                <span className="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold bg-amber-500 text-black rounded-full">
+                <span className="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold bg-accent text-black rounded-full">
                   {pendingCount > 99 ? '99+' : pendingCount}
                 </span>
               )}
@@ -90,7 +90,7 @@ export function CoachBottomNav() {
               {label}
             </span>
             {isActive && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#D4AF37] rounded-full" />
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-accent rounded-full" />
             )}
           </Link>
         );

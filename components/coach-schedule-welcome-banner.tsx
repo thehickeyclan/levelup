@@ -32,15 +32,17 @@ export function CoachScheduleWelcomeBanner({ coachFirstName, calendarLastUpdated
           <>
             Calendar updated {calendarLine}.{' '}
             <Link href="/availability" className="text-accent font-medium hover:underline">
-              Update
-            </Link>
+              Update calendar
+            </Link>{' '}
+            so parents see when you&apos;re available.
           </>
         ) : (
           <>
-            Set availability so parents can book.{' '}
+            Parents book from your open times —{' '}
             <Link href="/availability" className="text-accent font-medium hover:underline">
-              Set up calendar
-            </Link>
+              update calendar
+            </Link>{' '}
+            so they know your schedule.
           </>
         )}
       </p>

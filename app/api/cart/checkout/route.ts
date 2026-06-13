@@ -318,6 +318,7 @@ export async function POST(req: NextRequest) {
           session_id: meta.session_id,
           youth_wrestler_id: meta.wrestler_id,
           parent_id: user.id,
+          paid: true,
           amount_paid: meta.price,
           payment_method: 'credit',
           status: 'confirmed',

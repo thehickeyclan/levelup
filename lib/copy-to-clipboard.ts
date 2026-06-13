@@ -73,5 +73,30 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
 /** Synchronous copy — required before sms: navigation on iOS (user gesture). */
 export function copyTextToClipboardSync(text: string): boolean {
   if (typeof window === 'undefined' || !text) return false;
-  return copyViaExecCommand(normalizeClipboardText(text));
+  const payload = normalizeClipboardText(text);
+  if (copyViaExecCommand(payload)) return true;
+
+  // iOS Safari sometimes rejects hidden textarea; contentEditable fallback.
+  try {
+    const el = document.createElement('div');
+    el.contentEditable = 'true';
+    el.textContent = payload;
+    el.style.position = 'fixed';
+    el.style.left = '-9999px';
+    el.style.top = '0';
+    document.body.appendChild(el);
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    const ok = document.execCommand('copy');
+    sel?.removeAllRanges();
+    document.body.removeChild(el);
+    if (ok) return true;
+  } catch {
+    /* fall through */
+  }
+
+  return copyViaExecCommand(payload);
 }

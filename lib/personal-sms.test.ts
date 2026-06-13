@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildMessagesPasteList,
   buildSingleSmsHref,
+  buildComposeOnlySmsHref,
   phonesFromPasteList,
   planPersonalGroupSms,
   uniqueTenDigitPhones,
@@ -28,8 +29,22 @@ describe('phonesFromPasteList', () => {
 });
 
 describe('buildMessagesPasteList', () => {
-  it('joins with CRLF for iOS paste', () => {
-    expect(buildMessagesPasteList(['9195551234', '7046903257'])).toBe('9195551234\r\n7046903257');
+  it('joins with CRLF on non-iOS', () => {
+    expect(buildMessagesPasteList(['9195551234', '7046903257'], { ios: false })).toBe(
+      '9195551234\r\n7046903257'
+    );
+  });
+
+  it('joins with commas on iOS', () => {
+    expect(buildMessagesPasteList(['9195551234', '7046903257'], { ios: true })).toBe(
+      '9195551234,7046903257'
+    );
+  });
+});
+
+describe('buildComposeOnlySmsHref', () => {
+  it('uses sms:?body= for compose-only', () => {
+    expect(buildComposeOnlySmsHref('Hi there')).toBe('sms:?body=Hi%20there');
   });
 });
 
@@ -40,12 +55,14 @@ describe('planPersonalGroupSms', () => {
   });
 
   it('uses paste mode for multiple numbers (iOS cannot sms:a,b,c)', () => {
+    vi.stubGlobal('navigator', { userAgent: 'iPhone' });
     const plan = planPersonalGroupSms({ pasteList: '9195551234\r\n7046903257', body: 'Hi there' });
+    vi.unstubAllGlobals();
     expect(plan?.mode).toBe('paste');
     if (plan?.mode === 'paste') {
       expect(plan.count).toBe(2);
-      expect(plan.pasteList).toBe('9195551234\r\n7046903257');
-      expect(plan.href).toBe('sms:&body=Hi%20there');
+      expect(plan.pasteList).toBe('9195551234,7046903257');
+      expect(plan.href).toBe('sms:?body=Hi%20there');
     }
   });
 });

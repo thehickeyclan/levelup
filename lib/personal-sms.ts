@@ -22,9 +22,20 @@ export function phonesFromPasteList(pasteList: string): string[] {
   return uniqueTenDigitPhones(parts);
 }
 
-/** CRLF list for pasting into iOS Messages "To" (one number per line). */
-export function buildMessagesPasteList(phones: string[]): string {
-  return uniqueTenDigitPhones(phones).join('\r\n');
+export function isIosSmsDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+/**
+ * Clipboard text for Messages "To" field.
+ * iPhone: comma-separated 10-digit numbers (line breaks often paste as one blob).
+ * Mac/desktop: CRLF-separated lines.
+ */
+export function buildMessagesPasteList(phones: string[], opts?: { ios?: boolean }): string {
+  const uniq = uniqueTenDigitPhones(phones);
+  const ios = opts?.ios ?? isIosSmsDevice();
+  return ios ? uniq.join(',') : uniq.join('\r\n');
 }
 
 /** Single-recipient sms: link. */
@@ -32,9 +43,9 @@ export function buildSingleSmsHref(phone10: string, body: string): string {
   return `sms:${phone10}?body=${encodeURIComponent(body)}`;
 }
 
-/** Compose-only link (no To field) — used after copying numbers on iOS. */
+/** Compose-only link (no To field) — body prefilled after coach pastes numbers. */
 export function buildComposeOnlySmsHref(body: string): string {
-  return `sms:&body=${encodeURIComponent(body)}`;
+  return `sms:?body=${encodeURIComponent(body)}`;
 }
 
 export type GroupSmsPlan =
@@ -53,7 +64,6 @@ export function planPersonalGroupSms(options: {
     return { mode: 'single', href: buildSingleSmsHref(uniq[0], body), count: 1 };
   }
 
-  // iOS (and many mobile browsers) only honor the first number in sms:a,b,c — paste is required.
   const pasteList = buildMessagesPasteList(uniq);
   return {
     mode: 'paste',
@@ -64,10 +74,20 @@ export function planPersonalGroupSms(options: {
   };
 }
 
+/** Open sms: URI — anchor click is more reliable than location.href on iOS Safari/PWA. */
+export function openSmsHref(href: string): void {
+  if (typeof window === 'undefined' || !href) return;
+  const a = document.createElement('a');
+  a.href = href;
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 /** Open SMS for a single recipient immediately. */
 export function openSinglePersonalSms(phone10: string, body: string): void {
-  if (typeof window === 'undefined') return;
-  window.location.href = buildSingleSmsHref(phone10, body);
+  openSmsHref(buildSingleSmsHref(phone10, body));
 }
 
 /**
@@ -77,7 +97,7 @@ export function openSinglePersonalSms(phone10: string, body: string): void {
 export function openPasteGroupSms(plan: Extract<GroupSmsPlan, { mode: 'paste' }>): boolean {
   if (typeof window === 'undefined') return false;
   const copied = copyTextToClipboardSync(plan.pasteList);
-  window.location.href = plan.href;
+  openSmsHref(plan.href);
   return copied;
 }
 
@@ -93,7 +113,7 @@ export function openPersonalGroupSms(options: {
     return;
   }
   if (plan.mode === 'single') {
-    window.location.href = plan.href;
+    openSmsHref(plan.href);
     return;
   }
   openPasteGroupSms(plan);

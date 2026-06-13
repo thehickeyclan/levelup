@@ -33,7 +33,7 @@ import {
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 import { fillTemplate, getTemplate } from '@/lib/playbook-templates';
 import { formatEST } from '@/lib/format-date';
-import { planPersonalGroupSms, phonesFromPasteList, type GroupSmsPlan } from '@/lib/personal-sms';
+import { planPersonalGroupSms, phonesFromPasteList, openSmsHref, type GroupSmsPlan } from '@/lib/personal-sms';
 import { CoachGroupSmsDialog } from '@/components/coach-group-sms-dialog';
 import { cn } from '@/lib/utils';
 
@@ -149,21 +149,20 @@ export function CoachSessionTileActions({
     });
   };
 
-  const textGroup = (kind: 'parents' | 'athletes' | 'both') => {
+  const textGroup = async (kind: 'parents' | 'athletes' | 'both') => {
     if (!hasAthletes) {
       window.alert('No athletes registered yet.');
       return;
     }
-    if (!phones) {
-      window.alert('Phone list still loading — open Actions again in a moment.');
-      void loadPhones();
-      return;
-    }
+    setOpen(false);
+    const lists = phones ?? (await loadPhones());
+    if (!lists) return;
+
     const pasteList =
-      kind === 'parents' ? phones.commaParents : kind === 'athletes' ? phones.commaAthletes : phones.commaBoth;
+      kind === 'parents' ? lists.commaParents : kind === 'athletes' ? lists.commaAthletes : lists.commaBoth;
     if (!pasteList) {
       const label = kind === 'parents' ? 'parent' : kind === 'athletes' ? 'kid' : 'family';
-      window.alert(`No ${label} numbers on file for this session yet.`);
+      window.alert(`No ${label} numbers on file for this session yet. Add cells in Contact details or parent accounts.`);
       return;
     }
     const plan = planPersonalGroupSms({ pasteList, body: reminderBody() });
@@ -172,7 +171,6 @@ export function CoachSessionTileActions({
       return;
     }
     const who = kind === 'parents' ? 'parent' : kind === 'athletes' ? 'kid' : 'family';
-    setOpen(false);
 
     if (plan.mode === 'single') {
       const resolved = phonesFromPasteList(pasteList).length;
@@ -182,7 +180,7 @@ export function CoachSessionTileActions({
         );
         if (!ok) return;
       }
-      window.location.href = plan.href;
+      openSmsHref(plan.href);
       return;
     }
 
@@ -317,7 +315,7 @@ export function CoachSessionTileActions({
           <button
             type="button"
             className={menuBtn()}
-            disabled={!hasAthletes || phonesLoading}
+            disabled={!hasAthletes}
             onClick={() => void textGroup('parents')}
           >
             {phonesLoading ? (
@@ -330,7 +328,7 @@ export function CoachSessionTileActions({
           <button
             type="button"
             className={menuBtn()}
-            disabled={!hasAthletes || phonesLoading}
+            disabled={!hasAthletes}
             onClick={() => void textGroup('athletes')}
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
@@ -339,7 +337,7 @@ export function CoachSessionTileActions({
           <button
             type="button"
             className={menuBtn()}
-            disabled={!hasAthletes || phonesLoading}
+            disabled={!hasAthletes}
             onClick={() => void textGroup('both')}
           >
             <MessageCircle className="h-4 w-4 shrink-0" />

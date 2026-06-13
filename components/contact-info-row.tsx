@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Phone, Copy, Check, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
+import { openSmsHref } from '@/lib/personal-sms';
 import { cn } from '@/lib/utils';
 
 interface ContactInfoRowProps {
@@ -53,7 +54,7 @@ export function ContactInfoRow({ label, name, phone, className }: ContactInfoRow
     // On mobile, open SMS app; on desktop, copy and show message
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
-      window.location.href = `sms:${digits}`;
+      openSmsHref(`sms:${digits}`);
     } else {
       // Copy and let them paste in their messaging app
       handleCopy();
@@ -135,7 +136,7 @@ export function InlineCoachPhone({ phone }: { phone: string }) {
     const digits = getDigits(phone);
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
-      window.location.href = `sms:${digits}`;
+      openSmsHref(`sms:${digits}`);
     } else {
       void handleCopy();
     }

@@ -33,12 +33,24 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   /** e.g. "Sun, Mar 22 · 11:00 AM" */
   sessionLabel: string;
+  /** Pre-fill when opened from session reminder actions */
+  initialMessage?: string;
+  initialTarget?: string;
   onSent?: () => void;
 };
 
-export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLabel, onSent }: Props) {
+export function CoachTextGroupDialog({
+  sessionId,
+  open,
+  onOpenChange,
+  sessionLabel,
+  initialMessage = '',
+  initialTarget = 'broadcast:parents',
+  onSent,
+}: Props) {
   const [text, setText] = useState('');
-  const [target, setTarget] = useState('broadcast:parents');
+  const [target, setTarget] = useState(initialTarget);
+  const [showPersonalCopy, setShowPersonalCopy] = useState(false);
   const [options, setOptions] = useState<RecipientOption[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [sending, setSending] = useState(false);
@@ -57,6 +69,15 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
 
   useEffect(() => {
     if (!open) return;
+    setText(initialMessage);
+    setTarget(initialTarget);
+    setShowPersonalCopy(false);
+    setError(null);
+    setResult(null);
+  }, [open, sessionId, initialMessage, initialTarget]);
+
+  useEffect(() => {
+    if (!open) return;
     let cancelled = false;
     setLoadingOptions(true);
     fetch(`/api/sessions/${sessionId}/sms-recipients`)
@@ -64,7 +85,9 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
       .then((data: { options?: RecipientOption[] }) => {
         if (cancelled || !data.options?.length) return;
         setOptions(data.options);
-        setTarget((prev) => (data.options!.some((o) => o.value === prev) ? prev : 'broadcast:parents'));
+        setTarget((prev) =>
+          data.options!.some((o) => o.value === prev) ? prev : initialTarget || 'broadcast:parents'
+        );
       })
       .catch(() => {
         if (!cancelled) setOptions([]);
@@ -162,6 +185,7 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
       setTarget('broadcast:parents');
       setPhones(null);
       setCopiedKind(null);
+      setShowPersonalCopy(false);
     }
     onOpenChange(v);
   };
@@ -195,10 +219,8 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
           </DialogTitle>
           <DialogDescription className="text-left space-y-2">
             <span className="block text-foreground/90">{sessionLabel}</span>
-            <span className="block text-muted-foreground text-sm">Requires Twilio on the server. {targetHint}</span>
-            <span className="block text-muted-foreground text-sm pt-1">
-              Replies to this app’s number don’t go to your personal phone — use{' '}
-              <strong className="text-foreground/90">Copy Cell #s</strong> below to text from your own phone for two-way chats.
+            <span className="block text-muted-foreground text-sm">
+              Sends one SMS per family from The Guild&apos;s number — best for group reminders. {targetHint}
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -255,70 +277,6 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
               {loadingOptions && <p className="text-xs text-muted-foreground">Loading roster…</p>}
             </div>
 
-            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-              <p className="text-sm font-medium text-foreground">Copy Cell #s (your phone)</p>
-              <p className="text-xs text-muted-foreground">
-                US numbers copy as <strong>10 digits, one per line</strong>. Paste into Messages <strong>To</strong> —{' '}
-                <strong className="text-foreground/90">Mac Messages often ignores commas</strong> and only texts one
-                person; line breaks usually split into separate recipients. Non-US stays international format.
-              </p>
-              {loadingPhones && <p className="text-xs text-muted-foreground">Loading numbers…</p>}
-              {!loadingPhones && phones && (
-                <>
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="justify-start min-h-[44px]"
-                      disabled={!phones.commaParents}
-                      onClick={() => copyPhones('parents', phones.commaParents)}
-                    >
-                      <Copy className="h-4 w-4 mr-2 shrink-0" />
-                      {copiedKind === 'parents' ? 'Copied!' : 'Copy parent Cell #s (recommended)'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="justify-start min-h-[44px]"
-                      disabled={!phones.commaBoth}
-                      onClick={() => copyPhones('both', phones.commaBoth)}
-                    >
-                      <Copy className="h-4 w-4 mr-2 shrink-0" />
-                      {copiedKind === 'both' ? 'Copied!' : 'Copy parents + kids (deduped)'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="justify-start min-h-[44px]"
-                      disabled={!phones.commaAthletes}
-                      onClick={() => copyPhones('athletes', phones.commaAthletes)}
-                    >
-                      <Copy className="h-4 w-4 mr-2 shrink-0" />
-                      {copiedKind === 'athletes' ? 'Copied!' : 'Copy athlete Cell #s only'}
-                    </Button>
-                  </div>
-                  {!phones.commaParents && !phones.commaAthletes && (
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
-                      No cells on file — parents should add a cell on their account (best for coach texts); athlete
-                      profile is a fallback.
-                    </p>
-                  )}
-                  {(phones.skippedParents > 0 || phones.skippedAthletes > 0) &&
-                    (phones.commaParents || phones.commaAthletes || phones.commaBoth) && (
-                    <p className="text-xs text-muted-foreground">
-                      {phones.skippedParents > 0 &&
-                        `${phones.skippedParents} parent${phones.skippedParents === 1 ? '' : 's'} with no phone. `}
-                      {phones.skippedAthletes > 0 &&
-                        `${phones.skippedAthletes} athlete${phones.skippedAthletes === 1 ? '' : 's'} with no phone.`}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
             <Textarea
               placeholder="e.g. Practice moved to 11:30 — see you at UNC."
               value={text}
@@ -338,13 +296,63 @@ export function CoachTextGroupDialog({ sessionId, open, onOpenChange, sessionLab
               </Button>
               <Button
                 type="button"
-                className="bg-accent text-primary hover:bg-accent/90"
+                className="bg-accent text-primary hover:bg-accent/90 min-h-[44px]"
                 onClick={handleSend}
                 disabled={sending || !text.trim() || loadingOptions}
               >
                 {sending ? 'Sending…' : 'Send SMS'}
               </Button>
             </DialogFooter>
+
+            <div className="border-t border-border pt-3 space-y-2">
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                onClick={() => setShowPersonalCopy((v) => !v)}
+              >
+                {showPersonalCopy ? 'Hide' : 'Need two-way chat from your phone?'}
+              </button>
+              {showPersonalCopy ? (
+                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Group paste from a website is unreliable on iPhone. For a back-and-forth with one family, use{' '}
+                    <strong className="text-foreground/90">Contact details</strong> in session Actions instead.
+                  </p>
+                  {loadingPhones && <p className="text-xs text-muted-foreground">Loading numbers…</p>}
+                  {!loadingPhones && phones && (
+                    <>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="justify-start min-h-[44px]"
+                          disabled={!phones.commaParents}
+                          onClick={() => copyPhones('parents', phones.commaParents)}
+                        >
+                          <Copy className="h-4 w-4 mr-2 shrink-0" />
+                          {copiedKind === 'parents' ? 'Copied!' : 'Copy parent numbers'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="justify-start min-h-[44px]"
+                          disabled={!phones.commaAthletes}
+                          onClick={() => copyPhones('athletes', phones.commaAthletes)}
+                        >
+                          <Copy className="h-4 w-4 mr-2 shrink-0" />
+                          {copiedKind === 'athletes' ? 'Copied!' : 'Copy athlete numbers'}
+                        </Button>
+                      </div>
+                      {!phones.commaParents && !phones.commaAthletes && (
+                        <p className="text-xs text-amber-700 dark:text-amber-300">No cells on file for this session.</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </>
         )}
       </DialogContent>

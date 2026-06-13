@@ -33,8 +33,7 @@ import {
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 import { fillTemplate, getTemplate } from '@/lib/playbook-templates';
 import { formatEST } from '@/lib/format-date';
-import { planPersonalGroupSms, phonesFromPasteList, openSmsHref, type GroupSmsPlan } from '@/lib/personal-sms';
-import { CoachGroupSmsDialog } from '@/components/coach-group-sms-dialog';
+import { CoachTextGroupDialog } from '@/components/coach-text-group-dialog';
 import { cn } from '@/lib/utils';
 
 type Contact = {
@@ -53,11 +52,6 @@ type Contact = {
   } | null;
 };
 
-type PhoneLists = {
-  commaParents: string;
-  commaAthletes: string;
-  commaBoth: string;
-};
 
 type Props = {
   sessionId: string;
@@ -97,44 +91,18 @@ export function CoachSessionTileActions({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [contactsOpen, setContactsOpen] = useState(false);
-  const [phones, setPhones] = useState<PhoneLists | null>(null);
-  const [phonesLoading, setPhonesLoading] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
-  const [smsPlan, setSmsPlan] = useState<Extract<GroupSmsPlan, { mode: 'paste' }> | null>(null);
   const [smsDialogOpen, setSmsDialogOpen] = useState(false);
-  const [smsRecipientLabel, setSmsRecipientLabel] = useState('recipient');
+  const [smsTarget, setSmsTarget] = useState('broadcast:parents');
 
   const dt = new Date(scheduledDatetime);
   const endIso = new Date(dt.getTime() + durationMinutes * 60 * 1000).toISOString();
   const hasAthletes = nRegistered > 0;
 
-  const loadPhones = async (): Promise<PhoneLists | null> => {
-    if (phones) return phones;
-    setPhonesLoading(true);
-    try {
-      const r = await fetch(`/api/sessions/${sessionId}/sms-phones`);
-      const data = (await r.json()) as PhoneLists & { error?: string };
-      if (!r.ok) {
-        window.alert(data.error || 'Could not load numbers.');
-        return null;
-      }
-      const lists = {
-        commaParents: (data.commaParents ?? '').trim(),
-        commaAthletes: (data.commaAthletes ?? '').trim(),
-        commaBoth: (data.commaBoth ?? '').trim(),
-      };
-      setPhones(lists);
-      return lists;
-    } catch {
-      window.alert('Could not load numbers.');
-      return null;
-    } finally {
-      setPhonesLoading(false);
-    }
-  };
+  const sessionLabel = `${formatEST(dt, 'EEE, MMM d · h:mm a')} · ${facility}`;
 
   const reminderBody = () => {
     const template =
@@ -149,43 +117,15 @@ export function CoachSessionTileActions({
     });
   };
 
-  const textGroup = async (kind: 'parents' | 'athletes' | 'both') => {
+  const textGroup = (kind: 'parents' | 'athletes' | 'both') => {
     if (!hasAthletes) {
       window.alert('No athletes registered yet.');
       return;
     }
     setOpen(false);
-    const lists = phones ?? (await loadPhones());
-    if (!lists) return;
-
-    const pasteList =
-      kind === 'parents' ? lists.commaParents : kind === 'athletes' ? lists.commaAthletes : lists.commaBoth;
-    if (!pasteList) {
-      const label = kind === 'parents' ? 'parent' : kind === 'athletes' ? 'kid' : 'family';
-      window.alert(`No ${label} numbers on file for this session yet. Add cells in Contact details or parent accounts.`);
-      return;
-    }
-    const plan = planPersonalGroupSms({ pasteList, body: reminderBody() });
-    if (!plan) {
-      window.alert('No valid numbers on file.');
-      return;
-    }
-    const who = kind === 'parents' ? 'parent' : kind === 'athletes' ? 'kid' : 'family';
-
-    if (plan.mode === 'single') {
-      const resolved = phonesFromPasteList(pasteList).length;
-      if (resolved < nRegistered && kind === 'parents') {
-        const ok = window.confirm(
-          `Only ${resolved} parent number on file for ${nRegistered} athletes. Open Messages to text that number anyway?`
-        );
-        if (!ok) return;
-      }
-      openSmsHref(plan.href);
-      return;
-    }
-
-    setSmsRecipientLabel(who);
-    setSmsPlan(plan);
+    const target =
+      kind === 'parents' ? 'broadcast:parents' : kind === 'athletes' ? 'broadcast:athletes' : 'broadcast:both';
+    setSmsTarget(target);
     setSmsDialogOpen(true);
   };
 
@@ -278,10 +218,7 @@ export function CoachSessionTileActions({
     <>
       <Popover
         open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (next && hasAthletes && !phones && !phonesLoading) void loadPhones();
-        }}
+        onOpenChange={setOpen}
       >
         <PopoverTrigger asChild>
           {triggerIcon ? (
@@ -316,20 +253,16 @@ export function CoachSessionTileActions({
             type="button"
             className={menuBtn()}
             disabled={!hasAthletes}
-            onClick={() => void textGroup('parents')}
+            onClick={() => textGroup('parents')}
           >
-            {phonesLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-            ) : (
-              <MessageCircle className="h-4 w-4 shrink-0" />
-            )}
+            <MessageCircle className="h-4 w-4 shrink-0" />
             Text parents only
           </button>
           <button
             type="button"
             className={menuBtn()}
             disabled={!hasAthletes}
-            onClick={() => void textGroup('athletes')}
+            onClick={() => textGroup('athletes')}
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
             Text kids only
@@ -338,7 +271,7 @@ export function CoachSessionTileActions({
             type="button"
             className={menuBtn()}
             disabled={!hasAthletes}
-            onClick={() => void textGroup('both')}
+            onClick={() => textGroup('both')}
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
             Text all parents and kids
@@ -441,11 +374,13 @@ export function CoachSessionTileActions({
         </DialogContent>
       </Dialog>
 
-      <CoachGroupSmsDialog
+      <CoachTextGroupDialog
+        sessionId={sessionId}
         open={smsDialogOpen}
         onOpenChange={setSmsDialogOpen}
-        plan={smsPlan}
-        recipientLabel={smsRecipientLabel}
+        sessionLabel={sessionLabel}
+        initialMessage={reminderBody()}
+        initialTarget={smsTarget}
       />
     </>
   );

@@ -2,15 +2,18 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { CoachScheduleWelcomeBanner } from '@/components/coach-schedule-welcome-banner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CalendarPlus, Check, Loader2, X } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
+import { sessionParticipantDisplayNames } from '@/lib/session-participant-display-name';
+import { getSessionTypeDisplay } from '@/lib/session-type-display';
 import type { CoachSession } from './coach-schedule-card';
 import { splitCoachSessionsByToday } from '@/lib/coach-schedule-split';
-import { getSessionTypeDisplay } from '@/lib/session-type-display';
 import { CoachScheduleSessionCard } from './coach-schedule-session-card';
 
 export type JoinRequestItem = {
@@ -30,32 +33,90 @@ export type JoinRequestItem = {
   };
 };
 
+export type ScheduleTab = 'upcoming' | 'past' | 'requests';
+
 type Props = {
   upcomingSessions: CoachSession[];
-  upcomingSessionsCount: number;
+  pastSessions: CoachSession[];
   pendingJoinRequests: JoinRequestItem[];
   coachFirstName?: string | null;
   coachDisplayName: string;
   calendarLastUpdatedAt?: string | null;
+  initialTab?: ScheduleTab;
 };
+
+function facilityLabel(s: CoachSession): string {
+  const f = s.facilities;
+  if (!f || typeof f !== 'object') return '—';
+  const arr = Array.isArray(f) ? f : [f];
+  return (arr[0] as { name?: string })?.name ?? '—';
+}
 
 function sessionTypeLabel(sessionType?: string | null, sessionMode?: string | null): string {
   return getSessionTypeDisplay(sessionType, sessionMode).label;
 }
 
+function pastStatusLabel(status: string | undefined): string {
+  if (status === 'completed') return 'Completed';
+  if (status === 'cancelled') return 'Cancelled';
+  if (status === 'no-show') return 'No-show';
+  return 'Past';
+}
+
+function CoachPastSessionRow({ session }: { session: CoachSession }) {
+  const dt = new Date(session.scheduled_datetime);
+  const names = sessionParticipantDisplayNames(session.session_participants);
+  const n = Math.max(session.current_participants ?? 0, names.length);
+
+  return (
+    <div className="rounded-lg border border-border/80 bg-card px-3 py-3 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">
+          {formatEST(dt, 'EEE, MMM d')} · {formatEST(dt, 'h:mm a')}
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {sessionTypeLabel(session.session_type, session.session_mode)} · {facilityLabel(session)}
+        </p>
+        {names.length > 0 ? (
+          <p className="text-sm text-foreground/90 mt-1.5 truncate">{names.join(', ')}</p>
+        ) : n > 0 ? (
+          <p className="text-sm text-muted-foreground mt-1.5">{n} athletes</p>
+        ) : null}
+      </div>
+      <Badge variant="secondary" className="shrink-0 text-xs">
+        {pastStatusLabel(session.status)}
+      </Badge>
+    </div>
+  );
+}
+
 export function CoachScheduleClient({
   upcomingSessions,
-  upcomingSessionsCount,
+  pastSessions,
   pendingJoinRequests,
   coachFirstName,
   coachDisplayName,
   calendarLastUpdatedAt,
+  initialTab = 'upcoming',
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<ScheduleTab>(initialTab);
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const now = new Date();
   const { today, upcoming } = splitCoachSessionsByToday(upcomingSessions, now);
+  const pendingCount = pendingJoinRequests.length;
+
+  const goTab = (id: ScheduleTab) => {
+    setTab(id);
+    const params = new URLSearchParams(searchParams?.toString() ?? '');
+    if (id === 'upcoming') params.delete('tab');
+    else params.set('tab', id);
+    const q = params.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  };
 
   const handleApproveDecline = async (requestId: string, sessionId: string, action: 'approve' | 'decline') => {
     setLoadingId(requestId);
@@ -76,40 +137,120 @@ export function CoachScheduleClient({
     }
   };
 
-  const showPending = pendingJoinRequests.length > 0;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <CoachScheduleWelcomeBanner
         coachFirstName={coachFirstName}
         calendarLastUpdatedAt={calendarLastUpdatedAt}
       />
 
-      {today.length > 0 && (
-        <section className="space-y-3" aria-label="Today">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Today — {formatEST(now, 'EEEE, MMM d')}
-          </h2>
-          <div className="space-y-3">
-            {today.map((session) => (
-              <CoachScheduleSessionCard
-                key={session.id}
-                session={session}
-                coachDisplayName={coachDisplayName}
-                emphasis="today"
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      <Tabs value={tab} onValueChange={(v) => goTab(v as ScheduleTab)} className="w-full">
+        <TabsList className="w-full grid grid-cols-3 h-11 p-1 bg-muted/60">
+          <TabsTrigger value="upcoming" className="min-h-[40px] touch-manipulation text-sm">
+            Upcoming
+          </TabsTrigger>
+          <TabsTrigger value="past" className="min-h-[40px] touch-manipulation text-sm">
+            Past
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="min-h-[40px] touch-manipulation text-sm relative">
+            Requests
+            {pendingCount > 0 ? (
+              <span className="ml-1.5 inline-flex min-w-[18px] h-[18px] px-1 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-black">
+                {pendingCount > 99 ? '99+' : pendingCount}
+              </span>
+            ) : null}
+          </TabsTrigger>
+        </TabsList>
 
-      {showPending && (
-        <section className="space-y-3" aria-label="Pending approval">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-            Pending approval ({pendingJoinRequests.length})
-          </h2>
-          <div className="space-y-3">
-            {pendingJoinRequests.map((r) => {
+        <TabsContent value="upcoming" className="mt-4 space-y-6">
+          {today.length > 0 && (
+            <section className="space-y-3" aria-label="Today">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Today — {formatEST(now, 'EEEE, MMM d')}
+              </h2>
+              <div className="space-y-3">
+                {today.map((session) => (
+                  <CoachScheduleSessionCard
+                    key={session.id}
+                    session={session}
+                    coachDisplayName={coachDisplayName}
+                    emphasis="today"
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="space-y-3" aria-label="Upcoming sessions">
+            {upcoming.length === 0 && today.length === 0 && upcomingSessions.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="py-10 text-center space-y-4">
+                  <p className="text-muted-foreground font-medium">No upcoming sessions.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Create one now so parents can book or use your share link.
+                  </p>
+                  <Button asChild className="min-h-[44px] touch-manipulation bg-[#D4AF37] hover:bg-[#c9a432] text-black">
+                    <Link href="/coach-sessions/create">
+                      <CalendarPlus className="h-4 w-4 mr-2" />
+                      Schedule new session
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : upcoming.length === 0 && today.length > 0 ? (
+              <p className="text-sm text-muted-foreground">No later sessions — everything for today is above.</p>
+            ) : (
+              <div className="space-y-3">
+                {upcoming.length > 0 && today.length > 0 ? (
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Later
+                  </h2>
+                ) : null}
+                {upcoming.map((session) => (
+                  <CoachScheduleSessionCard
+                    key={session.id}
+                    session={session}
+                    coachDisplayName={coachDisplayName}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </TabsContent>
+
+        <TabsContent value="past" className="mt-4 space-y-3">
+          {pastSessions.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No past sessions yet.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {pastSessions.map((session) => (
+                <CoachPastSessionRow key={session.id} session={session} />
+              ))}
+            </div>
+          )}
+          <p className="text-center pt-2">
+            <Link
+              href="/coach-sessions?tab=all"
+              className="text-sm text-[#D4AF37] font-medium hover:underline"
+            >
+              Browse all open sessions on the platform →
+            </Link>
+          </p>
+        </TabsContent>
+
+        <TabsContent value="requests" className="mt-4 space-y-3">
+          {pendingCount === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No pending join requests.
+              </CardContent>
+            </Card>
+          ) : (
+            pendingJoinRequests.map((r) => {
               const yw = r.youth_wrestlers;
               const name = yw ? [yw.first_name, yw.last_name].filter(Boolean).join(' ').trim() : 'Athlete';
               const sess = r.session;
@@ -136,7 +277,11 @@ export function CoachScheduleClient({
                         onClick={() => handleApproveDecline(r.id, r.session_id, 'approve')}
                         disabled={loadingId === r.id}
                       >
-                        {loadingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                        {loadingId === r.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4 mr-1" />
+                        )}
                         Approve
                       </Button>
                       <Button
@@ -153,54 +298,10 @@ export function CoachScheduleClient({
                   </CardContent>
                 </Card>
               );
-            })}
-          </div>
-        </section>
-      )}
-
-      <section className="space-y-3 scroll-mt-4" aria-label="Upcoming sessions">
-        <h2 className="text-lg font-semibold text-foreground">Upcoming</h2>
-        {upcoming.length === 0 && today.length === 0 && upcomingSessions.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="py-10 text-center space-y-4">
-              <p className="text-muted-foreground font-medium">No upcoming sessions.</p>
-              <p className="text-sm text-muted-foreground">Create one now so parents can book or use your share link.</p>
-              <Button asChild className="min-h-[44px] touch-manipulation bg-[#D4AF37] hover:bg-[#c9a432] text-black">
-                <Link href="/coach-sessions/create">
-                  <CalendarPlus className="h-4 w-4 mr-2" />
-                  Create session
-                </Link>
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                <Link href="/availability" className="text-accent font-medium underline">
-                  Set availability
-                </Link>{' '}
-                for calendar bookings ·{' '}
-                <Link href="/coach-sessions" className="text-accent font-medium underline">
-                  All sessions
-                </Link>
-              </p>
-            </CardContent>
-          </Card>
-        ) : upcoming.length === 0 && today.length > 0 ? (
-          <p className="text-sm text-muted-foreground">No later sessions — everything for today is above.</p>
-        ) : (
-          <div className="space-y-3">
-            {upcoming.map((session) => (
-              <CoachScheduleSessionCard
-                key={session.id}
-                session={session}
-                coachDisplayName={coachDisplayName}
-              />
-            ))}
-          </div>
-        )}
-        {upcomingSessionsCount > upcomingSessions.length && (
-          <Link href="/coach-sessions" className="block text-sm text-accent font-medium">
-            View all {upcomingSessionsCount} upcoming sessions →
-          </Link>
-        )}
-      </section>
+            })
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

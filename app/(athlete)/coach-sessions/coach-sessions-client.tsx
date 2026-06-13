@@ -107,6 +107,8 @@ type Props = {
   communitySessions: CommunitySession[];
   payoutRate?: number;
   coachDisplayName?: string;
+  /** Platform-wide open sessions only (no coach tabs). */
+  communityOnly?: boolean;
 };
 
 export function CoachSessionsClient({
@@ -117,10 +119,11 @@ export function CoachSessionsClient({
   communitySessions,
   payoutRate = COACH_REVENUE_FRACTION,
   coachDisplayName = 'Coach',
+  communityOnly = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTab] = useState<Tab>(communityOnly ? 'all' : initialTab);
 
   const goTab = (id: Tab) => {
     setTab(id);
@@ -202,6 +205,7 @@ export function CoachSessionsClient({
           onSent={() => router.refresh()}
         />
       )}
+      {!communityOnly && (
       <div className="sticky top-0 z-20 -mx-4 px-4 pt-1 pb-3 mb-4 border-b border-border/90 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/85">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
           <Button
@@ -222,7 +226,9 @@ export function CoachSessionsClient({
           </Button>
         </div>
       </div>
+      )}
 
+      {!communityOnly && (
       <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
         {tabs.map((t) => (
           <button
@@ -239,8 +245,9 @@ export function CoachSessionsClient({
           </button>
         ))}
       </div>
+      )}
 
-      {tab === 'mine' && (
+      {!communityOnly && tab === 'mine' && (
         <div className="space-y-3">
           {upcomingSessions.length === 0 ? (
             <Card>
@@ -385,7 +392,7 @@ export function CoachSessionsClient({
         </div>
       )}
 
-      {tab === 'requests' && (
+      {!communityOnly && tab === 'requests' && (
         <div className="space-y-8">
           <div className="space-y-2">
             <h2 className="text-sm font-semibold text-foreground">Join requests</h2>
@@ -450,7 +457,7 @@ export function CoachSessionsClient({
         </div>
       )}
 
-      {tab === 'completed' && (
+      {!communityOnly && tab === 'completed' && (
         <div className="space-y-3">
           {completedSessions.length === 0 ? (
             <Card>
@@ -480,10 +487,19 @@ export function CoachSessionsClient({
         </div>
       )}
 
-      {tab === 'all' && (
+      {(communityOnly || tab === 'all') && (
         <div className="space-y-3">
+          {communityOnly ? (
+            <p className="text-sm">
+              <Link href="/athlete-dashboard" className="text-[#D4AF37] font-medium hover:underline">
+                ← Back to my schedule
+              </Link>
+            </p>
+          ) : null}
           <p className="text-sm text-muted-foreground">
-            Open sessions other coaches are hosting (public or invite link). Yours are under <span className="font-medium text-foreground">Mine</span>.
+            {communityOnly
+              ? 'Public and invite sessions from other coaches on the platform.'
+              : 'Open sessions other coaches are hosting (public or invite link). Yours are on Schedule → Upcoming.'}
           </p>
           {communitySessions.length === 0 ? (
             <Card>

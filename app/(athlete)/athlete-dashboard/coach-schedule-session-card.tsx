@@ -17,8 +17,16 @@ function facilityLabel(s: CoachSession): string {
 }
 
 function registeredCount(s: CoachSession): number {
-  const rows = Array.isArray(s.session_participants) ? s.session_participants.length : 0;
+  const parts = s.session_participants;
+  const rows = Array.isArray(parts) ? parts.length : parts ? 1 : 0;
   return Math.max(rows, s.current_participants ?? 0);
+}
+
+function participantsFromSession(s: CoachSession) {
+  const parts = s.session_participants;
+  if (Array.isArray(parts)) return parts;
+  if (parts) return [parts];
+  return [];
 }
 
 type Props = {
@@ -34,16 +42,27 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
   const nRegistered = registeredCount(session);
   const typeLabel = getSessionTypeDisplay(session.session_type, session.session_mode).label;
 
-  const fromJoin = sessionParticipantDisplayNames(session.session_participants);
+  const fromJoin = sessionParticipantDisplayNames(participantsFromSession(session));
   const [fetchedNames, setFetchedNames] = useState<string[] | undefined>(undefined);
-  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterLoading, setRosterLoading] = useState(nRegistered > 0);
 
-  const effectiveNames = fromJoin.length > 0 ? fromJoin : (fetchedNames ?? []);
+  // Authoritative roster from coach API (admin); page embed often returns partial names.
+  const effectiveNames =
+    fetchedNames !== undefined
+      ? fetchedNames
+      : fromJoin.length > 0
+        ? fromJoin
+        : [];
 
   useEffect(() => {
-    if (nRegistered === 0 || fromJoin.length > 0 || fetchedNames !== undefined) return;
+    if (nRegistered === 0) {
+      setRosterLoading(false);
+      return;
+    }
     let cancelled = false;
     setRosterLoading(true);
+    setFetchedNames(undefined);
+
     const loadRoster = async (attempt: number): Promise<string[]> => {
       const r = await fetch(`/api/coach/sessions/${session.id}/roster`);
       const data = (await r.json()) as { roster?: Array<{ wrestlerName: string }>; error?: string };
@@ -72,9 +91,10 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
     return () => {
       cancelled = true;
     };
-  }, [session.id, nRegistered, fromJoin.length, fetchedNames]);
+  }, [session.id, nRegistered]);
 
-  const showNameSpinner = nRegistered > 0 && effectiveNames.length === 0 && rosterLoading;
+  const showNameSpinner = nRegistered > 0 && rosterLoading && effectiveNames.length < nRegistered;
+  const athleteCount = Math.max(effectiveNames.length, nRegistered);
 
   return (
     <div
@@ -128,7 +148,10 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
           ) : effectiveNames.length > 0 ? (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                {effectiveNames.length} {effectiveNames.length === 1 ? 'athlete' : 'athletes'}
+                {athleteCount} {athleteCount === 1 ? 'athlete' : 'athletes'}
+                {rosterLoading && effectiveNames.length < nRegistered ? (
+                  <span className="normal-case font-normal text-muted-foreground/80"> · loading…</span>
+                ) : null}
               </p>
               <ul className="space-y-1">
                 {effectiveNames.map((name, i) => (
@@ -137,6 +160,12 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
                   </li>
                 ))}
               </ul>
+              {rosterLoading && effectiveNames.length < nRegistered ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+                  <span>Loading full roster…</span>
+                </div>
+              ) : null}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">

@@ -275,7 +275,7 @@ export function CoachSessionTileActions({
             ) : (
               <MessageCircle className="h-4 w-4 shrink-0" />
             )}
-            Text parents
+            Text parents only
           </button>
           <button
             type="button"
@@ -284,7 +284,7 @@ export function CoachSessionTileActions({
             onClick={() => void textGroup('athletes')}
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
-            Text kids
+            Text kids only
           </button>
           <button
             type="button"
@@ -293,7 +293,7 @@ export function CoachSessionTileActions({
             onClick={() => void textGroup('both')}
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
-            Text both
+            Text all parents and kids
           </button>
           <div className="my-1 h-px bg-border" />
           <button type="button" className={menuBtn()} onClick={() => void onShare()}>

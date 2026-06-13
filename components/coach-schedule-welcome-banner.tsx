@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CalendarClock, CalendarPlus, CircleHelp } from 'lucide-react';
+import { CalendarClock, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatCalendarLastUpdated, timeOfDayGreeting } from '@/lib/time-greeting';
 
@@ -59,37 +59,6 @@ export function CoachScheduleWelcomeBanner({ coachFirstName, calendarLastUpdated
           Schedule new session
         </Link>
       </Button>
-
-      <nav
-        className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm"
-        aria-label="Coach shortcuts"
-      >
-        <Link href="/coach-dashboard" className="text-[#D4AF37] font-medium hover:underline">
-          Dashboard
-        </Link>
-        <span className="text-muted-foreground/50" aria-hidden>
-          ·
-        </span>
-        <Link
-          href="/coach-help"
-          className="text-[#D4AF37] font-medium hover:underline inline-flex items-center gap-1"
-        >
-          <CircleHelp className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          Coach help
-        </Link>
-        <span className="text-muted-foreground/50" aria-hidden>
-          ·
-        </span>
-        <Link href="/coach-roster" className="text-[#D4AF37] font-medium hover:underline">
-          Families &amp; contacts
-        </Link>
-        <span className="text-muted-foreground/50" aria-hidden>
-          ·
-        </span>
-        <Link href="/coach-sessions" className="text-[#D4AF37] font-medium hover:underline">
-          All sessions
-        </Link>
-      </nav>
     </section>
   );
 }

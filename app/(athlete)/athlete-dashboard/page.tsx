@@ -3,12 +3,20 @@ import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { getTenantByDomain } from '@/config/tenants';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { CoachScheduleClient, type JoinRequestItem } from './coach-schedule-client';
+import { CoachScheduleClient, type JoinRequestItem, type ScheduleTab } from './coach-schedule-client';
 import type { CoachSession } from './coach-schedule-card';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CoachHomePage() {
+export default async function CoachHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const sp = await searchParams;
+  const initialTab: ScheduleTab =
+    sp.tab === 'past' ? 'past' : sp.tab === 'requests' ? 'requests' : 'upcoming';
+
   const headersList = await headers();
   const host = headersList.get('host') || '';
   const tenant = getTenantByDomain(host);
@@ -72,13 +80,6 @@ export default async function CoachHomePage() {
 
   const nowIso = new Date().toISOString();
 
-  const { count: upcomingSessionsCount } = await supabase
-    .from('sessions')
-    .select('*', { count: 'exact', head: true })
-    .eq('athlete_id', coachId)
-    .eq('status', 'scheduled')
-    .gte('scheduled_datetime', nowIso);
-
   const { data: upcomingSessions } = await supabase
     .from('sessions')
     .select(
@@ -89,6 +90,17 @@ export default async function CoachHomePage() {
     .gte('scheduled_datetime', nowIso)
     .order('scheduled_datetime', { ascending: true })
     .limit(100);
+
+  const pastDb = admin ?? supabase;
+  const { data: pastSessions } = await pastDb
+    .from('sessions')
+    .select(
+      '*, facilities(id, name), session_participants(youth_wrestler_id, roster_first_name, roster_last_name, amount_paid, youth_wrestlers(id, first_name, last_name))'
+    )
+    .eq('athlete_id', coachId)
+    .or(`status.eq.completed,status.eq.cancelled,status.eq.no-show,scheduled_datetime.lt.${nowIso}`)
+    .order('scheduled_datetime', { ascending: false })
+    .limit(30);
 
   const { data: joinRequests } = await supabase
     .from('session_join_requests')
@@ -154,11 +166,12 @@ export default async function CoachHomePage() {
     <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-full">
       <CoachScheduleClient
         upcomingSessions={(upcomingSessions ?? []) as CoachSession[]}
-        upcomingSessionsCount={upcomingSessionsCount ?? 0}
+        pastSessions={(pastSessions ?? []) as CoachSession[]}
         pendingJoinRequests={requestsWithSession as JoinRequestItem[]}
         coachFirstName={coachFirstName}
         coachDisplayName={coachDisplayName}
         calendarLastUpdatedAt={calendarLastUpdatedAt}
+        initialTab={initialTab}
       />
     </div>
   );

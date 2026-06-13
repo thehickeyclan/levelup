@@ -36,7 +36,32 @@ export async function getCoachFacilityIds(
     if (fid) merged.push(fid);
   }
 
+  const { data: slotRows } = await admin
+    .from('athlete_availability_slots')
+    .select('facility_id')
+    .eq('athlete_id', coachId)
+    .not('facility_id', 'is', null);
+  for (const row of slotRows ?? []) {
+    const fid = (row as { facility_id?: string | null }).facility_id;
+    if (fid) merged.push(fid);
+  }
+
   return [...new Set(merged.filter(Boolean))];
+}
+
+/** Link coach to a facility after they pick it on a session (idempotent). */
+export async function ensureCoachFacilityLinked(
+  admin: SupabaseClient,
+  coachId: string,
+  facilityId: string
+): Promise<void> {
+  const { error } = await admin.from('coach_facilities').insert({
+    coach_id: coachId,
+    facility_id: facilityId,
+  });
+  if (error && error.code !== '23505') {
+    throw new Error(error.message);
+  }
 }
 
 export async function coachHasFacility(
@@ -70,23 +95,34 @@ export async function getAllFacilitiesForEdit(admin: SupabaseClient): Promise<Co
   return (data ?? []) as CoachFacilityOption[];
 }
 
-/** Facilities a coach may pick when editing a session (linked, profile, past sessions, current). */
+/** Facilities for coach session create/edit — full admin-approved list plus coach-specific rows. */
 export async function getCoachFacilitiesForEdit(
   admin: SupabaseClient,
   coachId: string,
   currentFacilityId?: string | null
 ): Promise<CoachFacilityOption[]> {
-  const idSet = new Set(await getCoachFacilityIds(admin, coachId));
-  if (currentFacilityId) idSet.add(currentFacilityId);
+  const [global, linkedIds] = await Promise.all([
+    getAllFacilitiesForEdit(admin),
+    getCoachFacilityIds(admin, coachId),
+  ]);
 
-  const merged = [...idSet];
-  if (merged.length === 0) return [];
+  const byId = new Map<string, CoachFacilityOption>();
+  for (const f of global) byId.set(f.id, f);
 
-  const { data, error } = await admin
-    .from('facilities')
-    .select('id, name, school, address')
-    .in('id', merged)
-    .order('name');
-  if (error) return [];
-  return (data ?? []) as CoachFacilityOption[];
+  const extraIds = [...new Set([...linkedIds, currentFacilityId].filter(Boolean))] as string[];
+  const missing = extraIds.filter((id) => !byId.has(id));
+  if (missing.length > 0) {
+    const { data, error } = await admin
+      .from('facilities')
+      .select('id, name, school, address')
+      .in('id', missing)
+      .order('name');
+    if (!error) {
+      for (const f of (data ?? []) as CoachFacilityOption[]) {
+        byId.set(f.id, f);
+      }
+    }
+  }
+
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }

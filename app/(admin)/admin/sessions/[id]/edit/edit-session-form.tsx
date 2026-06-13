@@ -99,6 +99,7 @@ export function EditSessionForm({
   );
   const [facilities, setFacilities] = useState<CoachFacilityOption[]>(initialFacilities);
   const [facilityId, setFacilityId] = useState(initialFacilityId);
+  const [facilitySearch, setFacilitySearch] = useState('');
   const [newLocationOpen, setNewLocationOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +165,15 @@ export function EditSessionForm({
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [facilities, currentFacility]);
 
+  const filteredFacilityOptions = useMemo(() => {
+    const q = facilitySearch.trim().toLowerCase();
+    if (!q) return facilityOptions;
+    return facilityOptions.filter((f) => {
+      const hay = [f.name, f.school, f.address].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [facilityOptions, facilitySearch]);
+
   useEffect(() => {
     if (!coachId || !isCoach) return;
     const url = `/api/coaches/locations?coachId=${encodeURIComponent(coachId)}`;
@@ -184,7 +194,7 @@ export function EditSessionForm({
         });
       })
       .catch(() => {});
-  }, [coachId, currentFacility]);
+  }, [coachId, isCoach, currentFacility]);
 
   const selectedFacility = facilityOptions.find((f) => f.id === facilityId);
 
@@ -358,23 +368,43 @@ export function EditSessionForm({
                   No locations yet. Tap Add location.
                 </p>
               ) : (
-                <Select
-                  value={facilityId || undefined}
-                  onValueChange={setFacilityId}
-                  disabled={!editable}
-                >
-                  <SelectTrigger id="edit-facility" className="min-h-[44px]">
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {facilityOptions.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>
-                        {f.name}
-                        {f.address ? ` — ${f.address}` : f.school ? ` — ${f.school}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  {isCoach && facilityOptions.length > 4 ? (
+                    <Input
+                      id="edit-facility-search"
+                      type="search"
+                      placeholder="Search locations…"
+                      value={facilitySearch}
+                      onChange={(e) => setFacilitySearch(e.target.value)}
+                      className="min-h-[44px]"
+                      disabled={!editable}
+                      autoComplete="off"
+                    />
+                  ) : null}
+                  <Select
+                    value={facilityId || undefined}
+                    onValueChange={setFacilityId}
+                    disabled={!editable}
+                  >
+                    <SelectTrigger id="edit-facility" className="min-h-[44px]">
+                      <SelectValue placeholder="Select location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredFacilityOptions.length === 0 ? (
+                        <SelectItem value="__no_match__" disabled>
+                          No matches
+                        </SelectItem>
+                      ) : (
+                        filteredFacilityOptions.map((f) => (
+                          <SelectItem key={f.id} value={f.id}>
+                            {f.name}
+                            {f.address ? ` — ${f.address}` : f.school ? ` — ${f.school}` : ''}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </>
               )}
               {selectedFacility?.address ? (
                 <p className="text-xs text-muted-foreground px-1">{selectedFacility.address}</p>

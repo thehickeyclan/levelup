@@ -6,7 +6,7 @@ import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { easternWallDateTimeToUtcIso } from '@/lib/format-date';
 import { notifySessionScheduledFollowers } from '@/lib/notify-session-scheduled-followers';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
-import { coachHasFacility, normalizeFacilityIdParam } from '@/lib/coach-facilities';
+import { normalizeFacilityIdParam, ensureCoachFacilityLinked } from '@/lib/coach-facilities';
 import { isScheduledSessionEditable, SESSION_NOT_EDITABLE_ERROR } from '@/lib/session-editable';
 import {
   notifyParentsSessionFacilityChange,
@@ -174,12 +174,11 @@ export async function PATCH(
         // Omit or null — keep existing facility (e.g. form did not load facility_id)
       } else {
         if (isCoach) {
-          const allowed =
-            fid === session.facility_id ||
-            (await coachHasFacility(admin, session.athlete_id, fid));
-          if (!allowed) {
-            return NextResponse.json({ error: 'That location is not on your coach profile' }, { status: 403 });
+          const { data: fac } = await admin.from('facilities').select('id').eq('id', fid).maybeSingle();
+          if (!fac) {
+            return NextResponse.json({ error: 'Facility not found' }, { status: 400 });
           }
+          await ensureCoachFacilityLinked(admin, session.athlete_id, fid);
         } else {
           const { data: fac } = await admin.from('facilities').select('id').eq('id', fid).maybeSingle();
           if (!fac) {

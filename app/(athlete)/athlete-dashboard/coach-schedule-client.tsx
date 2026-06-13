@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { CoachScheduleWelcomeBanner } from '@/components/coach-schedule-welcome-banner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CalendarClock, CalendarPlus, Check, CircleHelp, Loader2, X } from 'lucide-react';
+import { CalendarPlus, Check, Loader2, X } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
 import type { CoachSession } from './coach-schedule-card';
 import { splitCoachSessionsByToday } from '@/lib/coach-schedule-split';
@@ -35,6 +36,7 @@ type Props = {
   pendingJoinRequests: JoinRequestItem[];
   coachFirstName?: string | null;
   coachDisplayName: string;
+  calendarLastUpdatedAt?: string | null;
 };
 
 function sessionTypeLabel(sessionType?: string | null, sessionMode?: string | null): string {
@@ -47,6 +49,7 @@ export function CoachScheduleClient({
   pendingJoinRequests,
   coachFirstName,
   coachDisplayName,
+  calendarLastUpdatedAt,
 }: Props) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -76,53 +79,11 @@ export function CoachScheduleClient({
   const showPending = pendingJoinRequests.length > 0;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="text-2xl font-bold text-foreground md:text-3xl">Schedule</h1>
-            <Link
-              href="/coach-dashboard"
-              className="text-sm font-semibold text-[#D4AF37] hover:underline whitespace-nowrap"
-            >
-              Dashboard →
-            </Link>
-            <Link
-              href="/coach-help"
-              className="inline-flex items-center gap-1 text-sm font-semibold text-[#D4AF37] hover:underline whitespace-nowrap"
-            >
-              <CircleHelp className="h-4 w-4 shrink-0" aria-hidden />
-              Coach help
-            </Link>
-            <Link
-              href="/coach-roster"
-              className="text-sm font-semibold text-[#D4AF37] hover:underline whitespace-nowrap"
-            >
-              Families &amp; contacts →
-            </Link>
-          </div>
-          <p className="text-muted-foreground text-sm md:text-base mt-1">
-            {coachFirstName ? `Hey ${coachFirstName}` : 'Your sessions'} — who&apos;s booked, what&apos;s pending.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row sm:shrink-0">
-          <Button
-            asChild
-            className="min-h-[44px] touch-manipulation bg-[#D4AF37] hover:bg-[#c9a432] text-black font-semibold w-full sm:w-auto"
-          >
-            <Link href="/coach-sessions/create">
-              <CalendarPlus className="h-4 w-4 mr-2 shrink-0" />
-              Create session
-            </Link>
-          </Button>
-          <Button variant="outline" asChild className="min-h-[44px] touch-manipulation w-full sm:w-auto border-[#D4AF37]/50">
-            <Link href="/availability">
-              <CalendarClock className="h-4 w-4 mr-2 shrink-0" />
-              Update my availability
-            </Link>
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <CoachScheduleWelcomeBanner
+        coachFirstName={coachFirstName}
+        calendarLastUpdatedAt={calendarLastUpdatedAt}
+      />
 
       {today.length > 0 && (
         <section className="space-y-3" aria-label="Today">

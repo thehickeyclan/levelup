@@ -121,6 +121,35 @@ export default async function CoachHomePage() {
   const coachFirstName = athlete?.first_name ?? null;
   const coachDisplayName =
     [athlete?.first_name, athlete?.last_name].filter(Boolean).join(' ').trim() || 'Coach';
+
+  const availabilityDb = admin ?? supabase;
+  const [{ data: latestWeekly }, { data: latestSlot }] = await Promise.all([
+    availabilityDb
+      .from('athlete_availability')
+      .select('updated_at, created_at')
+      .eq('athlete_id', coachId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    availabilityDb
+      .from('athlete_availability_slots')
+      .select('created_at')
+      .eq('athlete_id', coachId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const calendarCandidates = [
+    (latestWeekly as { updated_at?: string; created_at?: string } | null)?.updated_at,
+    (latestWeekly as { updated_at?: string; created_at?: string } | null)?.created_at,
+    (latestSlot as { created_at?: string } | null)?.created_at,
+  ].filter((t): t is string => Boolean(t));
+  const calendarLastUpdatedAt =
+    calendarCandidates.length > 0
+      ? calendarCandidates.reduce((a, b) => (new Date(a) > new Date(b) ? a : b))
+      : null;
+
   return (
     <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-full">
       <CoachScheduleClient
@@ -129,6 +158,7 @@ export default async function CoachHomePage() {
         pendingJoinRequests={requestsWithSession as JoinRequestItem[]}
         coachFirstName={coachFirstName}
         coachDisplayName={coachDisplayName}
+        calendarLastUpdatedAt={calendarLastUpdatedAt}
       />
     </div>
   );

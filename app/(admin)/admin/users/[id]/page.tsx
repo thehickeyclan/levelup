@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { formatEST } from '@/lib/format-date';
 import { getSessionTypeDisplay } from '@/lib/session-type-display';
 import { getUserCreditBalance } from '@/lib/credits';
+import { AdminCreateYouthWrestlerForm } from '@/components/admin-create-youth-wrestler-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -375,6 +376,12 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             <CardTitle className="text-base">Wrestlers (kids)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <AdminCreateYouthWrestlerForm
+              parentId={u.id}
+              parentLabel={displayName}
+              defaultZip={u.zip_code}
+              defaultPhone={u.phone}
+            />
             {kidsSection.rows.length === 0 ? (
               <p className="text-sm text-muted-foreground">No youth wrestler profiles linked to this parent.</p>
             ) : (

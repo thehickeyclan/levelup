@@ -5,7 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantFromRequestHeaders, resolveHostnameFromHeaders } from '@/config/tenants';
 import { generateInviteCode } from '@/lib/sessions';
 import { easternWallDateTimeToUtcIso } from '@/lib/format-date';
-import { notifySessionScheduledFollowers } from '@/lib/notify-session-scheduled-followers';
+import {
+  isSessionAlertable,
+  notifySessionScheduledFollowers,
+} from '@/lib/notify-session-scheduled-followers';
 import {
   getRecommendedPricePerParticipant,
   type CoachCreateSessionType,
@@ -218,8 +221,8 @@ export async function POST(req: NextRequest) {
       (outwardHost.startsWith('localhost') ? `http://${outwardHost}` : `https://${outwardHost}`);
     const shareUrl = `${baseUrl}/join/${session.partner_invite_code}`;
 
-    // Only notify followers when UI asked for a published / discoverable session (private → skip)
-    if (notifyAsPublished) {
+    // Follower alerts: public + published (private / invite-only → skip)
+    if (notifyAsPublished && isSessionAlertable(joinPolicy, 'scheduled')) {
       void notifySessionScheduledFollowers(tenant.slug, athlete.id, {
         sessionId: session.id,
         scheduledDatetime: session.scheduled_datetime,

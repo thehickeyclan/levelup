@@ -30,6 +30,27 @@ export function isCoachSessionEarningsEligible(
   return t < new Date(nowIso).getTime() && st === 'scheduled';
 }
 
+/** Calendar month (Eastern) when a session counts toward "this month" earnings. */
+export function coachEarningsMonthAnchor(s: CoachEarningsSessionRow): string | null {
+  if (s.status === 'completed') {
+    return s.completed_at ?? s.scheduled_datetime ?? null;
+  }
+  return s.scheduled_datetime ?? null;
+}
+
+export function coachEarningsMonthKey(s: CoachEarningsSessionRow): string | null {
+  const anchor = coachEarningsMonthAnchor(s);
+  if (!anchor) return null;
+  return formatEST(anchor, 'yyyy-MM');
+}
+
+export function isCoachSessionInEarningsMonth(
+  s: CoachEarningsSessionRow,
+  monthKey: string
+): boolean {
+  return coachEarningsMonthKey(s) === monthKey;
+}
+
 /** One session’s coach share — same math as Dashboard, /coach-earnings, and leaderboard (after eligibility filter). */
 export function payoutUsdForCoachEarningsSession(
   s: CoachEarningsSessionRow,
@@ -106,10 +127,8 @@ export function summarizeCoachEarningsFromPastSessions(
 
   const getSessionPayout = (s: CoachEarningsSessionRow) => payoutUsdForCoachEarningsSession(s, coachDefaultPayoutRate);
 
-  const thisMonthKey = formatEST(new Date(), 'yyyy-MM');
-  const thisMonthSessions = earningsSessions.filter(
-    (s) => s.scheduled_datetime && formatEST(s.scheduled_datetime, 'yyyy-MM') === thisMonthKey
-  );
+  const thisMonthKey = formatEST(nowIso, 'yyyy-MM');
+  const thisMonthSessions = earningsSessions.filter((s) => isCoachSessionInEarningsMonth(s, thisMonthKey));
 
   const thisMonthEarnings = thisMonthSessions.reduce((sum, s) => sum + getSessionPayout(s), 0);
   const allTimeEarnings = earningsSessions.reduce((sum, s) => sum + getSessionPayout(s), 0);

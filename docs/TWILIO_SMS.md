@@ -58,6 +58,13 @@ If neither is set or neither looks like a valid phone, we only send the in-app n
 - **Cart checkout (credits only)** — when the cart is fully paid with credits (no Stripe): in-app notification + SMS if phone set (one SMS per session per checkout).
 - **Private booking API** — when the charge is below Stripe’s minimum and the session is confirmed without card payment: SMS in addition to the existing in-app notification at booking time.
 
+## Follower SMS (new public sessions)
+
+- **Who:** Parents in `coach_follows` for the session's coach.
+- **When:** Session created or opened as `join_policy = public` (not invite-only or private). Re-opening after closing clears `session_sms_alerts` so followers can be notified again.
+- **Prefs:** `users.notification_preferences` — `new_sessions_sms` (default on), `sms_opted_out` (set via STOP webhook).
+- **STOP:** Configure Twilio inbound webhook → `POST /api/twilio/inbound` on your app URL. Parent replies STOP → prefs updated + confirmation TwiML.
+
 ## Testing
 
 1. Set Twilio env vars and ensure `users.phone` exists (see migration `20240320000000_users_phone.sql`).

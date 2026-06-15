@@ -8,6 +8,7 @@ import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
 import {
   type CoachEarningsSessionRow,
   isCoachSessionEarningsEligible,
+  isCoachSessionInEarningsMonth,
   payoutUsdForCoachEarningsSession,
 } from '@/lib/coach-earnings-summary-server';
 
@@ -55,7 +56,7 @@ export async function GET() {
   });
 
   const nowIso = new Date().toISOString();
-  const thisMonthKey = formatEST(new Date(), 'yyyy-MM');
+  const thisMonthKey = formatEST(nowIso, 'yyyy-MM');
 
   /** Same broad fetch as coach earnings + eligibility filter (includes past scheduled, not only status=completed). */
   const { data: pastSessionsRaw, error: sessionsErr } = await admin
@@ -95,7 +96,7 @@ export async function GET() {
 
     sessionCountMap[aid] = (sessionCountMap[aid] || 0) + 1;
 
-    if (s.scheduled_datetime && formatEST(s.scheduled_datetime, 'yyyy-MM') === thisMonthKey) {
+    if (isCoachSessionInEarningsMonth(s, thisMonthKey)) {
       thisMonthCountMap[aid] = (thisMonthCountMap[aid] || 0) + 1;
     }
 

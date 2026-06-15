@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
+import { validateRequiredYouthPhone } from '@/lib/phone';
+import { normalizeUsZipCode } from '@/lib/us-zip';
 
 async function requireAdmin(tenantSlug: string) {
   const supabase = await createClient(tenantSlug);
@@ -62,6 +64,101 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ youthWrestlers: list });
   } catch (e) {
     console.error('Admin youth-wrestlers GET error:', e);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/** POST - create a youth wrestler on a parent account (no SQL). */
+export async function POST(req: NextRequest) {
+  try {
+    const headersList = await headers();
+    const host = headersList.get('host') || '';
+    const tenant = getTenantByDomain(host);
+    if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+
+    const authError = await requireAdmin(tenant.slug);
+    if (authError) return authError;
+
+    const body = (await req.json()) as {
+      parentId?: string;
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      zipCode?: string;
+      weightClass?: string;
+      school?: string;
+      graduationYear?: number | string;
+      dateOfBirth?: string;
+    };
+
+    const parentId = typeof body.parentId === 'string' ? body.parentId.trim() : '';
+    const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : '';
+    const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : '';
+
+    if (!parentId || !firstName || !lastName) {
+      return NextResponse.json({ error: 'parentId, firstName, and lastName are required' }, { status: 400 });
+    }
+
+    const phoneCheck = validateRequiredYouthPhone(body.phone);
+    if (!phoneCheck.ok) {
+      return NextResponse.json({ error: phoneCheck.message }, { status: 400 });
+    }
+
+    const zipNorm = normalizeUsZipCode(typeof body.zipCode === 'string' ? body.zipCode : '');
+    if (!zipNorm) {
+      return NextResponse.json({ error: 'A valid U.S. home ZIP is required (5 digits or ZIP+4)' }, { status: 400 });
+    }
+
+    const admin = createAdminClient(tenant.slug);
+
+    const { data: parent } = await admin.from('users').select('id, role').eq('id', parentId).maybeSingle();
+    if (!parent || parent.role !== 'parent') {
+      return NextResponse.json({ error: 'Parent account not found' }, { status: 404 });
+    }
+
+    let graduationYear: number | null = null;
+    if (body.graduationYear != null && String(body.graduationYear).trim() !== '') {
+      const gy = parseInt(String(body.graduationYear), 10);
+      if (!Number.isNaN(gy)) graduationYear = gy;
+    }
+
+    let age: number | null = null;
+    const dob = typeof body.dateOfBirth === 'string' && body.dateOfBirth.trim() ? body.dateOfBirth.trim() : null;
+    if (dob) {
+      const birthDate = new Date(dob);
+      if (!Number.isNaN(birthDate.getTime())) {
+        const today = new Date();
+        age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+      }
+    }
+
+    const { data: youthWrestler, error } = await admin
+      .from('youth_wrestlers')
+      .insert({
+        parent_id: parentId,
+        first_name: firstName,
+        last_name: lastName,
+        phone: phoneCheck.phone,
+        zip_code: zipNorm,
+        weight_class: typeof body.weightClass === 'string' ? body.weightClass.trim() || null : null,
+        school: typeof body.school === 'string' ? body.school.trim() || null : null,
+        graduation_year: graduationYear,
+        date_of_birth: dob,
+        age,
+        active: true,
+      })
+      .select('id, first_name, last_name, parent_id, weight_class, school')
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ youthWrestler });
+  } catch (e) {
+    console.error('Admin youth-wrestlers POST error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

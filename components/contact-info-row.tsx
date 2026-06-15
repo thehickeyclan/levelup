@@ -62,22 +62,30 @@ export function ContactInfoRow({ label, name, phone, className }: ContactInfoRow
   };
 
   return (
-    <div className={cn('flex items-center justify-between gap-2 py-1', className)}>
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        <div className="text-sm truncate">
-          <span className="text-muted-foreground">{label}:</span>{' '}
-          {name && <span className="font-medium">{name}</span>}
-          {name && ' · '}
-          <span className="font-mono text-xs">{formatPhone(phone)}</span>
-        </div>
+    <div className={cn('flex items-start gap-2 py-1 min-w-0', className)}>
+      <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-muted-foreground leading-snug">
+          {label}
+          {name ? (
+            <>
+              <span className="mx-1" aria-hidden>
+                ·
+              </span>
+              <span className="text-foreground/90">{name}</span>
+            </>
+          ) : null}
+        </p>
+        <p className="text-sm font-mono tabular-nums leading-snug mt-0.5 break-all">
+          {formatPhone(phone)}
+        </p>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center shrink-0 -mr-1">
         <Button
           variant="ghost"
           size="sm"
           onClick={handleCopy}
-          className="h-8 w-8 p-0 min-h-[44px] min-w-[44px] touch-manipulation"
+          className="h-10 w-10 p-0 touch-manipulation"
           title="Copy phone number"
         >
           {copied ? (
@@ -90,7 +98,7 @@ export function ContactInfoRow({ label, name, phone, className }: ContactInfoRow
           variant="ghost"
           size="sm"
           onClick={handleText}
-          className="h-8 w-8 p-0 min-h-[44px] min-w-[44px] touch-manipulation"
+          className="h-10 w-10 p-0 touch-manipulation"
           title="Text this number"
         >
           <MessageSquare className="h-4 w-4" />

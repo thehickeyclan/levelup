@@ -4,7 +4,11 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { easternWallDateTimeToUtcIso } from '@/lib/format-date';
-import { notifySessionScheduledFollowers } from '@/lib/notify-session-scheduled-followers';
+import {
+  clearSessionSmsAlerts,
+  isSessionAlertable,
+  notifySessionScheduledFollowers,
+} from '@/lib/notify-session-scheduled-followers';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
 import { normalizeFacilityIdParam, ensureCoachFacilityLinked } from '@/lib/coach-facilities';
 import { isScheduledSessionEditable, SESSION_NOT_EDITABLE_ERROR } from '@/lib/session-editable';
@@ -68,6 +72,7 @@ export async function PATCH(
         parent_id,
         scheduled_datetime,
         partner_invite_code,
+        join_policy,
         duration_minutes,
         current_participants,
         facility_id,
@@ -226,8 +231,14 @@ export async function PATCH(
       }
     }
     
-    // published column doesn't exist in DB - skip this logic
-    const isNewlyPublished = false;
+    const prevJoinPolicy = (session.join_policy as string | null) ?? 'private';
+    const nextJoinPolicy =
+      (updates.join_policy as string | undefined) ?? prevJoinPolicy;
+    const becamePublic =
+      nextJoinPolicy === 'public' && prevJoinPolicy !== 'public';
+    const leftPublic =
+      prevJoinPolicy === 'public' && nextJoinPolicy !== 'public';
+    const publishedFlag = body.published === true;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ ok: true });
@@ -270,11 +281,19 @@ export async function PATCH(
       });
     }
 
-    // If session was just published, notify followers
-    if (isNewlyPublished && session.athlete_id && session.partner_invite_code) {
-      void notifySessionScheduledFollowers(tenant.slug, session.athlete_id, {
+    if (leftPublic) {
+      await clearSessionSmsAlerts(admin, sessionId);
+    }
+
+    const shouldNotifyFollowers =
+      session.athlete_id &&
+      isSessionAlertable(nextJoinPolicy, session.status as string) &&
+      (becamePublic || publishedFlag);
+
+    if (shouldNotifyFollowers) {
+      void notifySessionScheduledFollowers(tenant.slug, session.athlete_id as string, {
         sessionId,
-        scheduledDatetime: (updates.scheduled_datetime as string) || session.scheduled_datetime,
+        scheduledDatetime: (updates.scheduled_datetime as string) || (session.scheduled_datetime as string),
         joinUrlPath: `/join/${session.partner_invite_code}`,
       });
     }

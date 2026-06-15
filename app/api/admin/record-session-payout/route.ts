@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
+import { createNotification } from '@/lib/notifications';
+import { formatUsdTwoDecimals } from '@/lib/coach-session-payout';
 
 /**
  * Record a coach payout for specific session(s) with a custom amount.
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
       .from('sessions')
       .update({ athlete_payment: amount, athlete_payout_date: today })
       .in('id', ids)
-      .select('id');
+      .select('id, athlete_id');
 
     if (updateError) {
       console.error('Record payout error:', updateError);
@@ -71,6 +73,32 @@ export async function POST(req: NextRequest) {
     }
 
     const updatedCount = updated?.length ?? 0;
+    const coachIds = [
+      ...new Set(
+        (updated ?? [])
+          .map((row) => (row as { athlete_id?: string | null }).athlete_id)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      ),
+    ];
+
+    for (const coachId of coachIds) {
+      const sessionCountForCoach = (updated ?? []).filter(
+        (row) => (row as { athlete_id?: string }).athlete_id === coachId
+      ).length;
+      try {
+        await createNotification(admin, {
+          user_id: coachId,
+          type: 'session_payout_recorded',
+          title: 'Payout recorded',
+          body: `Admin recorded $${formatUsdTwoDecimals(amount)} for ${sessionCountForCoach} completed session${sessionCountForCoach !== 1 ? 's' : ''}.`,
+          data: { link: '/coach-earnings', coach_id: coachId },
+          coachId,
+        });
+      } catch (notifErr) {
+        console.warn('Record payout coach notification failed:', notifErr);
+      }
+    }
+
     return NextResponse.json({ success: true, updatedCount });
   } catch (e) {
     console.error('Record payout error:', e);

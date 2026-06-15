@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Bell } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 
 type Notification = {
   id: string;
@@ -31,7 +32,7 @@ export function NotificationBell({
     if (!open) return;
     setLoading(true);
     fetch('/api/notifications')
-      .then((r) => r.ok ? r.json() : { notifications: [] })
+      .then((r) => (r.ok ? r.json() : { notifications: [] }))
       .then((data) => {
         setList(data?.notifications ?? []);
       })
@@ -50,8 +51,21 @@ export function NotificationBell({
     return () => document.removeEventListener('click', handleClick);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   const markAllRead = async () => {
-    const res = await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) });
+    const res = await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true }),
+    });
     if (res.ok) {
       setList((prev) => prev.map((n) => ({ ...n, read_at: new Date().toISOString() })));
       onRefresh();
@@ -59,7 +73,11 @@ export function NotificationBell({
   };
 
   const markOneRead = async (id: string) => {
-    const res = await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    const res = await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
     if (res.ok) {
       setList((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
       onRefresh();
@@ -75,6 +93,7 @@ export function NotificationBell({
         onClick={() => setOpen((o) => !o)}
         className="relative flex items-center justify-center min-h-[44px] min-w-[44px] p-1.5 text-white hover:text-accent transition-colors font-medium rounded hover:bg-white/10"
         aria-label={count > 0 ? `Notifications (${count} unread)` : 'Notifications'}
+        aria-expanded={open}
       >
         <Bell className="h-5 w-5" />
         {count > 0 && (
@@ -84,66 +103,92 @@ export function NotificationBell({
         )}
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-[320px] max-w-[calc(100vw-2rem)] max-h-[400px] overflow-hidden rounded-lg border border-border bg-background text-foreground shadow-lg z-50 flex flex-col">
-          <div className="flex items-center justify-between px-3 py-2 border-b">
-            <span className="font-semibold text-sm">Notifications</span>
-            {list.some((n) => !n.read_at) && (
-              <button
-                type="button"
-                onClick={markAllRead}
-                className="text-xs text-muted-foreground hover:text-foreground"
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[60] bg-black/50 md:hidden"
+            aria-label="Close notifications"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className={cn(
+              'z-[61] flex flex-col overflow-hidden rounded-lg border border-border bg-background text-foreground shadow-lg',
+              'fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+3.75rem)] max-h-[min(70dvh,28rem)]',
+              'md:absolute md:inset-x-auto md:left-auto md:right-0 md:top-full md:mt-1 md:w-[min(320px,calc(100vw-2rem))] md:max-h-[400px]'
+            )}
+          >
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b shrink-0 min-w-0">
+              <span className="font-semibold text-sm truncate">Notifications</span>
+              {list.some((n) => !n.read_at) && (
+                <button
+                  type="button"
+                  onClick={markAllRead}
+                  className="text-xs text-muted-foreground hover:text-foreground shrink-0 whitespace-nowrap"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+            <div className="overflow-y-auto overflow-x-hidden min-h-0 flex-1">
+              {loading ? (
+                <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+              ) : list.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">No notifications yet.</p>
+              ) : (
+                <ul className="divide-y min-w-0">
+                  {list.slice(0, 15).map((n) => {
+                    const href = link(n);
+                    const rowClass = cn(
+                      'block px-3 py-2.5 min-w-0',
+                      !n.read_at ? 'bg-muted/30' : '',
+                      href ? 'hover:bg-muted/50' : ''
+                    );
+                    const content = (
+                      <>
+                        <p className="font-medium text-sm break-words">{n.title}</p>
+                        {n.body ? (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-3 break-words">
+                            {n.body}
+                          </p>
+                        ) : null}
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {formatEST(new Date(n.created_at), 'MMM d, h:mm a')}
+                        </p>
+                      </>
+                    );
+                    return (
+                      <li key={n.id} className="min-w-0">
+                        {href ? (
+                          <Link
+                            href={href}
+                            onClick={() => {
+                              markOneRead(n.id);
+                              setOpen(false);
+                            }}
+                            className={rowClass}
+                          >
+                            {content}
+                          </Link>
+                        ) : (
+                          <div className={rowClass}>{content}</div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="border-t px-3 py-2 shrink-0">
+              <Link
+                href="/notifications"
+                onClick={() => setOpen(false)}
+                className="text-sm text-accent hover:underline font-medium"
               >
-                Mark all read
-              </button>
-            )}
+                View all notifications
+              </Link>
+            </div>
           </div>
-          <div className="overflow-y-auto max-h-[320px]">
-            {loading ? (
-              <p className="p-4 text-sm text-muted-foreground">Loading…</p>
-            ) : list.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">No notifications yet.</p>
-            ) : (
-              <ul className="divide-y">
-                {list.slice(0, 15).map((n) => {
-                  const href = link(n);
-                  return (
-                    <li key={n.id}>
-                      {href ? (
-                        <Link
-                          href={href}
-                          onClick={() => {
-                            markOneRead(n.id);
-                            setOpen(false);
-                          }}
-                          className={`block px-3 py-2 hover:bg-muted/50 ${!n.read_at ? 'bg-muted/30' : ''}`}
-                        >
-                          <p className="font-medium text-sm">{n.title}</p>
-                          {n.body && <p className="text-xs text-muted-foreground line-clamp-2">{n.body}</p>}
-                          <p className="text-[10px] text-muted-foreground mt-1">{formatEST(new Date(n.created_at), 'MMM d, h:mm a')}</p>
-                        </Link>
-                      ) : (
-                        <div className={`px-3 py-2 ${!n.read_at ? 'bg-muted/30' : ''}`}>
-                          <p className="font-medium text-sm">{n.title}</p>
-                          {n.body && <p className="text-xs text-muted-foreground line-clamp-2">{n.body}</p>}
-                          <p className="text-[10px] text-muted-foreground mt-1">{formatEST(new Date(n.created_at), 'MMM d, h:mm a')}</p>
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <div className="border-t px-3 py-2">
-            <Link
-              href="/notifications"
-              onClick={() => setOpen(false)}
-              className="text-sm text-accent hover:underline font-medium"
-            >
-              View all notifications
-            </Link>
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

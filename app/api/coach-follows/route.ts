@@ -85,7 +85,17 @@ export async function POST(req: NextRequest) {
       );
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ success: true });
+
+    const { data: coach } = await supabase
+      .from('athletes')
+      .select('first_name, last_name')
+      .eq('id', coachId)
+      .maybeSingle();
+    const coachName = coach
+      ? `${coach.first_name ?? ''} ${coach.last_name ?? ''}`.trim()
+      : '';
+
+    return NextResponse.json({ success: true, coachName });
   } catch (e) {
     console.error('Coach follows POST error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -48,6 +48,18 @@ export async function notifyParentsSessionTimeChange(
         sessionId: opts.sessionId,
       });
     }
+
+    if (opts.athleteId) {
+      await createNotification(admin, {
+        user_id: opts.athleteId,
+        type: 'session_rescheduled',
+        title: 'Session rescheduled',
+        body: `Your session was moved from ${oldWhen} to ${newWhen}.`,
+        data: { link: '/athlete-dashboard', session_id: opts.sessionId },
+        sessionId: opts.sessionId,
+        coachId: opts.athleteId,
+      });
+    }
   } catch (notifErr) {
     console.warn('[session time change] in-app notify parents failed:', notifErr);
   }

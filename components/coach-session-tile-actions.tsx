@@ -324,10 +324,10 @@ export function CoachSessionTileActions({
       </Popover>
 
       <Dialog open={contactsOpen} onOpenChange={setContactsOpen}>
-        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader className="min-w-0 pr-8">
             <DialogTitle>Contact details</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-left break-words line-clamp-2">
               {formatEST(dt, 'EEE, MMM d')} · {formatEST(dt, 'h:mm a')} · {facility}
             </DialogDescription>
           </DialogHeader>
@@ -338,7 +338,7 @@ export function CoachSessionTileActions({
           ) : contacts.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">No contact details on file.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 min-w-0">
               {contacts.map((c) => {
                 const athlete = c.athlete;
                 const parent = c.parent;
@@ -346,16 +346,11 @@ export function CoachSessionTileActions({
                 return (
                   <div
                     key={c.participantId}
-                    className="rounded-lg border border-border/80 bg-muted/20 p-3 space-y-2"
+                    className="rounded-lg border border-border/80 bg-muted/20 p-3 space-y-1 min-w-0 overflow-hidden"
                   >
                     {athlete && (
-                      <p className="font-medium text-sm">
+                      <p className="font-medium text-sm truncate">
                         {athlete.firstName} {athlete.lastName}
-                      </p>
-                    )}
-                    {parent && (
-                      <p className="text-xs text-muted-foreground">
-                        Parent: {parent.firstName} {parent.lastName}
                       </p>
                     )}
                     {parent?.phone && (

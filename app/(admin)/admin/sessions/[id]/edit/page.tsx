@@ -98,6 +98,11 @@ export default async function AdminEditSessionPage({
       : null;
   const editable = (session as { status?: string }).status !== 'cancelled';
 
+  const { count: smsAlertCount } = await admin
+    .from('session_sms_alerts')
+    .select('id', { count: 'exact', head: true })
+    .eq('session_id', sessionId);
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-lg">
       <div className="mb-4 -ml-2">
@@ -108,10 +113,16 @@ export default async function AdminEditSessionPage({
         />
       </div>
       <h1 className="text-2xl font-bold mb-1">Edit session</h1>
-      <p className="text-muted-foreground text-sm mb-6">
+      <p className="text-muted-foreground text-sm mb-2">
         {coach ? `${(coach as { first_name?: string }).first_name ?? ''} ${(coach as { last_name?: string }).last_name ?? ''}`.trim() : '—'}
         {(fac as { name?: string })?.name && ` · ${(fac as { name?: string }).name}`}
       </p>
+      {(smsAlertCount ?? 0) > 0 && (
+        <p className="text-sm text-muted-foreground mb-6">
+          {smsAlertCount} parent{smsAlertCount === 1 ? '' : 's'} notified by SMS for this session
+        </p>
+      )}
+      {!(smsAlertCount ?? 0) && <div className="mb-6" />}
       <EditSessionForm
         sessionId={sessionId}
         sessionStatus={(session as { status?: string }).status}

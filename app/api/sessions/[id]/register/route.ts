@@ -9,6 +9,7 @@ import { createRegisterConfirmationToken } from '@/lib/confirmation-token';
 import { createNotification } from '@/lib/notifications';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { hasMinPhoneDigits } from '@/lib/phone';
+import { parseGraduationYear, GRADUATION_YEAR_REQUIRED_MESSAGE } from '@/lib/graduation-year';
 import { maybeBackfillRosterSnapshot } from '@/lib/session-roster-snapshot';
 import { finalizeRegisterFromCheckoutSession } from '@/lib/finalize-session-register-from-stripe';
 import { getEffectiveFilledCount } from '@/lib/sessions';
@@ -244,7 +245,7 @@ export async function POST(
 
     const { data: yw } = await supabase
       .from('youth_wrestlers')
-      .select('id, parent_id, phone, first_name, last_name')
+      .select('id, parent_id, phone, first_name, last_name, graduation_year')
       .eq('id', youthWrestlerId)
       .single();
     const ywParentId = (yw as { parent_id?: string } | null)?.parent_id;
@@ -252,6 +253,12 @@ export async function POST(
     if (yw && !hasMinPhoneDigits((yw as { phone?: string | null }).phone)) {
       return NextResponse.json(
         { error: 'Add this athlete’s cell number on their profile (Wrestlers → Edit) before registering.' },
+        { status: 400 }
+      );
+    }
+    if (yw && parseGraduationYear((yw as { graduation_year?: number | null }).graduation_year) == null) {
+      return NextResponse.json(
+        { error: `${GRADUATION_YEAR_REQUIRED_MESSAGE} Update their profile under Wrestlers → Edit.` },
         { status: 400 }
       );
     }

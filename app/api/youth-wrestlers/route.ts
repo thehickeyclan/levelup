@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { getTenantByDomain } from '@/config/tenants';
 import { validateRequiredYouthPhone } from '@/lib/phone';
 import { normalizeUsZipCode } from '@/lib/us-zip';
+import {
+  GRADUATION_YEAR_REQUIRED_MESSAGE,
+  parseGraduationYear,
+} from '@/lib/graduation-year';
 
 // GET - List all youth wrestlers for the authenticated parent
 export async function GET(req: NextRequest) {
@@ -126,6 +130,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const graduationYearParsed = parseGraduationYear(graduationYear);
+    if (graduationYearParsed == null) {
+      return NextResponse.json({ error: GRADUATION_YEAR_REQUIRED_MESSAGE }, { status: 400 });
+    }
+
     const norm = (s: string) => (s ?? '').trim().toLowerCase();
     const firstNorm = norm(firstName);
     const lastNorm = norm(lastName);
@@ -187,7 +196,7 @@ export async function POST(req: NextRequest) {
         date_of_birth: dateOfBirth || null,
         age: age,
         school: school || null,
-        graduation_year: graduationYear ?? null,
+        graduation_year: graduationYearParsed,
         weight_class: weightClass || null,
         skill_level: skillLevel || null,
         wrestling_experience: wrestlingExperience || null,

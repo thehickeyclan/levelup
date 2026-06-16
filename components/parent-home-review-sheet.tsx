@@ -205,13 +205,24 @@ export function ParentHomeReviewSheet({
 
               {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="w-full min-h-[48px] bg-accent hover:bg-accent-hover text-black font-semibold"
-              >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit'}
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full min-h-[48px] bg-accent hover:bg-accent-hover text-black font-semibold"
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={submitting}
+                  className="w-full min-h-[44px] text-muted-foreground"
+                  onClick={() => handleOpenChange(false)}
+                >
+                  Not now
+                </Button>
+              </div>
             </form>
           </>
         )}

@@ -16,6 +16,7 @@ import { User, Calendar, MapPin, Users } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
 import { SchoolLogo } from '@/components/school-logo';
 import { hasMinPhoneDigits } from '@/lib/phone';
+import { parseGraduationYear } from '@/lib/graduation-year';
 import {
   ensureAutoFamilyDiscountForParent,
   effectivePercentOffForCheckout,
@@ -182,15 +183,28 @@ export default async function SessionRegisterPage({
   const { data: youthWrestlersRaw } = allIds.length > 0
     ? await supabase
         .from('youth_wrestlers')
-        .select('id, first_name, last_name, age, weight_class, skill_level, phone')
+        .select('id, first_name, last_name, age, weight_class, skill_level, phone, graduation_year')
         .in('id', allIds)
         .eq('active', true)
         .order('created_at', { ascending: false })
     : { data: [] };
   const youthWrestlers = (youthWrestlersRaw ?? []).map((yw) => {
-    const row = yw as { phone?: string | null; id: string; first_name?: string; last_name?: string; age?: number; weight_class?: string; skill_level?: string };
-    const { phone, ...rest } = row;
-    return { ...rest, hasValidCell: hasMinPhoneDigits(phone) };
+    const row = yw as {
+      phone?: string | null;
+      graduation_year?: number | null;
+      id: string;
+      first_name?: string;
+      last_name?: string;
+      age?: number;
+      weight_class?: string;
+      skill_level?: string;
+    };
+    const { phone, graduation_year, ...rest } = row;
+    return {
+      ...rest,
+      hasValidCell: hasMinPhoneDigits(phone),
+      hasGraduationYear: parseGraduationYear(graduation_year) != null,
+    };
   });
 
   const unpaidWrestlerId = unpaidFamilySpot?.youth_wrestler_id ?? '';

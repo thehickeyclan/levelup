@@ -140,6 +140,16 @@ export default async function MyBookingsPage() {
       .filter((id): id is string => Boolean(id))
   );
 
+  const { data: dismissedReviewRows } = await supabase
+    .from('review_prompt_dismissals')
+    .select('athlete_id')
+    .eq('parent_id', user.id);
+  const dismissedReviewCoachIds = new Set(
+    (dismissedReviewRows ?? [])
+      .map((r: { athlete_id?: string | null }) => r.athlete_id)
+      .filter((id): id is string => Boolean(id))
+  );
+
   // All participant names per session (admin fetch so we show all kids on the card, not just current user's)
   let allParticipantsBySession: Record<string, string[]> = {};
   /** Row count per session from session_participants (source of truth when sessions.current_participants is stale). */
@@ -266,7 +276,9 @@ export default async function MyBookingsPage() {
     facility_id: facilityId(s),
     wrestlers: wrestlers(s),
     primaryWrestlerId: primaryWrestlerId(s),
-    hasReviewed: s.status === 'completed' ? reviewedCoachIds.has(coach(s).id) : undefined,
+    hasReviewed: s.status === 'completed'
+      ? reviewedCoachIds.has(coach(s).id) || dismissedReviewCoachIds.has(coach(s).id)
+      : undefined,
     isFamilyParticipant: true,
   };
   };

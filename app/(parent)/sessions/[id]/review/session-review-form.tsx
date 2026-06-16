@@ -178,23 +178,36 @@ export function SessionReviewForm({
             <p className="text-sm text-destructive">{error}</p>
           )}
 
-          <Button
-            type="submit"
-            className="w-full"
-            size="lg"
-            disabled={submitting || rating < 1}
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Submitting…
-              </>
-            ) : existingReview ? (
-              'Update feedback'
-            ) : (
-              'Submit feedback'
-            )}
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              disabled={submitting || rating < 1}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Submitting…
+                </>
+              ) : existingReview ? (
+                'Update feedback'
+              ) : (
+                'Submit feedback'
+              )}
+            </Button>
+            {!existingReview ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                disabled={submitting}
+                onClick={() => router.push('/bookings')}
+              >
+                Not now
+              </Button>
+            ) : null}
+          </div>
         </form>
       </CardContent>
     </Card>

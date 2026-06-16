@@ -5,6 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { validateRequiredYouthPhone } from '@/lib/phone';
 import { normalizeUsZipCode } from '@/lib/us-zip';
+import {
+  GRADUATION_YEAR_REQUIRED_MESSAGE,
+  parseGraduationYear,
+} from '@/lib/graduation-year';
 
 async function requireAdmin(tenantSlug: string) {
   const supabase = await createClient(tenantSlug);
@@ -109,17 +113,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'A valid U.S. home ZIP is required (5 digits or ZIP+4)' }, { status: 400 });
     }
 
+    const graduationYear = parseGraduationYear(body.graduationYear);
+    if (graduationYear == null) {
+      return NextResponse.json({ error: GRADUATION_YEAR_REQUIRED_MESSAGE }, { status: 400 });
+    }
+
     const admin = createAdminClient(tenant.slug);
 
     const { data: parent } = await admin.from('users').select('id, role').eq('id', parentId).maybeSingle();
     if (!parent || parent.role !== 'parent') {
       return NextResponse.json({ error: 'Parent account not found' }, { status: 404 });
-    }
-
-    let graduationYear: number | null = null;
-    if (body.graduationYear != null && String(body.graduationYear).trim() !== '') {
-      const gy = parseInt(String(body.graduationYear), 10);
-      if (!Number.isNaN(gy)) graduationYear = gy;
     }
 
     let age: number | null = null;

@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
 
     // Follower alerts: public + published (private / invite-only → skip)
     if (notifyAsPublished && isSessionAlertable(joinPolicy, 'scheduled')) {
-      void notifySessionScheduledFollowers(tenant.slug, athlete.id, {
+      await notifySessionScheduledFollowers(tenant.slug, athlete.id, {
         sessionId: session.id,
         scheduledDatetime: session.scheduled_datetime,
         joinUrlPath: `/join/${session.partner_invite_code}`,

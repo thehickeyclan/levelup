@@ -29,13 +29,18 @@ import { OnboardingWizard } from '@/components/onboarding-wizard';
 import { Camera, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { isValidUsZipCode } from '@/lib/us-zip';
+import { graduationYearOptions } from '@/lib/graduation-year';
 
 const youthWrestlerSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   dateOfBirth: z.string().optional(),
   school: z.string().optional(),
-  graduationYear: z.union([z.string(), z.number()]).optional().transform((v) => (v === '' || v == null ? undefined : typeof v === 'string' ? parseInt(v, 10) : v)),
+  graduationYear: z
+    .union([z.string(), z.number()])
+    .refine((v) => v !== '' && v != null, 'Graduation year is required')
+    .transform((v) => (typeof v === 'string' ? parseInt(v, 10) : v))
+    .refine((v) => Number.isFinite(v), 'Graduation year is required'),
   weightClass: z.string().optional(),
   skillLevel: z.enum(['beginner', 'intermediate', 'advanced', 'elite']).optional(),
   wrestlingExperience: z.string().optional(),
@@ -114,7 +119,7 @@ export default function AddYouthWrestlerPage() {
           'skillLevel',
         ]);
         if (!ok) {
-          setError('Cell phone and home ZIP are required (phone for texts, ZIP for maps and nearby coaches).');
+          setError('Cell phone, home ZIP, and graduation year are required.');
           return;
         }
       }
@@ -453,24 +458,25 @@ export default function AddYouthWrestlerPage() {
                   name="graduationYear"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Graduation year</FormLabel>
+                      <FormLabel>Graduation year *</FormLabel>
                       <Select
-                        onValueChange={(v) => field.onChange(v === '' ? undefined : parseInt(v, 10))}
+                        onValueChange={(v) => field.onChange(parseInt(v, 10))}
                         value={field.value != null ? String(field.value) : ''}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Class of …" />
+                            <SelectValue placeholder="Select class year" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Array.from({ length: 16 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                          {graduationYearOptions().map((year) => (
                             <SelectItem key={year} value={String(year)}>
                               Class of {year}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormDescription>Required — shows on session rosters (e.g. Class &apos;27).</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -164,10 +164,25 @@ export default async function HomePage() {
 
   const { data: reviewIdRows } = await supabase
     .from('reviews')
-    .select('session_id')
+    .select('session_id, athlete_id')
     .eq('parent_id', user.id);
   const reviewedSessionIds = new Set(
     (reviewIdRows ?? []).map((r: { session_id: string }) => r.session_id).filter(Boolean)
+  );
+  const reviewedCoachIds = new Set(
+    (reviewIdRows ?? [])
+      .map((r: { athlete_id?: string | null }) => r.athlete_id)
+      .filter((id): id is string => Boolean(id))
+  );
+
+  const { data: dismissedReviewRows } = await supabase
+    .from('review_prompt_dismissals')
+    .select('athlete_id')
+    .eq('parent_id', user.id);
+  const dismissedReviewCoachIds = new Set(
+    (dismissedReviewRows ?? [])
+      .map((r: { athlete_id?: string | null }) => r.athlete_id)
+      .filter((id): id is string => Boolean(id))
   );
 
   /** Earliest completed session per (youth_wrestler_id, coach athlete_id) — reviews only for that first session. */
@@ -260,6 +275,7 @@ export default async function HomePage() {
     if (attendingAthletes.length === 0) continue;
     const coachId = raw.athlete_id ?? '';
     if (!coachId) continue;
+    if (reviewedCoachIds.has(coachId) || dismissedReviewCoachIds.has(coachId)) continue;
     const isFirstSessionWithCoachForSomeAthlete = attendingAthletes.some((a) => {
       const first = earliestCompletedByYouthCoach.get(`${a.id}:${coachId}`);
       return first?.id === raw.id;

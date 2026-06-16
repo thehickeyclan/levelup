@@ -23,6 +23,8 @@ interface YouthWrestlerItem {
   skill_level?: string;
   /** False = no 10-digit cell on file; payment API will reject until fixed */
   hasValidCell?: boolean;
+  /** False = graduation year missing; registration API will reject until fixed */
+  hasGraduationYear?: boolean;
 }
 
 interface SessionRegisterClientProps {
@@ -110,6 +112,11 @@ export function SessionRegisterClient({
 
   const selectedWrestler = youthWrestlers.find((yw) => yw.id === selectedWrestlerId);
   const selectedHasCell = selectedWrestler?.hasValidCell !== false;
+  const selectedHasGradYear = selectedWrestler?.hasGraduationYear !== false;
+
+  const editWrestlerHref = selectedWrestlerId
+    ? `/wrestlers/${selectedWrestlerId}/edit?redirect=${encodeURIComponent(registerReturnPath)}`
+    : null;
 
   const creditsApplicable = useMemo(() => {
     if (isOwner || !useCredits || creditBalance == null || creditBalance <= 0) return 0;
@@ -167,6 +174,10 @@ export function SessionRegisterClient({
     }
     if (selectedWrestler && selectedWrestler.hasValidCell === false) {
       setError('Add this athlete’s cell number on their profile first.');
+      return;
+    }
+    if (selectedWrestler && selectedWrestler.hasGraduationYear === false) {
+      setError('Add graduation year (Class of …) on their wrestler profile before registering.');
       return;
     }
     setError(null);
@@ -255,10 +266,12 @@ export function SessionRegisterClient({
               const extra = [yw.age && `${yw.age} yrs`, yw.weight_class, yw.skill_level].filter(Boolean).join(', ');
               const label = extra ? `${name} (${extra})` : name;
               const needPhone = yw.hasValidCell === false;
+              const needGradYear = yw.hasGraduationYear === false;
               return (
                 <SelectItem key={yw.id} value={yw.id}>
                   {label}
                   {needPhone ? ' — add cell to register' : ''}
+                  {!needPhone && needGradYear ? ' — add class year' : ''}
                 </SelectItem>
               );
             })}
@@ -285,6 +298,18 @@ export function SessionRegisterClient({
                 href={`/wrestlers/${selectedWrestlerId}/edit?redirect=${encodeURIComponent(registerReturnPath)}`}
               >
                 Edit {selectedWrestler?.first_name ?? 'athlete'} — add cell
+              </Link>
+            </Button>
+          </div>
+        )}
+        {selectedWrestlerId && selectedHasCell && !selectedHasGradYear && editWrestlerHref && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm space-y-2">
+            <p className="text-destructive font-medium">
+              Graduation year required before registering (shows on session rosters).
+            </p>
+            <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+              <Link href={editWrestlerHref}>
+                Edit {selectedWrestler?.first_name ?? 'athlete'} — add class year
               </Link>
             </Button>
           </div>
@@ -363,7 +388,11 @@ export function SessionRegisterClient({
       )}
       <Button
         type="submit"
-        disabled={loading || (selectedWrestler != null && selectedWrestler.hasValidCell === false)}
+        disabled={
+          loading ||
+          (selectedWrestler != null && selectedWrestler.hasValidCell === false) ||
+          (selectedWrestler != null && selectedWrestler.hasGraduationYear === false)
+        }
         className="w-full"
       >
         {loading

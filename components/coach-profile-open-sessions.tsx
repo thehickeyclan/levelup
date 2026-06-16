@@ -1,11 +1,14 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { SessionTypeBadge } from '@/components/session-type-badge';
+import { SessionRosterList } from '@/components/session-roster-badges';
 import { formatEST } from '@/lib/format-date';
 import { useCart } from '@/lib/cart-context';
 import { getEffectiveFilledCount } from '@/lib/sessions';
+import type { SessionRosterParticipant } from '@/lib/wrestler-roster-display';
 import { MapPin, Users, ShoppingCart, Minus } from 'lucide-react';
 export type CoachProfileOpenSessionRow = {
   id: string;
@@ -46,6 +49,23 @@ export function CoachProfileOpenSessions({
   preselectedYouthWrestlerId = null,
 }: Props) {
   const { addItem, removeItem, items } = useCart();
+  const [sessionRosters, setSessionRosters] = useState<Record<string, SessionRosterParticipant[]>>({});
+
+  useEffect(() => {
+    const sessionIds = sessions.map((s) => s.id);
+    if (sessionIds.length === 0) return;
+
+    fetch('/api/sessions/participant-names', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionIds }),
+    })
+      .then((r) => r.json())
+      .then((data: { rosters?: Record<string, SessionRosterParticipant[]> }) => {
+        if (data.rosters) setSessionRosters(data.rosters);
+      })
+      .catch(() => {});
+  }, [sessions]);
 
   return (
     <div className="space-y-3">
@@ -60,6 +80,10 @@ export function CoachProfileOpenSessions({
         const policy = s.join_policy ?? 'public';
         const isInviteOnly = policy === 'invite_only';
         const duration = s.duration_minutes;
+        const spotText =
+          openSlots === 0
+            ? `Full · ${current}/${max}`
+            : `${current}/${max} · ${openSlots} spot${openSlots !== 1 ? 's' : ''} left`;
         const cartQty = items.filter((i) => i.id === s.id).length;
         const maxCartQty = Math.min(
           openSlots,
@@ -131,11 +155,17 @@ export function CoachProfileOpenSessions({
                 )}
                 <span className="flex items-center gap-1">
                   <Users className="h-3 w-3" />
-                  {openSlots > 0
-                    ? `${openSlots} spot${openSlots !== 1 ? 's' : ''} left`
-                    : 'Full'}
+                  {spotText}
                 </span>
               </div>
+              {current > 0 && (
+                <SessionRosterList
+                  participants={sessionRosters[s.id] ?? []}
+                  label="Registered"
+                  className="mt-2"
+                  emptyFallback={`${current} registered — athlete details loading…`}
+                />
+              )}
             </div>
 
             <div className="flex shrink-0 flex-col items-stretch gap-2 border-t border-zinc-800 pt-3 sm:w-44 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">

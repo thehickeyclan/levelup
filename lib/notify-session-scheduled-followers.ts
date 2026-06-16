@@ -138,11 +138,35 @@ export async function notifySessionScheduledFollowers(
 
     const parentIds = [...new Set(follows.map((f) => f.parent_id))];
 
-    const [{ data: parents }, { data: booked }, { data: alreadySent }] = await Promise.all([
-      admin.from('users').select('id, phone, notification_preferences').in('id', parentIds),
-      admin.from('session_participants').select('parent_id').eq('session_id', opts.sessionId),
-      admin.from('session_sms_alerts').select('parent_id').eq('session_id', opts.sessionId),
-    ]);
+    const [{ data: parentsRaw, error: parentsErr }, { data: booked }, { data: alreadySent, error: alertsErr }] =
+      await Promise.all([
+        admin.from('users').select('id, phone, notification_preferences').in('id', parentIds),
+        admin.from('session_participants').select('parent_id').eq('session_id', opts.sessionId),
+        admin.from('session_sms_alerts').select('parent_id').eq('session_id', opts.sessionId),
+      ]);
+
+    let parents = parentsRaw;
+    if (parentsErr) {
+      const missingPrefs =
+        /notification_preferences/i.test(parentsErr.message) ||
+        /column.*does not exist/i.test(parentsErr.message);
+      if (missingPrefs) {
+        console.warn(
+          'notifySessionScheduledFollowers: notification_preferences missing — apply migration 20260631120000; using defaults'
+        );
+        const { data: fallback } = await admin.from('users').select('id, phone').in('id', parentIds);
+        parents = (fallback ?? []).map((p) => ({ ...p, notification_preferences: null }));
+      } else {
+        console.warn('notifySessionScheduledFollowers: users lookup failed:', parentsErr.message);
+        return result;
+      }
+    }
+
+    if (alertsErr && /session_sms_alerts/i.test(alertsErr.message)) {
+      console.warn(
+        'notifySessionScheduledFollowers: session_sms_alerts missing — apply migration 20260631120000; idempotency disabled'
+      );
+    }
 
     const bookedSet = new Set((booked ?? []).map((r) => r.parent_id));
     const alertedSet = new Set((alreadySent ?? []).map((r) => r.parent_id));
@@ -229,6 +253,12 @@ export async function notifySessionScheduledFollowers(
     }
   } catch (e) {
     console.warn('notifySessionScheduledFollowers failed:', e);
+  }
+  if (result.inAppSent === 0 && result.smsSent === 0) {
+    console.info('notifySessionScheduledFollowers: no alerts sent', {
+      sessionId: opts.sessionId,
+      coachId,
+    });
   }
   return result;
 }

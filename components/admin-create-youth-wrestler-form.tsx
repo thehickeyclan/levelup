@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { graduationYearOptions } from '@/lib/graduation-year';
 
 type Props = {
   parentId: string;
@@ -29,9 +37,14 @@ export function AdminCreateYouthWrestlerForm({
   const [zipCode, setZipCode] = useState(defaultZip ?? '');
   const [weightClass, setWeightClass] = useState('');
   const [school, setSchool] = useState('');
+  const [graduationYear, setGraduationYear] = useState('');
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!graduationYear) {
+      setError('Graduation year is required');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -46,6 +59,7 @@ export function AdminCreateYouthWrestlerForm({
           zipCode,
           weightClass: weightClass || undefined,
           school: school || undefined,
+          graduationYear: parseInt(graduationYear, 10),
         }),
       });
       const data = await res.json();
@@ -58,6 +72,7 @@ export function AdminCreateYouthWrestlerForm({
       setLastName('');
       setWeightClass('');
       setSchool('');
+      setGraduationYear('');
       router.refresh();
     } catch {
       setError('Request failed');
@@ -101,6 +116,21 @@ export function AdminCreateYouthWrestlerForm({
         <div className="space-y-1">
           <Label htmlFor="admin-yw-school">School</Label>
           <Input id="admin-yw-school" value={school} onChange={(e) => setSchool(e.target.value)} />
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label htmlFor="admin-yw-grad">Graduation year *</Label>
+          <Select value={graduationYear} onValueChange={setGraduationYear} required>
+            <SelectTrigger id="admin-yw-grad">
+              <SelectValue placeholder="Class of …" />
+            </SelectTrigger>
+            <SelectContent>
+              {graduationYearOptions().map((year) => (
+                <SelectItem key={year} value={String(year)}>
+                  Class of {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

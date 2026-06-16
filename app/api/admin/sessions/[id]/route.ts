@@ -291,7 +291,7 @@ export async function PATCH(
       (becamePublic || publishedFlag);
 
     if (shouldNotifyFollowers) {
-      void notifySessionScheduledFollowers(tenant.slug, session.athlete_id as string, {
+      await notifySessionScheduledFollowers(tenant.slug, session.athlete_id as string, {
         sessionId,
         scheduledDatetime: (updates.scheduled_datetime as string) || (session.scheduled_datetime as string),
         joinUrlPath: `/join/${session.partner_invite_code}`,

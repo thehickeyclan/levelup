@@ -20,8 +20,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, title, brand, model, size, condition, wear_state, price_cents, shipping_cents,
       listing_type, status, open_to_trade, created_at, seller_id,
-      market_listing_images(id, public_url, display_order),
-      market_ai_analysis(condition_score, analyzed_at)
+      market_listing_images(id, public_url, display_order)
     `)
     .order('created_at', { ascending: false })
     .limit(50);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
 import { getSellerProfile } from '@/lib/market/seller';
+import { fetchMarketSellerStats } from '@/lib/market/seller-reputation';
 
 export async function GET(
   _req: NextRequest,
@@ -31,6 +32,9 @@ export async function GET(
   }
 
   const seller = await getSellerProfile(supabase, listing.seller_id);
+  const sellerStats = seller
+    ? await fetchMarketSellerStats(supabase, listing.seller_id as string)
+    : null;
 
   if (listing.status === 'active' && !isOwner) {
     await supabase
@@ -39,7 +43,11 @@ export async function GET(
       .eq('id', id);
   }
 
-  return NextResponse.json({ listing, seller });
+  const publicListing = isOwner
+    ? listing
+    : { ...listing, market_ai_analysis: undefined };
+
+  return NextResponse.json({ listing: publicListing, seller, sellerStats });
 }
 
 export async function PATCH(

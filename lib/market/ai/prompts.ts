@@ -38,5 +38,9 @@ Reference bands for USED major brands (Asics/Nike/Adidas) when comps are sparse:
 Discontinued models (e.g. 2016 Asics JB Elite III) often sit in the upper half of those bands. BNIB highest; new without box below BNIB.
 Return ONLY valid JSON: suggested_low_cents, suggested_mid_cents, suggested_high_cents, confidence (high|medium|low), confidence_note, comps (array of {source, price_cents, label, date}), market_note.`;
 
-export const AI_DISCLAIMER =
-  'AI estimate based on photos — not a guarantee of condition. Seller-declared grade applies. Wrestle-ready score drives suggested listing grade.';
+/** Shown on seller create/edit flow only — AI tools are private. */
+export const SELLER_AI_DISCLAIMER =
+  'AI condition and price tools are private to you. Buyers only see your photos, wear state, condition, and description.';
+
+/** @deprecated Use SELLER_AI_DISCLAIMER on seller flows only. */
+export const AI_DISCLAIMER = SELLER_AI_DISCLAIMER;

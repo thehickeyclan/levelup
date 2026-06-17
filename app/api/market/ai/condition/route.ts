@@ -11,7 +11,8 @@ import {
 } from '@/lib/market/ai/prompts';
 import { ConditionAnalysisSchema, conditionGradeForWearState } from '@/lib/market/ai/schemas';
 import type { MarketWearState } from '@/lib/market/wear-state';
-import { wearStateLabel } from '@/lib/market/wear-state';
+import { conditionForWearState, wearStateLabel } from '@/lib/market/wear-state';
+import { buildListingDescription } from '@/lib/market/listing-description';
 
 function aiErrorMessage(outcome: { reason: string; detail?: string }, parseFailed: boolean): string {
   if (outcome.reason === 'missing_key') {
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   const { data: listing } = await supabase
     .from('market_listings')
-    .select('seller_id, description, wear_state')
+    .select('seller_id, description, wear_state, brand, model, model_year, size, condition')
     .eq('id', listingId)
     .single();
 
@@ -134,5 +135,26 @@ export async function POST(req: NextRequest) {
     cost_estimate_cents: 1,
   });
 
-  return NextResponse.json({ analysis, wear_state: wearState, remaining: usage.remaining });
+  const suggestedDescription = buildListingDescription({
+    brand: (listing.brand as string) || 'Other',
+    model: (listing.model as string) || '',
+    modelYear: listing.model_year as number | null,
+    size: Number(listing.size) || 10,
+    wearState,
+    condition: conditionForWearState(
+      wearState,
+      (listing.condition as string) || 'good'
+    ),
+    analysis: {
+      summary: analysis.summary,
+      cosmetic_summary: analysis.cosmetic_summary,
+    },
+  });
+
+  return NextResponse.json({
+    analysis,
+    wear_state: wearState,
+    suggested_description: suggestedDescription,
+    remaining: usage.remaining,
+  });
 }

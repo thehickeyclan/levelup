@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { AI_DISCLAIMER } from '@/lib/market/ai/prompts';
 
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 
@@ -19,7 +18,6 @@ type ListingRow = {
   shipping_cents: number;
   listing_type: string;
   market_listing_images?: { public_url: string; display_order: number }[];
-  market_ai_analysis?: { condition_score: number | null } | null;
 };
 
 export function MarketBrowseClient() {
@@ -65,7 +63,6 @@ export function MarketBrowseClient() {
           {listings.map((l) => {
             const imgs = l.market_listing_images ?? [];
             const primary = imgs.sort((a, b) => a.display_order - b.display_order)[0]?.public_url;
-            const hasAi = l.market_ai_analysis?.condition_score != null;
             return (
               <Link
                 key={l.id}
@@ -89,11 +86,6 @@ export function MarketBrowseClient() {
                     <span className="text-sm font-semibold text-accent">
                       {l.price_cents != null ? `$${(l.price_cents / 100).toFixed(0)}` : 'Offers'}
                     </span>
-                    {hasAi ? (
-                      <span className="text-[10px] uppercase tracking-wide text-accent border border-accent/40 px-1.5 py-0.5 rounded">
-                        AI analyzed
-                      </span>
-                    ) : null}
                   </div>
                 </div>
               </Link>
@@ -101,8 +93,6 @@ export function MarketBrowseClient() {
           })}
         </div>
       )}
-
-      <p className="px-4 mt-8 text-xs text-zinc-500">{AI_DISCLAIMER}</p>
     </div>
   );
 }

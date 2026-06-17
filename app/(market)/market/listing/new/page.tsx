@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BackLink } from '@/components/back-link';
-import { AI_DISCLAIMER } from '@/lib/market/ai/prompts';
+import { SELLER_AI_DISCLAIMER } from '@/lib/market/ai/prompts';
 import { cosmeticAppearanceLabel, WRESTLE_SCORE_HINT } from '@/lib/market/condition-grade';
+import { buildListingDescription } from '@/lib/market/listing-description';
 import {
   WEAR_STATE_OPTIONS,
   USED_CONDITIONS,
@@ -47,6 +48,7 @@ export default function NewListingPage() {
   const [error, setError] = useState<string | null>(null);
   const [aiCondition, setAiCondition] = useState<AiCondition | null>(null);
   const [aiPrice, setAiPrice] = useState<AiPrice | null>(null);
+  const [descriptionTouched, setDescriptionTouched] = useState(false);
 
   const [form, setForm] = useState({
     title: '',
@@ -140,6 +142,26 @@ export default function NewListingPage() {
     description: form.description,
   });
 
+  const descriptionInput = () => ({
+    brand: form.brand,
+    model: form.model,
+    modelYear: form.model_year ? Number(form.model_year) : null,
+    size: Number(form.size) || 10,
+    wearState: form.wear_state,
+    condition: conditionForWearState(form.wear_state, form.condition),
+    analysis: aiCondition
+      ? { summary: aiCondition.summary, cosmetic_summary: aiCondition.cosmetic_summary }
+      : null,
+  });
+
+  const regenerateDescription = (force = false) => {
+    const next = buildListingDescription(descriptionInput());
+    if (force || !descriptionTouched || !form.description.trim()) {
+      setForm((f) => ({ ...f, description: next }));
+      setDescriptionTouched(false);
+    }
+  };
+
   const syncDraft = async () => {
     const id = await ensureDraft();
     await fetch(`/api/market/listings/${id}`, {
@@ -163,6 +185,11 @@ export default function NewListingPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
       setAiCondition(data.analysis as AiCondition);
+      const suggested = (data.suggested_description as string | undefined)?.trim();
+      if (suggested && (!descriptionTouched || !form.description.trim())) {
+        setForm((f) => ({ ...f, description: suggested }));
+        setDescriptionTouched(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
@@ -203,9 +230,18 @@ export default function NewListingPage() {
 
   const applyAiGrade = () => {
     if (!isUsed || !aiCondition?.grade) return;
-    if ((USED_CONDITIONS as readonly string[]).includes(aiCondition.grade)) {
-      setForm((f) => ({ ...f, condition: aiCondition.grade }));
-    }
+    if (!(USED_CONDITIONS as readonly string[]).includes(aiCondition.grade)) return;
+
+    const newCondition = aiCondition.grade;
+    const nextDesc = buildListingDescription({
+      ...descriptionInput(),
+      condition: conditionForWearState(form.wear_state, newCondition),
+    });
+    setForm((f) => ({
+      ...f,
+      condition: newCondition,
+      description: !descriptionTouched || !f.description.trim() ? nextDesc : f.description,
+    }));
   };
 
   const applySuggestedPrice = () => {
@@ -222,6 +258,8 @@ export default function NewListingPage() {
     }
     try {
       const id = await ensureDraft();
+      const description =
+        form.description.trim() || buildListingDescription(descriptionInput());
       const priceNum = form.listing_type === 'vault' ? null : Math.round(Number(form.price_cents || 0) * 100);
       const shipNum = Math.round(Number(form.shipping_cents || 0) * 100);
 
@@ -230,6 +268,7 @@ export default function NewListingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...draftPayload(),
+          description,
           price_cents: priceNum,
           shipping_cents: shipNum,
           status: 'active',
@@ -308,18 +347,25 @@ export default function NewListingPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={runCondition} disabled={analyzing || images.length === 0}>
-          {analyzing ? 'Analyzing…' : form.wear_state === 'used' ? 'Analyze condition' : 'Verify with AI'}
-        </Button>
-      </div>
-      {images.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Upload photos before running AI.</p>
-      ) : null}
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+        <div>
+          <p className="text-sm font-medium">Seller tools (private)</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            AI condition and price help you list — buyers never see scores or suggestions.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={runCondition} disabled={analyzing || images.length === 0}>
+            {analyzing ? 'Analyzing…' : form.wear_state === 'used' ? 'Analyze condition' : 'Verify with AI'}
+          </Button>
+        </div>
+        {images.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Upload photos before running AI.</p>
+        ) : null}
 
       {aiCondition ? (
         <div className="rounded-lg border border-zinc-800 p-4 space-y-3">
-          <p className="text-sm font-medium">AI condition analysis</p>
+          <p className="text-sm font-medium">Condition assessment</p>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-md bg-zinc-900/80 border border-zinc-800 p-3 space-y-1">
               <p className="text-xs font-medium text-accent uppercase tracking-wide">Wrestle-ready</p>
@@ -352,6 +398,7 @@ export default function NewListingPage() {
           ) : null}
         </div>
       ) : null}
+      </div>
 
       <div className="grid gap-4">
         <div>
@@ -411,7 +458,7 @@ export default function NewListingPage() {
             {aiPrice ? (
               <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 space-y-2 text-sm">
                 <p>
-                  AI range:{' '}
+                  Suggested range (private):{' '}
                   <strong>
                     ${(aiPrice.suggested_low_cents / 100).toFixed(0)}–${(aiPrice.suggested_high_cents / 100).toFixed(0)}
                   </strong>{' '}
@@ -434,12 +481,30 @@ export default function NewListingPage() {
           </div>
         </div>
         <div>
-          <Label>Description</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label>Description</Label>
+            {aiCondition ? (
+              <button
+                type="button"
+                className="text-xs text-accent underline"
+                onClick={() => regenerateDescription(true)}
+              >
+                Regenerate from AI
+              </button>
+            ) : null}
+          </div>
           <textarea
-            className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
             value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            onChange={(e) => {
+              setDescriptionTouched(true);
+              setForm({ ...form, description: e.target.value });
+            }}
+            placeholder="Runs automatically after condition analysis — edit anytime."
           />
+          <p className="text-xs text-muted-foreground mt-1">
+            This is what buyers see. No scores or AI labels on the published listing.
+          </p>
         </div>
       </div>
 
@@ -449,7 +514,7 @@ export default function NewListingPage() {
         Publish listing
       </Button>
 
-      <p className="text-xs text-zinc-500">{AI_DISCLAIMER}</p>
+      <p className="text-xs text-zinc-500">{SELLER_AI_DISCLAIMER}</p>
     </div>
   );
 }

@@ -13,6 +13,10 @@ type Order = {
   shipping_cents: number;
   created_at: string;
   listing_id: string;
+  listing_title: string;
+  is_buyer: boolean;
+  can_review: boolean;
+  review_rating: number | null;
 };
 
 export default function MarketOrdersPage() {
@@ -42,12 +46,28 @@ export default function MarketOrdersPage() {
       ) : (
         <ul className="space-y-3">
           {orders.map((o) => (
-            <li key={o.id} className="rounded-lg border border-zinc-800 p-4">
+            <li key={o.id} className="rounded-lg border border-zinc-800 p-4 space-y-2">
               <p className="font-mono text-sm">{o.order_ref}</p>
-              <p className="text-sm text-muted-foreground">{o.status} · ${((o.amount_cents + o.shipping_cents) / 100).toFixed(2)}</p>
-              <Link href={`/market/listing/${o.listing_id}`} className="text-sm text-accent hover:underline">
-                View listing
-              </Link>
+              <p className="text-sm font-medium">{o.listing_title}</p>
+              <p className="text-sm text-muted-foreground">
+                {o.status.replace(/_/g, ' ')} · ${((o.amount_cents + o.shipping_cents) / 100).toFixed(2)}
+              </p>
+              <div className="flex flex-wrap gap-3 text-sm">
+                <Link href={`/market/orders/${o.id}`} className="text-accent font-medium hover:underline">
+                  Order details
+                </Link>
+                <Link href={`/market/listing/${o.listing_id}`} className="text-accent hover:underline">
+                  View listing
+                </Link>
+                {o.is_buyer && o.can_review ? (
+                  <Link href={`/market/orders/${o.id}/review`} className="text-accent font-medium hover:underline">
+                    Rate seller
+                  </Link>
+                ) : null}
+                {o.review_rating ? (
+                  <span className="text-muted-foreground">You rated {o.review_rating}/5</span>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

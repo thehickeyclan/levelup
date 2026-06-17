@@ -25,10 +25,25 @@ async function fetchPendingOfferCount(tenantSlug: string, userId: string): Promi
   return count ?? 0;
 }
 
-export default async function MarketPage() {
+function parsePriceParam(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+export default async function MarketPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ minPrice?: string; maxPrice?: string }>;
+}) {
   const headersList = await headers();
   const host = headersList.get('host') || '';
   const tenant = getTenantByDomain(host);
+  const sp = await searchParams;
+  const minPrice = parsePriceParam(sp.minPrice);
+  const maxPrice = parsePriceParam(sp.maxPrice);
+  const browseFilters =
+    minPrice != null || maxPrice != null ? { minPrice, maxPrice } : undefined;
 
   let listings: Awaited<ReturnType<typeof fetchMarketBrowseListings>> = [];
   let collectionListings: Awaited<ReturnType<typeof fetchMarketBrowseListings>> = [];
@@ -40,7 +55,7 @@ export default async function MarketPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    listings = await fetchMarketBrowseListings(supabase, tenant.slug);
+    listings = await fetchMarketBrowseListings(supabase, tenant.slug, browseFilters);
 
     try {
       collectionListings = await fetchMarketBrowseListings(supabase, tenant.slug, {

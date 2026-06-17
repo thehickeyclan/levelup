@@ -39,11 +39,17 @@ type ListingRow = {
   market_ai_analysis: { analyzed_at?: string } | { analyzed_at?: string }[] | null;
 };
 
+export type BrowseListingQueryOptions = {
+  collectorsOnly?: boolean;
+  minPrice?: number;
+  maxPrice?: number;
+};
+
 /** Active browse feed — newest first, max 48. */
 export async function fetchMarketBrowseListings(
   supabase: SupabaseClient,
   tenantSlug: string,
-  options?: { collectorsOnly?: boolean }
+  options?: BrowseListingQueryOptions
 ): Promise<MarketBrowseListing[]> {
   const collectorsOnly = options?.collectorsOnly === true;
 
@@ -65,6 +71,17 @@ export async function fetchMarketBrowseListings(
   } else {
     q = q.neq('listing_type', 'collection');
   }
+
+  if (options?.maxPrice != null) {
+    q = q.lte('price_cents', options.maxPrice * 100);
+  }
+  if (options?.minPrice != null) {
+    q = q.gte('price_cents', options.minPrice * 100);
+  }
+  if (options?.minPrice != null || options?.maxPrice != null) {
+    q = q.not('price_cents', 'is', null);
+  }
+
   const { data, error } = await q;
 
   if (error) {

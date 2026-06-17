@@ -175,37 +175,36 @@ export default function ListingDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 mt-4 md:mt-6">
           {/* Hero photo */}
           <div className="space-y-0 -mx-4 md:mx-0">
-            <div className="relative w-full aspect-[4/3] md:aspect-square overflow-hidden md:rounded-2xl bg-[#111]">
+            <div className="relative w-full aspect-[4/5] md:aspect-square overflow-hidden md:rounded-2xl bg-[#111]">
               {images[activeImage]?.public_url ? (
                 <img
                   src={images[activeImage].public_url}
                   alt=""
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain p-3 md:p-4"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm">
                   No photo
                 </div>
               )}
-              <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#0a0a0a] to-transparent pointer-events-none" />
-              {images.length > 1 ? (
-                <div className="absolute inset-x-0 bottom-3 flex gap-2 overflow-x-auto px-4 pb-1">
-                  {images.map((img, i) => (
-                    <button
-                      key={img.public_url + i}
-                      type="button"
-                      onClick={() => setActiveImage(i)}
-                      className={cn(
-                        'shrink-0 w-14 h-14 rounded-lg border overflow-hidden bg-[#1a1a1a]',
-                        i === activeImage ? 'border-[#C9A265] ring-1 ring-[#C9A265]' : 'border-[#333] opacity-80'
-                      )}
-                    >
-                      <img src={img.public_url} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
             </div>
+            {images.length > 1 ? (
+              <div className="flex gap-2 overflow-x-auto px-4 py-3 md:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {images.map((img, i) => (
+                  <button
+                    key={img.public_url + i}
+                    type="button"
+                    onClick={() => setActiveImage(i)}
+                    className={cn(
+                      'shrink-0 w-14 h-14 rounded-lg border overflow-hidden bg-[#1a1a1a]',
+                      i === activeImage ? 'border-[#C9A265] ring-1 ring-[#C9A265]' : 'border-[#333] opacity-80'
+                    )}
+                  >
+                    <img src={img.public_url} alt="" className="w-full h-full object-contain p-0.5" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           {/* Info + CTAs */}

@@ -7,32 +7,11 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MarketSubNav } from '@/components/market/market-sub-nav';
 import { MarketListingCard } from '@/components/market/listing-card';
-import {
-  BROWSE_BRANDS,
-  BROWSE_US_SIZES,
-  browseConditionBucket,
-  type MarketBrowseListing,
-} from '@/lib/market/browse-listings';
-import { cn } from '@/lib/utils';
+import { MarketFilters } from '@/components/market/market-filters';
+import { browseConditionBucket, type MarketBrowseListing } from '@/lib/market/browse-listings';
 
-const TYPE_OPTIONS = [
-  { id: 'all', label: 'All' },
-  { id: 'buy', label: 'Buy' },
-  { id: 'trade', label: 'Trade' },
-  { id: 'vault', label: 'Vault' },
-  { id: 'collectors', label: 'Collectors' },
-] as const;
-
-const CONDITION_OPTIONS = [
-  { id: 'all', label: 'All' },
-  { id: 'new', label: 'New' },
-  { id: 'like_new', label: 'Like new' },
-  { id: 'good', label: 'Good' },
-  { id: 'fair', label: 'Fair' },
-] as const;
-
-type TypeFilter = (typeof TYPE_OPTIONS)[number]['id'];
-type ConditionFilter = (typeof CONDITION_OPTIONS)[number]['id'];
+type TypeFilter = 'all' | 'buy' | 'trade' | 'vault' | 'collectors';
+type ConditionFilter = 'all' | 'new' | 'like_new' | 'good' | 'fair';
 
 export function MarketBrowseClient({
   initialListings,
@@ -50,6 +29,8 @@ export function MarketBrowseClient({
   const brand = searchParams.get('brand') || 'all';
   const size = searchParams.get('size') || '';
   const condition = (searchParams.get('condition') || 'all') as ConditionFilter;
+  const minPrice = searchParams.get('minPrice') || '';
+  const maxPrice = searchParams.get('maxPrice') || '';
   const isCollectors = type === 'collectors';
 
   const setParam = useCallback(
@@ -63,9 +44,36 @@ export function MarketBrowseClient({
     [router, searchParams]
   );
 
+  const setPriceRange = useCallback(
+    (min?: number, max?: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (min != null) params.set('minPrice', String(min));
+      else params.delete('minPrice');
+      if (max != null) params.set('maxPrice', String(max));
+      else params.delete('maxPrice');
+      const qs = params.toString();
+      router.replace(qs ? `/market?${qs}` : '/market', { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  const clearAllFilters = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('brand');
+    params.delete('size');
+    params.delete('condition');
+    params.delete('minPrice');
+    params.delete('maxPrice');
+    const qs = params.toString();
+    router.replace(qs ? `/market?${qs}` : '/market', { scroll: false });
+  }, [router, searchParams]);
+
   const sourceListings = isCollectors ? collectionListings : initialListings;
 
   const filtered = useMemo(() => {
+    const min = minPrice ? Number(minPrice) : undefined;
+    const max = maxPrice ? Number(maxPrice) : undefined;
+
     return sourceListings.filter((l) => {
       if (!isCollectors) {
         if (type === 'buy' && l.listing_type !== 'sell') return false;
@@ -78,15 +86,14 @@ export function MarketBrowseClient({
         const bucket = browseConditionBucket(l.condition, l.wear_state);
         if (bucket !== condition) return false;
       }
+      if (min != null || max != null) {
+        if (l.price_cents == null) return false;
+        if (min != null && l.price_cents < min * 100) return false;
+        if (max != null && l.price_cents > max * 100) return false;
+      }
       return true;
     });
-  }, [sourceListings, type, brand, size, condition, isCollectors]);
-
-  const pillClass = (active: boolean) =>
-    cn(
-      'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-      active ? 'bg-[#C9A265] text-black' : 'border border-[#333] text-[#666]'
-    );
+  }, [sourceListings, type, brand, size, condition, minPrice, maxPrice, isCollectors]);
 
   return (
     <div className="min-h-screen pb-24 bg-black">
@@ -110,71 +117,17 @@ export function MarketBrowseClient({
         </div>
       </div>
 
-      <div className="sticky top-0 z-20 bg-[#111] border-b border-[#1a1a1a]">
-        <div className="max-w-4xl mx-auto px-4 py-3 space-y-3">
-          <div className="flex gap-2 overflow-x-auto pb-0.5">
-            {TYPE_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setParam('type', opt.id)}
-                className={pillClass(type === opt.id)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-0.5">
-            <button
-              type="button"
-              onClick={() => setParam('brand', 'all')}
-              className={pillClass(brand === 'all')}
-            >
-              All
-            </button>
-            {BROWSE_BRANDS.map((b) => (
-              <button
-                key={b}
-                type="button"
-                onClick={() => setParam('brand', b)}
-                className={pillClass(brand === b)}
-              >
-                {b}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2 items-center">
-            <label className="text-xs text-zinc-500 shrink-0">Size</label>
-            <select
-              value={size}
-              onChange={(e) => setParam('size', e.target.value)}
-              className="h-8 rounded-full border border-[#333] bg-[#1a1a1a] text-sm text-zinc-300 px-3 min-w-[5.5rem]"
-            >
-              <option value="">All</option>
-              {BROWSE_US_SIZES.map((s) => (
-                <option key={s} value={String(s)}>
-                  {Number.isInteger(s) ? s : s.toFixed(1)}
-                </option>
-              ))}
-            </select>
-
-            <div className="flex gap-2 overflow-x-auto flex-1 pb-0.5">
-              {CONDITION_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setParam('condition', opt.id)}
-                  className={pillClass(condition === opt.id)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      <MarketFilters
+        type={type}
+        brand={brand}
+        size={size}
+        condition={condition}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        setParam={setParam}
+        setPriceRange={setPriceRange}
+        clearAllFilters={clearAllFilters}
+      />
 
       <div className="max-w-4xl mx-auto px-4 py-4">
         {isCollectors ? (

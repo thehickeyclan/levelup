@@ -70,12 +70,12 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
       href={`/market/listing/${listing.id}`}
       className="bg-[#1a1a1a] rounded-xl overflow-hidden border border-[#222] hover:border-[#444] transition-colors flex flex-col group"
     >
-      <div className="aspect-square relative overflow-hidden bg-[#111]">
+      <div className="aspect-[4/5] sm:aspect-square relative overflow-hidden bg-[#111]">
         {listing.primary_image_url ? (
           <img
             src={listing.primary_image_url}
             alt=""
-            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+            className="w-full h-full object-contain p-1.5 group-hover:scale-[1.02] transition-transform duration-300"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs">

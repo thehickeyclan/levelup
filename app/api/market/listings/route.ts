@@ -96,8 +96,11 @@ export async function POST(req: NextRequest) {
     model: body.model?.trim() || '',
     size: body.size ?? 10,
     condition: body.condition || 'good',
-    price_cents: body.listing_type === 'vault' ? null : body.price_cents ?? null,
-    shipping_cents: body.shipping_cents ?? 800,
+    price_cents:
+      body.listing_type === 'vault' || body.listing_type === 'collection' || body.listing_type === 'trade'
+        ? null
+        : body.price_cents ?? null,
+    shipping_cents: body.listing_type === 'collection' ? 0 : body.shipping_cents ?? 800,
     open_to_trade: body.open_to_trade ?? false,
     open_to_boot: body.open_to_boot ?? false,
     description: body.description?.trim() || null,

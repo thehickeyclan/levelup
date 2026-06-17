@@ -59,13 +59,18 @@ export default async function ListingOfferPage({
   const { data: listing } = await supabase
     .from('market_listings')
     .select(`
-      id, title, brand, model, size, condition, wear_state, model_year, status, seller_id,
+      id, title, brand, model, size, condition, wear_state, model_year, status, seller_id, listing_type,
       market_listing_images(public_url, display_order)
     `)
     .eq('id', listingId)
     .maybeSingle();
 
-  if (!listing || listing.status !== 'active' || listing.seller_id === user.id) {
+  if (
+    !listing ||
+    listing.status !== 'active' ||
+    listing.seller_id === user.id ||
+    listing.listing_type === 'collection'
+  ) {
     redirect(`/market/listing/${listingId}`);
   }
 
@@ -77,6 +82,7 @@ export default async function ListingOfferPage({
     `)
     .eq('seller_id', user.id)
     .eq('status', 'active')
+    .neq('listing_type', 'collection')
     .neq('id', listingId)
     .order('created_at', { ascending: false })
     .limit(50);

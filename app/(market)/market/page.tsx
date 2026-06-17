@@ -31,6 +31,7 @@ export default async function MarketPage() {
   const tenant = getTenantByDomain(host);
 
   let listings: Awaited<ReturnType<typeof fetchMarketBrowseListings>> = [];
+  let collectionListings: Awaited<ReturnType<typeof fetchMarketBrowseListings>> = [];
   let pendingOffers = 0;
 
   if (tenant) {
@@ -40,6 +41,14 @@ export default async function MarketPage() {
     } = await supabase.auth.getUser();
 
     listings = await fetchMarketBrowseListings(supabase, tenant.slug);
+
+    try {
+      collectionListings = await fetchMarketBrowseListings(supabase, tenant.slug, {
+        collectorsOnly: true,
+      });
+    } catch {
+      collectionListings = [];
+    }
 
     if (user) {
       try {
@@ -58,7 +67,11 @@ export default async function MarketPage() {
         </div>
       }
     >
-      <MarketBrowseClient initialListings={listings} pendingOffers={pendingOffers} />
+      <MarketBrowseClient
+        initialListings={listings}
+        collectionListings={collectionListings}
+        pendingOffers={pendingOffers}
+      />
     </Suspense>
   );
 }

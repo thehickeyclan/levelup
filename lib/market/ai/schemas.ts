@@ -82,7 +82,7 @@ export const AgentDraftSchema = z.object({
   condition: z.enum(['new', 'like_new', 'good', 'fair']).optional(),
   price_cents: z.number().optional(),
   description: z.string(),
-  listing_type: z.enum(['sell', 'trade', 'vault']).optional(),
+  listing_type: z.enum(['sell', 'trade', 'vault', 'collection']).optional(),
 });
 
 export const AgentResponseSchema = z.object({

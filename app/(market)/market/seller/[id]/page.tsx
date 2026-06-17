@@ -6,22 +6,64 @@ import { useParams } from 'next/navigation';
 import { Star } from 'lucide-react';
 import { BackLink } from '@/components/back-link';
 import { StarRating } from '@/components/star-rating';
+import { Button } from '@/components/ui/button';
 import type { MarketSellerReview, MarketSellerStats, MarketSoldHistoryItem } from '@/lib/market/seller-reputation';
 import { formatPositiveFeedback, formatSalesCount, sellerTrustLabel } from '@/lib/market/seller-reputation';
 import type { SellerProfile } from '@/lib/market/seller';
+import type { SellerInventoryItem } from '@/lib/market/seller-inventory';
+import { cn } from '@/lib/utils';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
+type TabId = 'for_sale' | 'trading' | 'collection';
+
+function InventoryGrid({ items, compact }: { items: SellerInventoryItem[]; compact?: boolean }) {
+  if (!items.length) {
+    return <p className="text-sm text-muted-foreground">Nothing listed here yet.</p>;
+  }
+  return (
+    <div className={cn('grid gap-2', compact ? 'grid-cols-3' : 'grid-cols-2')}>
+      {items.map((item) => (
+        <Link
+          key={item.id}
+          href={`/market/listing/${item.id}`}
+          className="rounded-lg border border-[#222] overflow-hidden bg-[#1a1a1a] hover:border-[#444] transition-colors"
+        >
+          <div className={cn('bg-[#111] overflow-hidden', compact ? 'aspect-square' : 'aspect-[4/3]')}>
+            {item.primary_image_url ? (
+              <img src={item.primary_image_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-600">
+                No photo
+              </div>
+            )}
+          </div>
+          <div className={cn('p-2', compact ? 'p-1.5' : 'p-2')}>
+            <p className={cn('font-medium text-white truncate', compact ? 'text-[10px]' : 'text-xs')}>
+              {item.model?.trim() || item.title}
+            </p>
+            <p className={cn('text-zinc-500 truncate', compact ? 'text-[9px]' : 'text-[10px]')}>
+              {item.brand} · Sz {item.size}
+            </p>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export default function SellerProfilePage() {
   const params = useParams();
   const sellerId = params.id as string;
+  const [tab, setTab] = useState<TabId>('for_sale');
   const [data, setData] = useState<{
     seller: SellerProfile;
     stats: MarketSellerStats;
     soldHistory: MarketSoldHistoryItem[];
     reviews: MarketSellerReview[];
+    inventory: { forSale: SellerInventoryItem[]; trading: SellerInventoryItem[]; collection: SellerInventoryItem[] };
   } | null>(null);
 
   useEffect(() => {
@@ -39,8 +81,14 @@ export default function SellerProfilePage() {
     );
   }
 
-  const { seller, stats, soldHistory, reviews } = data;
+  const { seller, stats, soldHistory, reviews, inventory } = data;
   const positive = formatPositiveFeedback(stats.positivePercent, stats.reviewCount);
+
+  const tabItems: { id: TabId; label: string; count: number }[] = [
+    { id: 'for_sale', label: 'For sale', count: inventory.forSale.length },
+    { id: 'trading', label: 'Trading', count: inventory.trading.length },
+    { id: 'collection', label: 'Collection', count: inventory.collection.length },
+  ];
 
   return (
     <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
@@ -58,7 +106,44 @@ export default function SellerProfilePage() {
         {positive ? (
           <p className="text-sm text-accent font-medium">{positive} feedback</p>
         ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          disabled
+          className="w-full rounded-full border-[#333] text-[#555] opacity-60 cursor-not-allowed"
+        >
+          Follow · Updates coming soon
+        </Button>
       </div>
+
+      <section className="space-y-3">
+        <div className="flex gap-2 overflow-x-auto pb-0.5">
+          {tabItems.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                tab === t.id ? 'bg-[#C9A265] text-black' : 'border border-[#333] text-[#666]'
+              )}
+            >
+              {t.label}: {t.count}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'for_sale' ? <InventoryGrid items={inventory.forSale} /> : null}
+        {tab === 'trading' ? <InventoryGrid items={inventory.trading} /> : null}
+        {tab === 'collection' ? (
+          <div className="space-y-2">
+            <p className="text-xs text-[#555]">
+              {inventory.collection.length} pair{inventory.collection.length !== 1 ? 's' : ''} in collection
+            </p>
+            <InventoryGrid items={inventory.collection} compact />
+          </div>
+        ) : null}
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Sold on Guild Market</h2>

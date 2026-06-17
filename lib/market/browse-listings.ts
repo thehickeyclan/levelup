@@ -11,7 +11,7 @@ export type MarketBrowseListing = {
   condition: string;
   wear_state: string | null;
   price_cents: number | null;
-  listing_type: 'sell' | 'trade' | 'vault';
+  listing_type: 'sell' | 'trade' | 'vault' | 'collection';
   open_to_trade: boolean;
   ai_assisted: boolean;
   primary_image_url: string | null;
@@ -42,9 +42,12 @@ type ListingRow = {
 /** Active browse feed — newest first, max 48. */
 export async function fetchMarketBrowseListings(
   supabase: SupabaseClient,
-  tenantSlug: string
+  tenantSlug: string,
+  options?: { collectorsOnly?: boolean }
 ): Promise<MarketBrowseListing[]> {
-  const { data, error } = await supabase
+  const collectorsOnly = options?.collectorsOnly === true;
+
+  let q = supabase
     .from('market_listings')
     .select(`
       id, title, brand, model, size, condition, wear_state, price_cents,
@@ -56,6 +59,13 @@ export async function fetchMarketBrowseListings(
     .eq('status', 'active')
     .order('created_at', { ascending: false })
     .limit(48);
+
+  if (collectorsOnly) {
+    q = q.eq('listing_type', 'collection');
+  } else {
+    q = q.neq('listing_type', 'collection');
+  }
+  const { data, error } = await q;
 
   if (error) {
     console.error('fetchMarketBrowseListings:', error);
@@ -105,7 +115,7 @@ export async function fetchMarketBrowseListings(
       condition: row.condition,
       wear_state: row.wear_state,
       price_cents: row.price_cents,
-      listing_type: row.listing_type as 'sell' | 'trade' | 'vault',
+      listing_type: row.listing_type as 'sell' | 'trade' | 'vault' | 'collection',
       open_to_trade: row.open_to_trade,
       ai_assisted: Boolean(aiRow?.analyzed_at),
       primary_image_url: primaryListingImageUrl(row.market_listing_images),

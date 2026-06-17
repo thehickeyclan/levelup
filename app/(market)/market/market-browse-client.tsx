@@ -20,6 +20,7 @@ const TYPE_OPTIONS = [
   { id: 'buy', label: 'Buy' },
   { id: 'trade', label: 'Trade' },
   { id: 'vault', label: 'Vault' },
+  { id: 'collectors', label: 'Collectors' },
 ] as const;
 
 const CONDITION_OPTIONS = [
@@ -35,9 +36,11 @@ type ConditionFilter = (typeof CONDITION_OPTIONS)[number]['id'];
 
 export function MarketBrowseClient({
   initialListings,
+  collectionListings = [],
   pendingOffers = 0,
 }: {
   initialListings: MarketBrowseListing[];
+  collectionListings?: MarketBrowseListing[];
   pendingOffers?: number;
 }) {
   const router = useRouter();
@@ -47,6 +50,7 @@ export function MarketBrowseClient({
   const brand = searchParams.get('brand') || 'all';
   const size = searchParams.get('size') || '';
   const condition = (searchParams.get('condition') || 'all') as ConditionFilter;
+  const isCollectors = type === 'collectors';
 
   const setParam = useCallback(
     (key: string, value: string) => {
@@ -59,11 +63,15 @@ export function MarketBrowseClient({
     [router, searchParams]
   );
 
+  const sourceListings = isCollectors ? collectionListings : initialListings;
+
   const filtered = useMemo(() => {
-    return initialListings.filter((l) => {
-      if (type === 'buy' && l.listing_type !== 'sell') return false;
-      if (type === 'trade' && l.listing_type !== 'trade') return false;
-      if (type === 'vault' && l.listing_type !== 'vault') return false;
+    return sourceListings.filter((l) => {
+      if (!isCollectors) {
+        if (type === 'buy' && l.listing_type !== 'sell') return false;
+        if (type === 'trade' && l.listing_type !== 'trade') return false;
+        if (type === 'vault' && l.listing_type !== 'vault') return false;
+      }
       if (brand !== 'all' && l.brand !== brand) return false;
       if (size && Number(l.size) !== Number(size)) return false;
       if (condition !== 'all') {
@@ -72,7 +80,7 @@ export function MarketBrowseClient({
       }
       return true;
     });
-  }, [initialListings, type, brand, size, condition]);
+  }, [sourceListings, type, brand, size, condition, isCollectors]);
 
   const pillClass = (active: boolean) =>
     cn(
@@ -87,8 +95,11 @@ export function MarketBrowseClient({
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">The Guild Market</h1>
             <p className="text-sm text-[#555] mt-0.5">
-              {initialListings.length} pair{initialListings.length !== 1 ? 's' : ''} listed
-              {initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length > 0
+              {isCollectors
+                ? `${collectionListings.length} pair${collectionListings.length !== 1 ? 's' : ''} in collections`
+                : `${initialListings.length} pair${initialListings.length !== 1 ? 's' : ''} for sale`}
+              {!isCollectors &&
+              initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length > 0
                 ? ` · ${initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length} open to trade`
                 : ''}
             </p>
@@ -166,12 +177,19 @@ export function MarketBrowseClient({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-4">
+        {isCollectors ? (
+          <p className="text-xs text-[#555] mb-4">
+            Collector showcases — not for sale. Tap a pair to view details.
+          </p>
+        ) : null}
         {filtered.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-sm text-zinc-500">
-              {initialListings.length === 0
-                ? 'No listings yet — be the first to list a pair.'
-                : 'No listings match these filters.'}
+              {isCollectors
+                ? 'No collection pairs yet.'
+                : sourceListings.length === 0
+                  ? 'No listings yet — be the first to list a pair.'
+                  : 'No listings match these filters.'}
             </p>
             <Button
               asChild

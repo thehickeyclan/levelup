@@ -10,6 +10,9 @@ function typeBadge(listing: MarketBrowseListing): {
   label: string;
   className: string;
 } {
+  if (listing.listing_type === 'collection') {
+    return { label: 'Collection', className: 'bg-[#1a1a1a] border border-[#333] text-[#555]' };
+  }
   if (listing.listing_type === 'vault') {
     return { label: 'Vault', className: 'bg-[#C9A265]/90 text-black' };
   }
@@ -22,7 +25,8 @@ function typeBadge(listing: MarketBrowseListing): {
   return { label: 'For sale', className: 'bg-emerald-600/90 text-white' };
 }
 
-function cardCta(listing: MarketBrowseListing): { label: string; solid: boolean } {
+function cardCta(listing: MarketBrowseListing): { label: string; solid: boolean } | null {
+  if (listing.listing_type === 'collection') return null;
   if (listing.listing_type === 'trade') return { label: 'Trade', solid: false };
   if (listing.listing_type === 'vault' || listing.price_cents == null) {
     return { label: 'Offer', solid: false };
@@ -31,6 +35,9 @@ function cardCta(listing: MarketBrowseListing): { label: string; solid: boolean 
 }
 
 function priceLabel(listing: MarketBrowseListing): { text: string; className: string } {
+  if (listing.listing_type === 'collection') {
+    return { text: 'Not for sale', className: 'text-[#555]' };
+  }
   if (listing.listing_type === 'vault') {
     if (listing.pending_offer_count > 0) {
       return {
@@ -56,7 +63,7 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
   const displayTitle = listing.model?.trim() || listing.title;
   const wearState = (listing.wear_state as 'bnib' | 'new_no_box' | 'used' | null) || 'used';
   const conditionLabel = listingConditionDisplay(wearState, listing.condition);
-  const hotOffers = listing.pending_offer_count >= 2;
+  const hotOffers = listing.pending_offer_count >= 2 && listing.listing_type !== 'collection';
 
   return (
     <Link
@@ -78,6 +85,7 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
         <span
           className={cn(
             'absolute top-2 left-2 rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide',
+            listing.listing_type === 'collection' ? 'border' : '',
             badge.className
           )}
         >
@@ -94,7 +102,7 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
             AI
           </span>
         ) : null}
-        {listing.views_count > 0 ? (
+        {listing.views_count > 0 && listing.listing_type !== 'collection' ? (
           <span className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 text-[9px] text-[#888] flex items-center gap-1">
             <Eye className="h-3 w-3" />
             {listing.views_count}
@@ -118,16 +126,18 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
         </div>
         <div className="flex items-center justify-between gap-2 mt-auto pt-1">
           <p className={cn('text-[13px] font-bold', price.className)}>{price.text}</p>
-          <span
-            className={cn(
-              'text-[10px] font-medium rounded-full px-2.5 py-1 shrink-0',
-              cta.solid
-                ? 'bg-[#C9A265] text-black'
-                : 'border border-[#444] text-zinc-400'
-            )}
-          >
-            {cta.label}
-          </span>
+          {cta ? (
+            <span
+              className={cn(
+                'text-[10px] font-medium rounded-full px-2.5 py-1 shrink-0',
+                cta.solid
+                  ? 'bg-[#C9A265] text-black'
+                  : 'border border-[#444] text-zinc-400'
+              )}
+            >
+              {cta.label}
+            </span>
+          ) : null}
         </div>
       </div>
     </Link>

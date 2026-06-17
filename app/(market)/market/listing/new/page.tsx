@@ -15,6 +15,10 @@ import {
   conditionForWearState,
   type MarketWearState,
 } from '@/lib/market/wear-state';
+import {
+  SELLER_LISTING_TYPE_OPTIONS,
+  type MarketListingType,
+} from '@/lib/market/listing-type-options';
 import { cn } from '@/lib/utils';
 
 const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Other'];
@@ -84,14 +88,30 @@ export default function NewListingPage() {
     size: '10',
     wear_state: 'used' as MarketWearState,
     condition: 'good',
-    listing_type: 'sell',
+    listing_type: 'sell' as MarketListingType,
+    open_to_trade: false,
     price_cents: '',
     shipping_cents: '10',
     description: '',
   });
 
   const isUsed = form.wear_state === 'used';
+  const isPricedListing = form.listing_type === 'sell';
+  const isCollection = form.listing_type === 'collection';
   const imageKey = images.map((i) => i.id).join(',');
+
+  const setListingType = (listingType: MarketListingType) => {
+    setForm((f) => ({
+      ...f,
+      listing_type: listingType,
+      open_to_trade: listingType === 'sell' ? f.open_to_trade : false,
+      price_cents: listingType === 'sell' ? f.price_cents : '',
+      shipping_cents: listingType === 'collection' ? '0' : f.shipping_cents,
+    }));
+    if (listingType === 'collection') {
+      setAiPrice(null);
+    }
+  };
 
   const setWearState = (wearState: MarketWearState) => {
     setForm((f) => ({
@@ -173,6 +193,7 @@ export default function NewListingPage() {
     wear_state: form.wear_state,
     condition: conditionForWearState(form.wear_state, form.condition),
     listing_type: form.listing_type,
+    open_to_trade: form.listing_type === 'sell' ? form.open_to_trade : false,
     description: form.description,
   });
 
@@ -197,6 +218,7 @@ export default function NewListingPage() {
   };
 
   const runPrice = useCallback(async () => {
+    if (form.listing_type === 'collection') return;
     setPricing(true);
     try {
       const id = await syncDraft();
@@ -239,7 +261,9 @@ export default function NewListingPage() {
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
       setAiCondition(data.analysis as AiCondition);
       setConditionOverridden(false);
-      await runPrice();
+      if (form.listing_type !== 'collection') {
+        await runPrice();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
@@ -272,12 +296,12 @@ export default function NewListingPage() {
       condition: newCondition,
     }));
     setConditionOverridden(false);
-    void runPrice();
+    if (form.listing_type !== 'collection') void runPrice();
   };
 
   const overrideCondition = () => {
     setConditionOverridden(true);
-    if (!aiPrice && !pricing) void runPrice();
+    if (form.listing_type !== 'collection' && !aiPrice && !pricing) void runPrice();
   };
 
   const applySuggestedPrice = () => {
@@ -333,8 +357,14 @@ export default function NewListingPage() {
       const id = await ensureDraft();
       const description =
         form.description.trim() || buildListingDescription(descriptionInput());
-      const priceNum = form.listing_type === 'vault' ? null : Math.round(Number(form.price_cents || 0) * 100);
-      const shipNum = Math.round(Number(form.shipping_cents || 0) * 100);
+      const priceNum =
+        form.listing_type === 'sell'
+          ? Math.round(Number(form.price_cents || 0) * 100)
+          : null;
+      const shipNum =
+        form.listing_type === 'collection'
+          ? 0
+          : Math.round(Number(form.shipping_cents || 0) * 100);
 
       await fetch(`/api/market/listings/${id}`, {
         method: 'PATCH',
@@ -481,9 +511,9 @@ export default function NewListingPage() {
           </div>
         ) : null}
 
-        {pricing ? <AiSpinner label="Checking market prices…" /> : null}
+        {pricing && !isCollection ? <AiSpinner label="Checking market prices…" /> : null}
 
-        {aiPrice && !pricing ? (
+        {aiPrice && !pricing && !isCollection ? (
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-1.5 text-sm font-medium">
               <Sparkles className="h-4 w-4 text-accent" />
@@ -614,22 +644,84 @@ export default function NewListingPage() {
             </select>
           </div>
         ) : null}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Price ($)</Label>
-            <Input
-              value={form.price_cents}
-              onChange={(e) => setForm({ ...form, price_cents: e.target.value })}
-            />
+        <div className="space-y-3">
+          <Label>How do you want to list it?</Label>
+          <div className="space-y-2">
+            {SELLER_LISTING_TYPE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setListingType(opt.value)}
+                className={cn(
+                  'w-full text-left rounded-lg border px-3 py-3 transition-colors',
+                  form.listing_type === opt.value
+                    ? 'border-accent bg-accent/10'
+                    : 'border-zinc-800 hover:border-zinc-600'
+                )}
+              >
+                <p className="text-sm font-medium text-white">{opt.label}</p>
+                <p className="text-xs text-[#555] mt-0.5">{opt.hint}</p>
+              </button>
+            ))}
           </div>
-          <div>
+          {form.listing_type === 'sell' ? (
+            <label className="flex items-start gap-3 rounded-lg border border-zinc-800 px-3 py-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={form.open_to_trade}
+                onChange={(e) => setForm((f) => ({ ...f, open_to_trade: e.target.checked }))}
+              />
+              <span>
+                <span className="text-sm font-medium text-white block">Also open to trades</span>
+                <span className="text-xs text-[#555]">
+                  Buyers can offer their shoes instead of paying cash
+                </span>
+              </span>
+            </label>
+          ) : null}
+          {isCollection ? (
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-3">
+              <p className="text-sm text-zinc-300">
+                This pair appears on your profile under Collection. Buyers can see it but can&apos;t make offers.
+                Move it to &quot;Accept offers&quot; anytime from My listings.
+              </p>
+            </div>
+          ) : null}
+        </div>
+        {!isCollection ? (
+        <div className="grid grid-cols-2 gap-3">
+          {isPricedListing ? (
+            <div>
+              <Label>Price ($)</Label>
+              <Input
+                value={form.price_cents}
+                onChange={(e) => setForm({ ...form, price_cents: e.target.value })}
+              />
+            </div>
+          ) : (
+            <div className="col-span-2 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-3">
+              <p className="text-sm text-zinc-400">
+                {form.listing_type === 'vault'
+                  ? 'No set price — buyers send offers and you decide.'
+                  : 'No price — buyers propose a trade with shoes from their listings.'}
+              </p>
+            </div>
+          )}
+          <div className={isPricedListing ? '' : 'col-span-2'}>
             <Label>Shipping ($)</Label>
             <Input
               value={form.shipping_cents}
               onChange={(e) => setForm({ ...form, shipping_cents: e.target.value })}
             />
+            {!isPricedListing ? (
+              <p className="text-xs text-muted-foreground mt-1">
+                Used if an accepted offer includes cash and you ship to the buyer.
+              </p>
+            ) : null}
           </div>
         </div>
+        ) : null}
         <div>
           <Label>Description</Label>
           <textarea

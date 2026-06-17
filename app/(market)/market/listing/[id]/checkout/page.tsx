@@ -31,14 +31,14 @@ export default async function ListingCheckoutPage({
   const { data: listing } = await supabase
     .from('market_listings')
     .select(`
-      id, title, brand, model, size, condition, wear_state, status, seller_id, price_cents, shipping_cents,
+      id, title, brand, model, size, condition, wear_state, status, seller_id, listing_type, price_cents, shipping_cents,
       locked_buyer_id,
       market_listing_images(public_url, display_order)
     `)
     .eq('id', listingId)
     .maybeSingle();
 
-  if (!listing || listing.status !== 'active') {
+  if (!listing || listing.status !== 'active' || listing.listing_type === 'collection') {
     redirect(`/market/listing/${listingId}`);
   }
 

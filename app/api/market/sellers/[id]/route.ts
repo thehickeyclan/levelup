@@ -6,6 +6,7 @@ import {
   fetchMarketSellerSoldHistory,
   fetchMarketSellerStats,
 } from '@/lib/market/seller-reputation';
+import { fetchSellerActiveInventory } from '@/lib/market/seller-inventory';
 
 export async function GET(
   _req: NextRequest,
@@ -21,11 +22,12 @@ export async function GET(
     return NextResponse.json({ error: 'Seller not found' }, { status: 404 });
   }
 
-  const [stats, soldHistory, reviews] = await Promise.all([
+  const [stats, soldHistory, reviews, inventory] = await Promise.all([
     fetchMarketSellerStats(supabase, sellerId),
     fetchMarketSellerSoldHistory(supabase, sellerId),
     fetchMarketSellerReviews(supabase, sellerId),
+    fetchSellerActiveInventory(supabase, sellerId),
   ]);
 
-  return NextResponse.json({ seller, stats, soldHistory, reviews });
+  return NextResponse.json({ seller, stats, soldHistory, reviews, inventory });
 }

@@ -43,7 +43,7 @@ export async function GET(
     .eq('status', 'pending');
 
   let displayViews = listing.views_count ?? 0;
-  if (listing.status === 'active' && !isOwner) {
+  if (listing.status === 'active' && !isOwner && listing.listing_type !== 'collection') {
     displayViews += 1;
     await supabase
       .from('market_listings')

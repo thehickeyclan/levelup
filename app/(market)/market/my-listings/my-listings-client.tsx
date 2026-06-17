@@ -10,8 +10,11 @@ import { cn } from '@/lib/utils';
 import type { MyListingRow } from '@/lib/market/my-listings-data';
 
 function statusBadge(listing: MyListingRow): { label: string; className: string } {
+  if (listing.listing_type === 'collection' && listing.status === 'active') {
+    return { label: 'Collection', className: 'text-[#555] border-[#333]' };
+  }
   if (listing.listing_type === 'vault' && listing.status === 'active') {
-    return { label: 'Vault', className: 'text-[#C9A265] border-[#C9A265]/40' };
+    return { label: 'Accept offers', className: 'text-[#C9A265] border-[#C9A265]/40' };
   }
   switch (listing.status) {
     case 'active':
@@ -27,8 +30,9 @@ function statusBadge(listing: MyListingRow): { label: string; className: string 
 }
 
 function priceLabel(listing: MyListingRow): string {
-  if (listing.listing_type === 'vault') return 'Vault';
-  if (listing.listing_type === 'trade') return 'Trade';
+  if (listing.listing_type === 'collection') return 'Not for sale';
+  if (listing.listing_type === 'vault') return 'Accept offers';
+  if (listing.listing_type === 'trade') return 'Trade only';
   if (listing.price_cents != null) return `$${(listing.price_cents / 100).toFixed(0)}`;
   return 'Make offer';
 }
@@ -40,13 +44,20 @@ function ListingRow({ listing }: { listing: MyListingRow }) {
   const badge = statusBadge(listing);
   const title = listing.model?.trim() || listing.title;
 
-  const runAction = async (action: 'archive' | 'delete') => {
+  const runAction = async (action: 'archive' | 'delete' | 'move_to_market') => {
     setActing(true);
     try {
       const res = await fetch(`/api/market/listings/${listing.id}`, {
         method: action === 'delete' ? 'DELETE' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: action === 'archive' ? JSON.stringify({ status: 'archived' }) : undefined,
+        body:
+          action === 'delete'
+            ? undefined
+            : JSON.stringify(
+                action === 'move_to_market'
+                  ? { listing_type: 'vault', price_cents: null }
+                  : { status: 'archived' }
+              ),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -92,7 +103,7 @@ function ListingRow({ listing }: { listing: MyListingRow }) {
         </Link>
       ) : null}
 
-      {(listing.can_archive || listing.can_delete) ? (
+      {(listing.can_archive || listing.can_delete || listing.listing_type === 'collection') ? (
         <div className="relative shrink-0">
           <button
             type="button"
@@ -111,6 +122,16 @@ function ListingRow({ listing }: { listing: MyListingRow }) {
               >
                 Edit
               </Link>
+              {listing.listing_type === 'collection' ? (
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-xs text-[#C9A265] hover:bg-zinc-800"
+                  disabled={acting}
+                  onClick={() => runAction('move_to_market')}
+                >
+                  Move to market
+                </button>
+              ) : null}
               {listing.can_archive ? (
                 <button
                   type="button"
@@ -157,10 +178,19 @@ export function MyListingsClient({
   groups,
   pendingOffers,
 }: {
-  groups: { active: MyListingRow[]; soldTraded: MyListingRow[]; drafts: MyListingRow[] };
+  groups: {
+    active: MyListingRow[];
+    collection: MyListingRow[];
+    soldTraded: MyListingRow[];
+    drafts: MyListingRow[];
+  };
   pendingOffers: number;
 }) {
-  const total = groups.active.length + groups.soldTraded.length + groups.drafts.length;
+  const total =
+    groups.active.length +
+    groups.collection.length +
+    groups.soldTraded.length +
+    groups.drafts.length;
 
   return (
     <div className="min-h-screen pb-24 bg-black">
@@ -177,6 +207,7 @@ export function MyListingsClient({
         ) : (
           <div className="space-y-6 pb-4">
             <Section title="Active" listings={groups.active} />
+            <Section title="Collection" listings={groups.collection} />
             <Section title="Sold / traded" listings={groups.soldTraded} />
             <Section title="Drafts" listings={groups.drafts} />
           </div>

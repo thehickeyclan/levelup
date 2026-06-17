@@ -51,6 +51,7 @@ export default function ListingDetailPage() {
   const priceCents = l.price_cents as number | null;
   const shippingCents = (l.shipping_cents as number) ?? 0;
   const listingType = (l.listing_type as string) || 'sell';
+  const isCollection = listingType === 'collection';
   const isVault = listingType === 'vault';
   const isActive = l.status === 'active';
   const openToTrade = Boolean(l.open_to_trade);
@@ -77,8 +78,20 @@ export default function ListingDetailPage() {
   const displayTitle = (l.model as string)?.trim() || (l.title as string);
   const isTradeOnly = listingType === 'trade';
   const showTradeOnlyCta = isActive && isTradeOnly;
-  const showVaultOfferCtAs = isActive && !isTradeOnly && (isVault || priceCents == null);
-  const showBuyCta = isActive && !isVault && !isTradeOnly && priceCents != null;
+  const showVaultOfferCtAs = isActive && !isTradeOnly && !isCollection && (isVault || priceCents == null);
+  const showBuyCta = isActive && !isVault && !isTradeOnly && !isCollection && priceCents != null;
+
+  const collectionBlock = (
+    <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 text-center">
+      <p className="text-[#555] text-sm mb-1">Not for sale</p>
+      <p className="text-[#444] text-xs">
+        Part of {data.seller.displayName}&apos;s collection —{' '}
+        <Link href={`/market/seller/${data.seller.id}`} className="text-[#C9A265] hover:underline">
+          follow them for updates
+        </Link>
+      </p>
+    </div>
+  );
 
   const askingLabel =
     isVault || priceCents == null
@@ -205,7 +218,7 @@ export default function ListingDetailPage() {
                 <h1 className="text-3xl font-medium tracking-tight text-white leading-tight">
                   {displayTitle}
                 </h1>
-                {viewsCount > 0 ? (
+                {viewsCount > 0 && !isCollection ? (
                   <span className="shrink-0 flex items-center gap-1 text-xs text-[#555] pt-1">
                     <Eye className="h-3.5 w-3.5 text-[#C9A265]" />
                     {viewsCount} watching
@@ -232,7 +245,7 @@ export default function ListingDetailPage() {
               </p>
             ) : null}
 
-            {offerCount > 0 ? (
+            {offerCount > 0 && !isCollection ? (
               <div className="flex items-center justify-between bg-[#1a1a1a] border border-[#222] rounded-xl px-4 py-3">
                 <span className="text-sm text-[#666]">Already interested</span>
                 <span className="flex items-center gap-1.5 text-sm font-medium text-[#C9A265]">
@@ -242,7 +255,7 @@ export default function ListingDetailPage() {
               </div>
             ) : null}
 
-            {isVault ? (
+            {isVault && !isCollection ? (
               <div className="rounded-xl border border-[#333] border-l-[3px] border-l-[#C9A265] bg-[#1a1a1a] px-4 py-3 flex gap-3">
                 <Lock className="h-5 w-5 text-[#C9A265] shrink-0 mt-0.5" />
                 <div>
@@ -254,28 +267,34 @@ export default function ListingDetailPage() {
               </div>
             ) : null}
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-[#1a1a1a] border border-[#222] rounded-xl p-3 text-center">
-                <p className="text-lg font-bold text-[#C9A265]">{askingValue}</p>
-                <p className="text-[10px] text-[#555] mt-0.5">{askingLabel}</p>
+            {!isCollection ? (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-[#1a1a1a] border border-[#222] rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-[#C9A265]">{askingValue}</p>
+                  <p className="text-[10px] text-[#555] mt-0.5">{askingLabel}</p>
+                </div>
+                <div className="bg-[#1a1a1a] border border-[#222] rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-white">{viewsCount}</p>
+                  <p className="text-[10px] text-[#555] mt-0.5">Watching</p>
+                </div>
+                <div className="bg-[#1a1a1a] border border-[#222] rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-white">{offerCount}</p>
+                  <p className="text-[10px] text-[#555] mt-0.5">Offers</p>
+                </div>
               </div>
-              <div className="bg-[#1a1a1a] border border-[#222] rounded-xl p-3 text-center">
-                <p className="text-lg font-bold text-white">{viewsCount}</p>
-                <p className="text-[10px] text-[#555] mt-0.5">Watching</p>
-              </div>
-              <div className="bg-[#1a1a1a] border border-[#222] rounded-xl p-3 text-center">
-                <p className="text-lg font-bold text-white">{offerCount}</p>
-                <p className="text-[10px] text-[#555] mt-0.5">Offers</p>
-              </div>
-            </div>
+            ) : null}
 
-            {!isVault && priceCents != null && shippingCents > 0 ? (
+            {isCollection && isActive ? collectionBlock : null}
+
+            {!isVault && !isCollection && priceCents != null && shippingCents > 0 ? (
               <p className="text-sm text-[#666]">
                 + ${(shippingCents / 100).toFixed(2)} shipping
               </p>
             ) : null}
 
-            <div className="hidden md:block pt-1">{ctaBlock}</div>
+            <div className="hidden md:block pt-1">
+              {isCollection && isActive ? collectionBlock : ctaBlock}
+            </div>
 
             <ListingSellerCard
               sellerId={data.seller.id}
@@ -298,9 +317,11 @@ export default function ListingDetailPage() {
         </div>
       </div>
 
-      {(showTradeOnlyCta || showVaultOfferCtAs || showBuyCta) ? (
+      {(showTradeOnlyCta || showVaultOfferCtAs || showBuyCta || (isCollection && isActive)) ? (
         <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-3 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/98 to-transparent">
-          {showTradeOnlyCta ? (
+          {isCollection && isActive ? (
+            collectionBlock
+          ) : showTradeOnlyCta ? (
             <Button asChild className="w-full min-h-[52px] bg-[#C9A265] text-black font-semibold rounded-full">
               <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
             </Button>

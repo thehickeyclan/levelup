@@ -15,7 +15,8 @@ export default function ListingDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
-  const offerSent = searchParams.get('offer') === 'sent';
+  const offerSent =
+    searchParams.get('offered') === 'true' || searchParams.get('offer') === 'sent';
 
   const [data, setData] = useState<{
     listing: Record<string, unknown>;
@@ -117,7 +118,7 @@ export default function ListingDetailPage() {
             asChild
             className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full"
           >
-            <Link href={`/market/checkout?listingId=${id}`} className="flex items-center justify-center gap-2">
+            <Link href={`/market/listing/${id}/checkout`} className="flex items-center justify-center gap-2">
               <ShoppingCart className="h-4 w-4" />
               Buy now — ${(priceCents! / 100).toFixed(0)}
             </Link>
@@ -139,7 +140,7 @@ export default function ListingDetailPage() {
 
         {offerSent ? (
           <p className="mt-4 text-sm text-accent bg-accent/10 border border-accent/30 rounded-lg p-3">
-            Offer sent — the seller will be notified.
+            Offer sent — seller has been notified.
           </p>
         ) : null}
 
@@ -260,7 +261,7 @@ export default function ListingDetailPage() {
             </Button>
           ) : (
             <Button asChild className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full">
-              <Link href={`/market/checkout?listingId=${id}`}>
+              <Link href={`/market/listing/${id}/checkout`}>
                 Buy now — ${(priceCents! / 100).toFixed(0)}
               </Link>
             </Button>

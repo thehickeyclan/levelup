@@ -1,72 +1,196 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { BackLink } from '@/components/back-link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MarketListingCard, type MarketListingCardData } from '@/components/market/listing-card';
+import { MarketSubNav } from '@/components/market/market-sub-nav';
+import { MarketListingCard } from '@/components/market/listing-card';
+import {
+  BROWSE_BRANDS,
+  BROWSE_US_SIZES,
+  browseConditionBucket,
+  type MarketBrowseListing,
+} from '@/lib/market/browse-listings';
+import { cn } from '@/lib/utils';
 
-export function MarketBrowseClient() {
-  const [listings, setListings] = useState<MarketListingCardData[]>([]);
-  const [pendingOffers, setPendingOffers] = useState(0);
-  const [loading, setLoading] = useState(true);
+const TYPE_OPTIONS = [
+  { id: 'all', label: 'All' },
+  { id: 'buy', label: 'Buy' },
+  { id: 'trade', label: 'Trade' },
+  { id: 'vault', label: 'Vault' },
+] as const;
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/market/listings').then((r) => r.json()),
-      fetch('/api/market/offers?mode=incoming').then((r) => r.json()),
-    ])
-      .then(([listingsRes, offersRes]) => {
-        setListings(listingsRes.listings ?? []);
-        setPendingOffers(offersRes.pending_count ?? 0);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+const CONDITION_OPTIONS = [
+  { id: 'all', label: 'All' },
+  { id: 'new', label: 'New' },
+  { id: 'like_new', label: 'Like new' },
+  { id: 'good', label: 'Good' },
+  { id: 'fair', label: 'Fair' },
+] as const;
+
+type TypeFilter = (typeof TYPE_OPTIONS)[number]['id'];
+type ConditionFilter = (typeof CONDITION_OPTIONS)[number]['id'];
+
+export function MarketBrowseClient({
+  initialListings,
+  pendingOffers = 0,
+}: {
+  initialListings: MarketBrowseListing[];
+  pendingOffers?: number;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const type = (searchParams.get('type') || 'all') as TypeFilter;
+  const brand = searchParams.get('brand') || 'all';
+  const size = searchParams.get('size') || '';
+  const condition = (searchParams.get('condition') || 'all') as ConditionFilter;
+
+  const setParam = useCallback(
+    (key: string, value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (!value || value === 'all') params.delete(key);
+      else params.set(key, value);
+      const qs = params.toString();
+      router.replace(qs ? `/market?${qs}` : '/market', { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  const filtered = useMemo(() => {
+    return initialListings.filter((l) => {
+      if (type === 'buy' && l.listing_type !== 'sell') return false;
+      if (type === 'trade' && l.listing_type !== 'trade') return false;
+      if (type === 'vault' && l.listing_type !== 'vault') return false;
+      if (brand !== 'all' && l.brand !== brand) return false;
+      if (size && Number(l.size) !== Number(size)) return false;
+      if (condition !== 'all') {
+        const bucket = browseConditionBucket(l.condition, l.wear_state);
+        if (bucket !== condition) return false;
+      }
+      return true;
+    });
+  }, [initialListings, type, brand, size, condition]);
+
+  const pillClass = (active: boolean) =>
+    cn(
+      'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+      active ? 'bg-[#C9A265] text-black' : 'border border-[#333] text-[#666]'
+    );
 
   return (
-    <div className="min-h-screen pb-24">
-      <div className="px-4 pt-6 pb-4 max-w-5xl mx-auto flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Guild Market</h1>
-          <p className="text-sm text-muted-foreground">Wrestling sneakers · buy, sell, trade</p>
+    <div className="min-h-screen pb-24 bg-black">
+      <div className="max-w-4xl mx-auto px-4 pt-6 pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Guild Market</h1>
+            <p className="text-sm text-zinc-500 mt-0.5">Wrestling sneakers · buy, sell, trade</p>
+          </div>
         </div>
-        <Button asChild className="bg-accent text-black font-semibold shrink-0">
-          <Link href="/market/listing/new">List a pair</Link>
-        </Button>
+        <div className="mt-4">
+          <MarketSubNav pendingOffers={pendingOffers} />
+        </div>
       </div>
 
-      <div className="px-4 mb-4 max-w-5xl mx-auto flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/market/my-listings">My listings</Link>
-        </Button>
-        <Button variant="outline" size="sm" asChild className="relative">
-          <Link href="/market/offers">
-            Offers
-            {pendingOffers > 0 ? (
-              <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-accent text-black text-[10px] font-bold px-1">
-                {pendingOffers}
-              </span>
-            ) : null}
-          </Link>
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/market/orders">Orders</Link>
-        </Button>
+      <div className="sticky top-0 z-20 bg-[#111] border-b border-[#1a1a1a]">
+        <div className="max-w-4xl mx-auto px-4 py-3 space-y-3">
+          <div className="flex gap-2 overflow-x-auto pb-0.5">
+            {TYPE_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setParam('type', opt.id)}
+                className={pillClass(type === opt.id)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-0.5">
+            <button
+              type="button"
+              onClick={() => setParam('brand', 'all')}
+              className={pillClass(brand === 'all')}
+            >
+              All
+            </button>
+            {BROWSE_BRANDS.map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setParam('brand', b)}
+                className={pillClass(brand === b)}
+              >
+                {b}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2 items-center">
+            <label className="text-xs text-zinc-500 shrink-0">Size</label>
+            <select
+              value={size}
+              onChange={(e) => setParam('size', e.target.value)}
+              className="h-8 rounded-full border border-[#333] bg-[#1a1a1a] text-sm text-zinc-300 px-3 min-w-[5.5rem]"
+            >
+              <option value="">All</option>
+              {BROWSE_US_SIZES.map((s) => (
+                <option key={s} value={String(s)}>
+                  {Number.isInteger(s) ? s : s.toFixed(1)}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex gap-2 overflow-x-auto flex-1 pb-0.5">
+              {CONDITION_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setParam('condition', opt.id)}
+                  className={pillClass(condition === opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <p className="px-4 max-w-5xl mx-auto text-muted-foreground">Loading…</p>
-      ) : listings.length === 0 ? (
-        <div className="px-4 max-w-5xl mx-auto py-12 text-center text-muted-foreground">
-          <p>No listings yet. Be the first to list a pair.</p>
-        </div>
-      ) : (
-        <div className="px-4 max-w-5xl mx-auto grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {listings.map((l) => (
-            <MarketListingCard key={l.id} listing={l} />
-          ))}
-        </div>
-      )}
+      <div className="max-w-4xl mx-auto px-4 py-4">
+        {filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-sm text-zinc-500">
+              {initialListings.length === 0
+                ? 'No listings yet — be the first to list a pair.'
+                : 'No listings match these filters.'}
+            </p>
+            <Button
+              asChild
+              className="mt-4 bg-[#C9A265] text-black font-semibold rounded-full hover:bg-[#C9A265]/90"
+            >
+              <Link href="/market/listing/new">List a pair</Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filtered.map((listing) => (
+              <MarketListingCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Link
+        href="/market/listing/new"
+        className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-[#C9A265] text-black shadow-lg hover:bg-[#C9A265]/90 transition-colors"
+        aria-label="List a pair"
+      >
+        <Plus className="h-7 w-7" strokeWidth={2.5} />
+      </Link>
     </div>
   );
 }

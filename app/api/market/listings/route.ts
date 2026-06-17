@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
+import { primaryListingImageUrl } from '@/lib/market/listing-images';
 
 const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Other'];
 
@@ -48,9 +49,11 @@ export async function GET(req: NextRequest) {
   const listings = (data ?? []).map((row) => {
     const ai = row.market_ai_analysis as { analyzed_at?: string } | { analyzed_at?: string }[] | null;
     const aiRow = Array.isArray(ai) ? ai[0] : ai;
+    const images = row.market_listing_images as { public_url: string; display_order: number }[] | null;
     const { market_ai_analysis: _omit, ...rest } = row as Record<string, unknown>;
     return {
       ...rest,
+      primary_image_url: primaryListingImageUrl(images),
       ai_assisted: Boolean(aiRow?.analyzed_at),
     };
   });

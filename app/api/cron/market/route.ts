@@ -11,13 +11,20 @@ export async function GET(req: NextRequest) {
     if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const results: Record<string, { locksReleased: number; ordersCancelled: number; tradesExpired: number; draftsDeleted: number }> = {};
+  const results: Record<string, {
+    locksReleased: number;
+    ordersCancelled: number;
+    tradesExpired: number;
+    offersExpired: number;
+    draftsDeleted: number;
+  }> = {};
 
   for (const slug of Object.keys(tenants)) {
     const admin = createAdminClient(slug);
     let locksReleased = 0;
     let ordersCancelled = 0;
     let tradesExpired = 0;
+    let offersExpired = 0;
     let draftsDeleted = 0;
 
     const { data: staleLocks } = await admin
@@ -56,11 +63,22 @@ export async function GET(req: NextRequest) {
       .from('market_trades')
       .select('id')
       .eq('status', 'pending')
-      .lt('expires_at', new Date().toISOString());
+      .lt('created_at', new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString());
 
     if (expiredTrades?.length) {
       await admin.from('market_trades').update({ status: 'expired' }).in('id', expiredTrades.map((t) => t.id));
       tradesExpired = expiredTrades.length;
+    }
+
+    const { data: expiredOffers } = await admin
+      .from('market_offers')
+      .select('id')
+      .eq('status', 'pending')
+      .lt('expires_at', new Date().toISOString());
+
+    if (expiredOffers?.length) {
+      await admin.from('market_offers').update({ status: 'expired' }).in('id', expiredOffers.map((o) => o.id));
+      offersExpired = expiredOffers.length;
     }
 
     const { data: staleDrafts } = await admin
@@ -70,11 +88,20 @@ export async function GET(req: NextRequest) {
       .lt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 
     if (staleDrafts?.length) {
-      await admin.from('market_listings').delete().in('id', staleDrafts.map((d) => d.id));
-      draftsDeleted = staleDrafts.length;
+      const draftIds = staleDrafts.map((d) => d.id);
+      const { data: withImages } = await admin
+        .from('market_listing_images')
+        .select('listing_id')
+        .in('listing_id', draftIds);
+      const hasImage = new Set((withImages ?? []).map((i) => i.listing_id as string));
+      const toDelete = draftIds.filter((id) => !hasImage.has(id));
+      if (toDelete.length) {
+        await admin.from('market_listings').delete().in('id', toDelete);
+        draftsDeleted = toDelete.length;
+      }
     }
 
-    results[slug] = { locksReleased, ordersCancelled, tradesExpired, draftsDeleted };
+    results[slug] = { locksReleased, ordersCancelled, tradesExpired, offersExpired, draftsDeleted };
   }
 
   return NextResponse.json({ ok: true, results });

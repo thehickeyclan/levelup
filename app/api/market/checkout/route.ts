@@ -7,26 +7,138 @@ import { resolvePayoutRecipientId } from '@/lib/market/seller';
 import { getStripeInstance } from '@/lib/stripe/webhooks';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
 
+type ShippingAddress = {
+  name?: string;
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+};
+
+async function createCheckoutSession(
+  admin: ReturnType<typeof createAdminClient>,
+  tenantSlug: string,
+  host: string,
+  req: NextRequest,
+  order: { id: string; order_ref: string; amount_cents: number; shipping_cents: number; listing_id: string; buyer_id: string; seller_id: string; platform_fee_cents: number; seller_payout_cents: number },
+  listingTitle: string
+) {
+  const stripeEnabled = process.env.STRIPE_CHECKOUT_ENABLED === 'true';
+  if (!stripeEnabled) {
+    return { error: NextResponse.json({ error: 'Online payment is not enabled' }, { status: 503 }) };
+  }
+
+  const origin = publicOriginForStripeRedirect(host, req);
+  const stripe = getStripeInstance(tenantSlug);
+  const priceCents = order.amount_cents;
+  const shippingCents = order.shipping_cents ?? 0;
+
+  const lineItems: { price_data: { currency: string; product_data: { name: string }; unit_amount: number }; quantity: number }[] = [
+    {
+      price_data: {
+        currency: 'usd',
+        product_data: { name: listingTitle || 'Guild Market item' },
+        unit_amount: priceCents,
+      },
+      quantity: 1,
+    },
+  ];
+
+  if (shippingCents > 0) {
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: { name: 'Shipping' },
+        unit_amount: shippingCents,
+      },
+      quantity: 1,
+    });
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    line_items: lineItems,
+    success_url: `${origin}/market/orders?success=true&order=${order.order_ref}`,
+    cancel_url: `${origin}/market/listing/${order.listing_id}/checkout?order=${order.id}`,
+    metadata: {
+      app: 'guild-market',
+      market_checkout: 'true',
+      tenant_slug: tenantSlug,
+      market_order_id: order.id,
+      listing_id: order.listing_id,
+      buyer_id: order.buyer_id,
+      seller_id: order.seller_id,
+      fee_cents: String(order.platform_fee_cents),
+      payout_cents: String(order.seller_payout_cents),
+    },
+  });
+
+  await admin
+    .from('market_orders')
+    .update({ stripe_checkout_session_id: session.id })
+    .eq('id', order.id);
+
+  return { checkoutUrl: session.url };
+}
+
 export async function POST(req: NextRequest) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, tenant, user } = ctx;
+  const { tenant, user } = ctx;
   const admin = createAdminClient(tenant.slug);
 
   const body = (await req.json().catch(() => ({}))) as {
     listingId?: string;
-    shipping_address?: {
-      name?: string;
-      line1?: string;
-      line2?: string;
-      city?: string;
-      state?: string;
-      zip?: string;
-    };
+    orderId?: string;
+    shippingAddress?: ShippingAddress;
+    shipping_address?: ShippingAddress;
   };
 
   const listingId = body.listingId?.trim();
+  const orderId = body.orderId?.trim();
+  const shippingAddress = body.shippingAddress ?? body.shipping_address ?? null;
+
   if (!listingId) return NextResponse.json({ error: 'listingId required' }, { status: 400 });
+
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+
+  if (orderId) {
+    const { data: order } = await admin
+      .from('market_orders')
+      .select('id, order_ref, amount_cents, shipping_cents, listing_id, buyer_id, seller_id, platform_fee_cents, seller_payout_cents, status')
+      .eq('id', orderId)
+      .eq('listing_id', listingId)
+      .eq('buyer_id', user!.id)
+      .eq('status', 'pending_payment')
+      .maybeSingle();
+
+    if (!order) {
+      return NextResponse.json({ error: 'Order not found or not payable' }, { status: 404 });
+    }
+
+    if (shippingAddress) {
+      await admin.from('market_orders').update({ shipping_address: shippingAddress }).eq('id', orderId);
+    }
+
+    const { data: listing } = await admin
+      .from('market_listings')
+      .select('title')
+      .eq('id', listingId)
+      .single();
+
+    const result = await createCheckoutSession(
+      admin,
+      tenant.slug,
+      host,
+      req,
+      order as Parameters<typeof createCheckoutSession>[4],
+      (listing?.title as string) || 'Guild Market item'
+    );
+    if ('error' in result && result.error) return result.error;
+    return NextResponse.json({ checkoutUrl: result.checkoutUrl, orderRef: order.order_ref });
+  }
 
   const now = new Date().toISOString();
   const { data: listing, error: lockErr } = await admin
@@ -76,12 +188,12 @@ export async function POST(req: NextRequest) {
       platform_fee_cents: feeCents,
       seller_payout_cents: payoutCents,
       status: 'pending_payment',
-      shipping_address: body.shipping_address ?? null,
+      shipping_address: shippingAddress,
       seller_condition: listing.condition,
       ai_condition_grade: aiRow?.condition_grade_suggested ?? null,
       ai_condition_score: aiRow?.condition_score ?? null,
     })
-    .select('id, order_ref')
+    .select('id, order_ref, amount_cents, shipping_cents, listing_id, buyer_id, seller_id, platform_fee_cents, seller_payout_cents')
     .single();
 
   if (orderErr || !order) {
@@ -89,60 +201,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: orderErr?.message || 'Order failed' }, { status: 500 });
   }
 
-  const stripeEnabled = process.env.STRIPE_CHECKOUT_ENABLED === 'true';
-  if (!stripeEnabled) {
-    return NextResponse.json({ error: 'Online payment is not enabled' }, { status: 503 });
-  }
-
-  const headersList = await headers();
-  const host = headersList.get('host') || '';
-  const origin = publicOriginForStripeRedirect(host, req);
-  const stripe = getStripeInstance(tenant.slug);
-
-  const lineItems: { price_data: { currency: string; product_data: { name: string }; unit_amount: number }; quantity: number }[] = [
-    {
-      price_data: {
-        currency: 'usd',
-        product_data: { name: listing.title || 'Guild Market item' },
-        unit_amount: priceCents,
-      },
-      quantity: 1,
-    },
-  ];
-
-  if (shippingCents > 0) {
-    lineItems.push({
-      price_data: {
-        currency: 'usd',
-        product_data: { name: 'Shipping' },
-        unit_amount: shippingCents,
-      },
-      quantity: 1,
-    });
-  }
-
-  const session = await stripe.checkout.sessions.create({
-    mode: 'payment',
-    line_items: lineItems,
-    success_url: `${origin}/market/orders?success=true&order=${order.order_ref}`,
-    cancel_url: `${origin}/market/checkout?listingId=${listingId}`,
-    metadata: {
-      app: 'guild-market',
-      market_checkout: 'true',
-      tenant_slug: tenant.slug,
-      market_order_id: order.id,
-      listing_id: listingId,
-      buyer_id: user!.id,
-      seller_id: listing.seller_id,
-      fee_cents: String(feeCents),
-      payout_cents: String(payoutCents),
-    },
-  });
-
-  await admin
-    .from('market_orders')
-    .update({ stripe_checkout_session_id: session.id })
-    .eq('id', order.id);
-
-  return NextResponse.json({ checkoutUrl: session.url, orderRef: order.order_ref });
+  const result = await createCheckoutSession(
+    admin,
+    tenant.slug,
+    host,
+    req,
+    order as Parameters<typeof createCheckoutSession>[4],
+    (listing.title as string) || 'Guild Market item'
+  );
+  if ('error' in result && result.error) return result.error;
+  return NextResponse.json({ checkoutUrl: result.checkoutUrl, orderRef: order.order_ref });
 }

@@ -1,60 +1,39 @@
-'use client';
+import { headers } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getTenantByDomain } from '@/config/tenants';
+import { fetchMyListings } from '@/lib/market/my-listings-data';
+import { MyListingsClient } from './my-listings-client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { BackLink } from '@/components/back-link';
-import { Button } from '@/components/ui/button';
+async function pendingOfferCount(tenantSlug: string, userId: string): Promise<number> {
+  const admin = createAdminClient(tenantSlug);
+  const { data: listings } = await admin.from('market_listings').select('id').eq('seller_id', userId);
+  const ids = (listings ?? []).map((l) => l.id as string);
+  if (!ids.length) return 0;
+  const { count } = await admin
+    .from('market_offers')
+    .select('id', { count: 'exact', head: true })
+    .in('listing_id', ids)
+    .eq('status', 'pending');
+  return count ?? 0;
+}
 
-export default function MyListingsPage() {
-  const [listings, setListings] = useState<Record<string, unknown>[]>([]);
-  const [pendingOffers, setPendingOffers] = useState(0);
+export default async function MyListingsPage() {
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  const tenant = getTenantByDomain(host);
+  if (!tenant) return null;
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/market/listings?seller=me&status=active').then((r) => r.json()),
-      fetch('/api/market/offers?mode=incoming').then((r) => r.json()),
-    ]).then(([listingsRes, offersRes]) => {
-      setListings(listingsRes.listings ?? []);
-      setPendingOffers(offersRes.pending_count ?? 0);
-    });
-  }, []);
+  const supabase = await createClient(tenant.slug);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
 
-  return (
-    <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
-      <BackLink fallbackHref="/market" label="Back to Market" />
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">My listings</h1>
-        <Button asChild size="sm" className="bg-accent text-black">
-          <Link href="/market/listing/new">New</Link>
-        </Button>
-      </div>
+  const [groups, pendingOffers] = await Promise.all([
+    fetchMyListings(supabase, user.id),
+    pendingOfferCount(tenant.slug, user.id),
+  ]);
 
-      {pendingOffers > 0 ? (
-        <Link
-          href="/market/offers"
-          className="block rounded-lg border border-accent/40 bg-accent/10 px-4 py-3 text-sm"
-        >
-          <span className="font-medium text-accent">
-            {pendingOffers} pending offer{pendingOffers !== 1 ? 's' : ''}
-          </span>
-          <span className="text-muted-foreground"> — tap to review</span>
-        </Link>
-      ) : null}
-
-      {listings.length === 0 ? (
-        <p className="text-muted-foreground">No active listings.</p>
-      ) : (
-        <ul className="space-y-3">
-          {listings.map((l) => (
-            <li key={l.id as string} className="rounded-lg border border-zinc-800 p-4">
-              <Link href={`/market/listing/${l.id as string}`} className="font-medium hover:text-accent">
-                {(l.model as string) || (l.title as string)}
-              </Link>
-              <p className="text-sm text-muted-foreground capitalize">{l.listing_type as string} · {l.status as string}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+  return <MyListingsClient groups={groups} pendingOffers={pendingOffers} />;
 }

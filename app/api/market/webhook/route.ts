@@ -5,6 +5,7 @@ import { getStripeInstance } from '@/lib/stripe/webhooks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, tenants } from '@/config/tenants';
 import { createNotification } from '@/lib/notifications';
+import { normalizePhone, sendSms } from '@/lib/twilio';
 
 function getMarketWebhookSecret(tenantSlug: string): string {
   const key =
@@ -126,14 +127,40 @@ export async function POST(req: NextRequest) {
       .eq('id', listingId);
 
     const sellerId = session.metadata.seller_id;
+    const { data: listingRow } = await supabase
+      .from('market_listings')
+      .select('title')
+      .eq('id', listingId)
+      .maybeSingle();
+    const listingTitle = (listingRow?.title as string) || 'listing';
+
+    const { data: orderRow } = await supabase
+      .from('market_orders')
+      .select('order_ref')
+      .eq('id', orderId)
+      .maybeSingle();
+
     if (sellerId) {
       await createNotification(supabase, {
         user_id: sellerId,
         type: 'market_listing_sold',
         title: 'Your pair sold!',
-        body: 'A buyer completed payment on Guild Market. Ship soon and add tracking.',
+        body: `Your ${listingTitle} sold! Ship to buyer within 3 days.`,
         data: { order_id: orderId, listing_id: listingId },
       });
+      const { data: sellerUser } = await supabase
+        .from('users')
+        .select('phone')
+        .eq('id', sellerId)
+        .maybeSingle();
+      const sellerPhone = normalizePhone(sellerUser?.phone as string | null | undefined);
+      if (sellerPhone) {
+        void sendSms(sellerPhone, `Your ${listingTitle} sold on Guild Market. Ship to the buyer within 3 days.`, {
+          admin: supabase,
+          messageType: 'market_listing_sold',
+          recipientId: sellerId,
+        });
+      }
     }
 
     const buyerId = session.metadata.buyer_id;
@@ -141,10 +168,26 @@ export async function POST(req: NextRequest) {
       await createNotification(supabase, {
         user_id: buyerId,
         type: 'market_order_placed',
-        title: 'Order confirmed',
-        body: 'Your Guild Market order is confirmed. The seller will ship your shoes.',
-        data: { order_id: orderId },
+        title: 'Order placed',
+        body: `Order placed — #${orderRow?.order_ref ?? 'MKT'}`,
+        data: { order_id: orderId, link: `/market/orders/${orderId}` },
       });
+    }
+  }
+
+  if (event.type === 'payment_intent.payment_failed') {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    const orderId = pi.metadata?.market_order_id;
+    const listingId = pi.metadata?.listing_id;
+    if (orderId && listingId && pi.metadata?.market_checkout === 'true') {
+      const rawSlug = (pi.metadata?.tenant_slug as string | undefined)?.trim().toLowerCase();
+      const tenantSlug = rawSlug && rawSlug in tenants ? rawSlug : tenant.slug;
+      const supabase = createAdminClient(tenantSlug);
+      await supabase.from('market_orders').update({ status: 'cancelled' }).eq('id', orderId);
+      await supabase
+        .from('market_listings')
+        .update({ status: 'active', locked_buyer_id: null, locked_at: null })
+        .eq('id', listingId);
     }
   }
 

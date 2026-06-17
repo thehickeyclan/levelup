@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/cancel-abandoned-booking-checkouts",
       "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/market",
+      "schedule": "0 * * * *"
     }
   ]
 }

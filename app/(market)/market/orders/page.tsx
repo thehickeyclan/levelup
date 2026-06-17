@@ -1,77 +1,86 @@
-'use client';
+import { Suspense } from 'react';
+import { headers } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getTenantByDomain } from '@/config/tenants';
+import { primaryListingImageUrl } from '@/lib/market/listing-images';
+import { MarketOrdersClient, type MarketOrderRow } from './market-orders-client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { BackLink } from '@/components/back-link';
+async function pendingOfferCount(tenantSlug: string, userId: string): Promise<number> {
+  const admin = createAdminClient(tenantSlug);
+  const { data: listings } = await admin.from('market_listings').select('id').eq('seller_id', userId);
+  const ids = (listings ?? []).map((l) => l.id as string);
+  if (!ids.length) return 0;
+  const { count } = await admin
+    .from('market_offers')
+    .select('id', { count: 'exact', head: true })
+    .in('listing_id', ids)
+    .eq('status', 'pending');
+  return count ?? 0;
+}
 
-type Order = {
-  id: string;
-  order_ref: string;
-  status: string;
-  amount_cents: number;
-  shipping_cents: number;
-  created_at: string;
-  listing_id: string;
-  listing_title: string;
-  is_buyer: boolean;
-  can_review: boolean;
-  review_rating: number | null;
-};
+export default async function MarketOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ success?: string }>;
+}) {
+  const sp = await searchParams;
+  const showSuccess = sp.success === 'true';
 
-export default function MarketOrdersPage() {
-  const searchParams = useSearchParams();
-  const success = searchParams.get('success');
-  const [orders, setOrders] = useState<Order[]>([]);
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  const tenant = getTenantByDomain(host);
+  if (!tenant) return null;
 
-  useEffect(() => {
-    fetch('/api/market/orders')
-      .then((r) => r.json())
-      .then((d) => setOrders(d.orders ?? []));
-  }, []);
+  const supabase = await createClient(tenant.slug);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const [{ data: rows }, pendingOffers] = await Promise.all([
+    supabase
+      .from('market_orders')
+      .select(`
+        id, order_ref, status, amount_cents, shipping_cents, seller_payout_cents, created_at,
+        listing_id, buyer_id, seller_id, tracking_number,
+        market_listings(title, brand, model, market_listing_images(public_url, display_order))
+      `)
+      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+      .order('created_at', { ascending: false })
+      .limit(50),
+    pendingOfferCount(tenant.slug, user.id),
+  ]);
+
+  const orders: MarketOrderRow[] = (rows ?? []).map((row) => {
+    const listing = row.market_listings as {
+      title?: string;
+      brand?: string;
+      model?: string;
+      market_listing_images?: { public_url: string; display_order: number }[];
+    } | null;
+    const isBuyer = row.buyer_id === user.id;
+    return {
+      id: row.id as string,
+      order_ref: row.order_ref as string,
+      status: row.status as string,
+      amount_cents: row.amount_cents as number,
+      shipping_cents: (row.shipping_cents as number) ?? 0,
+      seller_payout_cents: (row.seller_payout_cents as number) ?? 0,
+      created_at: row.created_at as string,
+      listing_id: row.listing_id as string,
+      listing_title:
+        listing?.title || [listing?.brand, listing?.model].filter(Boolean).join(' ') || 'Listing',
+      listing_image_url: primaryListingImageUrl(listing?.market_listing_images ?? null),
+      is_buyer: isBuyer,
+      can_add_tracking: !isBuyer && row.status === 'paid',
+      can_confirm_delivery: isBuyer && row.status === 'shipped',
+    };
+  });
 
   return (
-    <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
-      <BackLink fallbackHref="/market" label="Back to Market" />
-      <h1 className="text-2xl font-bold">Market orders</h1>
-
-      {success ? (
-        <p className="text-sm text-green-600 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-          Payment received when Stripe confirms. Your session training cart was not changed.
-        </p>
-      ) : null}
-
-      {orders.length === 0 ? (
-        <p className="text-muted-foreground">No market orders yet.</p>
-      ) : (
-        <ul className="space-y-3">
-          {orders.map((o) => (
-            <li key={o.id} className="rounded-lg border border-zinc-800 p-4 space-y-2">
-              <p className="font-mono text-sm">{o.order_ref}</p>
-              <p className="text-sm font-medium">{o.listing_title}</p>
-              <p className="text-sm text-muted-foreground">
-                {o.status.replace(/_/g, ' ')} · ${((o.amount_cents + o.shipping_cents) / 100).toFixed(2)}
-              </p>
-              <div className="flex flex-wrap gap-3 text-sm">
-                <Link href={`/market/orders/${o.id}`} className="text-accent font-medium hover:underline">
-                  Order details
-                </Link>
-                <Link href={`/market/listing/${o.listing_id}`} className="text-accent hover:underline">
-                  View listing
-                </Link>
-                {o.is_buyer && o.can_review ? (
-                  <Link href={`/market/orders/${o.id}/review`} className="text-accent font-medium hover:underline">
-                    Rate seller
-                  </Link>
-                ) : null}
-                {o.review_rating ? (
-                  <span className="text-muted-foreground">You rated {o.review_rating}/5</span>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <Suspense fallback={<div className="p-4 text-muted-foreground">Loading…</div>}>
+      <MarketOrdersClient orders={orders} showSuccess={showSuccess} pendingOffers={pendingOffers} />
+    </Suspense>
   );
 }

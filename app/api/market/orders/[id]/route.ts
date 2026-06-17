@@ -92,8 +92,61 @@ export async function PATCH(
   const order = await getMarketOrderForUser(supabase, id, user!.id);
   if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
-  const body = (await req.json().catch(() => ({}))) as { action?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    action?: string;
+    status?: string;
+    tracking_number?: string;
+  };
   const role = orderRole(order, user!.id);
+
+  if (body.tracking_number && role === 'seller') {
+    if (order.status !== 'paid') {
+      return NextResponse.json({ error: 'Order is not ready for tracking' }, { status: 400 });
+    }
+    const tracking = body.tracking_number.trim();
+    if (!tracking) return NextResponse.json({ error: 'Tracking number required' }, { status: 400 });
+
+    const now = new Date().toISOString();
+    await admin
+      .from('market_orders')
+      .update({ status: 'shipped', tracking_number: tracking, shipped_at: now })
+      .eq('id', id);
+
+    await createNotification(admin, {
+      user_id: order.buyer_id as string,
+      type: 'market_order_shipped',
+      title: 'Your order has shipped',
+      body: `Tracking: ${tracking}`,
+      data: { order_id: id, link: `/market/orders/${id}` },
+    });
+
+    const updated = { ...order, status: 'shipped', tracking_number: tracking, shipped_at: now };
+    const labelSignedUrl = await signedLabelUrl(admin, order.shipping_label_storage_path as string | null);
+    return NextResponse.json({ order: serializeOrder(updated, 'seller', labelSignedUrl) });
+  }
+
+  if (body.status === 'completed' && role === 'buyer') {
+    if (order.status !== 'shipped') {
+      return NextResponse.json({ error: 'Order is not shipped yet' }, { status: 400 });
+    }
+    const now = new Date().toISOString();
+    await admin
+      .from('market_orders')
+      .update({ status: 'completed', delivered_at: now })
+      .eq('id', id);
+
+    await createNotification(admin, {
+      user_id: order.seller_id as string,
+      type: 'market_order_delivered',
+      title: 'Buyer confirmed delivery',
+      body: 'Order marked complete. Payout processes per Guild Market policy.',
+      data: { order_id: id },
+    });
+
+    const labelSignedUrl = await signedLabelUrl(admin, order.shipping_label_storage_path as string | null);
+    const updated = { ...order, status: 'completed', delivered_at: now };
+    return NextResponse.json({ order: serializeOrder(updated, 'buyer', labelSignedUrl) });
+  }
 
   if (body.action === 'received' && role === 'buyer') {
     if (order.status !== 'shipped') {

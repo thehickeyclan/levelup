@@ -2,24 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { createNotification } from '@/lib/notifications';
+import { marketOfferPostSchema } from '@/lib/market/offer-schemas';
 import { normalizePhone, sendSms } from '@/lib/twilio';
 
-function buyerLabel(firstName: string | null | undefined): string {
+function buyerFirstName(firstName: string | null | undefined): string {
   const n = firstName?.trim();
-  return n || 'A buyer';
-}
-
-const OFFER_TYPES = ['cash', 'trade', 'cash_and_trade'] as const;
-type OfferType = (typeof OFFER_TYPES)[number];
-
-function parseOfferType(raw: unknown): OfferType | null {
-  if (typeof raw !== 'string') return null;
-  const normalized = raw === 'cash_and_trade' ? 'cash_and_trade' : raw;
-  return OFFER_TYPES.includes(normalized as OfferType) ? (normalized as OfferType) : null;
-}
-
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return n || 'Someone';
 }
 
 /** GET — incoming offers (seller) or sent offers (buyer). POST — submit offer. */
@@ -78,7 +66,7 @@ export async function GET(req: NextRequest) {
       .select('id, first_name')
       .in('id', buyerIds);
     for (const b of buyers ?? []) {
-      buyerNames.set(b.id as string, buyerLabel(b.first_name as string));
+      buyerNames.set(b.id as string, buyerFirstName(b.first_name as string));
     }
   }
 
@@ -96,25 +84,24 @@ export async function POST(req: NextRequest) {
   const { supabase, tenant, user } = ctx;
   const admin = createAdminClient(tenant.slug);
 
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const rawBody = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const parsed = marketOfferPostSchema.safeParse({
+    listingId: rawBody.listingId ?? rawBody.listing_id,
+    offerType: rawBody.offerType ?? rawBody.offer_type,
+    amountCents:
+      rawBody.amountCents != null || rawBody.amount_cents != null
+        ? Math.round(Number(rawBody.amountCents ?? rawBody.amount_cents))
+        : undefined,
+    tradeListingId: rawBody.tradeListingId ?? rawBody.trade_listing_id ?? undefined,
+    message: typeof rawBody.message === 'string' ? rawBody.message.trim() : undefined,
+  });
 
-  const listingId = String(body.listingId ?? body.listing_id ?? '').trim();
-  if (!listingId || !isUuid(listingId)) {
-    return NextResponse.json({ error: 'listingId required' }, { status: 400 });
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? 'Invalid request';
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  const offerType = parseOfferType(body.offerType) ?? parseOfferType(body.offer_type);
-  if (!offerType) {
-    return NextResponse.json({ error: 'Invalid offer type' }, { status: 400 });
-  }
-
-  const rawAmount = body.amountCents ?? body.amount_cents;
-  const amountCents =
-    rawAmount != null && rawAmount !== '' ? Math.round(Number(rawAmount)) : null;
-
-  const tradeListingId = String(body.tradeListingId ?? body.trade_listing_id ?? '').trim() || null;
-  const messageRaw = typeof body.message === 'string' ? body.message.trim() : '';
-  const message = messageRaw ? messageRaw.slice(0, 200) : null;
+  const { listingId, offerType, amountCents, tradeListingId, message } = parsed.data;
 
   const { data: listing } = await supabase
     .from('market_listings')
@@ -129,25 +116,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Cannot offer on your own listing' }, { status: 403 });
   }
 
-  if (offerType === 'cash' || offerType === 'cash_and_trade') {
-    if (!amountCents || amountCents < 100) {
-      return NextResponse.json({ error: 'Enter a valid offer amount (minimum $1)' }, { status: 400 });
-    }
-  } else {
-    // trade-only: amount optional
-  }
-
   if (offerType === 'trade' || offerType === 'cash_and_trade') {
-    if (!tradeListingId || !isUuid(tradeListingId)) {
-      return NextResponse.json({ error: 'Select a listing to trade' }, { status: 400 });
-    }
     if (tradeListingId === listingId) {
       return NextResponse.json({ error: 'Cannot trade the same listing' }, { status: 400 });
     }
     const { data: tradeListing } = await supabase
       .from('market_listings')
       .select('id, seller_id, status')
-      .eq('id', tradeListingId)
+      .eq('id', tradeListingId!)
       .maybeSingle();
     if (!tradeListing || tradeListing.seller_id !== user!.id || tradeListing.status !== 'active') {
       return NextResponse.json({ error: 'Trade listing not available' }, { status: 403 });
@@ -170,12 +146,10 @@ export async function POST(req: NextRequest) {
   }
 
   const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
-  const listingLabel = [listing.brand, listing.model].filter(Boolean).join(' ') || listing.title;
 
-  const insertAmount =
-    offerType === 'trade' ? null : amountCents;
-  const insertTradeId =
-    offerType === 'cash' ? null : tradeListingId;
+  const insertAmount = offerType === 'trade' ? null : amountCents ?? null;
+  const insertTradeId = offerType === 'cash' ? null : tradeListingId ?? null;
+  const insertMessage = message?.trim() ? message.trim().slice(0, 200) : null;
 
   const { data, error } = await admin
     .from('market_offers')
@@ -186,7 +160,7 @@ export async function POST(req: NextRequest) {
       offer_type: offerType,
       amount_cents: insertAmount,
       trade_listing_id: insertTradeId,
-      message,
+      message: insertMessage,
       expires_at: expiresAt,
     })
     .select('id')
@@ -199,20 +173,17 @@ export async function POST(req: NextRequest) {
     admin.from('users').select('phone, first_name').eq('id', listing.seller_id).maybeSingle(),
   ]);
 
-  const buyerName = buyerLabel(buyerRow?.first_name as string | null);
-  const offerSummary =
-    offerType === 'cash' && amountCents
-      ? `${buyerName} offered $${(amountCents / 100).toFixed(0)} on ${listingLabel}`
-      : offerType === 'trade'
-        ? `${buyerName} sent a trade offer on ${listingLabel}`
-        : `${buyerName} sent a cash + trade offer on ${listingLabel}`;
+  const buyerName = buyerFirstName(buyerRow?.first_name as string | null);
+  const listingTitle = (listing.title as string) || 'listing';
 
   await createNotification(admin, {
     user_id: listing.seller_id,
     type: 'market_vault_offer',
-    title: offerType === 'trade' ? 'New trade offer' : 'New offer on your listing',
-    body: offerSummary,
+    title: 'New offer on your listing',
+    body: `${buyerName} made an offer on ${listingTitle}`,
     data: {
+      listingId,
+      offerId: data.id,
       listing_id: listingId,
       offer_id: data.id,
       link: '/market/offers',
@@ -223,7 +194,7 @@ export async function POST(req: NextRequest) {
   if (sellerPhone) {
     void sendSms(
       sellerPhone,
-      `The Guild: New offer on your ${listingLabel} in Guild Market. Open the app to review.`,
+      `New offer on your ${listingTitle} in Guild Market. Open the app to review.`,
       {
         admin,
         messageType: 'market_vault_offer',

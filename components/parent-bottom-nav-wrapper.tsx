@@ -25,6 +25,7 @@ const COACH_ROUTES = [
   '/inbox',
   '/messages',
   '/workspaces',
+  '/market',
 ];
 
 const YOUTH_WRESTLER_ROUTES = [
@@ -35,6 +36,7 @@ const YOUTH_WRESTLER_ROUTES = [
   '/small-group-sessions',
   '/browse',
   '/notifications',
+  '/market',
 ];
 
 function isCoachRoute(pathname: string | null): boolean {

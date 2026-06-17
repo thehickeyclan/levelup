@@ -20,6 +20,7 @@ const PARENT_ROUTES = [
   '/cart',
   '/wallet',
   '/checkout',
+  '/market',
 ];
 
 export function isParentRoute(pathname: string | null): boolean {

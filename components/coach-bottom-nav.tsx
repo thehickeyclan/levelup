@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, CirclePlus, DollarSign, LayoutDashboard, User } from 'lucide-react';
+import { Calendar, CirclePlus, Tag, DollarSign, LayoutDashboard, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCoachPendingRequestsCount } from '@/lib/hooks/use-coach-pending-requests-count';
 
@@ -23,6 +23,12 @@ const ITEMS: readonly {
     label: 'Create',
     icon: CirclePlus,
     match: (p) => p === '/coach-sessions/create' || p.startsWith('/coach-sessions/create/'),
+  },
+  {
+    href: '/market',
+    label: 'Market',
+    icon: Tag,
+    match: (p) => p === '/market' || p.startsWith('/market/'),
   },
   {
     href: '/coach-earnings',

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
 import { getSellerProfile } from '@/lib/market/seller';
 import { fetchMarketSellerStats } from '@/lib/market/seller-reputation';
+import { notifySellerDropFollowers } from '@/lib/market/notify-seller-drop';
 
 export async function GET(
   _req: NextRequest,
@@ -79,12 +80,12 @@ export async function PATCH(
 ) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, user } = ctx;
+  const { supabase, tenant, user } = ctx;
   const { id } = await params;
 
   const { data: existing } = await supabase
     .from('market_listings')
-    .select('seller_id, status')
+    .select('seller_id, status, listing_type, title, brand, model')
     .eq('id', id)
     .single();
 
@@ -120,6 +121,24 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const prevType = existing.listing_type as string;
+  const nextType = updates.listing_type as string | undefined;
+  if (
+    prevType === 'collection' &&
+    nextType &&
+    (nextType === 'vault' || nextType === 'sell') &&
+    data
+  ) {
+    void notifySellerDropFollowers(tenant.slug, existing.seller_id as string, {
+      id: data.id as string,
+      title: data.title as string,
+      brand: data.brand as string,
+      model: data.model as string,
+      listing_type: nextType,
+    });
+  }
+
   return NextResponse.json({ listing: data });
 }
 

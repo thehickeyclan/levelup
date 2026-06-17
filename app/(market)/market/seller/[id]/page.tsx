@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Star } from 'lucide-react';
@@ -11,6 +11,7 @@ import type { MarketSellerReview, MarketSellerStats, MarketSoldHistoryItem } fro
 import { formatPositiveFeedback, formatSalesCount, sellerTrustLabel } from '@/lib/market/seller-reputation';
 import type { SellerProfile } from '@/lib/market/seller';
 import type { SellerInventoryItem } from '@/lib/market/seller-inventory';
+import type { CollectionValuation } from '@/lib/market/collection-valuation';
 import { cn } from '@/lib/utils';
 
 function formatDate(iso: string): string {
@@ -58,19 +59,62 @@ export default function SellerProfilePage() {
   const params = useParams();
   const sellerId = params.id as string;
   const [tab, setTab] = useState<TabId>('for_sale');
+  const [following, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
   const [data, setData] = useState<{
     seller: SellerProfile;
     stats: MarketSellerStats;
     soldHistory: MarketSoldHistoryItem[];
     reviews: MarketSellerReview[];
     inventory: { forSale: SellerInventoryItem[]; trading: SellerInventoryItem[]; collection: SellerInventoryItem[] };
+    followerCount: number;
+    following: boolean;
+    viewer: { isOwnProfile: boolean };
+    collectionValuation: CollectionValuation | null;
   } | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     fetch(`/api/market/sellers/${sellerId}`)
       .then((r) => r.json())
-      .then(setData);
+      .then((d) => {
+        setData(d);
+        setFollowing(Boolean(d.following));
+      });
   }, [sellerId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const toggleFollow = async () => {
+    if (!data || data.viewer.isOwnProfile) return;
+    setFollowBusy(true);
+    const wasFollowing = following;
+    setFollowing(!wasFollowing);
+    try {
+      const res = await fetch(`/api/market/sellers/${sellerId}/follow`, {
+        method: wasFollowing ? 'DELETE' : 'POST',
+      });
+      if (!res.ok) {
+        setFollowing(wasFollowing);
+        const d = await res.json();
+        throw new Error(d.error || 'Failed');
+      }
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              followerCount: Math.max(0, prev.followerCount + (wasFollowing ? -1 : 1)),
+              following: !wasFollowing,
+            }
+          : prev
+      );
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   if (!data?.seller) {
     return (
@@ -81,7 +125,7 @@ export default function SellerProfilePage() {
     );
   }
 
-  const { seller, stats, soldHistory, reviews, inventory } = data;
+  const { seller, stats, soldHistory, reviews, inventory, followerCount, viewer, collectionValuation } = data;
   const positive = formatPositiveFeedback(stats.positivePercent, stats.reviewCount);
 
   const tabItems: { id: TabId; label: string; count: number }[] = [
@@ -100,20 +144,33 @@ export default function SellerProfilePage() {
           <p className="text-sm text-muted-foreground">Guild member since {formatDate(stats.memberSince)}</p>
         ) : null}
         <p className="text-sm">{sellerTrustLabel(stats)}</p>
+        {followerCount > 0 ? (
+          <p className="text-sm text-[#888]">
+            {followerCount} follower{followerCount !== 1 ? 's' : ''}
+          </p>
+        ) : null}
         {stats.reviewCount > 0 ? (
           <StarRating averageRating={stats.averageRating} reviewCount={stats.reviewCount} />
         ) : null}
         {positive ? (
           <p className="text-sm text-accent font-medium">{positive} feedback</p>
         ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          disabled
-          className="w-full rounded-full border-[#333] text-[#555] opacity-60 cursor-not-allowed"
-        >
-          Follow · Updates coming soon
-        </Button>
+        {!viewer.isOwnProfile ? (
+          <Button
+            type="button"
+            variant={following ? 'default' : 'outline'}
+            disabled={followBusy}
+            onClick={() => void toggleFollow()}
+            className={cn(
+              'w-full rounded-full font-semibold',
+              following
+                ? 'bg-[#C9A265] text-black hover:bg-[#C9A265]/90'
+                : 'border-[#333] text-white hover:border-[#555]'
+            )}
+          >
+            {following ? 'Following' : 'Follow'}
+          </Button>
+        ) : null}
       </div>
 
       <section className="space-y-3">
@@ -140,6 +197,23 @@ export default function SellerProfilePage() {
             <p className="text-xs text-[#555]">
               {inventory.collection.length} pair{inventory.collection.length !== 1 ? 's' : ''} in collection
             </p>
+            {viewer.isOwnProfile && collectionValuation ? (
+              <div className="rounded-xl border border-[#222] bg-[#1a1a1a] px-4 py-3">
+                <p className="text-sm text-[#888]">Estimated collection value</p>
+                <p className="text-2xl font-bold text-[#C9A265] mt-1">
+                  ${(collectionValuation.total_cents / 100).toLocaleString()}
+                </p>
+                <p className="text-[11px] text-[#555] mt-1">
+                  Based on Guild Market comps
+                  {collectionValuation.pairs_with_estimates < collectionValuation.collection_count
+                    ? ` · ${collectionValuation.pairs_with_estimates} of ${collectionValuation.collection_count} pairs estimated`
+                    : ''}
+                  {collectionValuation.updated_at
+                    ? ` · Updated ${formatDate(collectionValuation.updated_at)}`
+                    : ''}
+                </p>
+              </div>
+            ) : null}
             <InventoryGrid items={inventory.collection} compact />
           </div>
         ) : null}

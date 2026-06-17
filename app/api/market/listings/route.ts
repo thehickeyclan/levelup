@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from('market_listings')
     .select(`
-      id, title, brand, model, size, condition, price_cents, shipping_cents,
+      id, title, brand, model, size, condition, wear_state, price_cents, shipping_cents,
       listing_type, status, open_to_trade, created_at, seller_id,
       market_listing_images(id, public_url, display_order),
       market_ai_analysis(condition_score, analyzed_at)
@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
     open_to_boot?: boolean;
     description?: string;
     weight_class?: string;
+    model_year?: number | null;
+    wear_state?: string;
   };
 
   const isDraft = body.draft === true || !body.brand;
@@ -85,6 +87,8 @@ export async function POST(req: NextRequest) {
     open_to_boot: body.open_to_boot ?? false,
     description: body.description?.trim() || null,
     weight_class: body.weight_class || null,
+    model_year: body.model_year ?? null,
+    wear_state: body.wear_state === 'bnib' || body.wear_state === 'new_no_box' ? body.wear_state : 'used',
   };
 
   if (!BRANDS.includes(row.brand)) row.brand = 'Other';

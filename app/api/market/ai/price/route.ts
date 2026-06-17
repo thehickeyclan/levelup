@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { checkAndIncrementAiUsage } from '@/lib/market/ai/rate-limit';
-import { callClaude, extractJsonFromClaude } from '@/lib/market/ai/client';
+import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
 import { PRICE_SYSTEM_PROMPT } from '@/lib/market/ai/prompts';
-import { PriceAnalysisSchema } from '@/lib/market/ai/schemas';
-import { ANTHROPIC_MODEL } from '@/lib/market/ai/client';
+import { PriceAnalysisSchema, type PriceAnalysis } from '@/lib/market/ai/schemas';
+import { wearStateLabel } from '@/lib/market/wear-state';
+import { applyUsedWrestlePriceFloor } from '@/lib/market/price-heuristics';
 
 export async function GET(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -57,19 +58,46 @@ export async function POST(req: NextRequest) {
   const { supabase, tenant, user } = ctx;
   const admin = createAdminClient(tenant.slug);
 
-  const body = (await req.json().catch(() => ({}))) as { listingId?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    listingId?: string;
+    brand?: string;
+    model?: string;
+    size?: number;
+    condition?: string;
+    listing_type?: string;
+    description?: string;
+    model_year?: number | null;
+    wear_state?: string;
+  };
+
   const listingId = body.listingId?.trim();
   if (!listingId) return NextResponse.json({ error: 'listingId required' }, { status: 400 });
 
   const { data: listing } = await supabase
     .from('market_listings')
-    .select('seller_id, brand, model, size, condition')
+    .select('seller_id, brand, model, size, condition, listing_type, description, model_year, title, wear_state')
     .eq('id', listingId)
     .single();
 
   if (!listing || listing.seller_id !== user!.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  // Prefer latest form values sent from client (draft may not be saved yet)
+  const brand = body.brand?.trim() || listing.brand;
+  const model = body.model?.trim() || listing.model;
+  const size = body.size ?? listing.size;
+  const condition = body.condition || listing.condition;
+  const listingType = body.listing_type || listing.listing_type;
+  const description = body.description?.trim() ?? listing.description ?? '';
+  const modelYear = body.model_year ?? listing.model_year;
+  const wearState = body.wear_state || listing.wear_state || 'used';
+
+  const { data: aiRow } = await admin
+    .from('market_ai_analysis')
+    .select('condition_score, cosmetic_score, condition_grade_suggested, condition_summary, cosmetic_summary')
+    .eq('listing_id', listingId)
+    .maybeSingle();
 
   const usage = await checkAndIncrementAiUsage(admin, user!.id);
   if (!usage.allowed) {
@@ -79,8 +107,8 @@ export async function POST(req: NextRequest) {
   const { data: similarListings } = await admin
     .from('market_listings')
     .select('id')
-    .eq('brand', listing.brand)
-    .ilike('model', `%${listing.model}%`);
+    .eq('brand', brand)
+    .ilike('model', `%${model}%`);
 
   const similarIds = (similarListings ?? []).map((l) => l.id);
   let internalComps: { source: 'guild'; price_cents: number; label: string; date?: string }[] = [];
@@ -102,10 +130,11 @@ export async function POST(req: NextRequest) {
     }));
   }
 
+  const ebayQuery = [brand, model, modelYear ? String(modelYear) : ''].filter(Boolean).join(' ');
   let ebayComps: { source: 'ebay'; price_cents: number; label: string }[] = [];
   try {
     const ebayRes = await fetch(
-      `${req.nextUrl.origin}/api/market/ai/ebay-comps?q=${encodeURIComponent(`${listing.brand} ${listing.model}`)}&size=${listing.size}`,
+      `${req.nextUrl.origin}/api/market/ai/ebay-comps?q=${encodeURIComponent(ebayQuery)}&size=${size}`,
       { headers: { cookie: req.headers.get('cookie') || '' } }
     );
     const ebayData = await ebayRes.json();
@@ -117,18 +146,44 @@ export async function POST(req: NextRequest) {
   const allComps = [...internalComps, ...ebayComps];
   const compSummary = allComps.map((c) => `${c.source}: $${(c.price_cents / 100).toFixed(0)}`).join(', ');
 
+  const aiBits: string[] = [];
+  if (aiRow?.condition_score != null) {
+    aiBits.push(`AI wrestle-ready: ${aiRow.condition_score}/10`);
+  }
+  if (aiRow?.cosmetic_score != null) {
+    aiBits.push(`AI appearance: ${aiRow.cosmetic_score}/10`);
+  }
+  if (aiRow?.condition_grade_suggested) {
+    aiBits.push(`AI suggested grade: ${aiRow.condition_grade_suggested}`);
+  }
+
   const claude = await callClaude(
     PRICE_SYSTEM_PROMPT,
     [{
       type: 'text',
-      text: `Brand: ${listing.brand}, Model: ${listing.model}, Size: ${listing.size}, Condition: ${listing.condition}. Internal comps (${internalComps.length}): ${compSummary || 'none'}. eBay comps: ${ebayComps.length}.`,
+      text: [
+        `Brand: ${brand}`,
+        `Model: ${model}`,
+        `Size: ${size}`,
+        `Model year: ${modelYear ?? 'unknown'}`,
+        `Wear state: ${wearStateLabel(wearState as 'bnib' | 'new_no_box' | 'used')}`,
+        `Condition grade: ${condition}`,
+        `Listing type: ${listingType}`,
+        aiBits.length ? aiBits.join('. ') : 'No AI condition analysis yet.',
+        wearState === 'used' && aiRow?.condition_score != null
+          ? 'Pricing instruction: weight wrestle-ready score heavily; appearance is secondary for Guild buyers.'
+          : '',
+        description ? `Description: ${description.slice(0, 400)}` : 'No description.',
+        `Internal comps (${internalComps.length}): ${compSummary || 'none'}.`,
+        `eBay comps: ${ebayComps.length}.`,
+      ].join('\n'),
     }]
   );
 
-  let priceAnalysis = null;
-  if (claude?.text) {
+  let priceAnalysis: PriceAnalysis | null = null;
+  if (claude.ok) {
     try {
-      priceAnalysis = PriceAnalysisSchema.parse(JSON.parse(extractJsonFromClaude(claude.text)));
+      priceAnalysis = PriceAnalysisSchema.parse(JSON.parse(extractJsonFromClaude(claude.result.text)));
     } catch (e) {
       console.error('price parse:', e);
     }
@@ -140,7 +195,7 @@ export async function POST(req: NextRequest) {
       suggested_low_cents: Math.round(fallbackMid * 0.85),
       suggested_mid_cents: fallbackMid,
       suggested_high_cents: Math.round(fallbackMid * 1.15),
-      confidence: internalComps.length >= 3 ? 'medium' : 'low' as const,
+      confidence: internalComps.length >= 3 ? 'medium' : 'low',
       confidence_note: internalComps.length < 3
         ? 'Limited Guild sales — estimate based on external data.'
         : 'Based on recent Guild sales.',
@@ -149,23 +204,34 @@ export async function POST(req: NextRequest) {
     };
   }
 
-  if (internalComps.length < 3 && priceAnalysis.confidence === 'high') {
-    priceAnalysis.confidence = 'low';
-    priceAnalysis.confidence_note = 'Limited Guild comps — treat as estimate.';
-  }
+  let finalPrice: PriceAnalysis =
+    internalComps.length < 3 && priceAnalysis.confidence === 'high'
+      ? {
+          ...priceAnalysis,
+          confidence: 'low',
+          confidence_note: 'Limited Guild comps — treat as estimate.',
+        }
+      : priceAnalysis;
+
+  finalPrice = applyUsedWrestlePriceFloor(finalPrice, {
+    wearState,
+    wrestleScore: aiRow?.condition_score != null ? Number(aiRow.condition_score) : null,
+    hasComps: allComps.length > 0,
+    brand,
+  });
 
   await admin.from('market_ai_analysis').upsert({
     listing_id: listingId,
-    price_suggested_low_cents: priceAnalysis.suggested_low_cents,
-    price_suggested_mid_cents: priceAnalysis.suggested_mid_cents,
-    price_suggested_high_cents: priceAnalysis.suggested_high_cents,
-    price_confidence: priceAnalysis.confidence,
-    price_confidence_note: priceAnalysis.confidence_note,
-    price_comps: priceAnalysis.comps,
-    price_market_note: priceAnalysis.market_note,
+    price_suggested_low_cents: finalPrice.suggested_low_cents,
+    price_suggested_mid_cents: finalPrice.suggested_mid_cents,
+    price_suggested_high_cents: finalPrice.suggested_high_cents,
+    price_confidence: finalPrice.confidence,
+    price_confidence_note: finalPrice.confidence_note,
+    price_comps: finalPrice.comps,
+    price_market_note: finalPrice.market_note,
     model_used: ANTHROPIC_MODEL,
     analyzed_at: new Date().toISOString(),
   }, { onConflict: 'listing_id' });
 
-  return NextResponse.json({ price: priceAnalysis, remaining: usage.remaining });
+  return NextResponse.json({ price: finalPrice, remaining: usage.remaining });
 }

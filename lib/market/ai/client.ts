@@ -1,8 +1,13 @@
-const ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
+const ANTHROPIC_MODEL =
+  process.env.ANTHROPIC_MODEL?.trim() || 'claude-sonnet-4-6';
 
-type ClaudeMessageContent =
+type ClaudeImageSource =
+  | { type: 'url'; url: string }
+  | { type: 'base64'; media_type: string; data: string };
+
+export type ClaudeMessageContent =
   | { type: 'text'; text: string }
-  | { type: 'image'; source: { type: 'url'; url: string } };
+  | { type: 'image'; source: ClaudeImageSource };
 
 export type ClaudeCallResult = {
   text: string;
@@ -10,13 +15,19 @@ export type ClaudeCallResult = {
   tokensOut?: number;
 };
 
+export type ClaudeCallOutcome =
+  | { ok: true; result: ClaudeCallResult }
+  | { ok: false; reason: 'missing_key' | 'api_error' | 'empty_response'; detail?: string };
+
 export async function callClaude(
   system: string,
   userContent: ClaudeMessageContent[],
   maxTokens = 1024
-): Promise<ClaudeCallResult | null> {
+): Promise<ClaudeCallOutcome> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey) return null;
+  if (!apiKey) {
+    return { ok: false, reason: 'missing_key' };
+  }
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -36,7 +47,7 @@ export async function callClaude(
   if (!res.ok) {
     const errText = await res.text();
     console.error('Anthropic API error:', res.status, errText);
-    return null;
+    return { ok: false, reason: 'api_error', detail: `${res.status}` };
   }
 
   const data = (await res.json()) as {
@@ -45,10 +56,17 @@ export async function callClaude(
   };
 
   const text = data.content?.find((c) => c.type === 'text')?.text ?? '';
+  if (!text.trim()) {
+    return { ok: false, reason: 'empty_response' };
+  }
+
   return {
-    text,
-    tokensIn: data.usage?.input_tokens,
-    tokensOut: data.usage?.output_tokens,
+    ok: true,
+    result: {
+      text,
+      tokensIn: data.usage?.input_tokens,
+      tokensOut: data.usage?.output_tokens,
+    },
   };
 }
 

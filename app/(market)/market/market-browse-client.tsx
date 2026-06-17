@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AI_DISCLAIMER } from '@/lib/market/ai/prompts';
 
+import { listingConditionDisplay } from '@/lib/market/wear-state';
+
 type ListingRow = {
   id: string;
   title: string;
@@ -12,6 +14,7 @@ type ListingRow = {
   model: string;
   size: number;
   condition: string;
+  wear_state?: 'bnib' | 'new_no_box' | 'used';
   price_cents: number | null;
   shipping_cents: number;
   listing_type: string;
@@ -78,7 +81,10 @@ export function MarketBrowseClient() {
                 </div>
                 <div className="p-3 space-y-1">
                   <p className="text-sm font-medium line-clamp-2">{l.title}</p>
-                  <p className="text-xs text-zinc-400">{l.brand} · Size {l.size}</p>
+                  <p className="text-xs text-zinc-400">
+                    {l.brand} · Size {l.size}
+                    {l.wear_state ? ` · ${listingConditionDisplay(l.wear_state, l.condition)}` : ''}
+                  </p>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-accent">
                       {l.price_cents != null ? `$${(l.price_cents / 100).toFixed(0)}` : 'Offers'}

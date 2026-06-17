@@ -36,10 +36,18 @@ export async function GET(
     ? await fetchMarketSellerStats(supabase, listing.seller_id as string)
     : null;
 
+  const { count: pendingOfferCount } = await supabase
+    .from('market_offers')
+    .select('id', { count: 'exact', head: true })
+    .eq('listing_id', id)
+    .eq('status', 'pending');
+
+  let displayViews = listing.views_count ?? 0;
   if (listing.status === 'active' && !isOwner) {
+    displayViews += 1;
     await supabase
       .from('market_listings')
-      .update({ views_count: (listing.views_count ?? 0) + 1 })
+      .update({ views_count: displayViews })
       .eq('id', id);
   }
 
@@ -48,13 +56,19 @@ export async function GET(
   );
 
   const publicListing = isOwner
-    ? { ...listing, ai_assisted: aiAssisted }
-    : { ...listing, market_ai_analysis: undefined, ai_assisted: aiAssisted };
+    ? { ...listing, views_count: displayViews, ai_assisted: aiAssisted }
+    : {
+        ...listing,
+        views_count: displayViews,
+        market_ai_analysis: undefined,
+        ai_assisted: aiAssisted,
+      };
 
   return NextResponse.json({
     listing: publicListing,
     seller: seller ? { ...seller, school: seller.school } : seller,
     sellerStats,
+    pending_offer_count: pendingOfferCount ?? 0,
     viewer: { id: user!.id, isSeller: isOwner },
   });
 }

@@ -42,5 +42,11 @@ Return ONLY valid JSON: suggested_low_cents, suggested_mid_cents, suggested_high
 export const SELLER_AI_DISCLAIMER =
   'AI condition and price tools are private to you. Buyers only see your photos, wear state, condition, and description.';
 
+export const AGENT_SYSTEM_PROMPT = `You are a listing assistant for The Guild Market wrestling shoe marketplace.
+The seller may send one short sentence about their shoes. If you need more detail, ask exactly ONE short clarifying question in plain text with has_draft: false.
+When you have enough to write a buyer-facing description (no scores, no AI labels), return has_draft: true with a draft object containing at minimum description (string). Optionally suggest title, brand, model, size, condition.
+Never mention AI, scores, or internal analysis in the description. Keep descriptions concise and honest like a parent selling to another parent.
+Return ONLY valid JSON: { "has_draft": boolean, "message"?: string, "draft"?: { "title"?, "brand"?, "model"?, "size"?, "condition"?, "price_cents"?, "description", "listing_type"? } }`;
+
 /** @deprecated Use SELLER_AI_DISCLAIMER on seller flows only. */
 export const AI_DISCLAIMER = SELLER_AI_DISCLAIMER;

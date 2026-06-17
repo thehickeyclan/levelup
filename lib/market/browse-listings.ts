@@ -17,6 +17,8 @@ export type MarketBrowseListing = {
   primary_image_url: string | null;
   seller_name: string;
   created_at: string;
+  views_count: number;
+  pending_offer_count: number;
 };
 
 type ListingRow = {
@@ -32,6 +34,7 @@ type ListingRow = {
   open_to_trade: boolean;
   seller_id: string;
   created_at: string;
+  views_count: number;
   market_listing_images: { public_url: string; display_order: number }[] | null;
   market_ai_analysis: { analyzed_at?: string } | { analyzed_at?: string }[] | null;
 };
@@ -45,7 +48,7 @@ export async function fetchMarketBrowseListings(
     .from('market_listings')
     .select(`
       id, title, brand, model, size, condition, wear_state, price_cents,
-      listing_type, open_to_trade, seller_id, created_at,
+      listing_type, open_to_trade, seller_id, created_at, views_count,
       market_listing_images(public_url, display_order),
       market_ai_analysis(analyzed_at)
     `)
@@ -60,8 +63,22 @@ export async function fetchMarketBrowseListings(
   }
 
   const rows = (data ?? []) as ListingRow[];
+  const listingIds = rows.map((r) => r.id);
   const sellerIds = [...new Set(rows.map((r) => r.seller_id))];
   const sellerNames = new Map<string, string>();
+  const offerCounts = new Map<string, number>();
+
+  if (listingIds.length) {
+    const { data: offers } = await supabase
+      .from('market_offers')
+      .select('listing_id')
+      .in('listing_id', listingIds)
+      .eq('status', 'pending');
+    for (const o of offers ?? []) {
+      const lid = o.listing_id as string;
+      offerCounts.set(lid, (offerCounts.get(lid) ?? 0) + 1);
+    }
+  }
 
   if (sellerIds.length) {
     const { data: users } = await supabase
@@ -94,6 +111,8 @@ export async function fetchMarketBrowseListings(
       primary_image_url: primaryListingImageUrl(row.market_listing_images),
       seller_name: sellerNames.get(row.seller_id) ?? 'Guild member',
       created_at: row.created_at,
+      views_count: row.views_count ?? 0,
+      pending_offer_count: offerCounts.get(row.id) ?? 0,
     };
   });
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Lock, Send, ShoppingCart, Sparkles } from 'lucide-react';
+import { Eye, Flame, Lock, Send, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BackLink } from '@/components/back-link';
 import { ListingSellerCard } from '@/components/market/listing-seller-card';
@@ -22,6 +22,7 @@ export default function ListingDetailPage() {
     listing: Record<string, unknown>;
     seller: { id: string; displayName: string; school?: string | null };
     sellerStats: MarketSellerStats | null;
+    pending_offer_count: number;
   } | null>(null);
   const [activeImage, setActiveImage] = useState(0);
 
@@ -36,7 +37,7 @@ export default function ListingDetailPage() {
 
   if (!data?.listing) {
     return (
-      <div className="px-4 py-8 max-w-4xl mx-auto">
+      <div className="px-4 py-8 max-w-4xl mx-auto bg-black min-h-screen">
         <BackLink fallbackHref="/market" label="Back" />
         <p className="mt-4 text-muted-foreground">Loading…</p>
       </div>
@@ -56,6 +57,8 @@ export default function ListingDetailPage() {
   const aiAssisted = Boolean(l.ai_assisted);
   const wearState = (l.wear_state as 'bnib' | 'new_no_box' | 'used') || 'used';
   const conditionLabel = listingConditionDisplay(wearState, l.condition as string);
+  const viewsCount = (l.views_count as number) ?? 0;
+  const offerCount = data.pending_offer_count ?? 0;
 
   const stats: MarketSellerStats = data.sellerStats ?? {
     salesCount: 0,
@@ -77,13 +80,21 @@ export default function ListingDetailPage() {
   const showVaultOfferCtAs = isActive && !isTradeOnly && (isVault || priceCents == null);
   const showBuyCta = isActive && !isVault && !isTradeOnly && priceCents != null;
 
+  const askingLabel =
+    isVault || priceCents == null
+      ? 'Offer basis'
+      : 'Asking';
+
+  const askingValue =
+    priceCents != null ? `$${(priceCents / 100).toFixed(0)}` : 'Offers';
+
   const ctaBlock = (
     <>
       {showTradeOnlyCta ? (
         <div className="space-y-2">
           <Button
             asChild
-            className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full"
+            className="w-full min-h-[52px] bg-[#C9A265] text-black font-semibold rounded-full text-base hover:bg-[#C9A265]/90"
           >
             <Link href={`/market/listing/${id}/offer?trade=1`} className="flex items-center justify-center gap-2">
               <Send className="h-4 w-4" />
@@ -96,7 +107,7 @@ export default function ListingDetailPage() {
         <div className="space-y-2">
           <Button
             asChild
-            className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full"
+            className="w-full min-h-[52px] bg-[#C9A265] text-black font-semibold rounded-full text-base hover:bg-[#C9A265]/90"
           >
             <Link href={`/market/listing/${id}/offer`} className="flex items-center justify-center gap-2">
               <Send className="h-4 w-4" />
@@ -106,9 +117,9 @@ export default function ListingDetailPage() {
           <Button
             asChild
             variant="outline"
-            className="w-full rounded-full border-zinc-700 text-zinc-400"
+            className="w-full rounded-full border-[#333] text-[#888] hover:text-white hover:border-[#555]"
           >
-            <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
+            <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade instead</Link>
           </Button>
         </div>
       ) : null}
@@ -116,7 +127,7 @@ export default function ListingDetailPage() {
         <div className="space-y-2">
           <Button
             asChild
-            className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full"
+            className="w-full min-h-[52px] bg-[#C9A265] text-black font-semibold rounded-full text-base hover:bg-[#C9A265]/90"
           >
             <Link href={`/market/listing/${id}/checkout`} className="flex items-center justify-center gap-2">
               <ShoppingCart className="h-4 w-4" />
@@ -124,8 +135,12 @@ export default function ListingDetailPage() {
             </Link>
           </Button>
           {openToTrade ? (
-            <Button asChild variant="outline" className="w-full rounded-full border-zinc-700 text-zinc-400">
-              <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
+            <Button
+              asChild
+              variant="outline"
+              className="w-full rounded-full border-[#333] text-[#888] hover:text-white hover:border-[#555]"
+            >
+              <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade instead</Link>
             </Button>
           ) : null}
         </div>
@@ -134,20 +149,20 @@ export default function ListingDetailPage() {
   );
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 bg-[#0a0a0a]">
       <div className="px-4 pt-6 max-w-4xl mx-auto">
-        <BackLink fallbackHref="/market" label="Back to Market" />
+        <BackLink fallbackHref="/market" label="Market" />
 
         {offerSent ? (
-          <p className="mt-4 text-sm text-accent bg-accent/10 border border-accent/30 rounded-lg p-3">
+          <p className="mt-4 text-sm text-[#C9A265] bg-[#C9A265]/10 border border-[#C9A265]/30 rounded-xl p-3">
             Offer sent — seller has been notified.
           </p>
         ) : null}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 mt-4 md:mt-6">
-          {/* Photos */}
-          <div className="space-y-3">
-            <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden aspect-square">
+          {/* Hero photo */}
+          <div className="space-y-0 -mx-4 md:mx-0">
+            <div className="relative w-full aspect-[4/3] md:aspect-square overflow-hidden md:rounded-2xl bg-[#111]">
               {images[activeImage]?.public_url ? (
                 <img
                   src={images[activeImage].public_url}
@@ -155,44 +170,55 @@ export default function ListingDetailPage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-zinc-400 text-sm">
+                <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm">
                   No photo
                 </div>
               )}
+              <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#0a0a0a] to-transparent pointer-events-none" />
+              {images.length > 1 ? (
+                <div className="absolute inset-x-0 bottom-3 flex gap-2 overflow-x-auto px-4 pb-1">
+                  {images.map((img, i) => (
+                    <button
+                      key={img.public_url + i}
+                      type="button"
+                      onClick={() => setActiveImage(i)}
+                      className={cn(
+                        'shrink-0 w-14 h-14 rounded-lg border overflow-hidden bg-[#1a1a1a]',
+                        i === activeImage ? 'border-[#C9A265] ring-1 ring-[#C9A265]' : 'border-[#333] opacity-80'
+                      )}
+                    >
+                      <img src={img.public_url} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
-            {images.length > 1 ? (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {images.map((img, i) => (
-                  <button
-                    key={img.public_url + i}
-                    type="button"
-                    onClick={() => setActiveImage(i)}
-                    className={cn(
-                      'shrink-0 w-16 h-16 rounded-lg border overflow-hidden bg-[#1a1a1a]',
-                      i === activeImage ? 'border-accent ring-1 ring-accent' : 'border-zinc-800'
-                    )}
-                  >
-                    <img src={img.public_url} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            ) : null}
           </div>
 
           {/* Info + CTAs */}
           <div className="space-y-4 md:space-y-5">
             <div>
-              <span className="inline-block text-xs font-medium border border-accent/50 text-accent rounded-full px-3 py-1 mb-3">
+              <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#C9A265] mb-2">
                 {l.brand as string}
-              </span>
-              <h1 className="text-2xl md:text-3xl font-bold leading-tight">{displayTitle}</h1>
+              </p>
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="text-3xl font-medium tracking-tight text-white leading-tight">
+                  {displayTitle}
+                </h1>
+                {viewsCount > 0 ? (
+                  <span className="shrink-0 flex items-center gap-1 text-xs text-[#555] pt-1">
+                    <Eye className="h-3.5 w-3.5 text-[#C9A265]" />
+                    {viewsCount} watching
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
               {specChips.map((chip) => (
                 <span
                   key={chip}
-                  className="bg-zinc-900 border border-zinc-800 rounded-full px-3 py-1 text-xs text-zinc-400"
+                  className="bg-[#1a1a1a] border border-[#333] rounded-full px-3 py-1 text-xs text-[#888]"
                 >
                   {chip}
                 </span>
@@ -200,36 +226,56 @@ export default function ListingDetailPage() {
             </div>
 
             {aiAssisted ? (
-              <p className="inline-flex items-center gap-1.5 text-xs text-zinc-500 border border-zinc-800 rounded-full px-3 py-1">
-                <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <p className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500">
+                <Sparkles className="h-3 w-3 text-[#C9A265]" />
                 AI-assisted listing
               </p>
             ) : null}
 
-            {isVault ? (
-              <div className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 flex gap-3">
-                <Lock className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">In the vault</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Not actively for sale — owner will consider offers.
-                  </p>
-                </div>
-              </div>
-            ) : priceCents != null ? (
-              <div>
-                <p className="text-3xl font-bold text-accent">
-                  ${(priceCents / 100).toFixed(0)}
-                  {shippingCents > 0 ? (
-                    <span className="text-base font-normal text-muted-foreground">
-                      {' '}+ ${(shippingCents / 100).toFixed(2)} shipping
-                    </span>
-                  ) : null}
-                </p>
+            {offerCount > 0 ? (
+              <div className="flex items-center justify-between bg-[#1a1a1a] border border-[#222] rounded-xl px-4 py-3">
+                <span className="text-sm text-[#666]">Already interested</span>
+                <span className="flex items-center gap-1.5 text-sm font-medium text-[#C9A265]">
+                  <Flame className="h-4 w-4" />
+                  {offerCount} offer{offerCount !== 1 ? 's' : ''} on this pair
+                </span>
               </div>
             ) : null}
 
-            <div className="hidden md:block">{ctaBlock}</div>
+            {isVault ? (
+              <div className="rounded-xl border border-[#333] border-l-[3px] border-l-[#C9A265] bg-[#1a1a1a] px-4 py-3 flex gap-3">
+                <Lock className="h-5 w-5 text-[#C9A265] shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-white">In the vault</p>
+                  <p className="text-sm text-[#888] mt-1">
+                    Owner isn&apos;t actively selling — but the right offer changes that.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-[#1a1a1a] border border-[#222] rounded-xl p-3 text-center">
+                <p className="text-lg font-bold text-[#C9A265]">{askingValue}</p>
+                <p className="text-[10px] text-[#555] mt-0.5">{askingLabel}</p>
+              </div>
+              <div className="bg-[#1a1a1a] border border-[#222] rounded-xl p-3 text-center">
+                <p className="text-lg font-bold text-white">{viewsCount}</p>
+                <p className="text-[10px] text-[#555] mt-0.5">Watching</p>
+              </div>
+              <div className="bg-[#1a1a1a] border border-[#222] rounded-xl p-3 text-center">
+                <p className="text-lg font-bold text-white">{offerCount}</p>
+                <p className="text-[10px] text-[#555] mt-0.5">Offers</p>
+              </div>
+            </div>
+
+            {!isVault && priceCents != null && shippingCents > 0 ? (
+              <p className="text-sm text-[#666]">
+                + ${(shippingCents / 100).toFixed(2)} shipping
+              </p>
+            ) : null}
+
+            <div className="hidden md:block pt-1">{ctaBlock}</div>
 
             <ListingSellerCard
               sellerId={data.seller.id}
@@ -239,28 +285,31 @@ export default function ListingDetailPage() {
             />
 
             {l.description ? (
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                <p className="text-sm font-medium text-zinc-400 mb-2">Seller description</p>
-                <p className="text-sm whitespace-pre-line text-zinc-300">{l.description as string}</p>
+              <div className="rounded-xl border border-[#222] bg-[#1a1a1a] p-4">
+                <p className="text-xs font-medium text-[#666] uppercase tracking-wide mb-2">
+                  Seller description
+                </p>
+                <p className="text-sm whitespace-pre-line text-[#ccc] leading-relaxed">
+                  {l.description as string}
+                </p>
               </div>
             ) : null}
-
           </div>
         </div>
       </div>
 
       {(showTradeOnlyCta || showVaultOfferCtAs || showBuyCta) ? (
-        <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-2 bg-gradient-to-t from-black via-black/95 to-transparent">
+        <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-3 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/98 to-transparent">
           {showTradeOnlyCta ? (
-            <Button asChild className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full">
+            <Button asChild className="w-full min-h-[52px] bg-[#C9A265] text-black font-semibold rounded-full">
               <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
             </Button>
           ) : showVaultOfferCtAs ? (
-            <Button asChild className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full">
+            <Button asChild className="w-full min-h-[52px] bg-[#C9A265] text-black font-semibold rounded-full">
               <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>
             </Button>
           ) : (
-            <Button asChild className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full">
+            <Button asChild className="w-full min-h-[52px] bg-[#C9A265] text-black font-semibold rounded-full">
               <Link href={`/market/listing/${id}/checkout`}>
                 Buy now — ${(priceCents! / 100).toFixed(0)}
               </Link>

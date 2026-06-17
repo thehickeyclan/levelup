@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BackLink } from '@/components/back-link';
 import { SELLER_AI_DISCLAIMER } from '@/lib/market/ai/prompts';
-import { cosmeticAppearanceLabel, WRESTLE_SCORE_HINT } from '@/lib/market/condition-grade';
 import { buildListingDescription } from '@/lib/market/listing-description';
 import {
   WEAR_STATE_OPTIONS,
@@ -19,15 +19,17 @@ import { cn } from '@/lib/utils';
 
 const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Other'];
 const MAX_PHOTOS = 6;
+const BREAKDOWN_KEYS = ['sole', 'upper', 'midsole', 'laces'] as const;
 
 type ListingImage = { id: string; public_url: string; display_order: number };
 
+type BreakdownPart = { score: number; note: string };
+
 type AiCondition = {
   wrestle_score: number;
-  cosmetic_score: number;
   grade: string;
-  summary: string;
-  cosmetic_summary: string;
+  breakdown: Partial<Record<(typeof BREAKDOWN_KEYS)[number], BreakdownPart>>;
+  listing_tip?: string;
 };
 
 type AiPrice = {
@@ -36,6 +38,20 @@ type AiPrice = {
   suggested_high_cents: number;
   confidence_note: string;
 };
+
+function gradeDisplay(grade: string) {
+  return grade.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function AiSpinner({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+      <Sparkles className="h-4 w-4 text-accent animate-pulse" />
+      <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
+      <span>{label}</span>
+    </div>
+  );
+}
 
 export default function NewListingPage() {
   const router = useRouter();
@@ -48,7 +64,17 @@ export default function NewListingPage() {
   const [error, setError] = useState<string | null>(null);
   const [aiCondition, setAiCondition] = useState<AiCondition | null>(null);
   const [aiPrice, setAiPrice] = useState<AiPrice | null>(null);
+  const [conditionOverridden, setConditionOverridden] = useState(false);
   const [descriptionTouched, setDescriptionTouched] = useState(false);
+  const [aiDescriptionDraft, setAiDescriptionDraft] = useState(false);
+
+  const [agentExpanded, setAgentExpanded] = useState(false);
+  const [agentInput, setAgentInput] = useState('');
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentReply, setAgentReply] = useState<string | null>(null);
+
+  const lastAutoKey = useRef<string | null>(null);
+  const pipelineRunning = useRef(false);
 
   const [form, setForm] = useState({
     title: '',
@@ -65,6 +91,7 @@ export default function NewListingPage() {
   });
 
   const isUsed = form.wear_state === 'used';
+  const imageKey = images.map((i) => i.id).join(',');
 
   const setWearState = (wearState: MarketWearState) => {
     setForm((f) => ({
@@ -73,6 +100,9 @@ export default function NewListingPage() {
       condition: wearState === 'used' ? (f.condition === 'new' ? 'good' : f.condition) : 'new',
     }));
     setAiCondition(null);
+    setAiPrice(null);
+    setConditionOverridden(false);
+    lastAutoKey.current = null;
   };
 
   const ensureDraft = async () => {
@@ -120,6 +150,10 @@ export default function NewListingPage() {
         setImages((prev) =>
           [...prev, ...uploaded].sort((a, b) => a.display_order - b.display_order)
         );
+        setAiCondition(null);
+        setAiPrice(null);
+        setConditionOverridden(false);
+        lastAutoKey.current = null;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -149,18 +183,8 @@ export default function NewListingPage() {
     size: Number(form.size) || 10,
     wearState: form.wear_state,
     condition: conditionForWearState(form.wear_state, form.condition),
-    analysis: aiCondition
-      ? { summary: aiCondition.summary, cosmetic_summary: aiCondition.cosmetic_summary }
-      : null,
+    analysis: null,
   });
-
-  const regenerateDescription = (force = false) => {
-    const next = buildListingDescription(descriptionInput());
-    if (force || !descriptionTouched || !form.description.trim()) {
-      setForm((f) => ({ ...f, description: next }));
-      setDescriptionTouched(false);
-    }
-  };
 
   const syncDraft = async () => {
     const id = await ensureDraft();
@@ -172,38 +196,8 @@ export default function NewListingPage() {
     return id;
   };
 
-  const runCondition = async () => {
-    setAnalyzing(true);
-    setError(null);
-    try {
-      const id = await syncDraft();
-      const res = await fetch('/api/market/ai/condition', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId: id, wear_state: form.wear_state }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Analysis failed');
-      setAiCondition(data.analysis as AiCondition);
-      const suggested = (data.suggested_description as string | undefined)?.trim();
-      if (suggested && (!descriptionTouched || !form.description.trim())) {
-        setForm((f) => ({ ...f, description: suggested }));
-        setDescriptionTouched(false);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed');
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const runPrice = async () => {
-    if (!form.model.trim()) {
-      setError('Enter brand and model before suggesting a price.');
-      return;
-    }
+  const runPrice = useCallback(async () => {
     setPricing(true);
-    setError(null);
     try {
       const id = await syncDraft();
       const res = await fetch('/api/market/ai/price', {
@@ -226,27 +220,106 @@ export default function NewListingPage() {
     } finally {
       setPricing(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, listingId]);
+
+  const runCondition = useCallback(async () => {
+    if (pipelineRunning.current) return;
+    pipelineRunning.current = true;
+    setAnalyzing(true);
+    setError(null);
+    try {
+      const id = await syncDraft();
+      const res = await fetch('/api/market/ai/condition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id, wear_state: form.wear_state }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Analysis failed');
+      setAiCondition(data.analysis as AiCondition);
+      setConditionOverridden(false);
+      await runPrice();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Analysis failed');
+    } finally {
+      setAnalyzing(false);
+      pipelineRunning.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.wear_state, listingId, runPrice]);
+
+  useEffect(() => {
+    if (!imageKey || uploading || analyzing || pipelineRunning.current) return;
+    const key = `${imageKey}|${form.wear_state}`;
+    if (lastAutoKey.current === key) return;
+
+    const timer = setTimeout(() => {
+      lastAutoKey.current = key;
+      void runCondition();
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [imageKey, form.wear_state, uploading, analyzing, runCondition]);
 
   const applyAiGrade = () => {
     if (!isUsed || !aiCondition?.grade) return;
     if (!(USED_CONDITIONS as readonly string[]).includes(aiCondition.grade)) return;
 
     const newCondition = aiCondition.grade;
-    const nextDesc = buildListingDescription({
-      ...descriptionInput(),
-      condition: conditionForWearState(form.wear_state, newCondition),
-    });
     setForm((f) => ({
       ...f,
       condition: newCondition,
-      description: !descriptionTouched || !f.description.trim() ? nextDesc : f.description,
     }));
+    setConditionOverridden(false);
+    void runPrice();
+  };
+
+  const overrideCondition = () => {
+    setConditionOverridden(true);
+    if (!aiPrice && !pricing) void runPrice();
   };
 
   const applySuggestedPrice = () => {
     if (aiPrice) {
-      setForm((f) => ({ ...f, price_cents: String(Math.round(aiPrice.suggested_mid_cents / 100)) }));
+      setForm((f) => ({
+        ...f,
+        price_cents: String(Math.round(aiPrice.suggested_mid_cents / 100)),
+      }));
+    }
+  };
+
+  const submitAgent = async () => {
+    const text = agentInput.trim();
+    if (!text) return;
+    setAgentLoading(true);
+    setAgentReply(null);
+    setError(null);
+    try {
+      const id = await ensureDraft();
+      const res = await fetch('/api/market/ai/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draftId: id,
+          messages: [{ role: 'user', content: text }],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Agent failed');
+
+      if (data.has_draft && data.draft?.description) {
+        setForm((f) => ({ ...f, description: data.draft.description }));
+        setDescriptionTouched(false);
+        setAiDescriptionDraft(true);
+        setAgentInput('');
+      } else if (data.message) {
+        setAgentReply(data.message);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Agent failed');
+    } finally {
+      setAgentLoading(false);
     }
   };
 
@@ -280,6 +353,8 @@ export default function NewListingPage() {
       setError(err instanceof Error ? err.message : 'Publish failed');
     }
   };
+
+  const midPrice = aiPrice ? Math.round(aiPrice.suggested_mid_cents / 100) : 0;
 
   return (
     <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
@@ -345,78 +420,174 @@ export default function NewListingPage() {
         ) : (
           <p className="text-sm text-muted-foreground">No photos yet — add at least one before publishing.</p>
         )}
-      </div>
 
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
-        <div>
-          <p className="text-sm font-medium">Seller tools (private)</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            AI condition and price help you list — buyers never see scores or suggestions.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={runCondition} disabled={analyzing || images.length === 0}>
-            {analyzing ? 'Analyzing…' : form.wear_state === 'used' ? 'Analyze condition' : 'Verify with AI'}
-          </Button>
-        </div>
-        {images.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Upload photos before running AI.</p>
+        {images.length > 0 && analyzing ? (
+          <AiSpinner label="Analyzing condition…" />
         ) : null}
 
-      {aiCondition ? (
-        <div className="rounded-lg border border-zinc-800 p-4 space-y-3">
-          <p className="text-sm font-medium">Condition assessment</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-md bg-zinc-900/80 border border-zinc-800 p-3 space-y-1">
-              <p className="text-xs font-medium text-accent uppercase tracking-wide">Wrestle-ready</p>
-              <p className="text-lg font-bold">{aiCondition.wrestle_score}/10</p>
-              {isUsed ? (
-                <>
-                  <p className="text-xs text-muted-foreground capitalize">{aiCondition.grade.replace('_', ' ')}</p>
-                  <p className="text-xs text-zinc-500">{WRESTLE_SCORE_HINT}</p>
-                </>
-              ) : (
-                <p className="text-xs text-muted-foreground">Declared new</p>
-              )}
+        {aiCondition && !analyzing ? (
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <Sparkles className="h-4 w-4 text-accent" />
+                <span>AI condition read</span>
+              </div>
+              <span className="text-lg font-bold text-accent">
+                {aiCondition.wrestle_score.toFixed(1)} / 10
+              </span>
             </div>
-            <div className="rounded-md bg-zinc-900/80 border border-zinc-800 p-3 space-y-1">
-              <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Appearance</p>
-              <p className="text-lg font-bold">{aiCondition.cosmetic_score}/10</p>
-              <p className="text-xs text-muted-foreground">{cosmeticAppearanceLabel(aiCondition.cosmetic_score)}</p>
+            <div className="border-t border-[#2a2a2a]" />
+            <div className="grid grid-cols-2 gap-2">
+              {BREAKDOWN_KEYS.map((key) => (
+                <div
+                  key={key}
+                  className="rounded-lg bg-[#111] border border-[#222] px-3 py-2 text-center"
+                >
+                  <p className="text-[10px] text-zinc-500 capitalize">{key}</p>
+                  <p className="text-sm font-semibold">
+                    {aiCondition.breakdown[key]?.score ?? '—'}
+                  </p>
+                </div>
+              ))}
             </div>
+            {aiCondition.listing_tip ? (
+              <>
+                <div className="border-t border-[#2a2a2a]" />
+                <p className="text-sm text-muted-foreground border-l-2 border-accent pl-3">
+                  {aiCondition.listing_tip}
+                </p>
+              </>
+            ) : null}
+            {isUsed && !conditionOverridden ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={applyAiGrade}
+                  className="rounded-full bg-accent text-black text-sm font-medium px-4 py-1.5 hover:bg-accent/90"
+                >
+                  Apply grade: {gradeDisplay(aiCondition.grade)} ✓
+                </button>
+                <button
+                  type="button"
+                  onClick={overrideCondition}
+                  className="rounded-full border border-[#444] text-sm px-4 py-1.5 text-muted-foreground hover:border-zinc-500"
+                >
+                  Override
+                </button>
+              </div>
+            ) : isUsed && conditionOverridden ? (
+              <p className="text-xs text-muted-foreground">Pick condition manually below.</p>
+            ) : null}
           </div>
-          {aiCondition.summary ? (
-            <p className="text-sm text-muted-foreground">{aiCondition.summary}</p>
-          ) : null}
-          {aiCondition.cosmetic_summary ? (
-            <p className="text-xs text-zinc-500">Appearance: {aiCondition.cosmetic_summary}</p>
-          ) : null}
-          {isUsed ? (
-            <button type="button" className="text-sm text-accent underline" onClick={applyAiGrade}>
-              Apply wrestle-ready grade to listing
+        ) : null}
+
+        {pricing ? <AiSpinner label="Checking market prices…" /> : null}
+
+        {aiPrice && !pricing ? (
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-1.5 text-sm font-medium">
+              <Sparkles className="h-4 w-4 text-accent" />
+              <span>Market price range</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div className="rounded-lg border border-[#333] px-2 py-3">
+                <p className="text-[10px] text-zinc-500 mb-1">Quick sale</p>
+                <p className="font-semibold">${Math.round(aiPrice.suggested_low_cents / 100)}</p>
+              </div>
+              <div className="rounded-lg border-2 border-accent px-2 py-3">
+                <p className="text-[10px] text-zinc-500 mb-1">Market avg</p>
+                <p className="font-semibold text-accent">${midPrice}</p>
+              </div>
+              <div className="rounded-lg border border-[#333] px-2 py-3">
+                <p className="text-[10px] text-zinc-500 mb-1">Patient seller</p>
+                <p className="font-semibold">${Math.round(aiPrice.suggested_high_cents / 100)}</p>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground text-center">
+              Based on eBay data · Guild comps building
+            </p>
+            <p className="text-[11px] text-muted-foreground">{aiPrice.confidence_note}</p>
+            <button
+              type="button"
+              onClick={applySuggestedPrice}
+              className="rounded-full bg-accent text-black text-sm font-medium px-4 py-1.5 hover:bg-accent/90"
+            >
+              Use ${midPrice} →
             </button>
-          ) : null}
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+
+        {images.length > 0 ? (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setAgentExpanded((v) => !v)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <span>Let AI write your description</span>
+              <span className="text-xs">{agentExpanded ? '▾' : '▸'}</span>
+            </button>
+            {agentExpanded ? (
+              <div className="space-y-2 pl-1">
+                <Input
+                  value={agentInput}
+                  onChange={(e) => setAgentInput(e.target.value)}
+                  placeholder="Describe in one sentence (e.g. worn one season, toe scuff on left shoe)"
+                  disabled={agentLoading}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void submitAgent();
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void submitAgent()}
+                  disabled={agentLoading || !agentInput.trim()}
+                >
+                  {agentLoading ? 'Writing…' : 'Generate description'}
+                </Button>
+                {agentReply ? (
+                  <p className="text-sm text-muted-foreground">{agentReply}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-4">
         <div>
           <Label>Brand</Label>
-          <select className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })}>
-            {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+          <select
+            className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
+            value={form.brand}
+            onChange={(e) => setForm({ ...form, brand: e.target.value })}
+          >
+            {BRANDS.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
           </select>
         </div>
         <div>
           <Label>Model</Label>
-          <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="JB Elite III" />
+          <Input
+            value={form.model}
+            onChange={(e) => setForm({ ...form, model: e.target.value })}
+            placeholder="JB Elite III"
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Model year (optional)</Label>
             <Input
               value={form.model_year}
-              onChange={(e) => setForm({ ...form, model_year: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+              onChange={(e) =>
+                setForm({ ...form, model_year: e.target.value.replace(/\D/g, '').slice(0, 4) })
+              }
               placeholder="2016"
               inputMode="numeric"
             />
@@ -436,75 +607,48 @@ export default function NewListingPage() {
               onChange={(e) => setForm({ ...form, condition: e.target.value })}
             >
               {USED_CONDITIONS.map((c) => (
-                <option key={c} value={c}>{c.replace('_', ' ')}</option>
+                <option key={c} value={c}>
+                  {c.replace('_', ' ')}
+                </option>
               ))}
             </select>
           </div>
         ) : null}
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
+          <div>
             <Label>Price ($)</Label>
-            <Input value={form.price_cents} onChange={(e) => setForm({ ...form, price_cents: e.target.value })} />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={runPrice}
-              disabled={pricing}
-            >
-              {pricing ? 'Suggesting…' : 'Suggest price'}
-            </Button>
-            {aiPrice ? (
-              <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 space-y-2 text-sm">
-                <p>
-                  Suggested range (private):{' '}
-                  <strong>
-                    ${(aiPrice.suggested_low_cents / 100).toFixed(0)}–${(aiPrice.suggested_high_cents / 100).toFixed(0)}
-                  </strong>{' '}
-                  (mid ${(aiPrice.suggested_mid_cents / 100).toFixed(0)})
-                </p>
-                <p className="text-xs text-muted-foreground">{aiPrice.confidence_note}</p>
-                <button type="button" className="text-accent underline text-xs" onClick={applySuggestedPrice}>
-                  Use mid price
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Uses wear state, brand, model, year, condition, description, and AI scores.
-              </p>
-            )}
+            <Input
+              value={form.price_cents}
+              onChange={(e) => setForm({ ...form, price_cents: e.target.value })}
+            />
           </div>
           <div>
             <Label>Shipping ($)</Label>
-            <Input value={form.shipping_cents} onChange={(e) => setForm({ ...form, shipping_cents: e.target.value })} />
+            <Input
+              value={form.shipping_cents}
+              onChange={(e) => setForm({ ...form, shipping_cents: e.target.value })}
+            />
           </div>
         </div>
         <div>
-          <div className="flex items-center justify-between gap-2">
-            <Label>Description</Label>
-            {aiCondition ? (
-              <button
-                type="button"
-                className="text-xs text-accent underline"
-                onClick={() => regenerateDescription(true)}
-              >
-                Regenerate from AI
-              </button>
-            ) : null}
-          </div>
+          <Label>Description</Label>
           <textarea
             className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
             value={form.description}
             onChange={(e) => {
               setDescriptionTouched(true);
+              setAiDescriptionDraft(false);
               setForm({ ...form, description: e.target.value });
             }}
-            placeholder="Runs automatically after condition analysis — edit anytime."
+            placeholder="Optional — use AI above or write your own."
           />
-          <p className="text-xs text-muted-foreground mt-1">
-            This is what buyers see. No scores or AI labels on the published listing.
-          </p>
+          {aiDescriptionDraft ? (
+            <p className="text-xs text-muted-foreground mt-1">AI draft — tap to edit</p>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-1">
+              This is what buyers see. No scores or AI labels on the published listing.
+            </p>
+          )}
         </div>
       </div>
 

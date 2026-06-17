@@ -85,8 +85,13 @@ export function MarketBrowseClient({
       <div className="max-w-4xl mx-auto px-4 pt-6 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">Guild Market</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">Wrestling sneakers · buy, sell, trade</p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">The Guild Market</h1>
+            <p className="text-sm text-[#555] mt-0.5">
+              {initialListings.length} pair{initialListings.length !== 1 ? 's' : ''} listed
+              {initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length > 0
+                ? ` · ${initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length} open to trade`
+                : ''}
+            </p>
           </div>
         </div>
         <div className="mt-4">

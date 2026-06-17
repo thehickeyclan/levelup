@@ -75,12 +75,20 @@ export const PriceAnalysisSchema = z.object({
 export type PriceAnalysis = z.infer<typeof PriceAnalysisSchema>;
 
 export const AgentDraftSchema = z.object({
-  title: z.string(),
-  brand: z.string(),
-  model: z.string(),
-  size: z.number(),
-  condition: z.enum(['new', 'like_new', 'good', 'fair']),
+  title: z.string().optional(),
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  size: z.number().optional(),
+  condition: z.enum(['new', 'like_new', 'good', 'fair']).optional(),
   price_cents: z.number().optional(),
   description: z.string(),
   listing_type: z.enum(['sell', 'trade', 'vault']).optional(),
 });
+
+export const AgentResponseSchema = z.object({
+  has_draft: z.boolean(),
+  message: z.string().optional(),
+  draft: AgentDraftSchema.optional(),
+});
+
+export type AgentResponse = z.infer<typeof AgentResponseSchema>;

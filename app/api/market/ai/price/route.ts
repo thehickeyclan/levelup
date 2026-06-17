@@ -220,6 +220,22 @@ export async function POST(req: NextRequest) {
     brand,
   });
 
+  const internalCount = internalComps.length;
+  const confidence =
+    internalCount >= 10 ? 'high' : internalCount >= 3 ? 'medium' : 'low';
+  const confidenceNote =
+    internalCount >= 10
+      ? 'Based on recent Guild sales.'
+      : internalCount >= 3
+        ? 'Some Guild comps — treat as estimate.'
+        : finalPrice.confidence_note;
+
+  finalPrice = {
+    ...finalPrice,
+    confidence,
+    confidence_note: confidenceNote,
+  };
+
   await admin.from('market_ai_analysis').upsert({
     listing_id: listingId,
     price_suggested_low_cents: finalPrice.suggested_low_cents,

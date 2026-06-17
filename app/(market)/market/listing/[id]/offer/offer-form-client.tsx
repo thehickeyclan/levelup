@@ -1,13 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { BackLink } from '@/components/back-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { QuickTradeListingSheet } from '@/components/market/quick-trade-listing-sheet';
 import { cn } from '@/lib/utils';
 
 export type OfferMode = 'cash' | 'trade' | 'cash_and_trade';
@@ -44,6 +44,8 @@ export function OfferFormClient({
   const [offerMode, setOfferMode] = useState<OfferMode>(defaultTrade ? 'trade' : 'cash');
   const [amount, setAmount] = useState('');
   const [tradeListingId, setTradeListingId] = useState<string | null>(null);
+  const [myTradeListings, setMyTradeListings] = useState(myListings);
+  const [showQuickList, setShowQuickList] = useState(false);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,16 +167,9 @@ export function OfferFormClient({
       {showTrade ? (
         <div className="space-y-2">
           <Label>Select a pair from your listings</Label>
-          {myListings.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-muted-foreground">
-              <p>You have no active listings. List a pair first.</p>
-              <Link href="/market/listing/new" className="text-accent font-medium mt-2 inline-block">
-                List a pair
-              </Link>
-            </div>
-          ) : (
+          {myTradeListings.length > 0 ? (
             <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-              {myListings.map((item) => {
+              {myTradeListings.map((item) => {
                 const selected = tradeListingId === item.id;
                 return (
                   <button
@@ -203,12 +198,29 @@ export function OfferFormClient({
                 );
               })}
             </div>
-          )}
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setShowQuickList(true)}
+            className="w-full border border-dashed border-[#333] rounded-xl py-3 text-sm text-[#555] flex items-center justify-center gap-2 hover:border-[#C9A265] hover:text-[#C9A265] transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add a pair to trade
+          </button>
           {fieldErrors.trade ? (
             <p className="text-xs text-destructive">{fieldErrors.trade}</p>
           ) : null}
         </div>
       ) : null}
+
+      <QuickTradeListingSheet
+        open={showQuickList}
+        onClose={() => setShowQuickList(false)}
+        onComplete={(listing) => {
+          setMyTradeListings((prev) => [listing, ...prev.filter((l) => l.id !== listing.id)]);
+          setTradeListingId(listing.id);
+        }}
+      />
 
       <div>
         <Label htmlFor="offer-message">Add a note (optional)</Label>

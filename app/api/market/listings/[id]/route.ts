@@ -43,11 +43,19 @@ export async function GET(
       .eq('id', id);
   }
 
-  const publicListing = isOwner
-    ? listing
-    : { ...listing, market_ai_analysis: undefined };
+  const aiAssisted = Boolean(
+    (listing.market_ai_analysis as { analyzed_at?: string } | null)?.analyzed_at
+  );
 
-  return NextResponse.json({ listing: publicListing, seller, sellerStats });
+  const publicListing = isOwner
+    ? { ...listing, ai_assisted: aiAssisted }
+    : { ...listing, market_ai_analysis: undefined, ai_assisted: aiAssisted };
+
+  return NextResponse.json({
+    listing: publicListing,
+    seller: seller ? { ...seller, school: seller.school } : seller,
+    sellerStats,
+  });
 }
 
 export async function PATCH(

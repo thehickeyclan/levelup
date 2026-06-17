@@ -55,6 +55,7 @@ export async function GET(
     listing: publicListing,
     seller: seller ? { ...seller, school: seller.school } : seller,
     sellerStats,
+    viewer: { id: user!.id, isSeller: isOwner },
   });
 }
 

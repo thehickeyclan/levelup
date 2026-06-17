@@ -71,6 +71,66 @@ export default function ListingDetailPage() {
   ].filter(Boolean) as string[];
 
   const displayTitle = (l.model as string)?.trim() || (l.title as string);
+  const isTradeOnly = listingType === 'trade';
+  const showTradeOnlyCta = isActive && isTradeOnly;
+  const showVaultOfferCtAs = isActive && !isTradeOnly && (isVault || priceCents == null);
+  const showBuyCta = isActive && !isVault && !isTradeOnly && priceCents != null;
+
+  const ctaBlock = (
+    <>
+      {showTradeOnlyCta ? (
+        <div className="space-y-2">
+          <Button
+            asChild
+            className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full"
+          >
+            <Link href={`/market/listing/${id}/offer?trade=1`} className="flex items-center justify-center gap-2">
+              <Send className="h-4 w-4" />
+              Offer a trade
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+      {showVaultOfferCtAs ? (
+        <div className="space-y-2">
+          <Button
+            asChild
+            className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full"
+          >
+            <Link href={`/market/listing/${id}/offer`} className="flex items-center justify-center gap-2">
+              <Send className="h-4 w-4" />
+              Make an offer
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="w-full rounded-full border-zinc-700 text-zinc-400"
+          >
+            <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
+          </Button>
+        </div>
+      ) : null}
+      {showBuyCta ? (
+        <div className="space-y-2">
+          <Button
+            asChild
+            className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full"
+          >
+            <Link href={`/market/checkout?listingId=${id}`} className="flex items-center justify-center gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              Buy now — ${(priceCents! / 100).toFixed(0)}
+            </Link>
+          </Button>
+          {openToTrade ? (
+            <Button asChild variant="outline" className="w-full rounded-full border-zinc-700 text-zinc-400">
+              <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
 
   return (
     <div className="min-h-screen pb-24">
@@ -78,7 +138,7 @@ export default function ListingDetailPage() {
         <BackLink fallbackHref="/market" label="Back to Market" />
 
         {offerSent ? (
-          <p className="mt-4 text-sm text-green-600 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+          <p className="mt-4 text-sm text-accent bg-accent/10 border border-accent/30 rounded-lg p-3">
             Offer sent — the seller will be notified.
           </p>
         ) : null}
@@ -86,12 +146,12 @@ export default function ListingDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 mt-4 md:mt-6">
           {/* Photos */}
           <div className="space-y-3">
-            <div className="bg-white rounded-xl overflow-hidden aspect-square">
+            <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden aspect-square">
               {images[activeImage]?.public_url ? (
                 <img
                   src={images[activeImage].public_url}
                   alt=""
-                  className="w-full h-full object-contain p-4"
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-zinc-400 text-sm">
@@ -107,7 +167,7 @@ export default function ListingDetailPage() {
                     type="button"
                     onClick={() => setActiveImage(i)}
                     className={cn(
-                      'shrink-0 w-16 h-16 rounded-lg border overflow-hidden bg-white',
+                      'shrink-0 w-16 h-16 rounded-lg border overflow-hidden bg-[#1a1a1a]',
                       i === activeImage ? 'border-accent ring-1 ring-accent' : 'border-zinc-800'
                     )}
                   >
@@ -125,9 +185,6 @@ export default function ListingDetailPage() {
                 {l.brand as string}
               </span>
               <h1 className="text-2xl md:text-3xl font-bold leading-tight">{displayTitle}</h1>
-              {l.title && l.model && (l.title as string) !== displayTitle ? (
-                <p className="text-sm text-muted-foreground mt-1">{l.title as string}</p>
-              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -171,45 +228,7 @@ export default function ListingDetailPage() {
               </div>
             ) : null}
 
-            {isActive && isVault ? (
-              <div className="space-y-2 pt-1">
-                <Button
-                  asChild
-                  className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full"
-                >
-                  <Link href={`/market/listing/${id}/offer`} className="flex items-center justify-center gap-2">
-                    <Send className="h-4 w-4" />
-                    Make an offer
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="w-full rounded-full border-zinc-700 text-zinc-400"
-                >
-                  <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
-                </Button>
-              </div>
-            ) : null}
-
-            {isActive && !isVault && priceCents != null ? (
-              <div className="space-y-2 pt-1">
-                <Button
-                  asChild
-                  className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full"
-                >
-                  <Link href={`/market/checkout?listingId=${id}`} className="flex items-center justify-center gap-2">
-                    <ShoppingCart className="h-4 w-4" />
-                    Buy now — ${(priceCents / 100).toFixed(0)}
-                  </Link>
-                </Button>
-                {openToTrade ? (
-                  <Button asChild variant="outline" className="w-full rounded-full border-zinc-700 text-zinc-400">
-                    <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
+            <div className="hidden md:block">{ctaBlock}</div>
 
             <ListingSellerCard
               sellerId={data.seller.id}
@@ -220,15 +239,34 @@ export default function ListingDetailPage() {
 
             {l.description ? (
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-2">
-                  Seller description
-                </p>
+                <p className="text-sm font-medium text-zinc-400 mb-2">Seller description</p>
                 <p className="text-sm whitespace-pre-line text-zinc-300">{l.description as string}</p>
               </div>
             ) : null}
+
           </div>
         </div>
       </div>
+
+      {(showTradeOnlyCta || showVaultOfferCtAs || showBuyCta) ? (
+        <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-2 bg-gradient-to-t from-black via-black/95 to-transparent">
+          {showTradeOnlyCta ? (
+            <Button asChild className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full">
+              <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
+            </Button>
+          ) : showVaultOfferCtAs ? (
+            <Button asChild className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full">
+              <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>
+            </Button>
+          ) : (
+            <Button asChild className="w-full min-h-[48px] bg-accent text-black font-semibold rounded-full">
+              <Link href={`/market/checkout?listingId=${id}`}>
+                Buy now — ${(priceCents! / 100).toFixed(0)}
+              </Link>
+            </Button>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

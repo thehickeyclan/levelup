@@ -159,8 +159,8 @@ export default function MarketOrderDetailPage() {
       </div>
 
       {order.listing_image ? (
-        <div className="rounded-lg bg-white aspect-square max-w-[200px] overflow-hidden">
-          <img src={order.listing_image} alt="" className="w-full h-full object-contain p-2" />
+        <div className="rounded-lg bg-[#1a1a1a] aspect-square max-w-[200px] overflow-hidden">
+          <img src={order.listing_image} alt="" className="w-full h-full object-cover" />
         </div>
       ) : null}
 

@@ -326,7 +326,7 @@ export default function NewListingPage() {
         <p className="text-xs text-muted-foreground">
           {form.wear_state === 'bnib'
             ? 'Include box and shoes. Up to 6 photos.'
-            : 'Select multiple photos at once (up to 6 total).'}
+            : 'Use a light background or white surface so shoes stay visible. Up to 6 photos.'}
         </p>
         {uploading && uploadProgress ? (
           <p className="text-sm text-muted-foreground">{uploadProgress}</p>

@@ -72,9 +72,9 @@ export default function SellerProfilePage() {
                   href={`/market/listing/${item.listingId}`}
                   className="flex gap-3 rounded-lg border border-zinc-800 p-3 hover:border-zinc-600 transition-colors"
                 >
-                  <div className="w-16 h-16 rounded-md bg-white shrink-0 overflow-hidden">
+                  <div className="w-16 h-16 rounded-md bg-[#1a1a1a] shrink-0 overflow-hidden">
                     {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" className="w-full h-full object-contain p-1" />
+                      <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">

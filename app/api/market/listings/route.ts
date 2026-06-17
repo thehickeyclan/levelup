@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const sellerMe = sp.get('seller') === 'me';
   const status = sp.get('status') || 'active';
+  const excludeId = sp.get('exclude')?.trim();
   const brand = sp.get('brand');
   const listingType = sp.get('listing_type');
   const size = sp.get('size');
@@ -18,9 +19,10 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from('market_listings')
     .select(`
-      id, title, brand, model, size, condition, wear_state, price_cents, shipping_cents,
+      id, title, brand, model, model_year, size, condition, wear_state, price_cents, shipping_cents,
       listing_type, status, open_to_trade, created_at, seller_id,
-      market_listing_images(id, public_url, display_order)
+      market_listing_images(id, public_url, display_order),
+      market_ai_analysis(analyzed_at)
     `)
     .order('created_at', { ascending: false })
     .limit(50);
@@ -35,6 +37,7 @@ export async function GET(req: NextRequest) {
   if (brand) q = q.eq('brand', brand);
   if (listingType) q = q.eq('listing_type', listingType);
   if (size) q = q.eq('size', Number(size));
+  if (excludeId) q = q.neq('id', excludeId);
 
   const { data, error } = await q;
   if (error) {
@@ -42,7 +45,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ listings: data ?? [], brands: BRANDS });
+  const listings = (data ?? []).map((row) => {
+    const ai = row.market_ai_analysis as { analyzed_at?: string } | { analyzed_at?: string }[] | null;
+    const aiRow = Array.isArray(ai) ? ai[0] : ai;
+    const { market_ai_analysis: _omit, ...rest } = row as Record<string, unknown>;
+    return {
+      ...rest,
+      ai_assisted: Boolean(aiRow?.analyzed_at),
+    };
+  });
+
+  return NextResponse.json({ listings, brands: BRANDS });
 }
 
 export async function POST(req: NextRequest) {

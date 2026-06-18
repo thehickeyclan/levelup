@@ -433,7 +433,6 @@ function CatalogForm({
   saving: boolean;
   saveLabel: string;
 }) {
-  const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
 
   const applyStructuredPaste = () => {
@@ -454,44 +453,40 @@ function CatalogForm({
       ...(parsed.rarity ? { rarity: parsed.rarity } : {}),
     });
     setPasteText('');
-    setPasteOpen(false);
   };
 
   return (
     <div className="space-y-3 rounded-xl border border-[#333] p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-[#aaa]">Catalog entry</p>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setPasteOpen((v) => !v)}
-            className="text-[10px] text-[#C9A265] hover:underline"
-          >
-            {pasteOpen ? 'Hide paste' : 'Paste GPT entry'}
+        {onClear ? (
+          <button type="button" onClick={onClear} className="text-[10px] text-[#666] hover:text-[#aaa]">
+            Clear form
           </button>
-          {onClear ? (
-            <button type="button" onClick={onClear} className="text-[10px] text-[#666] hover:text-[#aaa]">
-              Clear form
-            </button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
-      {pasteOpen ? (
-        <div className="space-y-2 rounded-lg border border-[#333] bg-[#141414] p-3">
-          <p className="text-[10px] text-[#666]">
-            Paste structured GPT output (brand:, model:, colorways:, etc.) to fill fields.
-          </p>
-          <textarea
-            className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs min-h-[120px] font-mono"
-            value={pasteText}
-            onChange={(e) => setPasteText(e.target.value)}
-            placeholder={'brand: Onitsuka Tiger\nmodel: Wrestling Mexico Mid\nyears_produced: 2003\n...'}
-          />
-          <Button type="button" size="sm" variant="outline" className="w-full" onClick={applyStructuredPaste}>
-            Fill form from paste
-          </Button>
-        </div>
-      ) : null}
+      <div className="space-y-2 rounded-lg border border-[#C9A265]/40 bg-[#141414] p-3">
+        <p className="text-xs font-medium text-[#C9A265]">Paste GPT entry</p>
+        <p className="text-[10px] text-[#666]">
+          Paste structured GPT output (<code className="text-[#888]">brand:</code>,{' '}
+          <code className="text-[#888]">model:</code>, <code className="text-[#888]">colorways:</code>, etc.)
+          to fill the fields below.
+        </p>
+        <textarea
+          className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs min-h-[100px] font-mono"
+          value={pasteText}
+          onChange={(e) => setPasteText(e.target.value)}
+          placeholder={'brand: Onitsuka Tiger\nmodel: Wrestling Mexico Mid\nyears_produced: 2003\ncolorways:\nRoyal Blue / Orange\n...'}
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="w-full bg-[#C9A265] text-black hover:bg-[#C9A265]/90"
+          onClick={applyStructuredPaste}
+        >
+          Fill form from paste
+        </Button>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs">Brand</Label>

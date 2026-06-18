@@ -36,6 +36,17 @@ type CatalogRow = {
   source: string | null;
 };
 
+type CatalogFullEntry = CatalogRow & {
+  model_aliases?: string[] | null;
+  colorways?: unknown[] | null;
+  visual_identifiers?: string[] | null;
+  sole_description?: string | null;
+  upper_material?: string | null;
+  logo_placement?: string | null;
+  value_mid_cents?: number | null;
+  collector_notes?: string | null;
+};
+
 type CatalogFormState = {
   brand: string;
   model: string;
@@ -121,6 +132,96 @@ function formToPayload(form: CatalogFormState) {
   };
 }
 
+function centsToDollars(cents: number | null | undefined): string {
+  return cents != null ? String(Math.round(cents / 100)) : '';
+}
+
+function formFromCatalogEntry(entry: CatalogFullEntry): CatalogFormState {
+  const rarity = RARITIES.includes(entry.rarity as (typeof RARITIES)[number])
+    ? (entry.rarity as (typeof RARITIES)[number])
+    : 'common';
+  const colorways = (entry.colorways ?? [])
+    .map((c) => (typeof c === 'string' ? c : String(c)))
+    .filter(Boolean);
+  return {
+    brand: entry.brand,
+    model: entry.model,
+    model_aliases: (entry.model_aliases ?? []).join(', '),
+    years_produced: entry.years_produced ?? '',
+    visual_identifiers: (entry.visual_identifiers ?? []).join('; '),
+    sole_description: entry.sole_description ?? '',
+    upper_material: entry.upper_material ?? '',
+    logo_placement: entry.logo_placement ?? '',
+    colorways: colorways.join(', '),
+    rarity,
+    value_low: centsToDollars(entry.value_low_cents),
+    value_mid: centsToDollars(entry.value_mid_cents),
+    value_high: centsToDollars(entry.value_high_cents),
+    collector_notes: entry.collector_notes ?? '',
+  };
+}
+
+function catalogRowFromEntry(entry: CatalogFullEntry): CatalogRow {
+  return {
+    id: entry.id,
+    brand: entry.brand,
+    model: entry.model,
+    years_produced: entry.years_produced ?? null,
+    rarity: entry.rarity ?? null,
+    value_low_cents: entry.value_low_cents ?? null,
+    value_high_cents: entry.value_high_cents ?? null,
+    verified: entry.verified ?? false,
+    source: entry.source ?? null,
+  };
+}
+
+function mergeEnrichmentIntoForm(
+  form: CatalogFormState,
+  brand: string,
+  model: string,
+  enrichment: {
+    model_aliases: string[];
+    era: string;
+    colorway?: string;
+    colorways?: string[];
+    rarity: string;
+    visual_matches: string[];
+    sole_description?: string;
+    upper_material?: string;
+    logo_placement?: string;
+    value_low_cents: number;
+    value_mid_cents: number;
+    value_high_cents: number;
+    collector_notes: string;
+  }
+): CatalogFormState {
+  const rarity = RARITIES.includes(enrichment.rarity as (typeof RARITIES)[number])
+    ? (enrichment.rarity as (typeof RARITIES)[number])
+    : form.rarity;
+  const colorwayList = enrichment.colorways?.length
+    ? enrichment.colorways
+    : enrichment.colorway
+      ? [enrichment.colorway]
+      : [];
+  const keepUserColorways = form.colorways.trim();
+  return {
+    brand,
+    model,
+    model_aliases: enrichment.model_aliases.join(', '),
+    years_produced: enrichment.era || form.years_produced,
+    visual_identifiers: enrichment.visual_matches.join('; ') || form.visual_identifiers,
+    sole_description: enrichment.sole_description || form.sole_description,
+    upper_material: enrichment.upper_material || form.upper_material,
+    logo_placement: enrichment.logo_placement || form.logo_placement,
+    colorways: keepUserColorways || colorwayList.join(', '),
+    rarity,
+    value_low: enrichment.value_low_cents ? centsToDollars(enrichment.value_low_cents) : form.value_low,
+    value_mid: enrichment.value_mid_cents ? centsToDollars(enrichment.value_mid_cents) : form.value_mid,
+    value_high: enrichment.value_high_cents ? centsToDollars(enrichment.value_high_cents) : form.value_high,
+    collector_notes: enrichment.collector_notes || form.collector_notes,
+  };
+}
+
 function formMatchesAi(result: ShoeIdResult, form: CatalogFormState): boolean {
   const base = formFromResult(result);
   return (
@@ -188,6 +289,9 @@ function CatalogForm({
   onSave,
   onDiscard,
   onClear,
+  onUpdateDetails,
+  updatingDetails,
+  showCorrectionHint,
   saving,
   saveLabel,
 }: {
@@ -196,6 +300,9 @@ function CatalogForm({
   onSave: () => void;
   onDiscard?: () => void;
   onClear?: () => void;
+  onUpdateDetails?: () => void;
+  updatingDetails?: boolean;
+  showCorrectionHint?: boolean;
   saving: boolean;
   saveLabel: string;
 }) {
@@ -229,6 +336,31 @@ function CatalogForm({
           <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
         </div>
       </div>
+      {showCorrectionHint ? (
+        <div className="rounded-lg border border-[#333] bg-[#141414] p-3 space-y-2">
+          <p className="text-xs text-[#888]">
+            Wrong ID? Set the correct brand and model above, add a colorway below if needed, then
+            refresh era, values, and notes from your correction.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={updatingDetails || !form.model.trim()}
+            onClick={() => onUpdateDetails?.()}
+          >
+            {updatingDetails ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Updating details…
+              </>
+            ) : (
+              'Update era & details from correct ID'
+            )}
+          </Button>
+        </div>
+      ) : null}
       <div>
         <Label className="text-xs">Era / years produced</Label>
         <Input
@@ -348,6 +480,12 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
   };
   const [form, setForm] = useState<CatalogFormState>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [editingCatalogId, setEditingCatalogId] = useState<string | null>(null);
+  const [catalogEditForm, setCatalogEditForm] = useState<CatalogFormState>(emptyForm());
+  const [catalogEditSaving, setCatalogEditSaving] = useState(false);
+  const [catalogEditLoading, setCatalogEditLoading] = useState(false);
+  const [pendingEditId, setPendingEditId] = useState<string | null>(null);
+  const [updatingDetails, setUpdatingDetails] = useState(false);
   const [stats, setStats] = useState<{
     totalCatalog: number;
     verifiedCatalog: number;
@@ -437,6 +575,75 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
     }
   };
 
+  const updateDetailsFromCorrection = async () => {
+    if (!imageUrls.length || !form.model.trim()) return;
+    setUpdatingDetails(true);
+    try {
+      const colorwayHint = form.colorways.split(',')[0]?.trim();
+      const res = await fetch('/api/admin/market/shoe-id/correct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          images: imageUrls,
+          brand: form.brand,
+          model: form.model.trim(),
+          colorway: colorwayHint || undefined,
+          wrongBrand: result?.brand,
+          wrongModel: result?.model,
+          resultId: resultId ?? undefined,
+        }),
+      });
+      const data = await parseApiJson<{
+        source: 'catalog' | 'ai';
+        brand: string;
+        model: string;
+        enrichment: {
+          model_aliases: string[];
+          era: string;
+          colorway?: string;
+          colorways?: string[];
+          rarity: string;
+          visual_matches: string[];
+          sole_description?: string;
+          upper_material?: string;
+          logo_placement?: string;
+          value_low_cents: number;
+          value_mid_cents: number;
+          value_high_cents: number;
+          collector_notes: string;
+        };
+        error?: string;
+      }>(res);
+      if (!res.ok) throw new Error(data.error || 'Update failed');
+      setForm(mergeEnrichmentIntoForm(form, data.brand, data.model, data.enrichment));
+      if (result) {
+        setResult({
+          ...result,
+          brand: data.brand,
+          model: data.model,
+          era: data.enrichment.era,
+          colorway: data.enrichment.colorway ?? result.colorway,
+          rarity: data.enrichment.rarity as ShoeIdResult['rarity'],
+          visual_matches: data.enrichment.visual_matches,
+          value_low_cents: data.enrichment.value_low_cents,
+          value_mid_cents: data.enrichment.value_mid_cents,
+          value_high_cents: data.enrichment.value_high_cents,
+          collector_notes: data.enrichment.collector_notes,
+          catalog_matched: data.source === 'catalog',
+        });
+      }
+      alert(
+        data.source === 'catalog'
+          ? 'Loaded details from catalog match.'
+          : 'Updated era, values, and notes from your correction.'
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setUpdatingDetails(false);
+    }
+  };
+
   const saveConfirm = async () => {
     if (!resultId || !result || !form.model.trim()) return;
     const wasCorrect = formMatchesAi(result, form);
@@ -455,9 +662,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       if (!res.ok) throw new Error(data.error || 'Save failed');
       discardResult();
       setImageUrls([]);
-      const catRes = await fetch('/api/admin/market/shoe-id/catalog');
-      const catData = await catRes.json();
-      if (catRes.ok) setCatalog(catData.entries ?? []);
+      await refreshCatalog();
       alert('Catalog entry saved.');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Save failed');
@@ -469,7 +674,64 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
   const deleteEntry = async (id: string) => {
     if (!confirm('Delete this catalog entry?')) return;
     const res = await fetch(`/api/admin/market/shoe-id/catalog/${id}`, { method: 'DELETE' });
-    if (res.ok) setCatalog((prev) => prev.filter((e) => e.id !== id));
+    if (res.ok) {
+      setCatalog((prev) => prev.filter((e) => e.id !== id));
+      if (editingCatalogId === id) cancelCatalogEdit();
+    }
+  };
+
+  const refreshCatalog = async () => {
+    const catRes = await fetch('/api/admin/market/shoe-id/catalog');
+    const catData = await catRes.json();
+    if (catRes.ok) {
+      const entries = (catData.entries ?? []) as CatalogFullEntry[];
+      setCatalog(entries.map(catalogRowFromEntry));
+    }
+  };
+
+  const startEditEntry = async (id: string) => {
+    setPendingEditId(id);
+    setCatalogEditLoading(true);
+    try {
+      const res = await fetch('/api/admin/market/shoe-id/catalog');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load entry');
+      const entry = ((data.entries ?? []) as CatalogFullEntry[]).find((e) => e.id === id);
+      if (!entry) throw new Error('Catalog entry not found');
+      setEditingCatalogId(id);
+      setCatalogEditForm(formFromCatalogEntry(entry));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to load entry');
+    } finally {
+      setCatalogEditLoading(false);
+      setPendingEditId(null);
+    }
+  };
+
+  const cancelCatalogEdit = () => {
+    setEditingCatalogId(null);
+    setCatalogEditForm(emptyForm());
+  };
+
+  const saveCatalogEdit = async () => {
+    if (!editingCatalogId || !catalogEditForm.model.trim()) return;
+    setCatalogEditSaving(true);
+    try {
+      const res = await fetch(`/api/admin/market/shoe-id/catalog/${editingCatalogId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formToPayload(catalogEditForm)),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      await refreshCatalog();
+      cancelCatalogEdit();
+      alert('Catalog entry updated.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setCatalogEditSaving(false);
+    }
   };
 
   const importJson = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -589,6 +851,9 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                 onSave={() => void saveConfirm()}
                 onDiscard={discardResult}
                 onClear={() => setForm(emptyForm())}
+                showCorrectionHint
+                updatingDetails={updatingDetails}
+                onUpdateDetails={() => void updateDetailsFromCorrection()}
               />
             </>
           ) : null}
@@ -612,6 +877,16 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
               Export catalog
             </button>
           </div>
+          {editingCatalogId ? (
+            <CatalogForm
+              form={catalogEditForm}
+              setForm={setCatalogEditForm}
+              saving={catalogEditSaving}
+              saveLabel="Save changes"
+              onSave={() => void saveCatalogEdit()}
+              onDiscard={cancelCatalogEdit}
+            />
+          ) : null}
           <div className="overflow-x-auto rounded-xl border border-[#222]">
             <table className="w-full text-sm">
               <thead>
@@ -628,7 +903,13 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
               </thead>
               <tbody>
                 {catalog.map((row) => (
-                  <tr key={row.id} className="border-b border-[#1a1a1a]">
+                  <tr
+                    key={row.id}
+                    className={cn(
+                      'border-b border-[#1a1a1a]',
+                      editingCatalogId === row.id && 'bg-[#1a1a1a]'
+                    )}
+                  >
                     <td className="p-2">{row.brand}</td>
                     <td className="p-2">{row.model}</td>
                     <td className="p-2 text-[#888]">{row.years_produced ?? '—'}</td>
@@ -641,13 +922,23 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                     <td className="p-2">{row.verified ? '✓' : '—'}</td>
                     <td className="p-2 text-[#888]">{row.source ?? '—'}</td>
                     <td className="p-2">
-                      <button
-                        type="button"
-                        className="text-xs text-red-400"
-                        onClick={() => void deleteEntry(row.id)}
-                      >
-                        Delete
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="text-xs text-[#C9A265] disabled:opacity-50"
+                          disabled={catalogEditLoading}
+                          onClick={() => void startEditEntry(row.id)}
+                        >
+                          {pendingEditId === row.id ? 'Loading…' : 'Edit'}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs text-red-400"
+                          onClick={() => void deleteEntry(row.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

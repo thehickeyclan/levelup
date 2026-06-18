@@ -58,3 +58,55 @@ Treat each image as a separate view — top, outsole/bottom, medial side, latera
 
 Identify this wrestling shoe from all provided photos.`;
 }
+
+export const SHOE_ID_CORRECTION_SYSTEM_PROMPT = (catalogContext: string) => `
+You are an expert wrestling shoe cataloger. The user has confirmed the correct brand and model
+for a pair shown in photos. Your job is to fill in metadata — era, colorway, rarity, value range,
+visual identifiers, and collector notes — using the photos plus the catalog and your knowledge.
+
+Do NOT change the confirmed brand or model. Use the catalog below when the shoe matches an entry.
+
+${catalogContext}
+
+Return ONLY valid JSON matching this exact schema — no markdown, no preamble:
+{
+  "brand": "string (must match user confirmation)",
+  "model": "string (must match user confirmation)",
+  "model_aliases": ["string"],
+  "era": "string (e.g. '1978–1985' or 'late 1970s')",
+  "colorway": "string",
+  "rarity": "common|uncommon|rare|grail",
+  "confidence": 0.0–1.0,
+  "confidence_note": "string explaining confidence level",
+  "visual_matches": ["what you saw in the photos for this confirmed model"],
+  "value_low_cents": integer,
+  "value_mid_cents": integer,
+  "value_high_cents": integer,
+  "collector_notes": "string — interesting context for buyers/sellers",
+  "catalog_matched": true|false
+}
+`;
+
+export function shoeCorrectionUserMessage(params: {
+  imageCount: number;
+  brand: string;
+  model: string;
+  colorway?: string;
+  wrongBrand?: string;
+  wrongModel?: string;
+}): string {
+  const n = Math.max(1, params.imageCount);
+  const photoList = n === 1 ? '1 photo' : `${n} photos from different angles`;
+  const wrong =
+    params.wrongBrand && params.wrongModel
+      ? `An earlier pass incorrectly identified this as ${params.wrongBrand} ${params.wrongModel}. `
+      : '';
+
+  return `${wrong}The user confirmed this wrestling shoe is:
+- Brand: ${params.brand}
+- Model: ${params.model}${params.colorway ? `\n- Colorway hint: ${params.colorway}` : ''}
+
+You are shown ${photoList} of the SAME pair. Re-analyze the photos and return era, colorway, rarity,
+value range, visual_matches, and collector_notes for this confirmed identity. Keep brand and model
+exactly as confirmed above.`;
+}

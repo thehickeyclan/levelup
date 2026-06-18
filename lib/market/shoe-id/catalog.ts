@@ -51,13 +51,36 @@ export async function matchCatalogEntry(
   brand: string,
   model: string
 ): Promise<string | null> {
-  const { data } = await supabase
+  const entry = await findCatalogEntry(supabase, brand, model);
+  return (entry?.id as string) ?? null;
+}
+
+export async function findCatalogEntry(
+  supabase: SupabaseClient,
+  brand: string,
+  model: string
+) {
+  const brandTrim = brand.trim();
+  const modelTrim = model.trim();
+  if (!brandTrim || !modelTrim) return null;
+
+  const { data: exact } = await supabase
     .from('wrestling_shoes_catalog')
-    .select('id')
-    .ilike('brand', brand.trim())
-    .ilike('model', `%${model.trim()}%`)
+    .select('*')
+    .ilike('brand', brandTrim)
+    .ilike('model', modelTrim)
     .limit(1)
     .maybeSingle();
 
-  return (data?.id as string) ?? null;
+  if (exact) return exact;
+
+  const { data: fuzzy } = await supabase
+    .from('wrestling_shoes_catalog')
+    .select('*')
+    .ilike('brand', brandTrim)
+    .ilike('model', `%${modelTrim}%`)
+    .limit(1)
+    .maybeSingle();
+
+  return fuzzy ?? null;
 }

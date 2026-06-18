@@ -55,6 +55,7 @@ type CatalogFullEntry = CatalogRow & {
   sole_description?: string | null;
   upper_material?: string | null;
   logo_placement?: string | null;
+  weight?: string | null;
   catalog_price_cents?: number | null;
   price_source?: string | null;
   inflation_adjusted_price?: string | null;
@@ -81,6 +82,7 @@ type CatalogFormState = {
   sole_description: string;
   upper_material: string;
   logo_placement: string;
+  weight: string;
   colorways: string;
   rarity: (typeof RARITIES)[number];
   original_msrp: string;
@@ -180,6 +182,12 @@ function parseStructuredCatalogPaste(raw: string): Partial<CatalogFormState> | n
     joinLines('catalog sale price');
   const priceSource = joinLines('price_source');
   const inflationAdjusted = joinLines('inflation_adjusted_price');
+  const weight =
+    joinLines('weight') ||
+    joinLines('shoe_weight') ||
+    joinLines('weight_oz') ||
+    joinLines('weight_grams') ||
+    joinLines('weight (oz)');
 
   return {
     brand: fields.brand?.[0] ? matchBrand(fields.brand[0]) : undefined,
@@ -188,6 +196,8 @@ function parseStructuredCatalogPaste(raw: string): Partial<CatalogFormState> | n
     colorways: joinList('colorways', ', ') || undefined,
     visual_identifiers: visualIdentifiers || undefined,
     sole_description: sole || undefined,
+    upper_material: joinLines('upper_material') || joinLines('upper') || undefined,
+    weight: weight || undefined,
     collector_notes: collectorNotes || undefined,
     rarity: rarityRaw ? normalizeRarity(rarityRaw) : undefined,
     original_msrp: msrpRaw ? parseDollarField(msrpRaw) || undefined : undefined,
@@ -211,6 +221,7 @@ function emptyForm(): CatalogFormState {
     sole_description: '',
     upper_material: '',
     logo_placement: '',
+    weight: '',
     colorways: '',
     rarity: 'common',
     original_msrp: '',
@@ -235,6 +246,7 @@ function formFromResult(r: ShoeIdResult): CatalogFormState {
     sole_description: '',
     upper_material: '',
     logo_placement: '',
+    weight: '',
     colorways: r.colorway,
     rarity: r.rarity,
     original_msrp: '',
@@ -306,6 +318,7 @@ function formToPayload(form: CatalogFormState, linkImageUrls?: string[]) {
     sole_description: form.sole_description || undefined,
     upper_material: form.upper_material || undefined,
     logo_placement: form.logo_placement || undefined,
+    weight: form.weight.trim() || undefined,
     colorways: form.colorways
       .split(',')
       .map((s) => s.trim())
@@ -327,7 +340,7 @@ function formToPayload(form: CatalogFormState, linkImageUrls?: string[]) {
 }
 
 function formatCatalogSaveError(message: string): string {
-  if (/reference_image_urls|sale_comps|original_msrp|catalog_price|inflation_adjusted|column/i.test(message)) {
+  if (/reference_image_urls|sale_comps|original_msrp|catalog_price|inflation_adjusted|colorway_profiles|weight|column/i.test(message)) {
     return `${message}\n\nApply the wrestling_shoes_catalog migrations on Supabase, then try again.`;
   }
   return message;
@@ -359,6 +372,7 @@ function formFromCatalogEntry(entry: CatalogFullEntry): CatalogFormState {
     sole_description: entry.sole_description ?? '',
     upper_material: entry.upper_material ?? '',
     logo_placement: entry.logo_placement ?? '',
+    weight: entry.weight ?? '',
     colorways: colorways.join(', '),
     rarity,
     original_msrp: centsToPreciseDollars(entry.original_msrp_cents),
@@ -429,6 +443,7 @@ function mergeEnrichmentIntoForm(
     sole_description: enrichment.sole_description || form.sole_description,
     upper_material: enrichment.upper_material || form.upper_material,
     logo_placement: enrichment.logo_placement || form.logo_placement,
+    weight: form.weight,
     colorways: keepUserColorways || colorwayList.join(', '),
     rarity,
     value_low: enrichment.value_low_cents ? centsToDollars(enrichment.value_low_cents) : form.value_low,
@@ -553,6 +568,8 @@ function CatalogForm({
       ...(parsed.colorways ? { colorways: parsed.colorways } : {}),
       ...(parsed.visual_identifiers ? { visual_identifiers: parsed.visual_identifiers } : {}),
       ...(parsed.sole_description ? { sole_description: parsed.sole_description } : {}),
+      ...(parsed.upper_material ? { upper_material: parsed.upper_material } : {}),
+      ...(parsed.weight ? { weight: parsed.weight } : {}),
       ...(parsed.collector_notes ? { collector_notes: parsed.collector_notes } : {}),
       ...(parsed.rarity ? { rarity: parsed.rarity } : {}),
       ...(parsed.original_msrp ? { original_msrp: parsed.original_msrp } : {}),
@@ -586,7 +603,7 @@ function CatalogForm({
           className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs min-h-[100px] font-mono"
           value={pasteText}
           onChange={(e) => setPasteText(e.target.value)}
-          placeholder={'brand: Onitsuka Tiger\nmodel: Reflex III\nyears_produced: 1998-1999\noriginal_msrp: $40.00\ncatalog_price: $34.95\nprice_source: Eastbay Catalog\ninflation_adjusted_price: ~$75-$80\ncolorways:\n...'}
+          placeholder={'brand: Nike\nmodel: Freek\nweight: 10.2 oz (289 g)\nupper_material: synthetic mesh\nyears_produced: 2018-2020\n...'}
         />
         <Button
           type="button"
@@ -685,6 +702,14 @@ function CatalogForm({
         <Input
           value={form.logo_placement}
           onChange={(e) => setForm({ ...form, logo_placement: e.target.value })}
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Weight</Label>
+        <Input
+          value={form.weight}
+          onChange={(e) => setForm({ ...form, weight: e.target.value })}
+          placeholder="10.2 oz (289 g)"
         />
       </div>
       <div>

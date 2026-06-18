@@ -65,6 +65,7 @@ export const CatalogEntrySchema = z.object({
   sole_description: z.string().optional(),
   upper_material: z.string().optional(),
   logo_placement: z.string().optional(),
+  weight: z.string().optional(),
   rarity: z.enum(['common', 'uncommon', 'rare', 'grail']),
   value_low_cents: z.number().int().optional(),
   value_mid_cents: z.number().int().optional(),

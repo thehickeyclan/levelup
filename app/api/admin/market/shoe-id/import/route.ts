@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       sole_description: e.sole_description ?? null,
       upper_material: e.upper_material ?? null,
       logo_placement: e.logo_placement ?? null,
+      weight: e.weight ?? null,
       rarity: e.rarity,
       value_low_cents: e.value_low_cents ?? null,
       value_mid_cents: e.value_mid_cents ?? null,

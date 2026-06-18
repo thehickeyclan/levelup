@@ -7,7 +7,7 @@ import {
 } from '@/lib/market/shoe-id/colorway-profiles';
 
 const CATALOG_SELECT =
-  'brand,model,model_aliases,years_produced,colorways,colorway_profiles,visual_identifiers,sole_description,upper_material,logo_placement,rarity,value_low_cents,value_mid_cents,value_high_cents,original_msrp_cents,catalog_price_cents,price_source,inflation_adjusted_price,collector_notes,reference_image_urls,sale_comps';
+  'brand,model,model_aliases,years_produced,colorways,colorway_profiles,visual_identifiers,sole_description,upper_material,logo_placement,weight,rarity,value_low_cents,value_mid_cents,value_high_cents,original_msrp_cents,catalog_price_cents,price_source,inflation_adjusted_price,collector_notes,reference_image_urls,sale_comps';
 
 const FULL_CATALOG_LIMIT = 200;
 
@@ -22,6 +22,7 @@ export type CatalogEntryRow = {
   sole_description?: string | null;
   upper_material?: string | null;
   logo_placement?: string | null;
+  weight?: string | null;
   rarity?: string | null;
   value_low_cents?: number | null;
   value_mid_cents?: number | null;
@@ -102,6 +103,7 @@ VISUAL IDENTIFIERS: ${entry.visual_identifiers?.join('; ') ?? '—'}
 SOLE: ${entry.sole_description ?? '—'}
 UPPER: ${entry.upper_material ?? '—'}
 LOGO: ${entry.logo_placement ?? '—'}
+WEIGHT: ${entry.weight ?? '—'}
 COLORWAYS: ${formatColorwayProfilesForContext(parseColorwayProfiles(entry.colorway_profiles)) || JSON.stringify(entry.colorways ?? [])}
 RARITY: ${entry.rarity ?? '—'}
 LAUNCH PRICING: ${formatLaunchPricing(entry)}${formatAppreciationMultiple(entry)}

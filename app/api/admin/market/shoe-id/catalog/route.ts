@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       sole_description: entry.sole_description ?? null,
       upper_material: entry.upper_material ?? null,
       logo_placement: entry.logo_placement ?? null,
+      weight: entry.weight ?? null,
       rarity: entry.rarity,
       value_low_cents: entry.value_low_cents ?? null,
       value_mid_cents: entry.value_mid_cents ?? null,
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
   if (error) {
     const msg = error.message;
     const hint =
-      /reference_image_urls|sale_comps|original_msrp|catalog_price|inflation_adjusted|column/i.test(msg)
+      /reference_image_urls|sale_comps|original_msrp|catalog_price|inflation_adjusted|colorway_profiles|weight|column/i.test(msg)
         ? `${msg} — apply wrestling_shoes_catalog migrations on Supabase`
         : msg;
     return NextResponse.json({ error: hint }, { status: 500 });

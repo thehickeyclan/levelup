@@ -1,8 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SaleComp } from '@/lib/market/shoe-id/schemas';
+import {
+  formatColorwayProfilesForContext,
+  formatSaleCompsDetailed,
+  parseColorwayProfiles,
+} from '@/lib/market/shoe-id/colorway-profiles';
 
 const CATALOG_SELECT =
-  'brand,model,model_aliases,years_produced,colorways,visual_identifiers,sole_description,upper_material,logo_placement,rarity,value_low_cents,value_mid_cents,value_high_cents,original_msrp_cents,catalog_price_cents,price_source,inflation_adjusted_price,collector_notes,reference_image_urls,sale_comps';
+  'brand,model,model_aliases,years_produced,colorways,colorway_profiles,visual_identifiers,sole_description,upper_material,logo_placement,rarity,value_low_cents,value_mid_cents,value_high_cents,original_msrp_cents,catalog_price_cents,price_source,inflation_adjusted_price,collector_notes,reference_image_urls,sale_comps';
 
 const FULL_CATALOG_LIMIT = 200;
 
@@ -12,6 +17,7 @@ export type CatalogEntryRow = {
   model_aliases?: string[] | null;
   years_produced?: string | null;
   colorways?: unknown[] | null;
+  colorway_profiles?: unknown[] | null;
   visual_identifiers?: string[] | null;
   sole_description?: string | null;
   upper_material?: string | null;
@@ -52,17 +58,7 @@ function formatAppreciationMultiple(entry: CatalogEntryRow): string {
 }
 
 function formatSaleComps(comps: SaleComp[] | null | undefined): string {
-  if (!comps?.length) return '—';
-  return comps
-    .map((c) => {
-      const price = `$${Math.round(c.sold_price_cents / 100)}`;
-      const condition = c.condition ? `, ${c.condition}` : '';
-      const source = c.source ? ` (${c.source})` : '';
-      const notes = c.notes ? `: ${c.notes}` : '';
-      const photos = c.image_urls?.length ? ' [photos on file]' : '';
-      return `${price}${condition}${source}${notes}${photos}`;
-    })
-    .join('; ');
+  return formatSaleCompsDetailed(comps);
 }
 
 export async function fetchCatalogEntries(
@@ -106,7 +102,7 @@ VISUAL IDENTIFIERS: ${entry.visual_identifiers?.join('; ') ?? '—'}
 SOLE: ${entry.sole_description ?? '—'}
 UPPER: ${entry.upper_material ?? '—'}
 LOGO: ${entry.logo_placement ?? '—'}
-COLORWAYS: ${JSON.stringify(entry.colorways ?? [])}
+COLORWAYS: ${formatColorwayProfilesForContext(parseColorwayProfiles(entry.colorway_profiles)) || JSON.stringify(entry.colorways ?? [])}
 RARITY: ${entry.rarity ?? '—'}
 LAUNCH PRICING: ${formatLaunchPricing(entry)}${formatAppreciationMultiple(entry)}
 VALUE RANGE: $${Math.round((entry.value_low_cents || 0) / 100)}–$${Math.round((entry.value_high_cents || 0) / 100)}

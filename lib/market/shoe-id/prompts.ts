@@ -30,8 +30,9 @@ Also check:
 - Colorway and stripe/panel arrangement
 - Any visible model text or markings
 
-When estimating value_low/mid/high_cents, use DOCUMENTED SALES from the catalog when available —
-these are real pairs that sold at specific prices with known condition. Match condition when possible.
+When estimating value_low/mid/high_cents, use DOCUMENTED SALES and COLORWAY PROFILES from the catalog when available —
+match the identified colorway to the right profile. Discontinued/grail colorways (e.g. Nike Freek Cherry) can far exceed
+current-retail colorways of the same model still sold at Dick's for ~$99. Current-retail colorways stay near retail for used pairs.
 
 Return ONLY valid JSON matching this exact schema — no markdown, no preamble:
 {

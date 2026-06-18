@@ -65,6 +65,8 @@ type CatalogFullEntry = CatalogRow & {
 
 type SaleCompForm = {
   sold_price: string;
+  size_us: string;
+  colorway: string;
   condition: string;
   source: string;
   notes: string;
@@ -196,7 +198,7 @@ function parseStructuredCatalogPaste(raw: string): Partial<CatalogFormState> | n
 }
 
 function emptySaleComp(): SaleCompForm {
-  return { sold_price: '', condition: '', source: 'Instagram', notes: '' };
+  return { sold_price: '', size_us: '', colorway: '', condition: '', source: 'Instagram', notes: '' };
 }
 
 function emptyForm(): CatalogFormState {
@@ -251,10 +253,20 @@ function saleCompsFromEntry(comps: SaleComp[] | null | undefined): SaleCompForm[
   if (!comps?.length) return [emptySaleComp()];
   return comps.map((c) => ({
     sold_price: String(Math.round(c.sold_price_cents / 100)),
+    size_us: c.size_us != null ? String(c.size_us) : '',
+    colorway: c.colorway ?? '',
     condition: c.condition ?? '',
     source: c.source ?? '',
     notes: c.notes ?? '',
   }));
+}
+
+function parseSizeUs(raw: string): number | undefined {
+  const cleaned = raw.trim();
+  if (!cleaned || Number.isNaN(Number(cleaned))) return undefined;
+  const n = Number(cleaned);
+  if (n < 4 || n > 16) return undefined;
+  return n;
 }
 
 function saleCompsToPayload(comps: SaleCompForm[], linkImageUrls?: string[]): SaleComp[] {
@@ -267,6 +279,8 @@ function saleCompsToPayload(comps: SaleCompForm[], linkImageUrls?: string[]): Sa
       condition: c.condition.trim() || undefined,
       source: c.source.trim() || undefined,
       notes: c.notes.trim() || undefined,
+      colorway: c.colorway.trim() || undefined,
+      size_us: parseSizeUs(c.size_us),
     };
     if (index === 0 && linkImageUrls?.length) {
       comp.image_urls = linkImageUrls;
@@ -780,7 +794,8 @@ function CatalogForm({
           </button>
         </div>
         <p className="text-[10px] text-[#666]">
-          Real pairs that sold at a known price and condition — e.g. Instagram reseller comps.
+          Real pairs that sold at a known price — include size and colorway when you have them (a size 7
+          Cherry Freek is not the same comp as a 10.5).
           {showSaleCompsHint ? ' Training photos link to the first sale when you save.' : ''}
         </p>
         {form.saleComps.map((comp, index) => (
@@ -813,6 +828,33 @@ function CatalogForm({
                     setForm({ ...form, saleComps });
                   }}
                   placeholder="550"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px]">Size (US)</Label>
+                <Input
+                  value={comp.size_us}
+                  onChange={(e) => {
+                    const saleComps = [...form.saleComps];
+                    saleComps[index] = { ...comp, size_us: e.target.value };
+                    setForm({ ...form, saleComps });
+                  }}
+                  placeholder="10.5"
+                  inputMode="decimal"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[10px]">Colorway</Label>
+                <Input
+                  value={comp.colorway}
+                  onChange={(e) => {
+                    const saleComps = [...form.saleComps];
+                    saleComps[index] = { ...comp, colorway: e.target.value };
+                    setForm({ ...form, saleComps });
+                  }}
+                  placeholder="Cherry"
                 />
               </div>
               <div>
@@ -849,7 +891,7 @@ function CatalogForm({
                   saleComps[index] = { ...comp, notes: e.target.value };
                   setForm({ ...form, saleComps });
                 }}
-                placeholder="Cherry colorway, OG all"
+                placeholder="OG all, shipped"
               />
             </div>
           </div>

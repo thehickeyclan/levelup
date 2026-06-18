@@ -239,10 +239,18 @@ function formToPayload(form: CatalogFormState, linkImageUrls?: string[]) {
     value_mid_cents: form.value_mid ? Math.round(Number(form.value_mid) * 100) : undefined,
     value_high_cents: form.value_high ? Math.round(Number(form.value_high) * 100) : undefined,
     collector_notes: form.collector_notes || undefined,
+    reference_image_urls: linkImageUrls?.length ? linkImageUrls : undefined,
     sale_comps: saleCompsToPayload(form.saleComps, linkImageUrls),
     verified: true,
     verified_by: 'Matt Hickey',
   };
+}
+
+function formatCatalogSaveError(message: string): string {
+  if (/reference_image_urls|sale_comps|column/i.test(message)) {
+    return `${message}\n\nApply the wrestling_shoes_catalog migrations on Supabase, then try again.`;
+  }
+  return message;
 }
 
 function centsToDollars(cents: number | null | undefined): string {
@@ -895,13 +903,13 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       });
       const data = await parseApiJson<{
         result: ShoeIdResult;
-        resultId: string;
+        resultId: string | null;
         catalogMatchId: string | null;
         error?: string;
       }>(res);
       if (!res.ok) throw new Error(data.error || 'Identify failed');
       setResult(data.result);
-      setResultId(data.resultId);
+      setResultId(data.resultId ?? null);
       setCatalogMatchId(data.catalogMatchId);
       setForm(formFromResult(data.result));
     } catch (err) {
@@ -981,26 +989,48 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
   };
 
   const saveConfirm = async () => {
-    if (!resultId || !result || !form.model.trim()) return;
+    if (!form.model.trim()) {
+      alert('Model is required before saving.');
+      return;
+    }
+    if (!result) {
+      alert('Run Identify first, then save to catalog.');
+      return;
+    }
     const wasCorrect = formMatchesAi(result, form);
+    const catalogPayload = formToPayload(form, imageUrls);
+    const saleCount = catalogPayload.sale_comps?.length ?? 0;
+    const refCount = imageUrls.length;
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/market/shoe-id/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resultId,
-          wasCorrect,
-          catalog: formToPayload(form, imageUrls),
-          referenceImageUrls: imageUrls,
-        }),
-      });
+      const res = resultId
+        ? await fetch('/api/admin/market/shoe-id/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              resultId,
+              wasCorrect,
+              catalog: catalogPayload,
+              referenceImageUrls: imageUrls,
+            }),
+          })
+        : await fetch('/api/admin/market/shoe-id/catalog', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...catalogPayload,
+              source: wasCorrect ? 'handbook' : 'manual',
+            }),
+          });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Save failed');
+      if (!res.ok) throw new Error(formatCatalogSaveError(data.error || 'Save failed'));
       discardResult();
       setImageUrls([]);
       await refreshCatalog();
-      alert('Catalog entry saved.');
+      const parts = [`Catalog entry saved`];
+      if (refCount) parts.push(`${refCount} ref photo${refCount === 1 ? '' : 's'}`);
+      if (saleCount) parts.push(`${saleCount} sale comp${saleCount === 1 ? '' : 's'}`);
+      alert(parts.join(' — ') + '.');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -1053,19 +1083,23 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
   };
 
   const saveCatalogEdit = async () => {
-    if (!editingCatalogId || !catalogEditForm.model.trim()) return;
+    if (!editingCatalogId) return;
+    if (!catalogEditForm.model.trim()) {
+      alert('Model is required before saving.');
+      return;
+    }
     setCatalogEditSaving(true);
     try {
       const res = await fetch(`/api/admin/market/shoe-id/catalog/${editingCatalogId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formToPayload(catalogEditForm),
+          ...formToPayload(catalogEditForm, catalogEditRefUrls),
           reference_image_urls: catalogEditRefUrls,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Save failed');
+      if (!res.ok) throw new Error(formatCatalogSaveError(data.error || 'Save failed'));
       await refreshCatalog();
       cancelCatalogEdit();
       alert('Catalog entry updated.');
@@ -1188,6 +1222,11 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
           {result ? (
             <>
               <ResultSummary result={result} catalogMatchId={catalogMatchId} />
+              {!resultId ? (
+                <p className="text-sm text-amber-400/90">
+                  Session log unavailable — catalog will still save when you click Save to catalog.
+                </p>
+              ) : null}
               <CatalogForm
                 form={form}
                 setForm={setForm}

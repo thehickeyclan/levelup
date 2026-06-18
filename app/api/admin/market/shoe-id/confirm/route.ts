@@ -15,13 +15,11 @@ export async function POST(req: NextRequest) {
     verifiedBy?: string;
   };
 
-  if (!body.resultId) {
-    return NextResponse.json({ error: 'resultId required' }, { status: 400 });
-  }
-
   const parsed = CatalogEntrySchema.safeParse(body.catalog);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid catalog entry' }, { status: 400 });
+    const issue = parsed.error.issues[0];
+    const detail = issue ? `${issue.path.join('.')}: ${issue.message}` : 'validation failed';
+    return NextResponse.json({ error: `Invalid catalog entry — ${detail}` }, { status: 400 });
   }
 
   const admin = createAdminClient(auth.tenantSlug);
@@ -59,18 +57,25 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (catalogErr || !catalogRow) {
-    return NextResponse.json({ error: catalogErr?.message ?? 'Failed to save catalog' }, { status: 500 });
+    const msg = catalogErr?.message ?? 'Failed to save catalog';
+    const hint =
+      /reference_image_urls|sale_comps|column/i.test(msg)
+        ? `${msg} — apply wrestling_shoes_catalog migrations on Supabase`
+        : msg;
+    return NextResponse.json({ error: hint }, { status: 500 });
   }
 
-  await admin
-    .from('shoe_id_results')
-    .update({
-      confirmed: true,
-      confirmed_model_id: catalogRow.id,
-      confirmed_by: auth.userId,
-      confirmed_at: new Date().toISOString(),
-    })
-    .eq('id', body.resultId);
+  if (body.resultId) {
+    await admin
+      .from('shoe_id_results')
+      .update({
+        confirmed: true,
+        confirmed_model_id: catalogRow.id,
+        confirmed_by: auth.userId,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', body.resultId);
+  }
 
   return NextResponse.json({ catalogId: catalogRow.id });
 }

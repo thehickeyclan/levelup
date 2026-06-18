@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = CatalogEntrySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid catalog entry' }, { status: 400 });
+    const issue = parsed.error.issues[0];
+    const detail = issue ? `${issue.path.join('.')}: ${issue.message}` : 'validation failed';
+    return NextResponse.json({ error: `Invalid catalog entry — ${detail}` }, { status: 400 });
   }
 
   const admin = createAdminClient(auth.tenantSlug);
@@ -58,6 +60,13 @@ export async function POST(req: NextRequest) {
     .select('id')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    const msg = error.message;
+    const hint =
+      /reference_image_urls|sale_comps|column/i.test(msg)
+        ? `${msg} — apply wrestling_shoes_catalog migrations on Supabase`
+        : msg;
+    return NextResponse.json({ error: hint }, { status: 500 });
+  }
   return NextResponse.json({ id: data.id });
 }

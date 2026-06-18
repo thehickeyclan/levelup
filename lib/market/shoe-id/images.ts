@@ -1,54 +1,25 @@
 import type { ClaudeMessageContent } from '@/lib/market/ai/client';
-import { prepareVisionImage } from '@/lib/market/ai/prepare-vision-image';
 import type { CatalogEntryRow } from '@/lib/market/shoe-id/catalog';
 
 const MAX_QUERY_IMAGES = 6;
-/** Cap total catalog reference photos per identify request (prevents 413 payload overflow). */
+/** Cap total catalog reference photos per identify request (prevents vision payload overflow). */
 const MAX_TOTAL_REF_IMAGES = 4;
 
-function mediaTypeFromUrl(url: string): string {
-  const lower = url.split('?')[0].toLowerCase();
-  if (lower.endsWith('.png')) return 'image/png';
-  if (lower.endsWith('.webp')) return 'image/webp';
-  return 'image/jpeg';
-}
-
-async function imageBlockFromBuffer(
-  buffer: Buffer,
-  contentType?: string
-): Promise<ClaudeMessageContent | null> {
-  const { buffer: prepared, mediaType } = await prepareVisionImage(buffer, contentType);
-  if (!prepared.length) return null;
+function imageBlockFromUrl(url: string): ClaudeMessageContent | null {
+  if (!url.startsWith('http')) return null;
   return {
     type: 'image',
-    source: {
-      type: 'base64',
-      media_type: mediaType,
-      data: prepared.toString('base64'),
-    },
+    source: { type: 'url', url },
   };
 }
 
-/** Fetch public image URLs server-side, compress, and build Claude vision blocks. */
-export async function imagesFromPublicUrls(
-  urls: string[],
-  max = 6
-): Promise<ClaudeMessageContent[]> {
+/** Build Claude vision blocks from public image URLs (Anthropic fetches them — keeps request small). */
+export function imagesFromPublicUrls(urls: string[], max = 6): ClaudeMessageContent[] {
   const blocks: ClaudeMessageContent[] = [];
-
   for (const url of urls.slice(0, max)) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const buffer = Buffer.from(await res.arrayBuffer());
-      const contentType = res.headers.get('content-type') || mediaTypeFromUrl(url);
-      const block = await imageBlockFromBuffer(buffer, contentType);
-      if (block) blocks.push(block);
-    } catch (e) {
-      console.error('shoe-id image fetch failed:', url, e);
-    }
+    const block = imageBlockFromUrl(url);
+    if (block) blocks.push(block);
   }
-
   return blocks;
 }
 
@@ -60,13 +31,13 @@ function brandMatchesHint(entryBrand: string, brandHint: string): boolean {
 }
 
 /** Build vision blocks: listing photos to ID, then labeled catalog reference photos. */
-export async function buildShoeIdVisionContent(
+export function buildShoeIdVisionContent(
   queryUrls: string[],
   catalogEntries: CatalogEntryRow[],
   options?: { brandHint?: string }
-): Promise<{ blocks: ClaudeMessageContent[]; queryImageCount: number; referenceImageCount: number }> {
+): { blocks: ClaudeMessageContent[]; queryImageCount: number; referenceImageCount: number } {
   const blocks: ClaudeMessageContent[] = [];
-  const queryBlocks = await imagesFromPublicUrls(queryUrls, MAX_QUERY_IMAGES);
+  const queryBlocks = imagesFromPublicUrls(queryUrls, MAX_QUERY_IMAGES);
   const queryImageCount = queryBlocks.length;
 
   blocks.push({
@@ -102,7 +73,7 @@ export async function buildShoeIdVisionContent(
         type: 'text',
         text: `Reference set: ${entry.brand} ${entry.model} (${urls.length} angle${urls.length !== 1 ? 's' : ''})`,
       });
-      const refBlocks = await imagesFromPublicUrls(urls, slotsLeft);
+      const refBlocks = imagesFromPublicUrls(urls, slotsLeft);
       referenceImageCount += refBlocks.length;
       blocks.push(...refBlocks);
     }

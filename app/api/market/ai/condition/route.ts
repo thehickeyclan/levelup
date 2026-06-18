@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Upload photos first' }, { status: 400 });
   }
 
-  const visionBlocks = await listingImagesForClaude(admin, images);
+  const visionBlocks = listingImagesForClaude(images);
   if (!visionBlocks.length) {
     return NextResponse.json({ error: 'Could not load photos for analysis. Try re-uploading.' }, { status: 500 });
   }

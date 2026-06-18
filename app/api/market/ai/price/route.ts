@@ -6,7 +6,13 @@ import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market
 import { PRICE_SYSTEM_PROMPT } from '@/lib/market/ai/prompts';
 import { PriceAnalysisSchema, type PriceAnalysis } from '@/lib/market/ai/schemas';
 import { wearStateLabel } from '@/lib/market/wear-state';
-import { applyUsedWrestlePriceFloor } from '@/lib/market/price-heuristics';
+import { applyUsedWrestlePriceFloor, applySizeAndCatalogPricing } from '@/lib/market/price-heuristics';
+import { buildCatalogPricingContext } from '@/lib/market/catalog-pricing';
+import {
+  catalogSaleCompsToPriceComps,
+  fetchGuildPlatformComps,
+  formatGuildCompSummary,
+} from '@/lib/market/platform-comps';
 
 export async function GET(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -68,6 +74,7 @@ export async function POST(req: NextRequest) {
     description?: string;
     model_year?: number | null;
     wear_state?: string;
+    colorway?: string;
   };
 
   const listingId = body.listingId?.trim();
@@ -75,7 +82,7 @@ export async function POST(req: NextRequest) {
 
   const { data: listing } = await supabase
     .from('market_listings')
-    .select('seller_id, brand, model, size, condition, listing_type, description, model_year, title, wear_state')
+    .select('seller_id, brand, model, size, condition, listing_type, description, model_year, title, wear_state, colorway')
     .eq('id', listingId)
     .single();
 
@@ -92,6 +99,7 @@ export async function POST(req: NextRequest) {
   const description = body.description?.trim() ?? listing.description ?? '';
   const modelYear = body.model_year ?? listing.model_year;
   const wearState = body.wear_state || listing.wear_state || 'used';
+  const colorway = body.colorway?.trim() || (listing.colorway as string | null) || null;
 
   const { data: aiRow } = await admin
     .from('market_ai_analysis')
@@ -104,31 +112,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'AI limit reached', remaining: 0 }, { status: 429 });
   }
 
-  const { data: similarListings } = await admin
-    .from('market_listings')
-    .select('id')
-    .eq('brand', brand)
-    .ilike('model', `%${model}%`);
-
-  const similarIds = (similarListings ?? []).map((l) => l.id);
-  let internalComps: { source: 'guild'; price_cents: number; label: string; date?: string }[] = [];
-
-  if (similarIds.length > 0) {
-    const { data: internalOrders } = await admin
-      .from('market_orders')
-      .select('amount_cents, created_at')
-      .in('listing_id', similarIds)
-      .eq('status', 'completed')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    internalComps = (internalOrders ?? []).map((o) => ({
-      source: 'guild' as const,
-      price_cents: o.amount_cents as number,
-      label: 'Guild sale',
-      date: o.created_at as string,
-    }));
-  }
+  const guildComps = await fetchGuildPlatformComps(admin, brand, model, size);
+  const catalogContext = await buildCatalogPricingContext(admin, brand, model, colorway, size);
+  const catalogComps = catalogSaleCompsToPriceComps(catalogContext.relevantSaleComps);
 
   const ebayQuery = [brand, model, modelYear ? String(modelYear) : ''].filter(Boolean).join(' ');
   let ebayComps: { source: 'ebay'; price_cents: number; label: string }[] = [];
@@ -143,8 +129,14 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  const allComps = [...internalComps, ...ebayComps];
-  const compSummary = allComps.map((c) => `${c.source}: $${(c.price_cents / 100).toFixed(0)}`).join(', ');
+  const guidanceComps = [...guildComps, ...catalogComps];
+  const allComps = [...guidanceComps, ...ebayComps];
+  const compSummary = [
+    `Guild platform sales (${guildComps.length}): ${formatGuildCompSummary(guildComps)}.`,
+    catalogComps.length
+      ? `Documented catalog sales (${catalogComps.length}): ${catalogComps.map((c) => `$${Math.round(c.price_cents / 100)} (${c.label})`).join(', ')}.`
+      : 'Documented catalog sales: none for this colorway/size.',
+  ].join(' ');
 
   const aiBits: string[] = [];
   if (aiRow?.condition_score != null) {
@@ -165,6 +157,7 @@ export async function POST(req: NextRequest) {
         `Brand: ${brand}`,
         `Model: ${model}`,
         `Size: ${size}`,
+        colorway ? `Colorway: ${colorway}` : 'Colorway: unknown',
         `Model year: ${modelYear ?? 'unknown'}`,
         `Wear state: ${wearStateLabel(wearState as 'bnib' | 'new_no_box' | 'used')}`,
         `Condition grade: ${condition}`,
@@ -174,7 +167,8 @@ export async function POST(req: NextRequest) {
           ? 'Pricing instruction: weight wrestle-ready score heavily; appearance is secondary for Guild buyers.'
           : '',
         description ? `Description: ${description.slice(0, 400)}` : 'No description.',
-        `Internal comps (${internalComps.length}): ${compSummary || 'none'}.`,
+        ...catalogContext.promptLines,
+        compSummary,
         `eBay comps: ${ebayComps.length}.`,
       ].join('\n'),
     }]
@@ -195,23 +189,28 @@ export async function POST(req: NextRequest) {
       suggested_low_cents: Math.round(fallbackMid * 0.85),
       suggested_mid_cents: fallbackMid,
       suggested_high_cents: Math.round(fallbackMid * 1.15),
-      confidence: internalComps.length >= 3 ? 'medium' : 'low',
-      confidence_note: internalComps.length < 3
-        ? 'Limited Guild sales — estimate based on external data.'
+      confidence: guildComps.length >= 3 ? 'medium' : 'low',
+      confidence_note: guildComps.length < 3
+        ? 'Limited Guild sales — estimate based on external and catalog data.'
         : 'Based on recent Guild sales.',
-      comps: allComps.slice(0, 10),
+      comps: allComps.slice(0, 15),
       market_note: 'Suggested range — adjust for condition and urgency.',
     };
   }
 
   let finalPrice: PriceAnalysis =
-    internalComps.length < 3 && priceAnalysis.confidence === 'high'
+    guildComps.length < 3 && priceAnalysis.confidence === 'high'
       ? {
           ...priceAnalysis,
           confidence: 'low',
           confidence_note: 'Limited Guild comps — treat as estimate.',
         }
       : priceAnalysis;
+
+  finalPrice = applySizeAndCatalogPricing(finalPrice, {
+    sizeUs: size,
+    colorwayProfile: catalogContext.colorwayProfile,
+  });
 
   finalPrice = applyUsedWrestlePriceFloor(finalPrice, {
     wearState,
@@ -220,7 +219,7 @@ export async function POST(req: NextRequest) {
     brand,
   });
 
-  const internalCount = internalComps.length;
+  const internalCount = guildComps.length;
   const confidence =
     internalCount >= 10 ? 'high' : internalCount >= 3 ? 'medium' : 'low';
   const confidenceNote =
@@ -228,12 +227,15 @@ export async function POST(req: NextRequest) {
       ? 'Based on recent Guild sales.'
       : internalCount >= 3
         ? 'Some Guild comps — treat as estimate.'
-        : finalPrice.confidence_note;
+        : catalogComps.length
+          ? 'No Guild sales yet — range uses documented market data and eBay.'
+          : finalPrice.confidence_note;
 
   finalPrice = {
     ...finalPrice,
     confidence,
     confidence_note: confidenceNote,
+    comps: [...guidanceComps, ...ebayComps].slice(0, 15),
   };
 
   await admin.from('market_ai_analysis').upsert({

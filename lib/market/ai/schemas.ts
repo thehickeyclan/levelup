@@ -56,11 +56,18 @@ export function conditionGradeForWearState(
 }
 
 export const PriceCompSchema = z.object({
-  source: z.enum(['guild', 'ebay']),
+  source: z.enum(['guild', 'ebay', 'catalog']),
   price_cents: z.number(),
   label: z.string(),
   date: z.string().optional(),
+  size_us: z.number().optional(),
+  colorway: z.string().optional(),
+  condition: z.string().optional(),
+  wear_state: z.string().optional(),
+  notes: z.string().optional(),
 });
+
+export type PriceComp = z.infer<typeof PriceCompSchema>;
 
 export const PriceAnalysisSchema = z.object({
   suggested_low_cents: z.number(),

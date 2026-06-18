@@ -21,7 +21,9 @@ import {
 } from '@/lib/market/listing-type-options';
 import { PhotoCleanToggle, photoThumbnailSrc } from '@/components/market/photo-clean-toggle';
 import { ShoeIdCard } from '@/components/market/shoe-id-card';
+import { SimilarSalesGuidance, priceGuidanceFooter } from '@/components/market/similar-sales-guidance';
 import { shoeIdClientEnabled } from '@/lib/market/shoe-id/feature-flag';
+import type { PriceComp } from '@/lib/market/ai/schemas';
 import type { MarketListingImageRow } from '@/lib/market/listing-images';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +47,7 @@ type AiPrice = {
   suggested_mid_cents: number;
   suggested_high_cents: number;
   confidence_note: string;
+  comps: PriceComp[];
 };
 
 function gradeDisplay(grade: string) {
@@ -245,6 +248,7 @@ export default function NewListingPage() {
           suggested_mid_cents: data.price.suggested_mid_cents,
           suggested_high_cents: data.price.suggested_high_cents,
           confidence_note: data.price.confidence_note,
+          comps: data.price.comps ?? [],
         });
       }
     } catch (err) {
@@ -559,8 +563,9 @@ export default function NewListingPage() {
                 <p className="font-semibold">${Math.round(aiPrice.suggested_high_cents / 100)}</p>
               </div>
             </div>
+            <SimilarSalesGuidance comps={aiPrice.comps} />
             <p className="text-[11px] text-muted-foreground text-center">
-              Based on eBay data · Guild comps building
+              {priceGuidanceFooter(aiPrice.comps)}
             </p>
             <p className="text-[11px] text-muted-foreground">{aiPrice.confidence_note}</p>
             <button

@@ -10,6 +10,7 @@ import {
   type ShippingAddress,
 } from '@/lib/market/shipping';
 import { createNotification } from '@/lib/notifications';
+import { primaryListingImageUrl } from '@/lib/market/listing-images';
 
 async function signedLabelUrl(admin: ReturnType<typeof createAdminClient>, storagePath: string | null) {
   if (!storagePath) return null;
@@ -25,8 +26,8 @@ function serializeOrder(
   labelSignedUrl: string | null
 ) {
   const listing = order.market_listings as Record<string, unknown> | null;
-  const images = (listing?.market_listing_images as { public_url: string; display_order: number }[] | undefined) ?? [];
-  const primary = images.sort((a, b) => a.display_order - b.display_order)[0]?.public_url ?? null;
+  const images = (listing?.market_listing_images as Parameters<typeof primaryListingImageUrl>[0]) ?? [];
+  const primary = primaryListingImageUrl(images);
   const carrier = (order.shipping_carrier as MarketShippingCarrier) || 'other';
   const tracking = (order.tracking_number as string) || null;
   const addr = order.shipping_address as ShippingAddress | null;

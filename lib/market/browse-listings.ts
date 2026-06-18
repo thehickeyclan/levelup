@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatSellerDisplayName } from '@/lib/market/seller';
-import { primaryListingImageUrl } from '@/lib/market/listing-images';
+import { MARKET_LISTING_IMAGE_FIELDS, primaryListingImageUrl } from '@/lib/market/listing-images';
 
 export type MarketBrowseListing = {
   id: string;
@@ -35,7 +35,7 @@ type ListingRow = {
   seller_id: string;
   created_at: string;
   views_count: number;
-  market_listing_images: { public_url: string; display_order: number }[] | null;
+  market_listing_images: { public_url: string; clean_public_url?: string | null; use_clean?: boolean; display_order: number }[] | null;
   market_ai_analysis: { analyzed_at?: string } | { analyzed_at?: string }[] | null;
 };
 
@@ -58,7 +58,7 @@ export async function fetchMarketBrowseListings(
     .select(`
       id, title, brand, model, size, condition, wear_state, price_cents,
       listing_type, open_to_trade, seller_id, created_at, views_count,
-      market_listing_images(public_url, display_order),
+      market_listing_images(${MARKET_LISTING_IMAGE_FIELDS}),
       market_ai_analysis(analyzed_at)
     `)
     .eq('tenant_slug', tenantSlug)

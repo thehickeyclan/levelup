@@ -3,6 +3,7 @@ import { requireMarketUser } from '@/lib/market/auth';
 import { getSellerProfile } from '@/lib/market/seller';
 import { fetchMarketSellerStats } from '@/lib/market/seller-reputation';
 import { notifySellerDropFollowers } from '@/lib/market/notify-seller-drop';
+import { MARKET_LISTING_IMAGE_FIELDS_WITH_ID } from '@/lib/market/listing-images';
 
 export async function GET(
   _req: NextRequest,
@@ -17,7 +18,7 @@ export async function GET(
     .from('market_listings')
     .select(`
       *,
-      market_listing_images(id, public_url, display_order),
+      market_listing_images(${MARKET_LISTING_IMAGE_FIELDS_WITH_ID}),
       market_ai_analysis(*)
     `)
     .eq('id', id)
@@ -163,11 +164,16 @@ export async function DELETE(
 
   const { data: images } = await supabase
     .from('market_listing_images')
-    .select('storage_path')
+    .select('storage_path, clean_storage_path')
     .eq('listing_id', id);
 
-  if (images?.length) {
-    await supabase.storage.from('market-listing-photos').remove(images.map((i) => i.storage_path));
+  const paths: string[] = [];
+  for (const img of images ?? []) {
+    if (img.storage_path) paths.push(img.storage_path as string);
+    if (img.clean_storage_path) paths.push(img.clean_storage_path as string);
+  }
+  if (paths.length) {
+    await supabase.storage.from('market-listing-photos').remove(paths);
   }
 
   await supabase.from('market_listings').delete().eq('id', id);

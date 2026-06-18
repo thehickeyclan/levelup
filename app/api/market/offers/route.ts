@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       .from('market_offers')
       .select(`
         id, offer_type, amount_cents, message, status, created_at, expires_at, listing_id,
-        market_listings(id, title, brand, model, market_listing_images(public_url, display_order))
+        market_listings(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
       `)
       .eq('buyer_id', user!.id)
       .order('created_at', { ascending: false })
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     .from('market_offers')
     .select(`
       id, offer_type, amount_cents, message, status, created_at, expires_at, listing_id, buyer_id,
-      market_listings(id, title, brand, model, market_listing_images(public_url, display_order))
+      market_listings(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
     `)
     .in('listing_id', listingIds)
     .order('created_at', { ascending: false })

@@ -45,7 +45,7 @@ export async function fetchMyListings(
     .select(`
       id, title, brand, model, size, condition, wear_state, status, listing_type,
       price_cents, open_to_trade,
-      market_listing_images(public_url, display_order)
+      market_listing_images(public_url, clean_public_url, use_clean, display_order)
     `)
     .eq('seller_id', userId)
     .in('status', ['active', 'draft', 'sold', 'traded', 'archived', 'pending_sale'])

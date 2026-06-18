@@ -19,13 +19,17 @@ import {
   SELLER_LISTING_TYPE_OPTIONS,
   type MarketListingType,
 } from '@/lib/market/listing-type-options';
+import { PhotoCleanToggle, photoThumbnailSrc } from '@/components/market/photo-clean-toggle';
+import { ShoeIdCard } from '@/components/market/shoe-id-card';
+import { shoeIdClientEnabled } from '@/lib/market/shoe-id/feature-flag';
+import type { MarketListingImageRow } from '@/lib/market/listing-images';
 import { cn } from '@/lib/utils';
 
 const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Other'];
 const MAX_PHOTOS = 6;
 const BREAKDOWN_KEYS = ['sole', 'upper', 'midsole', 'laces'] as const;
 
-type ListingImage = { id: string; public_url: string; display_order: number };
+type ListingImage = MarketListingImageRow & { id: string };
 
 type BreakdownPart = { score: number; note: string };
 
@@ -98,6 +102,12 @@ export default function NewListingPage() {
   const isUsed = form.wear_state === 'used';
   const isPricedListing = form.listing_type === 'sell';
   const isCollection = form.listing_type === 'collection';
+  const updateImage = (imageId: string, patch: Partial<MarketListingImageRow>) => {
+    setImages((prev) =>
+      prev.map((img) => (img.id === imageId ? { ...img, ...patch } : img))
+    );
+  };
+
   const imageKey = images.map((i) => i.id).join(',');
 
   const setListingType = (listingType: MarketListingType) => {
@@ -439,17 +449,33 @@ export default function NewListingPage() {
         {images.length > 0 ? (
           <div className="grid grid-cols-3 gap-2">
             {images.map((img) => (
-              <div
-                key={img.id}
-                className="aspect-square rounded-lg border border-zinc-800 overflow-hidden bg-zinc-900"
-              >
-                <img src={img.public_url} alt="" className="w-full h-full object-cover" />
+              <div key={img.id}>
+                <div className="aspect-square rounded-lg border border-zinc-800 overflow-hidden bg-zinc-900">
+                  <img src={photoThumbnailSrc(img)} alt="" className="w-full h-full object-cover" />
+                </div>
+                {listingId ? (
+                  <PhotoCleanToggle
+                    listingId={listingId}
+                    image={img}
+                    onUpdate={updateImage}
+                  />
+                ) : null}
               </div>
             ))}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No photos yet — add at least one before publishing.</p>
         )}
+
+        {shoeIdClientEnabled() && listingId && images.length > 0 ? (
+          <ShoeIdCard
+            listingId={listingId}
+            images={images}
+            onAccept={(brand, model) => {
+              setForm((f) => ({ ...f, brand, model }));
+            }}
+          />
+        ) : null}
 
         {images.length > 0 && analyzing ? (
           <AiSpinner label="Analyzing condition…" />

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, title, brand, model, model_year, size, condition, wear_state, price_cents, shipping_cents,
       listing_type, status, open_to_trade, created_at, seller_id,
-      market_listing_images(id, public_url, display_order),
+      market_listing_images(id, public_url, clean_public_url, use_clean, display_order),
       market_ai_analysis(analyzed_at)
     `)
     .order('created_at', { ascending: false })

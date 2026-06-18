@@ -13,7 +13,7 @@ export async function getMarketOrderForUser(
       shipping_address, shipping_carrier, tracking_number,
       shipping_label_storage_path,
       shipped_at, delivered_at,
-      market_listings(id, title, brand, model, size, market_listing_images(public_url, display_order))
+      market_listings(id, title, brand, model, size, market_listing_images(public_url, clean_public_url, use_clean, display_order))
     `)
     .eq('id', orderId)
     .maybeSingle();

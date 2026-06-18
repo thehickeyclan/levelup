@@ -76,7 +76,7 @@ export async function POST(
       public_url: urlData.publicUrl,
       display_order: displayOrder,
     })
-    .select('id, public_url, display_order')
+    .select('id, public_url, clean_public_url, use_clean, display_order')
     .single();
 
   if (insertErr) {

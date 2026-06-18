@@ -41,7 +41,7 @@ export async function fetchSellerActiveInventory(
     .from('market_listings')
     .select(`
       id, title, brand, model, size, listing_type,
-      market_listing_images(public_url, display_order)
+      market_listing_images(public_url, clean_public_url, use_clean, display_order)
     `)
     .eq('seller_id', sellerId)
     .eq('status', 'active')

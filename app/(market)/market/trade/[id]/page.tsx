@@ -49,12 +49,12 @@ export default async function TradePage({
       supabase.from('users').select('first_name, last_name').eq('id', trade.receiver_id).maybeSingle(),
       supabase
         .from('market_listings')
-        .select('id, title, model, size, market_listing_images(public_url, display_order)')
+        .select('id, title, model, size, market_listing_images(public_url, clean_public_url, use_clean, display_order)')
         .eq('id', trade.initiator_listing_id)
         .maybeSingle(),
       supabase
         .from('market_listings')
-        .select('id, title, model, size, market_listing_images(public_url, display_order)')
+        .select('id, title, model, size, market_listing_images(public_url, clean_public_url, use_clean, display_order)')
         .eq('id', trade.receiver_listing_id)
         .maybeSingle(),
     ]);

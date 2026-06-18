@@ -33,7 +33,7 @@ export default async function ListingCheckoutPage({
     .select(`
       id, title, brand, model, size, condition, wear_state, status, seller_id, listing_type, price_cents, shipping_cents,
       locked_buyer_id,
-      market_listing_images(public_url, display_order)
+      market_listing_images(public_url, clean_public_url, use_clean, display_order)
     `)
     .eq('id', listingId)
     .maybeSingle();

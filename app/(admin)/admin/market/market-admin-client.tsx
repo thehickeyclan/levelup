@@ -83,7 +83,8 @@ export function MarketAdminClient({
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
         {(['orders', 'trades', 'offers', 'ai'] as const).map((t) => (
           <button
             key={t}
@@ -97,6 +98,13 @@ export function MarketAdminClient({
             {t === 'ai' ? 'AI costs' : t}
           </button>
         ))}
+        </div>
+        <Link
+          href="/admin/market/shoe-id"
+          className="text-sm text-accent hover:underline shrink-0"
+        >
+          Shoe ID training →
+        </Link>
       </div>
 
       {tab === 'orders' ? (

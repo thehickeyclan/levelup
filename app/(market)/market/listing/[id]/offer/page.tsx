@@ -17,7 +17,12 @@ type ListingRow = {
   model_year: number | null;
   status: string;
   seller_id: string;
-  market_listing_images: { public_url: string; display_order: number }[];
+  market_listing_images: {
+    public_url: string;
+    clean_public_url?: string | null;
+    use_clean?: boolean;
+    display_order: number;
+  }[];
 };
 
 function toSummary(row: ListingRow): OfferListingSummary {
@@ -60,7 +65,7 @@ export default async function ListingOfferPage({
     .from('market_listings')
     .select(`
       id, title, brand, model, size, condition, wear_state, model_year, status, seller_id, listing_type,
-      market_listing_images(public_url, display_order)
+      market_listing_images(public_url, clean_public_url, use_clean, display_order)
     `)
     .eq('id', listingId)
     .maybeSingle();
@@ -78,7 +83,7 @@ export default async function ListingOfferPage({
     .from('market_listings')
     .select(`
       id, title, brand, model, size, condition, wear_state, model_year,
-      market_listing_images(public_url, display_order)
+      market_listing_images(public_url, clean_public_url, use_clean, display_order)
     `)
     .eq('seller_id', user.id)
     .eq('status', 'active')

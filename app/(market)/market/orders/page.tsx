@@ -44,7 +44,7 @@ export default async function MarketOrdersPage({
       .select(`
         id, order_ref, status, amount_cents, shipping_cents, seller_payout_cents, created_at,
         listing_id, buyer_id, seller_id, tracking_number,
-        market_listings(title, brand, model, market_listing_images(public_url, display_order))
+        market_listings(title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
       `)
       .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
       .order('created_at', { ascending: false })

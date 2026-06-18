@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/button';
 import { BackLink } from '@/components/back-link';
 import { ListingSellerCard } from '@/components/market/listing-seller-card';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
+import {
+  listingHeroImageUrl,
+  primaryImageUsesClean,
+  type MarketListingImageRow,
+} from '@/lib/market/listing-images';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
 import { cn } from '@/lib/utils';
 
@@ -46,8 +51,14 @@ export default function ListingDetailPage() {
 
   const l = data.listing;
   const images = (
-    (l.market_listing_images as { public_url: string; display_order: number }[] | undefined) ?? []
+    (l.market_listing_images as MarketListingImageRow[] | undefined) ?? []
   ).sort((a, b) => a.display_order - b.display_order);
+  const activeImg = images[activeImage];
+  const heroUsesClean =
+    activeImage === 0 && primaryImageUsesClean(images) && Boolean(activeImg);
+  const heroUrl = activeImg
+    ? listingHeroImageUrl(activeImg, activeImage === 0)
+    : null;
   const priceCents = l.price_cents as number | null;
   const shippingCents = (l.shipping_cents as number) ?? 0;
   const listingType = (l.listing_type as string) || 'sell';
@@ -176,9 +187,9 @@ export default function ListingDetailPage() {
           {/* Hero photo */}
           <div className="space-y-0 -mx-4 md:mx-0">
             <div className="relative w-full aspect-[4/5] md:aspect-square overflow-hidden md:rounded-2xl bg-[#111]">
-              {images[activeImage]?.public_url ? (
+              {heroUrl ? (
                 <img
-                  src={images[activeImage].public_url}
+                  src={heroUrl}
                   alt=""
                   className="w-full h-full object-contain p-3 md:p-4"
                 />
@@ -188,6 +199,12 @@ export default function ListingDetailPage() {
                 </div>
               )}
             </div>
+            {heroUsesClean ? (
+              <p className="text-[10px] text-[#555] px-4 md:px-0">
+                <Sparkles className="inline h-3 w-3 text-[#C9A265] mr-0.5" />
+                Background removed — see all photos below
+              </p>
+            ) : null}
             {images.length > 1 ? (
               <div className="flex gap-2 overflow-x-auto px-4 py-3 md:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {images.map((img, i) => (

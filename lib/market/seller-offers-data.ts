@@ -47,7 +47,7 @@ export async function fetchSellerOffers(
     .from('market_offers')
     .select(`
       id, listing_id, offer_type, amount_cents, message, status, created_at, buyer_id, trade_listing_id,
-      market_listings(id, title, brand, model, market_listing_images(public_url, display_order))
+      market_listings(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
     `)
     .in('listing_id', filterListingId ? [filterListingId] : listingIds)
     .order('created_at', { ascending: false })
@@ -66,7 +66,7 @@ export async function fetchSellerOffers(
     tradeListingIds.length
       ? supabase
           .from('market_listings')
-          .select('id, title, model, size, market_listing_images(public_url, display_order)')
+          .select('id, title, model, size, market_listing_images(public_url, clean_public_url, use_clean, display_order)')
           .in('id', tradeListingIds)
       : Promise.resolve({ data: [] }),
   ]);

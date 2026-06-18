@@ -121,50 +121,63 @@ function formToPayload(form: CatalogFormState) {
   };
 }
 
-function ResultCard({
+function formMatchesAi(result: ShoeIdResult, form: CatalogFormState): boolean {
+  const base = formFromResult(result);
+  return (
+    form.brand === base.brand &&
+    form.model.trim() === base.model.trim() &&
+    form.years_produced === base.years_produced &&
+    form.colorways === base.colorways &&
+    form.rarity === base.rarity &&
+    form.value_low === base.value_low &&
+    form.value_mid === base.value_mid &&
+    form.value_high === base.value_high &&
+    form.model_aliases === base.model_aliases &&
+    form.visual_identifiers === base.visual_identifiers &&
+    form.collector_notes === base.collector_notes
+  );
+}
+
+function ResultSummary({
   result,
   catalogMatchId,
 }: {
   result: ShoeIdResult;
   catalogMatchId: string | null;
 }) {
+  const [showDetails, setShowDetails] = useState(false);
   return (
-    <div className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-4 space-y-3">
-      <div className="flex items-center gap-1.5 text-sm font-medium text-[#C9A265]">
-        <Sparkles className="h-4 w-4" />
-        Identified
+    <div className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-4 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-sm font-medium text-[#C9A265]">
+          <Sparkles className="h-4 w-4" />
+          AI read — edit fields below before saving
+        </div>
+        <span className="text-xs text-[#666]">{Math.round(result.confidence * 100)}% confidence</span>
       </div>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        <dt className="text-[#666]">Brand</dt>
-        <dd className="text-white">{result.brand}</dd>
-        <dt className="text-[#666]">Model</dt>
-        <dd className="text-white">{result.model}</dd>
-        <dt className="text-[#666]">Era</dt>
-        <dd className="text-white">{result.era}</dd>
-        <dt className="text-[#666]">Colorway</dt>
-        <dd className="text-white">{result.colorway}</dd>
-        <dt className="text-[#666]">Rarity</dt>
-        <dd className="text-white capitalize">{result.rarity}</dd>
-        <dt className="text-[#666]">Value</dt>
-        <dd className="text-[#C9A265]">
-          ${Math.round(result.value_low_cents / 100)} – ${Math.round(result.value_high_cents / 100)}
-        </dd>
-        <dt className="text-[#666]">Confidence</dt>
-        <dd className="text-white">{Math.round(result.confidence * 100)}%</dd>
-        <dt className="text-[#666]">Matched catalog</dt>
-        <dd className="text-white">{catalogMatchId || result.catalog_matched ? 'Yes' : 'No'}</dd>
-      </dl>
-      {result.visual_matches.length ? (
-        <div>
-          <p className="text-xs text-[#666] mb-1">Visual matches</p>
-          <ul className="text-xs text-[#aaa] space-y-0.5 list-disc pl-4">
-            {result.visual_matches.map((v) => (
-              <li key={v}>{v}</li>
-            ))}
-          </ul>
+      <p className="text-xs text-[#888]">
+        {result.brand} {result.model} · {result.era} · {result.colorway}
+        {catalogMatchId || result.catalog_matched ? ' · catalog match' : ''}
+      </p>
+      <button
+        type="button"
+        onClick={() => setShowDetails((v) => !v)}
+        className="text-[10px] text-[#555] hover:text-[#888]"
+      >
+        {showDetails ? 'Hide' : 'Show'} visual matches & notes
+      </button>
+      {showDetails ? (
+        <div className="space-y-2 pt-1 border-t border-[#222]">
+          {result.visual_matches.length ? (
+            <ul className="text-xs text-[#aaa] space-y-0.5 list-disc pl-4">
+              {result.visual_matches.map((v) => (
+                <li key={v}>{v}</li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="text-xs text-[#555]">{result.confidence_note}</p>
         </div>
       ) : null}
-      <p className="text-xs text-[#555]">{result.confidence_note}</p>
     </div>
   );
 }
@@ -173,17 +186,29 @@ function CatalogForm({
   form,
   setForm,
   onSave,
+  onDiscard,
+  onClear,
   saving,
   saveLabel,
 }: {
   form: CatalogFormState;
   setForm: (f: CatalogFormState) => void;
   onSave: () => void;
+  onDiscard?: () => void;
+  onClear?: () => void;
   saving: boolean;
   saveLabel: string;
 }) {
   return (
     <div className="space-y-3 rounded-xl border border-[#333] p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-[#aaa]">Catalog entry</p>
+        {onClear ? (
+          <button type="button" onClick={onClear} className="text-[10px] text-[#666] hover:text-[#aaa]">
+            Clear form
+          </button>
+        ) : null}
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs">Brand</Label>
@@ -205,17 +230,18 @@ function CatalogForm({
         </div>
       </div>
       <div>
+        <Label className="text-xs">Era / years produced</Label>
+        <Input
+          value={form.years_produced}
+          onChange={(e) => setForm({ ...form, years_produced: e.target.value })}
+          placeholder="e.g. 2013–2016, 2014, or late 1970s"
+        />
+      </div>
+      <div>
         <Label className="text-xs">Aliases (comma-separated)</Label>
         <Input
           value={form.model_aliases}
           onChange={(e) => setForm({ ...form, model_aliases: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label className="text-xs">Years produced</Label>
-        <Input
-          value={form.years_produced}
-          onChange={(e) => setForm({ ...form, years_produced: e.target.value })}
         />
       </div>
       <div>
@@ -290,9 +316,16 @@ function CatalogForm({
           onChange={(e) => setForm({ ...form, collector_notes: e.target.value })}
         />
       </div>
-      <Button onClick={onSave} disabled={saving || !form.model.trim()} className="w-full">
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saveLabel}
-      </Button>
+      <div className="flex gap-2">
+        <Button onClick={onSave} disabled={saving || !form.model.trim()} className="flex-1">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saveLabel}
+        </Button>
+        {onDiscard ? (
+          <Button type="button" variant="outline" onClick={onDiscard} disabled={saving}>
+            Discard
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -307,7 +340,12 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
   const [result, setResult] = useState<ShoeIdResult | null>(null);
   const [resultId, setResultId] = useState<string | null>(null);
   const [catalogMatchId, setCatalogMatchId] = useState<string | null>(null);
-  const [confirmMode, setConfirmMode] = useState<'correct' | 'wrong' | null>(null);
+  const discardResult = () => {
+    setResult(null);
+    setResultId(null);
+    setCatalogMatchId(null);
+    setForm(emptyForm());
+  };
   const [form, setForm] = useState<CatalogFormState>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState<{
@@ -362,7 +400,6 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       }
       setImageUrls((prev) => [...prev, ...uploaded].slice(0, 6));
       setResult(null);
-      setConfirmMode(null);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Upload failed');
     } finally {
@@ -376,7 +413,6 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
     if (!imageUrls.length) return;
     setIdentifying(true);
     setResult(null);
-    setConfirmMode(null);
     try {
       const res = await fetch('/api/market/shoe-id', {
         method: 'POST',
@@ -393,6 +429,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       setResult(data.result);
       setResultId(data.resultId);
       setCatalogMatchId(data.catalogMatchId);
+      setForm(formFromResult(data.result));
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Identify failed');
     } finally {
@@ -400,8 +437,9 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
     }
   };
 
-  const saveConfirm = async (wasCorrect: boolean) => {
-    if (!resultId || !form.model.trim()) return;
+  const saveConfirm = async () => {
+    if (!resultId || !result || !form.model.trim()) return;
+    const wasCorrect = formMatchesAi(result, form);
     setSaving(true);
     try {
       const res = await fetch('/api/admin/market/shoe-id/confirm', {
@@ -415,8 +453,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
-      setConfirmMode(null);
-      setResult(null);
+      discardResult();
       setImageUrls([]);
       const catRes = await fetch('/api/admin/market/shoe-id/catalog');
       const catData = await catRes.json();
@@ -543,38 +580,16 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
           </Button>
           {result ? (
             <>
-              <ResultCard result={result} catalogMatchId={catalogMatchId} />
-              {!confirmMode ? (
-                <div className="flex gap-2">
-                  <Button
-                    className="flex-1"
-                    onClick={() => {
-                      setForm(formFromResult(result));
-                      setConfirmMode('correct');
-                    }}
-                  >
-                    ✓ Correct — add to catalog
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      setForm(emptyForm());
-                      setConfirmMode('wrong');
-                    }}
-                  >
-                    ✗ Wrong — correct it
-                  </Button>
-                </div>
-              ) : (
-                <CatalogForm
-                  form={form}
-                  setForm={setForm}
-                  saving={saving}
-                  saveLabel={confirmMode === 'correct' ? 'Save to catalog' : 'Save correction'}
-                  onSave={() => void saveConfirm(confirmMode === 'correct')}
-                />
-              )}
+              <ResultSummary result={result} catalogMatchId={catalogMatchId} />
+              <CatalogForm
+                form={form}
+                setForm={setForm}
+                saving={saving}
+                saveLabel="Save to catalog"
+                onSave={() => void saveConfirm()}
+                onDiscard={discardResult}
+                onClear={() => setForm(emptyForm())}
+              />
             </>
           ) : null}
         </div>

@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminApi } from '@/lib/admin-api-auth';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_SIZE = 10 * 1024 * 1024;
+/** Vercel serverless body limit is ~4.5MB — keep per-file cap below that. */
+const MAX_SIZE = 4 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdminApi();
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'JPEG, PNG, or WebP only' }, { status: 400 });
     }
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: 'Each file must be under 10MB' }, { status: 400 });
+      return NextResponse.json({ error: 'Each file must be under 4MB' }, { status: 400 });
     }
 
     const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';

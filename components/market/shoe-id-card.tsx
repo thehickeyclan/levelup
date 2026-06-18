@@ -69,6 +69,16 @@ export function ShoeIdCard({
       {error ? <p className="px-4 pb-3 text-xs text-destructive">{error}</p> : null}
       {expanded && result ? (
         <div className="px-4 pb-4 space-y-3 border-t border-[#222] pt-3">
+          {images.length < 3 ? (
+            <p className="text-[10px] text-[#666]">
+              Tip: add top, sole, and side photos for better IDs — using {images.length}{' '}
+              photo{images.length !== 1 ? 's' : ''}.
+            </p>
+          ) : (
+            <p className="text-[10px] text-[#666]">
+              Analyzing {images.length} angles together (top, sides, sole, etc.).
+            </p>
+          )}
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
             <dt className="text-[#666]">Brand</dt>
             <dd className="text-white font-medium">{result.brand}</dd>

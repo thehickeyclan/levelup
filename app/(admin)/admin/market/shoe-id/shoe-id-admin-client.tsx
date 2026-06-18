@@ -10,6 +10,19 @@ import { cn } from '@/lib/utils';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'grail'] as const;
 const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Onitsuka', 'Other'];
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+async function parseApiJson<T extends { error?: string }>(res: Response): Promise<T> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    if (res.status === 413 || /request entity too large/i.test(text)) {
+      throw new Error('Photo too large for server — use images under 4MB each.');
+    }
+    throw new Error(text.slice(0, 160) || `Request failed (${res.status})`);
+  }
+}
 
 type CatalogRow = {
   id: string;
@@ -289,6 +302,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
   const [catalog, setCatalog] = useState(initialCatalog);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(false);
   const [result, setResult] = useState<ShoeIdResult | null>(null);
   const [resultId, setResultId] = useState<string | null>(null);
@@ -318,20 +332,42 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
+    const slotsLeft = Math.max(0, 6 - imageUrls.length);
+    const toUpload = files.slice(0, slotsLeft);
+    if (!toUpload.length) {
+      alert('Maximum 6 photos per identification.');
+      e.target.value = '';
+      return;
+    }
+
     setUploading(true);
+    setUploadProgress(null);
+    const uploaded: string[] = [];
     try {
-      const fd = new FormData();
-      files.slice(0, 6).forEach((f) => fd.append('file', f));
-      const res = await fetch('/api/admin/market/shoe-id/upload', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
-      setImageUrls(data.urls ?? []);
+      for (let i = 0; i < toUpload.length; i++) {
+        const file = toUpload[i];
+        if (file.size > MAX_UPLOAD_BYTES) {
+          throw new Error(
+            `${file.name} is over 4MB — resize or export a smaller JPEG before uploading.`
+          );
+        }
+        setUploadProgress(`Uploading ${i + 1} of ${toUpload.length}…`);
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/admin/market/shoe-id/upload', { method: 'POST', body: fd });
+        const data = await parseApiJson<{ urls?: string[]; error?: string }>(res);
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        const url = data.urls?.[0];
+        if (url) uploaded.push(url);
+      }
+      setImageUrls((prev) => [...prev, ...uploaded].slice(0, 6));
       setResult(null);
       setConfirmMode(null);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
       e.target.value = '';
     }
   };
@@ -347,7 +383,12 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ images: imageUrls }),
       });
-      const data = await res.json();
+      const data = await parseApiJson<{
+        result: ShoeIdResult;
+        resultId: string;
+        catalogMatchId: string | null;
+        error?: string;
+      }>(res);
       if (!res.ok) throw new Error(data.error || 'Identify failed');
       setResult(data.result);
       setResultId(data.resultId);
@@ -461,13 +502,15 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       {tab === 'train' ? (
         <div className="space-y-4 max-w-lg">
           <p className="text-sm text-[#888]">
-            Upload photos of a known shoe, run identification, then confirm or correct to grow the catalog.
+            Upload up to 6 photos of the same pair from different angles — top, outsole, both
+            sides, heel, and toe — then run identification.
           </p>
           <label className="flex flex-col items-center gap-2 border border-dashed border-[#333] rounded-xl py-8 cursor-pointer hover:border-[#C9A265]">
             <Upload className="h-5 w-5 text-[#666]" />
             <span className="text-sm text-[#666]">
-              {uploading ? 'Uploading…' : `Upload photos (${imageUrls.length}/6)`}
+              {uploadProgress || (uploading ? 'Uploading…' : `Add photos (${imageUrls.length}/6)`)}
             </span>
+            <span className="text-[10px] text-[#555]">Max 4MB per photo — upload one angle at a time</span>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"

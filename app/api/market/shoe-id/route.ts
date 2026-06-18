@@ -5,7 +5,7 @@ import { checkAndIncrementAiUsage } from '@/lib/market/ai/rate-limit';
 import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
 import { getCatalogContext, matchCatalogEntry } from '@/lib/market/shoe-id/catalog';
 import { imagesFromPublicUrls } from '@/lib/market/shoe-id/images';
-import { SHOE_ID_SYSTEM_PROMPT } from '@/lib/market/shoe-id/prompts';
+import { SHOE_ID_SYSTEM_PROMPT, shoeIdUserMessage } from '@/lib/market/shoe-id/prompts';
 import { ShoeIdResultSchema } from '@/lib/market/shoe-id/schemas';
 import { shoeIdServerEnabled } from '@/lib/market/shoe-id/feature-flag';
 
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
   const claude = await callClaude(
     SHOE_ID_SYSTEM_PROMPT(catalogContext),
-    [...visionBlocks, { type: 'text', text: 'Identify this wrestling shoe from the photos.' }],
+    [...visionBlocks, { type: 'text', text: shoeIdUserMessage(visionBlocks.length) }],
     2048
   );
 

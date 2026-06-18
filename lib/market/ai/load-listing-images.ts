@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ClaudeMessageContent } from '@/lib/market/ai/client';
+import { prepareVisionImage } from '@/lib/market/ai/prepare-vision-image';
 
 type ListingImageRow = { storage_path: string; public_url: string };
 
@@ -22,12 +23,13 @@ export async function listingImagesForClaude(
       .download(img.storage_path);
 
     if (data && !error) {
-      const buffer = Buffer.from(await data.arrayBuffer());
+      const raw = Buffer.from(await data.arrayBuffer());
+      const { buffer, mediaType } = await prepareVisionImage(raw, mediaTypeFromPath(img.storage_path));
       blocks.push({
         type: 'image',
         source: {
           type: 'base64',
-          media_type: mediaTypeFromPath(img.storage_path),
+          media_type: mediaType,
           data: buffer.toString('base64'),
         },
       });
@@ -38,13 +40,14 @@ export async function listingImagesForClaude(
     try {
       const res = await fetch(img.public_url);
       if (res.ok) {
-        const buffer = Buffer.from(await res.arrayBuffer());
+        const raw = Buffer.from(await res.arrayBuffer());
         const contentType = res.headers.get('content-type') || mediaTypeFromPath(img.storage_path);
+        const { buffer, mediaType } = await prepareVisionImage(raw, contentType);
         blocks.push({
           type: 'image',
           source: {
             type: 'base64',
-            media_type: contentType.split(';')[0],
+            media_type: mediaType,
             data: buffer.toString('base64'),
           },
         });

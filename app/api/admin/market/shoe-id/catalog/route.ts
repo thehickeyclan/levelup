@@ -50,6 +50,10 @@ export async function POST(req: NextRequest) {
       value_mid_cents: entry.value_mid_cents ?? null,
       value_high_cents: entry.value_high_cents ?? null,
       collector_notes: entry.collector_notes ?? null,
+      original_msrp_cents: entry.original_msrp_cents ?? null,
+      catalog_price_cents: entry.catalog_price_cents ?? null,
+      price_source: entry.price_source ?? null,
+      inflation_adjusted_price: entry.inflation_adjusted_price ?? null,
       reference_image_urls: entry.reference_image_urls ?? [],
       sale_comps: entry.sale_comps ?? [],
       source: entry.source ?? 'manual',
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
   if (error) {
     const msg = error.message;
     const hint =
-      /reference_image_urls|sale_comps|column/i.test(msg)
+      /reference_image_urls|sale_comps|original_msrp|catalog_price|inflation_adjusted|column/i.test(msg)
         ? `${msg} — apply wrestling_shoes_catalog migrations on Supabase`
         : msg;
     return NextResponse.json({ error: hint }, { status: 500 });

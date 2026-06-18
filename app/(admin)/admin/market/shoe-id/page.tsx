@@ -33,7 +33,7 @@ export default async function AdminShoeIdPage() {
   const { data: catalog } = await admin
     .from('wrestling_shoes_catalog')
     .select(
-      'id, brand, model, years_produced, rarity, value_low_cents, value_high_cents, verified, source, reference_image_urls, sale_comps'
+      'id, brand, model, years_produced, rarity, original_msrp_cents, value_low_cents, value_mid_cents, value_high_cents, verified, source, reference_image_urls, sale_comps'
     )
     .order('brand')
     .order('model');
@@ -44,7 +44,9 @@ export default async function AdminShoeIdPage() {
     model: row.model,
     years_produced: row.years_produced,
     rarity: row.rarity,
+    original_msrp_cents: row.original_msrp_cents,
     value_low_cents: row.value_low_cents,
+    value_mid_cents: row.value_mid_cents,
     value_high_cents: row.value_high_cents,
     verified: row.verified ?? false,
     source: row.source,

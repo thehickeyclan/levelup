@@ -79,7 +79,9 @@ export async function POST(req: NextRequest) {
 
   const catalogContext = await getCatalogContext(admin, brand);
   const catalogEntries = await fetchCatalogEntries(admin, brand);
-  const { blocks, queryImageCount } = await buildShoeIdVisionContent(images, catalogEntries);
+  const { blocks, queryImageCount } = await buildShoeIdVisionContent(images, catalogEntries, {
+    brandHint: brand,
+  });
   if (!queryImageCount) {
     return NextResponse.json({ error: 'Could not load photos for analysis.' }, { status: 400 });
   }
@@ -107,7 +109,9 @@ export async function POST(req: NextRequest) {
     const detail =
       claude.reason === 'missing_key'
         ? 'ANTHROPIC_API_KEY is not set.'
-        : 'Could not generate details — try again.';
+        : claude.reason === 'api_error' && claude.detail === '413'
+          ? 'Request too large for AI — use fewer photos or re-upload (images are compressed on upload).'
+          : 'Could not generate details — try again.';
     return NextResponse.json({ error: detail }, { status: 503 });
   }
 

@@ -47,7 +47,7 @@ export async function callClaude(
   if (!res.ok) {
     const errText = await res.text();
     console.error('Anthropic API error:', res.status, errText);
-    return { ok: false, reason: 'api_error', detail: `${res.status}` };
+    return { ok: false, reason: 'api_error', detail: String(res.status) };
   }
 
   const data = (await res.json()) as {

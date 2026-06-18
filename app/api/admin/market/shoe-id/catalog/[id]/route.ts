@@ -28,7 +28,7 @@ export async function PATCH(
   if (error) {
     const msg = error.message;
     const hint =
-      /reference_image_urls|sale_comps|column/i.test(msg)
+      /reference_image_urls|sale_comps|original_msrp|catalog_price|inflation_adjusted|column/i.test(msg)
         ? `${msg} — apply wrestling_shoes_catalog migrations on Supabase`
         : msg;
     return NextResponse.json({ error: hint }, { status: 500 });

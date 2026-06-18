@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SaleComp } from '@/lib/market/shoe-id/schemas';
 
 const CATALOG_SELECT =
-  'brand,model,model_aliases,years_produced,colorways,visual_identifiers,sole_description,upper_material,logo_placement,rarity,value_low_cents,value_mid_cents,value_high_cents,collector_notes,reference_image_urls,sale_comps';
+  'brand,model,model_aliases,years_produced,colorways,visual_identifiers,sole_description,upper_material,logo_placement,rarity,value_low_cents,value_mid_cents,value_high_cents,original_msrp_cents,catalog_price_cents,price_source,inflation_adjusted_price,collector_notes,reference_image_urls,sale_comps';
 
 const FULL_CATALOG_LIMIT = 200;
 
@@ -20,10 +20,36 @@ export type CatalogEntryRow = {
   value_low_cents?: number | null;
   value_mid_cents?: number | null;
   value_high_cents?: number | null;
+  original_msrp_cents?: number | null;
+  catalog_price_cents?: number | null;
+  price_source?: string | null;
+  inflation_adjusted_price?: string | null;
   collector_notes?: string | null;
   reference_image_urls?: string[] | null;
   sale_comps?: SaleComp[] | null;
 };
+
+function formatLaunchPricing(entry: CatalogEntryRow): string {
+  const msrp = entry.original_msrp_cents
+    ? `$${(entry.original_msrp_cents / 100).toFixed(2)} MSRP`
+    : null;
+  const catalog = entry.catalog_price_cents
+    ? `$${(entry.catalog_price_cents / 100).toFixed(2)} catalog`
+    : null;
+  const source = entry.price_source ? ` (${entry.price_source})` : '';
+  const inflation = entry.inflation_adjusted_price
+    ? `; inflation-adjusted ~${entry.inflation_adjusted_price}`
+    : '';
+  const parts = [msrp, catalog].filter(Boolean);
+  if (!parts.length) return '—';
+  return `${parts.join(', ')}${source}${inflation}`;
+}
+
+function formatAppreciationMultiple(entry: CatalogEntryRow): string {
+  if (!entry.original_msrp_cents || !entry.value_mid_cents) return '';
+  const multiple = entry.value_mid_cents / entry.original_msrp_cents;
+  return ` (${multiple.toFixed(1)}x vs launch MSRP)`;
+}
 
 function formatSaleComps(comps: SaleComp[] | null | undefined): string {
   if (!comps?.length) return '—';
@@ -82,6 +108,7 @@ UPPER: ${entry.upper_material ?? '—'}
 LOGO: ${entry.logo_placement ?? '—'}
 COLORWAYS: ${JSON.stringify(entry.colorways ?? [])}
 RARITY: ${entry.rarity ?? '—'}
+LAUNCH PRICING: ${formatLaunchPricing(entry)}${formatAppreciationMultiple(entry)}
 VALUE RANGE: $${Math.round((entry.value_low_cents || 0) / 100)}–$${Math.round((entry.value_high_cents || 0) / 100)}
 DOCUMENTED SALES: ${formatSaleComps(entry.sale_comps)}
 NOTES: ${entry.collector_notes ?? '—'}${entry.reference_image_urls?.length ? `\nREFERENCE PHOTOS: ${entry.reference_image_urls.length} admin-confirmed training angles included in this request` : ''}

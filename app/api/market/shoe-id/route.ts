@@ -58,7 +58,8 @@ export async function POST(req: NextRequest) {
   const catalogEntries = await fetchCatalogEntries(supabase, body.brandHint);
   const { blocks, queryImageCount, referenceImageCount } = await buildShoeIdVisionContent(
     images,
-    catalogEntries
+    catalogEntries,
+    { brandHint: body.brandHint }
   );
   if (!queryImageCount) {
     return NextResponse.json({ error: 'Could not load photos for analysis.' }, { status: 400 });
@@ -83,7 +84,9 @@ export async function POST(req: NextRequest) {
     const detail =
       !claude.ok && claude.reason === 'missing_key'
         ? 'ANTHROPIC_API_KEY is not set.'
-        : 'Shoe identification unavailable — try again.';
+        : !claude.ok && claude.reason === 'api_error' && claude.detail === '413'
+          ? 'Request too large for AI — use fewer photos or re-upload (images are compressed on upload).'
+          : 'Shoe identification unavailable — try again.';
     return NextResponse.json({ error: detail }, { status: 503 });
   }
 

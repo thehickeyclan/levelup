@@ -10,6 +10,14 @@ import { cn } from '@/lib/utils';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'grail'] as const;
 const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Onitsuka', 'Onitsuka Tiger', 'Other'];
+const PRICE_SOURCES = [
+  'Eastbay Catalog',
+  'Wrestling USA Catalog',
+  'ASICS Catalog',
+  'Manufacturer website',
+  'Retailer launch price',
+  'Estimated MSRP',
+] as const;
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 async function parseApiJson<T extends { error?: string }>(res: Response): Promise<T> {
@@ -30,7 +38,9 @@ type CatalogRow = {
   model: string;
   years_produced: string | null;
   rarity: string | null;
+  original_msrp_cents: number | null;
   value_low_cents: number | null;
+  value_mid_cents: number | null;
   value_high_cents: number | null;
   verified: boolean;
   source: string | null;
@@ -45,7 +55,9 @@ type CatalogFullEntry = CatalogRow & {
   sole_description?: string | null;
   upper_material?: string | null;
   logo_placement?: string | null;
-  value_mid_cents?: number | null;
+  catalog_price_cents?: number | null;
+  price_source?: string | null;
+  inflation_adjusted_price?: string | null;
   collector_notes?: string | null;
   reference_image_urls?: string[] | null;
   sale_comps?: SaleComp[] | null;
@@ -69,6 +81,10 @@ type CatalogFormState = {
   logo_placement: string;
   colorways: string;
   rarity: (typeof RARITIES)[number];
+  original_msrp: string;
+  catalog_price: string;
+  price_source: string;
+  inflation_adjusted_price: string;
   value_low: string;
   value_mid: string;
   value_high: string;
@@ -88,6 +104,29 @@ function matchBrand(raw: string): string {
   const trimmed = raw.trim();
   const hit = BRANDS.find((b) => b.toLowerCase() === trimmed.toLowerCase());
   return hit ?? trimmed;
+}
+
+function parseDollarField(raw: string): string {
+  const cleaned = raw.replace(/[~$,]/g, '').trim();
+  const num = Number(cleaned);
+  if (Number.isNaN(num) || num <= 0) return '';
+  return String(num);
+}
+
+function dollarsToCents(raw: string): number | undefined {
+  const cleaned = raw.replace(/[~$,]/g, '').trim();
+  if (!cleaned || Number.isNaN(Number(cleaned))) return undefined;
+  const num = Number(cleaned);
+  if (num <= 0) return undefined;
+  return Math.round(num * 100);
+}
+
+function formatAppreciationMultiple(
+  msrpCents: number | null | undefined,
+  valueMidCents: number | null | undefined
+): string | null {
+  if (!msrpCents || !valueMidCents) return null;
+  return `${(valueMidCents / msrpCents).toFixed(1)}x`;
 }
 
 /** Parse GPT-style structured catalog paste (key: value blocks). */
@@ -128,6 +167,17 @@ function parseStructuredCatalogPaste(raw: string): Partial<CatalogFormState> | n
   }
 
   const rarityRaw = joinLines('rarity');
+  const msrpRaw =
+    joinLines('original_msrp') ||
+    joinLines('msrp') ||
+    joinLines('launch_price') ||
+    joinLines('msrp (launch price)');
+  const catalogPriceRaw =
+    joinLines('catalog_price') ||
+    joinLines('eastbay_sale_price') ||
+    joinLines('catalog sale price');
+  const priceSource = joinLines('price_source');
+  const inflationAdjusted = joinLines('inflation_adjusted_price');
 
   return {
     brand: fields.brand?.[0] ? matchBrand(fields.brand[0]) : undefined,
@@ -138,6 +188,10 @@ function parseStructuredCatalogPaste(raw: string): Partial<CatalogFormState> | n
     sole_description: sole || undefined,
     collector_notes: collectorNotes || undefined,
     rarity: rarityRaw ? normalizeRarity(rarityRaw) : undefined,
+    original_msrp: msrpRaw ? parseDollarField(msrpRaw) || undefined : undefined,
+    catalog_price: catalogPriceRaw ? parseDollarField(catalogPriceRaw) || undefined : undefined,
+    price_source: priceSource || undefined,
+    inflation_adjusted_price: inflationAdjusted || undefined,
   };
 }
 
@@ -157,6 +211,10 @@ function emptyForm(): CatalogFormState {
     logo_placement: '',
     colorways: '',
     rarity: 'common',
+    original_msrp: '',
+    catalog_price: '',
+    price_source: '',
+    inflation_adjusted_price: '',
     value_low: '',
     value_mid: '',
     value_high: '',
@@ -177,6 +235,10 @@ function formFromResult(r: ShoeIdResult): CatalogFormState {
     logo_placement: '',
     colorways: r.colorway,
     rarity: r.rarity,
+    original_msrp: '',
+    catalog_price: '',
+    price_source: '',
+    inflation_adjusted_price: '',
     value_low: String(Math.round(r.value_low_cents / 100)),
     value_mid: String(Math.round(r.value_mid_cents / 100)),
     value_high: String(Math.round(r.value_high_cents / 100)),
@@ -235,6 +297,10 @@ function formToPayload(form: CatalogFormState, linkImageUrls?: string[]) {
       .map((s) => s.trim())
       .filter(Boolean),
     rarity: form.rarity,
+    original_msrp_cents: dollarsToCents(form.original_msrp),
+    catalog_price_cents: dollarsToCents(form.catalog_price),
+    price_source: form.price_source.trim() || undefined,
+    inflation_adjusted_price: form.inflation_adjusted_price.trim() || undefined,
     value_low_cents: form.value_low ? Math.round(Number(form.value_low) * 100) : undefined,
     value_mid_cents: form.value_mid ? Math.round(Number(form.value_mid) * 100) : undefined,
     value_high_cents: form.value_high ? Math.round(Number(form.value_high) * 100) : undefined,
@@ -247,7 +313,7 @@ function formToPayload(form: CatalogFormState, linkImageUrls?: string[]) {
 }
 
 function formatCatalogSaveError(message: string): string {
-  if (/reference_image_urls|sale_comps|column/i.test(message)) {
+  if (/reference_image_urls|sale_comps|original_msrp|catalog_price|inflation_adjusted|column/i.test(message)) {
     return `${message}\n\nApply the wrestling_shoes_catalog migrations on Supabase, then try again.`;
   }
   return message;
@@ -255,6 +321,12 @@ function formatCatalogSaveError(message: string): string {
 
 function centsToDollars(cents: number | null | undefined): string {
   return cents != null ? String(Math.round(cents / 100)) : '';
+}
+
+function centsToPreciseDollars(cents: number | null | undefined): string {
+  if (cents == null) return '';
+  const dollars = cents / 100;
+  return Number.isInteger(dollars) ? String(dollars) : dollars.toFixed(2);
 }
 
 function formFromCatalogEntry(entry: CatalogFullEntry): CatalogFormState {
@@ -275,6 +347,10 @@ function formFromCatalogEntry(entry: CatalogFullEntry): CatalogFormState {
     logo_placement: entry.logo_placement ?? '',
     colorways: colorways.join(', '),
     rarity,
+    original_msrp: centsToPreciseDollars(entry.original_msrp_cents),
+    catalog_price: centsToPreciseDollars(entry.catalog_price_cents),
+    price_source: entry.price_source ?? '',
+    inflation_adjusted_price: entry.inflation_adjusted_price ?? '',
     value_low: centsToDollars(entry.value_low_cents),
     value_mid: centsToDollars(entry.value_mid_cents),
     value_high: centsToDollars(entry.value_high_cents),
@@ -290,7 +366,9 @@ function catalogRowFromEntry(entry: CatalogFullEntry): CatalogRow {
     model: entry.model,
     years_produced: entry.years_produced ?? null,
     rarity: entry.rarity ?? null,
+    original_msrp_cents: entry.original_msrp_cents ?? null,
     value_low_cents: entry.value_low_cents ?? null,
+    value_mid_cents: entry.value_mid_cents ?? null,
     value_high_cents: entry.value_high_cents ?? null,
     verified: entry.verified ?? false,
     source: entry.source ?? null,
@@ -344,6 +422,10 @@ function mergeEnrichmentIntoForm(
     value_high: enrichment.value_high_cents ? centsToDollars(enrichment.value_high_cents) : form.value_high,
     collector_notes: enrichment.collector_notes || form.collector_notes,
     saleComps: form.saleComps,
+    original_msrp: form.original_msrp,
+    catalog_price: form.catalog_price,
+    price_source: form.price_source,
+    inflation_adjusted_price: form.inflation_adjusted_price,
   };
 }
 
@@ -459,6 +541,12 @@ function CatalogForm({
       ...(parsed.sole_description ? { sole_description: parsed.sole_description } : {}),
       ...(parsed.collector_notes ? { collector_notes: parsed.collector_notes } : {}),
       ...(parsed.rarity ? { rarity: parsed.rarity } : {}),
+      ...(parsed.original_msrp ? { original_msrp: parsed.original_msrp } : {}),
+      ...(parsed.catalog_price ? { catalog_price: parsed.catalog_price } : {}),
+      ...(parsed.price_source ? { price_source: parsed.price_source } : {}),
+      ...(parsed.inflation_adjusted_price
+        ? { inflation_adjusted_price: parsed.inflation_adjusted_price }
+        : {}),
     });
     setPasteText('');
   };
@@ -484,7 +572,7 @@ function CatalogForm({
           className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs min-h-[100px] font-mono"
           value={pasteText}
           onChange={(e) => setPasteText(e.target.value)}
-          placeholder={'brand: Onitsuka Tiger\nmodel: Wrestling Mexico Mid\nyears_produced: 2003\ncolorways:\nRoyal Blue / Orange\n...'}
+          placeholder={'brand: Onitsuka Tiger\nmodel: Reflex III\nyears_produced: 1998-1999\noriginal_msrp: $40.00\ncatalog_price: $34.95\nprice_source: Eastbay Catalog\ninflation_adjusted_price: ~$75-$80\ncolorways:\n...'}
         />
         <Button
           type="button"
@@ -605,17 +693,78 @@ function CatalogForm({
           ))}
         </select>
       </div>
+      <div className="space-y-3 rounded-lg border border-[#C9A265]/30 bg-[#141414] p-3">
+        <div>
+          <p className="text-xs font-medium text-[#C9A265]">Launch pricing (catalog evidence)</p>
+          <p className="text-[10px] text-[#666] mt-1">
+            Document MSRP and catalog sale price when you have Eastbay, Wrestling USA, or manufacturer
+            sources. Required when a price source is set.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Original MSRP ($)</Label>
+            <Input
+              value={form.original_msrp}
+              onChange={(e) => setForm({ ...form, original_msrp: e.target.value })}
+              placeholder="40.00"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Catalog / sale price ($)</Label>
+            <Input
+              value={form.catalog_price}
+              onChange={(e) => setForm({ ...form, catalog_price: e.target.value })}
+              placeholder="34.95"
+            />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">Price source</Label>
+          <Input
+            list="shoe-id-price-sources"
+            value={form.price_source}
+            onChange={(e) => setForm({ ...form, price_source: e.target.value })}
+            placeholder="Eastbay Catalog"
+          />
+          <datalist id="shoe-id-price-sources">
+            {PRICE_SOURCES.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        </div>
+        <div>
+          <Label className="text-xs">Inflation-adjusted MSRP (2026 dollars)</Label>
+          <Input
+            value={form.inflation_adjusted_price}
+            onChange={(e) => setForm({ ...form, inflation_adjusted_price: e.target.value })}
+            placeholder="~$75-$80"
+          />
+        </div>
+        {form.original_msrp && form.value_mid ? (
+          <p className="text-[10px] text-[#888]">
+            Appreciation vs launch MSRP:{' '}
+            <span className="text-[#C9A265]">
+              {formatAppreciationMultiple(
+                dollarsToCents(form.original_msrp),
+                dollarsToCents(form.value_mid)
+              ) ?? '—'}
+            </span>{' '}
+            (mid collector value ÷ MSRP)
+          </p>
+        ) : null}
+      </div>
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <Label className="text-xs">Value low ($)</Label>
+          <Label className="text-xs">Collector value low ($)</Label>
           <Input value={form.value_low} onChange={(e) => setForm({ ...form, value_low: e.target.value })} />
         </div>
         <div>
-          <Label className="text-xs">Value mid ($)</Label>
+          <Label className="text-xs">Collector value mid ($)</Label>
           <Input value={form.value_mid} onChange={(e) => setForm({ ...form, value_mid: e.target.value })} />
         </div>
         <div>
-          <Label className="text-xs">Value high ($)</Label>
+          <Label className="text-xs">Collector value high ($)</Label>
           <Input value={form.value_high} onChange={(e) => setForm({ ...form, value_high: e.target.value })} />
         </div>
       </div>
@@ -993,6 +1142,10 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       alert('Model is required before saving.');
       return;
     }
+    if (form.price_source.trim() && !form.original_msrp.trim()) {
+      alert('Original MSRP is required when you document a price source (e.g. Eastbay catalog).');
+      return;
+    }
     if (!result) {
       alert('Run Identify first, then save to catalog.');
       return;
@@ -1086,6 +1239,10 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
     if (!editingCatalogId) return;
     if (!catalogEditForm.model.trim()) {
       alert('Model is required before saving.');
+      return;
+    }
+    if (catalogEditForm.price_source.trim() && !catalogEditForm.original_msrp.trim()) {
+      alert('Original MSRP is required when you document a price source (e.g. Eastbay catalog).');
       return;
     }
     setCatalogEditSaving(true);
@@ -1286,7 +1443,9 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                   <th className="p-2">Model</th>
                   <th className="p-2">Years</th>
                   <th className="p-2">Rarity</th>
+                  <th className="p-2">MSRP</th>
                   <th className="p-2">Value</th>
+                  <th className="p-2">Multiple</th>
                   <th className="p-2">Refs</th>
                   <th className="p-2">Sales</th>
                   <th className="p-2">Verified</th>
@@ -1308,9 +1467,17 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                     <td className="p-2 text-[#888]">{row.years_produced ?? '—'}</td>
                     <td className="p-2 capitalize">{row.rarity ?? '—'}</td>
                     <td className="p-2 text-[#888]">
+                      {row.original_msrp_cents != null
+                        ? `$${(row.original_msrp_cents / 100).toFixed(2)}`
+                        : '—'}
+                    </td>
+                    <td className="p-2 text-[#888]">
                       {row.value_low_cents != null
                         ? `$${row.value_low_cents / 100}–$${(row.value_high_cents ?? 0) / 100}`
                         : '—'}
+                    </td>
+                    <td className="p-2 text-[#C9A265]">
+                      {formatAppreciationMultiple(row.original_msrp_cents, row.value_mid_cents) ?? '—'}
                     </td>
                     <td className="p-2 text-[#888]">{row.reference_image_count || '—'}</td>
                     <td className="p-2 text-[#888]">{row.sale_comp_count || '—'}</td>

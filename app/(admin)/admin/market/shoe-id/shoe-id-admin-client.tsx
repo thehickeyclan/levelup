@@ -5,11 +5,11 @@ import { Loader2, Sparkles, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
+import type { ShoeIdResult, SaleComp } from '@/lib/market/shoe-id/schemas';
 import { cn } from '@/lib/utils';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'grail'] as const;
-const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Onitsuka', 'Other'];
+const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Onitsuka', 'Onitsuka Tiger', 'Other'];
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 async function parseApiJson<T extends { error?: string }>(res: Response): Promise<T> {
@@ -34,6 +34,8 @@ type CatalogRow = {
   value_high_cents: number | null;
   verified: boolean;
   source: string | null;
+  reference_image_count: number;
+  sale_comp_count: number;
 };
 
 type CatalogFullEntry = CatalogRow & {
@@ -45,6 +47,15 @@ type CatalogFullEntry = CatalogRow & {
   logo_placement?: string | null;
   value_mid_cents?: number | null;
   collector_notes?: string | null;
+  reference_image_urls?: string[] | null;
+  sale_comps?: SaleComp[] | null;
+};
+
+type SaleCompForm = {
+  sold_price: string;
+  condition: string;
+  source: string;
+  notes: string;
 };
 
 type CatalogFormState = {
@@ -62,7 +73,77 @@ type CatalogFormState = {
   value_mid: string;
   value_high: string;
   collector_notes: string;
+  saleComps: SaleCompForm[];
 };
+
+function normalizeRarity(raw: string): (typeof RARITIES)[number] {
+  const v = raw.trim().toLowerCase();
+  if (v === 'grail') return 'grail';
+  if (v === 'rare') return 'rare';
+  if (v === 'uncommon') return 'uncommon';
+  return 'common';
+}
+
+function matchBrand(raw: string): string {
+  const trimmed = raw.trim();
+  const hit = BRANDS.find((b) => b.toLowerCase() === trimmed.toLowerCase());
+  return hit ?? trimmed;
+}
+
+/** Parse GPT-style structured catalog paste (key: value blocks). */
+function parseStructuredCatalogPaste(raw: string): Partial<CatalogFormState> | null {
+  const fields: Record<string, string[]> = {};
+  let currentKey: string | null = null;
+
+  for (const line of raw.split(/\r?\n/)) {
+    const keyMatch = line.match(/^([a-z_]+):\s*(.*)$/i);
+    if (keyMatch) {
+      currentKey = keyMatch[1].toLowerCase();
+      if (!fields[currentKey]) fields[currentKey] = [];
+      const rest = keyMatch[2].trim();
+      if (rest) fields[currentKey].push(rest);
+    } else if (currentKey && line.trim()) {
+      fields[currentKey].push(line.trim());
+    }
+  }
+
+  if (!fields.brand?.length && !fields.model?.length) return null;
+
+  const joinLines = (key: string) => fields[key]?.join('\n').trim() ?? '';
+  const joinList = (key: string, sep: string) =>
+    (fields[key] ?? []).map((s) => s.trim()).filter(Boolean).join(sep);
+
+  const visual = joinList('visual_identifiers', '; ');
+  const auth = joinList('authentication_points', '; ');
+  const visualIdentifiers = [visual, auth ? `Auth: ${auth}` : ''].filter(Boolean).join('; ');
+
+  const years = joinLines('years_produced') || joinLines('release_year');
+  const sole = joinLines('sole') || joinLines('sole_description');
+  const segments = joinList('market_segments', ', ');
+  let collectorNotes = joinLines('collector_notes');
+  if (segments) {
+    collectorNotes = collectorNotes
+      ? `${collectorNotes}\n\nMarket segments: ${segments}`
+      : `Market segments: ${segments}`;
+  }
+
+  const rarityRaw = joinLines('rarity');
+
+  return {
+    brand: fields.brand?.[0] ? matchBrand(fields.brand[0]) : undefined,
+    model: fields.model?.[0]?.trim() || undefined,
+    years_produced: years || undefined,
+    colorways: joinList('colorways', ', ') || undefined,
+    visual_identifiers: visualIdentifiers || undefined,
+    sole_description: sole || undefined,
+    collector_notes: collectorNotes || undefined,
+    rarity: rarityRaw ? normalizeRarity(rarityRaw) : undefined,
+  };
+}
+
+function emptySaleComp(): SaleCompForm {
+  return { sold_price: '', condition: '', source: 'Instagram', notes: '' };
+}
 
 function emptyForm(): CatalogFormState {
   return {
@@ -80,6 +161,7 @@ function emptyForm(): CatalogFormState {
     value_mid: '',
     value_high: '',
     collector_notes: '',
+    saleComps: [emptySaleComp()],
   };
 }
 
@@ -99,10 +181,40 @@ function formFromResult(r: ShoeIdResult): CatalogFormState {
     value_mid: String(Math.round(r.value_mid_cents / 100)),
     value_high: String(Math.round(r.value_high_cents / 100)),
     collector_notes: r.collector_notes,
+    saleComps: [emptySaleComp()],
   };
 }
 
-function formToPayload(form: CatalogFormState) {
+function saleCompsFromEntry(comps: SaleComp[] | null | undefined): SaleCompForm[] {
+  if (!comps?.length) return [emptySaleComp()];
+  return comps.map((c) => ({
+    sold_price: String(Math.round(c.sold_price_cents / 100)),
+    condition: c.condition ?? '',
+    source: c.source ?? '',
+    notes: c.notes ?? '',
+  }));
+}
+
+function saleCompsToPayload(comps: SaleCompForm[], linkImageUrls?: string[]): SaleComp[] {
+  const result: SaleComp[] = [];
+  comps.forEach((c, index) => {
+    const price = c.sold_price.trim();
+    if (!price || Number.isNaN(Number(price))) return;
+    const comp: SaleComp = {
+      sold_price_cents: Math.round(Number(price) * 100),
+      condition: c.condition.trim() || undefined,
+      source: c.source.trim() || undefined,
+      notes: c.notes.trim() || undefined,
+    };
+    if (index === 0 && linkImageUrls?.length) {
+      comp.image_urls = linkImageUrls;
+    }
+    result.push(comp);
+  });
+  return result;
+}
+
+function formToPayload(form: CatalogFormState, linkImageUrls?: string[]) {
   return {
     brand: form.brand,
     model: form.model.trim(),
@@ -127,6 +239,7 @@ function formToPayload(form: CatalogFormState) {
     value_mid_cents: form.value_mid ? Math.round(Number(form.value_mid) * 100) : undefined,
     value_high_cents: form.value_high ? Math.round(Number(form.value_high) * 100) : undefined,
     collector_notes: form.collector_notes || undefined,
+    sale_comps: saleCompsToPayload(form.saleComps, linkImageUrls),
     verified: true,
     verified_by: 'Matt Hickey',
   };
@@ -158,6 +271,7 @@ function formFromCatalogEntry(entry: CatalogFullEntry): CatalogFormState {
     value_mid: centsToDollars(entry.value_mid_cents),
     value_high: centsToDollars(entry.value_high_cents),
     collector_notes: entry.collector_notes ?? '',
+    saleComps: saleCompsFromEntry(entry.sale_comps),
   };
 }
 
@@ -172,6 +286,8 @@ function catalogRowFromEntry(entry: CatalogFullEntry): CatalogRow {
     value_high_cents: entry.value_high_cents ?? null,
     verified: entry.verified ?? false,
     source: entry.source ?? null,
+    reference_image_count: entry.reference_image_urls?.length ?? 0,
+    sale_comp_count: entry.sale_comps?.length ?? 0,
   };
 }
 
@@ -219,6 +335,7 @@ function mergeEnrichmentIntoForm(
     value_mid: enrichment.value_mid_cents ? centsToDollars(enrichment.value_mid_cents) : form.value_mid,
     value_high: enrichment.value_high_cents ? centsToDollars(enrichment.value_high_cents) : form.value_high,
     collector_notes: enrichment.collector_notes || form.collector_notes,
+    saleComps: form.saleComps,
   };
 }
 
@@ -292,6 +409,11 @@ function CatalogForm({
   onUpdateDetails,
   updatingDetails,
   showCorrectionHint,
+  showSaleCompsHint,
+  referenceImageUrls,
+  onRemoveReferenceImage,
+  onAddReferencePhotos,
+  uploadingReference,
   saving,
   saveLabel,
 }: {
@@ -303,19 +425,73 @@ function CatalogForm({
   onUpdateDetails?: () => void;
   updatingDetails?: boolean;
   showCorrectionHint?: boolean;
+  showSaleCompsHint?: boolean;
+  referenceImageUrls?: string[];
+  onRemoveReferenceImage?: (url: string) => void;
+  onAddReferencePhotos?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  uploadingReference?: boolean;
   saving: boolean;
   saveLabel: string;
 }) {
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+
+  const applyStructuredPaste = () => {
+    const parsed = parseStructuredCatalogPaste(pasteText);
+    if (!parsed?.brand && !parsed?.model) {
+      alert('Could not parse — use GPT format with brand: and model: fields.');
+      return;
+    }
+    setForm({
+      ...form,
+      ...(parsed.brand ? { brand: parsed.brand } : {}),
+      ...(parsed.model ? { model: parsed.model } : {}),
+      ...(parsed.years_produced ? { years_produced: parsed.years_produced } : {}),
+      ...(parsed.colorways ? { colorways: parsed.colorways } : {}),
+      ...(parsed.visual_identifiers ? { visual_identifiers: parsed.visual_identifiers } : {}),
+      ...(parsed.sole_description ? { sole_description: parsed.sole_description } : {}),
+      ...(parsed.collector_notes ? { collector_notes: parsed.collector_notes } : {}),
+      ...(parsed.rarity ? { rarity: parsed.rarity } : {}),
+    });
+    setPasteText('');
+    setPasteOpen(false);
+  };
+
   return (
     <div className="space-y-3 rounded-xl border border-[#333] p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-[#aaa]">Catalog entry</p>
-        {onClear ? (
-          <button type="button" onClick={onClear} className="text-[10px] text-[#666] hover:text-[#aaa]">
-            Clear form
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPasteOpen((v) => !v)}
+            className="text-[10px] text-[#C9A265] hover:underline"
+          >
+            {pasteOpen ? 'Hide paste' : 'Paste GPT entry'}
           </button>
-        ) : null}
+          {onClear ? (
+            <button type="button" onClick={onClear} className="text-[10px] text-[#666] hover:text-[#aaa]">
+              Clear form
+            </button>
+          ) : null}
+        </div>
       </div>
+      {pasteOpen ? (
+        <div className="space-y-2 rounded-lg border border-[#333] bg-[#141414] p-3">
+          <p className="text-[10px] text-[#666]">
+            Paste structured GPT output (brand:, model:, colorways:, etc.) to fill fields.
+          </p>
+          <textarea
+            className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs min-h-[120px] font-mono"
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={'brand: Onitsuka Tiger\nmodel: Wrestling Mexico Mid\nyears_produced: 2003\n...'}
+          />
+          <Button type="button" size="sm" variant="outline" className="w-full" onClick={applyStructuredPaste}>
+            Fill form from paste
+          </Button>
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs">Brand</Label>
@@ -440,6 +616,93 @@ function CatalogForm({
           <Input value={form.value_high} onChange={(e) => setForm({ ...form, value_high: e.target.value })} />
         </div>
       </div>
+      <div className="space-y-3 rounded-lg border border-[#333] bg-[#141414] p-3">
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-xs">Documented sales</Label>
+          <button
+            type="button"
+            className="text-[10px] text-[#C9A265] hover:underline"
+            onClick={() => setForm({ ...form, saleComps: [...form.saleComps, emptySaleComp()] })}
+          >
+            Add sale
+          </button>
+        </div>
+        <p className="text-[10px] text-[#666]">
+          Real pairs that sold at a known price and condition — e.g. Instagram reseller comps.
+          {showSaleCompsHint ? ' Training photos link to the first sale when you save.' : ''}
+        </p>
+        {form.saleComps.map((comp, index) => (
+          <div key={index} className="space-y-2 rounded-md border border-[#2a2a2a] p-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-[#888]">Sale {index + 1}</span>
+              {form.saleComps.length > 1 ? (
+                <button
+                  type="button"
+                  className="text-[10px] text-red-400"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      saleComps: form.saleComps.filter((_, i) => i !== index),
+                    })
+                  }
+                >
+                  Remove
+                </button>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[10px]">Sold price ($)</Label>
+                <Input
+                  value={comp.sold_price}
+                  onChange={(e) => {
+                    const saleComps = [...form.saleComps];
+                    saleComps[index] = { ...comp, sold_price: e.target.value };
+                    setForm({ ...form, saleComps });
+                  }}
+                  placeholder="550"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px]">Condition</Label>
+                <Input
+                  value={comp.condition}
+                  onChange={(e) => {
+                    const saleComps = [...form.saleComps];
+                    saleComps[index] = { ...comp, condition: e.target.value };
+                    setForm({ ...form, saleComps });
+                  }}
+                  placeholder="VNDS, 9/10, deadstock"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[10px]">Source</Label>
+              <Input
+                value={comp.source}
+                onChange={(e) => {
+                  const saleComps = [...form.saleComps];
+                  saleComps[index] = { ...comp, source: e.target.value };
+                  setForm({ ...form, saleComps });
+                }}
+                placeholder="Instagram @reseller"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px]">Notes</Label>
+              <Input
+                value={comp.notes}
+                onChange={(e) => {
+                  const saleComps = [...form.saleComps];
+                  saleComps[index] = { ...comp, notes: e.target.value };
+                  setForm({ ...form, saleComps });
+                }}
+                placeholder="Cherry colorway, OG all"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
       <div>
         <Label className="text-xs">Collector notes</Label>
         <textarea
@@ -448,6 +711,54 @@ function CatalogForm({
           onChange={(e) => setForm({ ...form, collector_notes: e.target.value })}
         />
       </div>
+      {referenceImageUrls != null ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs">Reference photos ({referenceImageUrls.length}/6)</Label>
+            {onAddReferencePhotos ? (
+              <label className="cursor-pointer text-[10px] text-[#C9A265] hover:underline">
+                {uploadingReference ? 'Uploading…' : 'Add photos'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="hidden"
+                  disabled={uploadingReference || referenceImageUrls.length >= 6}
+                  onChange={onAddReferencePhotos}
+                />
+              </label>
+            ) : null}
+          </div>
+          <p className="text-[10px] text-[#666]">
+            Confirmed training angles used to visually match this model on future IDs.
+          </p>
+          {referenceImageUrls.length ? (
+            <div className="grid grid-cols-3 gap-2">
+              {referenceImageUrls.map((url) => (
+                <div key={url} className="relative">
+                  <img src={url} alt="" className="aspect-square rounded-lg object-cover" />
+                  {onRemoveReferenceImage ? (
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white"
+                      onClick={() => onRemoveReferenceImage(url)}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-[#555]">No reference photos yet.</p>
+          )}
+        </div>
+      ) : null}
+      {showCorrectionHint && referenceImageUrls == null ? (
+        <p className="text-[10px] text-[#666]">
+          Training photos above will be saved as reference images when you add to catalog.
+        </p>
+      ) : null}
       <div className="flex gap-2">
         <Button onClick={onSave} disabled={saving || !form.model.trim()} className="flex-1">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saveLabel}
@@ -486,6 +797,8 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
   const [catalogEditLoading, setCatalogEditLoading] = useState(false);
   const [pendingEditId, setPendingEditId] = useState<string | null>(null);
   const [updatingDetails, setUpdatingDetails] = useState(false);
+  const [catalogEditRefUrls, setCatalogEditRefUrls] = useState<string[]>([]);
+  const [uploadingReference, setUploadingReference] = useState(false);
   const [stats, setStats] = useState<{
     totalCatalog: number;
     verifiedCatalog: number;
@@ -501,9 +814,31 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
     const data = await res.json();
     if (res.ok) {
       setStats(data);
-      setCatalog(data.catalog ?? catalog);
+      const entries = (data.catalog ?? []) as CatalogFullEntry[];
+      setCatalog(entries.map(catalogRowFromEntry));
     }
-  }, [catalog]);
+  }, []);
+
+  const uploadShoeIdFiles = async (files: File[], onProgress?: (msg: string) => void) => {
+    const uploaded: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > MAX_UPLOAD_BYTES) {
+        throw new Error(
+          `${file.name} is over 4MB — resize or export a smaller JPEG before uploading.`
+        );
+      }
+      onProgress?.(`Uploading ${i + 1} of ${files.length}…`);
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/admin/market/shoe-id/upload', { method: 'POST', body: fd });
+      const data = await parseApiJson<{ urls?: string[]; error?: string }>(res);
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      const url = data.urls?.[0];
+      if (url) uploaded.push(url);
+    }
+    return uploaded;
+  };
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -518,24 +853,8 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
 
     setUploading(true);
     setUploadProgress(null);
-    const uploaded: string[] = [];
     try {
-      for (let i = 0; i < toUpload.length; i++) {
-        const file = toUpload[i];
-        if (file.size > MAX_UPLOAD_BYTES) {
-          throw new Error(
-            `${file.name} is over 4MB — resize or export a smaller JPEG before uploading.`
-          );
-        }
-        setUploadProgress(`Uploading ${i + 1} of ${toUpload.length}…`);
-        const fd = new FormData();
-        fd.append('file', file);
-        const res = await fetch('/api/admin/market/shoe-id/upload', { method: 'POST', body: fd });
-        const data = await parseApiJson<{ urls?: string[]; error?: string }>(res);
-        if (!res.ok) throw new Error(data.error || 'Upload failed');
-        const url = data.urls?.[0];
-        if (url) uploaded.push(url);
-      }
+      const uploaded = await uploadShoeIdFiles(toUpload, setUploadProgress);
       setImageUrls((prev) => [...prev, ...uploaded].slice(0, 6));
       setResult(null);
     } catch (err) {
@@ -543,6 +862,28 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
     } finally {
       setUploading(false);
       setUploadProgress(null);
+      e.target.value = '';
+    }
+  };
+
+  const addCatalogRefPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const slotsLeft = Math.max(0, 6 - catalogEditRefUrls.length);
+    const toUpload = files.slice(0, slotsLeft);
+    if (!toUpload.length) {
+      alert('Maximum 6 reference photos per catalog entry.');
+      e.target.value = '';
+      return;
+    }
+    setUploadingReference(true);
+    try {
+      const uploaded = await uploadShoeIdFiles(toUpload);
+      setCatalogEditRefUrls((prev) => [...prev, ...uploaded].slice(0, 6));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploadingReference(false);
       e.target.value = '';
     }
   };
@@ -655,7 +996,8 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
         body: JSON.stringify({
           resultId,
           wasCorrect,
-          catalog: formToPayload(form),
+          catalog: formToPayload(form, imageUrls),
+          referenceImageUrls: imageUrls,
         }),
       });
       const data = await res.json();
@@ -700,6 +1042,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       if (!entry) throw new Error('Catalog entry not found');
       setEditingCatalogId(id);
       setCatalogEditForm(formFromCatalogEntry(entry));
+      setCatalogEditRefUrls(entry.reference_image_urls ?? []);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to load entry');
     } finally {
@@ -711,6 +1054,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
   const cancelCatalogEdit = () => {
     setEditingCatalogId(null);
     setCatalogEditForm(emptyForm());
+    setCatalogEditRefUrls([]);
   };
 
   const saveCatalogEdit = async () => {
@@ -720,7 +1064,10 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       const res = await fetch(`/api/admin/market/shoe-id/catalog/${editingCatalogId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formToPayload(catalogEditForm)),
+        body: JSON.stringify({
+          ...formToPayload(catalogEditForm),
+          reference_image_urls: catalogEditRefUrls,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
@@ -749,7 +1096,10 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
       if (!res.ok) throw new Error(data.error || 'Import failed');
       const catRes = await fetch('/api/admin/market/shoe-id/catalog');
       const catData = await catRes.json();
-      if (catRes.ok) setCatalog(catData.entries ?? []);
+      if (catRes.ok) {
+        const entries = (catData.entries ?? []) as CatalogFullEntry[];
+        setCatalog(entries.map(catalogRowFromEntry));
+      }
       alert(`Imported ${data.imported} entries.`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Import failed');
@@ -852,6 +1202,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                 onDiscard={discardResult}
                 onClear={() => setForm(emptyForm())}
                 showCorrectionHint
+                showSaleCompsHint
                 updatingDetails={updatingDetails}
                 onUpdateDetails={() => void updateDetailsFromCorrection()}
               />
@@ -885,6 +1236,12 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
               saveLabel="Save changes"
               onSave={() => void saveCatalogEdit()}
               onDiscard={cancelCatalogEdit}
+              referenceImageUrls={catalogEditRefUrls}
+              onRemoveReferenceImage={(url) =>
+                setCatalogEditRefUrls((prev) => prev.filter((u) => u !== url))
+              }
+              onAddReferencePhotos={addCatalogRefPhotos}
+              uploadingReference={uploadingReference}
             />
           ) : null}
           <div className="overflow-x-auto rounded-xl border border-[#222]">
@@ -896,6 +1253,8 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                   <th className="p-2">Years</th>
                   <th className="p-2">Rarity</th>
                   <th className="p-2">Value</th>
+                  <th className="p-2">Refs</th>
+                  <th className="p-2">Sales</th>
                   <th className="p-2">Verified</th>
                   <th className="p-2">Source</th>
                   <th className="p-2" />
@@ -919,6 +1278,8 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                         ? `$${row.value_low_cents / 100}–$${(row.value_high_cents ?? 0) / 100}`
                         : '—'}
                     </td>
+                    <td className="p-2 text-[#888]">{row.reference_image_count || '—'}</td>
+                    <td className="p-2 text-[#888]">{row.sale_comp_count || '—'}</td>
                     <td className="p-2">{row.verified ? '✓' : '—'}</td>
                     <td className="p-2 text-[#888]">{row.source ?? '—'}</td>
                     <td className="p-2">

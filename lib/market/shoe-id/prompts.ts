@@ -8,9 +8,14 @@ Use the catalog below as your primary reference. If the shoe matches a catalog e
 identify it precisely. If it does not match any catalog entry, use your general
 knowledge and clearly note the lower confidence.
 
+When CONFIRMED REFERENCE PHOTOS are included, those are admin-verified examples of specific
+catalog models. Compare the LISTING PHOTOS against each reference set — strong visual
+similarity (sole tread, logo, panels, colorway) to a reference set is primary evidence
+for that catalog entry. Prefer a catalog match backed by reference photos over a guess.
+
 ${catalogContext}
 
-Analyze ALL provided photos together — they are different angles of the SAME pair:
+Analyze ALL LISTING PHOTOS together — they are different angles of the SAME pair to identify:
 - Photo 1, 2, 3… may show top/outsole, medial/lateral sides, heel, toe box, tongue, or branding
 - Use the OUTSOLE/BOTTOM view for tread pattern, gum vs rubber, and era cues
 - Use SIDE views for stripe layout, panel shapes, and logo placement
@@ -24,6 +29,9 @@ Also check:
 - Upper materials (canvas, suede, synthetic mesh)
 - Colorway and stripe/panel arrangement
 - Any visible model text or markings
+
+When estimating value_low/mid/high_cents, use DOCUMENTED SALES from the catalog when available —
+these are real pairs that sold at specific prices with known condition. Match condition when possible.
 
 Return ONLY valid JSON matching this exact schema — no markdown, no preamble:
 {
@@ -45,18 +53,22 @@ Return ONLY valid JSON matching this exact schema — no markdown, no preamble:
 `;
 
 /** User message sent with multi-angle listing photos for Shoe ID. */
-export function shoeIdUserMessage(imageCount: number): string {
-  const n = Math.max(1, imageCount);
+export function shoeIdUserMessage(queryImageCount: number, referenceImageCount = 0): string {
+  const n = Math.max(1, queryImageCount);
   const photoList =
     n === 1
-      ? '1 photo'
-      : `${n} photos (numbered in order: Photo 1 through Photo ${n})`;
+      ? '1 listing photo'
+      : `${n} listing photos (numbered in order: Photo 1 through Photo ${n})`;
 
-  return `You are shown ${photoList} of the SAME wrestling shoe from different angles.
+  const refNote = referenceImageCount
+    ? ` You are also shown ${referenceImageCount} confirmed reference photo${referenceImageCount !== 1 ? 's' : ''} from the catalog — use these ground-truth examples to match the listing.`
+    : '';
 
-Treat each image as a separate view — top, outsole/bottom, medial side, lateral side, heel, toe, tongue, or detail shot. Cross-reference ALL angles before identifying. Use the sole for tread and era, sides for stripes and logos, top/toe for model text and colorway.
+  return `You are shown ${photoList} of the pair to identify.${refNote}
 
-Identify this wrestling shoe from all provided photos.`;
+Treat each listing image as a separate view — top, outsole/bottom, medial side, lateral side, heel, toe, tongue, or detail shot. Cross-reference ALL listing angles before identifying. Use the sole for tread and era, sides for stripes and logos, top/toe for model text and colorway.
+
+Identify this wrestling shoe from the listing photos.`;
 }
 
 export const SHOE_ID_CORRECTION_SYSTEM_PROMPT = (catalogContext: string) => `
@@ -65,6 +77,8 @@ for a pair shown in photos. Your job is to fill in metadata — era, colorway, r
 visual identifiers, and collector notes — using the photos plus the catalog and your knowledge.
 
 Do NOT change the confirmed brand or model. Use the catalog below when the shoe matches an entry.
+
+When estimating values, prioritize DOCUMENTED SALES (real sold prices with condition) over generic ranges.
 
 ${catalogContext}
 

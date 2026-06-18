@@ -1,14 +1,48 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SaleComp } from '@/lib/market/shoe-id/schemas';
 
 const CATALOG_SELECT =
-  'brand,model,model_aliases,years_produced,colorways,visual_identifiers,sole_description,upper_material,logo_placement,rarity,value_low_cents,value_mid_cents,value_high_cents,collector_notes';
+  'brand,model,model_aliases,years_produced,colorways,visual_identifiers,sole_description,upper_material,logo_placement,rarity,value_low_cents,value_mid_cents,value_high_cents,collector_notes,reference_image_urls,sale_comps';
 
 const FULL_CATALOG_LIMIT = 200;
 
-export async function getCatalogContext(
+export type CatalogEntryRow = {
+  brand: string;
+  model: string;
+  model_aliases?: string[] | null;
+  years_produced?: string | null;
+  colorways?: unknown[] | null;
+  visual_identifiers?: string[] | null;
+  sole_description?: string | null;
+  upper_material?: string | null;
+  logo_placement?: string | null;
+  rarity?: string | null;
+  value_low_cents?: number | null;
+  value_mid_cents?: number | null;
+  value_high_cents?: number | null;
+  collector_notes?: string | null;
+  reference_image_urls?: string[] | null;
+  sale_comps?: SaleComp[] | null;
+};
+
+function formatSaleComps(comps: SaleComp[] | null | undefined): string {
+  if (!comps?.length) return '—';
+  return comps
+    .map((c) => {
+      const price = `$${Math.round(c.sold_price_cents / 100)}`;
+      const condition = c.condition ? `, ${c.condition}` : '';
+      const source = c.source ? ` (${c.source})` : '';
+      const notes = c.notes ? `: ${c.notes}` : '';
+      const photos = c.image_urls?.length ? ' [photos on file]' : '';
+      return `${price}${condition}${source}${notes}${photos}`;
+    })
+    .join('; ');
+}
+
+export async function fetchCatalogEntries(
   supabase: SupabaseClient,
   brandHint?: string
-): Promise<string> {
+): Promise<CatalogEntryRow[]> {
   const { count } = await supabase
     .from('wrestling_shoes_catalog')
     .select('id', { count: 'exact', head: true });
@@ -22,10 +56,20 @@ export async function getCatalogContext(
   }
 
   const { data } = await query.limit(FULL_CATALOG_LIMIT);
-  if (!data?.length) return 'No catalog data available — use general knowledge.';
+  return (data ?? []) as CatalogEntryRow[];
+}
+
+export async function getCatalogContext(
+  supabase: SupabaseClient,
+  brandHint?: string
+): Promise<string> {
+  const data = await fetchCatalogEntries(supabase, brandHint);
+  if (!data.length) return 'No catalog data available — use general knowledge.';
+
+  const withRefs = data.filter((e) => e.reference_image_urls?.length).length;
 
   return (
-    `WRESTLING SHOE CATALOG (${data.length} entries):\n\n` +
+    `WRESTLING SHOE CATALOG (${data.length} entries${withRefs ? `, ${withRefs} with confirmed reference photos` : ''}):\n\n` +
     data
       .map(
         (entry) => `
@@ -38,8 +82,9 @@ UPPER: ${entry.upper_material ?? '—'}
 LOGO: ${entry.logo_placement ?? '—'}
 COLORWAYS: ${JSON.stringify(entry.colorways ?? [])}
 RARITY: ${entry.rarity ?? '—'}
-VALUE: $${Math.round((entry.value_low_cents || 0) / 100)}–$${Math.round((entry.value_high_cents || 0) / 100)}
-NOTES: ${entry.collector_notes ?? '—'}
+VALUE RANGE: $${Math.round((entry.value_low_cents || 0) / 100)}–$${Math.round((entry.value_high_cents || 0) / 100)}
+DOCUMENTED SALES: ${formatSaleComps(entry.sale_comps)}
+NOTES: ${entry.collector_notes ?? '—'}${entry.reference_image_urls?.length ? `\nREFERENCE PHOTOS: ${entry.reference_image_urls.length} admin-confirmed training angles included in this request` : ''}
 ---`
       )
       .join('\n')

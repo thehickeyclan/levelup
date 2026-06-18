@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
       value_mid_cents: e.value_mid_cents ?? null,
       value_high_cents: e.value_high_cents ?? null,
       collector_notes: e.collector_notes ?? null,
+      reference_image_urls: e.reference_image_urls ?? [],
+      sale_comps: e.sale_comps ?? [],
       source: e.source ?? 'import',
       verified: e.verified ?? false,
       verified_by: e.verified_by ?? null,

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminApi } from '@/lib/admin-api-auth';
 import { callClaude, extractJsonFromClaude } from '@/lib/market/ai/client';
-import { findCatalogEntry, getCatalogContext } from '@/lib/market/shoe-id/catalog';
-import { imagesFromPublicUrls } from '@/lib/market/shoe-id/images';
+import { findCatalogEntry, getCatalogContext, fetchCatalogEntries } from '@/lib/market/shoe-id/catalog';
+import { buildShoeIdVisionContent } from '@/lib/market/shoe-id/images';
 import {
   SHOE_ID_CORRECTION_SYSTEM_PROMPT,
   shoeCorrectionUserMessage,
@@ -78,19 +78,20 @@ export async function POST(req: NextRequest) {
   }
 
   const catalogContext = await getCatalogContext(admin, brand);
-  const visionBlocks = await imagesFromPublicUrls(images);
-  if (!visionBlocks.length) {
+  const catalogEntries = await fetchCatalogEntries(admin, brand);
+  const { blocks, queryImageCount } = await buildShoeIdVisionContent(images, catalogEntries);
+  if (!queryImageCount) {
     return NextResponse.json({ error: 'Could not load photos for analysis.' }, { status: 400 });
   }
 
   const claude = await callClaude(
     SHOE_ID_CORRECTION_SYSTEM_PROMPT(catalogContext),
     [
-      ...visionBlocks,
+      ...blocks,
       {
         type: 'text',
         text: shoeCorrectionUserMessage({
-          imageCount: visionBlocks.length,
+          imageCount: queryImageCount,
           brand,
           model,
           colorway,

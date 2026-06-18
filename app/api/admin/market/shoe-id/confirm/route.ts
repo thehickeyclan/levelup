@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
     resultId?: string;
     wasCorrect?: boolean;
     catalog?: unknown;
+    referenceImageUrls?: string[];
     verifiedBy?: string;
   };
 
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient(auth.tenantSlug);
   const entry = parsed.data;
   const verifiedBy = body.verifiedBy?.trim() || 'Matt Hickey';
+  const referenceImageUrls = (body.referenceImageUrls ?? [])
+    .filter((u) => typeof u === 'string' && u.startsWith('http'))
+    .slice(0, 6);
 
   const { data: catalogRow, error: catalogErr } = await admin
     .from('wrestling_shoes_catalog')
@@ -44,6 +48,8 @@ export async function POST(req: NextRequest) {
       value_mid_cents: entry.value_mid_cents ?? null,
       value_high_cents: entry.value_high_cents ?? null,
       collector_notes: entry.collector_notes ?? null,
+      reference_image_urls: referenceImageUrls.length ? referenceImageUrls : entry.reference_image_urls ?? [],
+      sale_comps: entry.sale_comps ?? [],
       source: body.wasCorrect ? 'handbook' : 'manual',
       verified: true,
       verified_by: verifiedBy,

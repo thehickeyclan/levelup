@@ -19,6 +19,16 @@ export const ShoeIdResultSchema = z.object({
 
 export type ShoeIdResult = z.infer<typeof ShoeIdResultSchema>;
 
+export const SaleCompSchema = z.object({
+  sold_price_cents: z.number().int().positive(),
+  condition: z.string().optional(),
+  source: z.string().optional(),
+  notes: z.string().optional(),
+  image_urls: z.array(z.string().url()).max(6).optional(),
+});
+
+export type SaleComp = z.infer<typeof SaleCompSchema>;
+
 export const CatalogEntrySchema = z.object({
   brand: z.string().min(1),
   model: z.string().min(1),
@@ -34,6 +44,8 @@ export const CatalogEntrySchema = z.object({
   value_mid_cents: z.number().int().optional(),
   value_high_cents: z.number().int().optional(),
   collector_notes: z.string().optional(),
+  reference_image_urls: z.array(z.string().url()).max(6).optional(),
+  sale_comps: z.array(SaleCompSchema).max(20).optional(),
   source: z.string().optional(),
   verified: z.boolean().optional(),
   verified_by: z.string().optional(),

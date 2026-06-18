@@ -3,8 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { checkAndIncrementAiUsage } from '@/lib/market/ai/rate-limit';
 import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
-import { getCatalogContext, matchCatalogEntry } from '@/lib/market/shoe-id/catalog';
-import { imagesFromPublicUrls } from '@/lib/market/shoe-id/images';
+import { getCatalogContext, matchCatalogEntry, fetchCatalogEntries } from '@/lib/market/shoe-id/catalog';
+import { buildShoeIdVisionContent } from '@/lib/market/shoe-id/images';
 import { SHOE_ID_SYSTEM_PROMPT, shoeIdUserMessage } from '@/lib/market/shoe-id/prompts';
 import { ShoeIdResultSchema } from '@/lib/market/shoe-id/schemas';
 import { shoeIdServerEnabled } from '@/lib/market/shoe-id/feature-flag';
@@ -55,14 +55,18 @@ export async function POST(req: NextRequest) {
   }
 
   const catalogContext = await getCatalogContext(supabase, body.brandHint);
-  const visionBlocks = await imagesFromPublicUrls(images);
-  if (!visionBlocks.length) {
+  const catalogEntries = await fetchCatalogEntries(supabase, body.brandHint);
+  const { blocks, queryImageCount, referenceImageCount } = await buildShoeIdVisionContent(
+    images,
+    catalogEntries
+  );
+  if (!queryImageCount) {
     return NextResponse.json({ error: 'Could not load photos for analysis.' }, { status: 400 });
   }
 
   const claude = await callClaude(
     SHOE_ID_SYSTEM_PROMPT(catalogContext),
-    [...visionBlocks, { type: 'text', text: shoeIdUserMessage(visionBlocks.length) }],
+    [...blocks, { type: 'text', text: shoeIdUserMessage(queryImageCount, referenceImageCount) }],
     2048
   );
 
@@ -91,7 +95,7 @@ export async function POST(req: NextRequest) {
       user_id: user!.id,
       listing_id: listingId ?? null,
       catalog_match_id: catalogMatchId,
-      images_analyzed: visionBlocks.length,
+      images_analyzed: queryImageCount,
       identified_brand: parsed.brand,
       identified_model: parsed.model,
       identified_era: parsed.era,

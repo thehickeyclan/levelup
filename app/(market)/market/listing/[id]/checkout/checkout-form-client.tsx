@@ -91,45 +91,45 @@ export function ListingCheckoutClient({ summary }: { summary: CheckoutSummary })
   });
 
   return (
-    <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6 bg-black">
+    <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6 bg-background">
       <BackLink fallbackHref={`/market/listing/${summary.listingId}`} label="Back to listing" />
 
-      <div className="flex gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
-        <div className="w-20 h-20 rounded-xl bg-[#1a1a1a] shrink-0 overflow-hidden">
+      <div className="flex gap-3 rounded-xl border border-border bg-card/80 p-3">
+        <div className="w-20 h-20 rounded-xl bg-card shrink-0 overflow-hidden">
           {summary.imageUrl ? (
             <img src={summary.imageUrl} alt="" className="w-full h-full object-cover" />
           ) : null}
         </div>
         <div className="min-w-0">
-          <p className="font-semibold text-white">{displayTitle}</p>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="font-semibold text-foreground">{displayTitle}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Size {summary.size} · {conditionLabel}
           </p>
-          <p className="text-xs text-zinc-500 mt-1">Seller: {summary.sellerName}</p>
+          <p className="text-xs text-muted-foreground mt-1">Seller: {summary.sellerName}</p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-800 p-4 space-y-2 text-sm">
+      <div className="rounded-xl border border-border p-4 space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-zinc-400">Item</span>
+          <span className="text-muted-foreground">Item</span>
           <span>${(summary.amountCents / 100).toFixed(2)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-zinc-400">Shipping</span>
+          <span className="text-muted-foreground">Shipping</span>
           <span>${(summary.shippingCents / 100).toFixed(2)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-zinc-400">Platform fee</span>
+          <span className="text-muted-foreground">Platform fee</span>
           <span>$0.00 to you</span>
         </div>
-        <div className="flex justify-between font-bold text-[#C9A265] pt-2 border-t border-zinc-800">
+        <div className="flex justify-between font-bold text-accent pt-2 border-t border-border">
           <span>Total</span>
           <span>${(totalCents / 100).toFixed(2)}</span>
         </div>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-3">
-        <p className="text-sm font-medium text-zinc-300">Shipping address</p>
+        <p className="text-sm font-medium text-foreground/80">Shipping address</p>
         <div>
           <Label htmlFor="name">Name</Label>
           <Input id="name" className="mt-1" {...form.register('name')} />
@@ -170,7 +170,7 @@ export function ListingCheckoutClient({ summary }: { summary: CheckoutSummary })
           <Input id="zip" className="mt-1" {...form.register('zip')} />
         </div>
 
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-muted-foreground">
           You&apos;ll be taken to Stripe to complete payment securely.
         </p>
 
@@ -179,7 +179,7 @@ export function ListingCheckoutClient({ summary }: { summary: CheckoutSummary })
         <div className="fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-2 bg-gradient-to-t from-black via-black/95 to-transparent">
           <Button
             type="submit"
-            className="w-full min-h-[48px] bg-[#C9A265] text-black font-semibold rounded-full"
+            className="w-full min-h-[48px] bg-accent text-accent-foreground font-semibold rounded-full"
             disabled={submitting}
           >
             {submitting ? (

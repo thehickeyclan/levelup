@@ -252,21 +252,21 @@ export function QuickTradeListingSheet({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 bg-black/70"
+        className="fixed inset-0 z-50 bg-foreground/75"
         onClick={() => void handleCancel()}
         aria-hidden
       />
-      <div className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto rounded-t-2xl bg-[#111] border-t border-[#222]">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#1a1a1a] bg-[#111] px-4 py-3">
+      <div className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto rounded-t-2xl bg-muted border-t border-border">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-muted px-4 py-3">
           <button
             type="button"
             onClick={() => void handleCancel()}
-            className="flex items-center gap-1 text-sm text-[#888] hover:text-white"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Cancel
           </button>
-          <p className="text-sm font-medium text-white">Add a pair to trade</p>
+          <p className="text-sm font-medium text-foreground">Add a pair to trade</p>
           <span className="w-14" />
         </div>
 
@@ -274,8 +274,8 @@ export function QuickTradeListingSheet({
           {/* Step 1 — Photos */}
           <section className="space-y-3">
             <div>
-              <p className="text-sm font-medium text-white">Upload photos of what you&apos;re offering</p>
-              <p className="text-xs text-[#555] mt-1">
+              <p className="text-sm font-medium text-foreground">Upload photos of what you&apos;re offering</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 Use a light background so your pair is easy to see
               </p>
             </div>
@@ -306,7 +306,7 @@ export function QuickTradeListingSheet({
                 'w-full rounded-xl border border-dashed py-8 flex flex-col items-center justify-center gap-2 transition-colors',
                 uploadError
                   ? 'border-red-500/50 text-red-400'
-                  : 'border-[#333] text-[#555] hover:border-[#C9A265] hover:text-[#C9A265]'
+                  : 'border-border text-muted-foreground hover:border-accent hover:text-accent'
               )}
             >
               {uploading ? (
@@ -331,7 +331,7 @@ export function QuickTradeListingSheet({
                 <span>{createError}</span>
                 <button
                   type="button"
-                  className="text-[#C9A265] underline"
+                  className="text-accent underline"
                   onClick={() => {
                     setCreateError(null);
                     void ensureDraft().catch(() => {
@@ -349,7 +349,7 @@ export function QuickTradeListingSheet({
                 {images.map((img) => (
                   <div
                     key={img.id}
-                    className="aspect-square rounded-lg border border-[#222] overflow-hidden bg-[#1a1a1a]"
+                    className="aspect-square rounded-lg border border-border overflow-hidden bg-card"
                   >
                     <img src={img.public_url} alt="" className="w-full h-full object-cover" />
                   </div>
@@ -358,19 +358,19 @@ export function QuickTradeListingSheet({
             ) : null}
 
             {analyzing ? (
-              <div className="flex items-center gap-2 text-sm text-[#888]">
-                <Sparkles className="h-4 w-4 text-[#C9A265] animate-pulse" />
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#C9A265]" />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Sparkles className="h-4 w-4 text-accent animate-pulse" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
                 <span>Scoring condition…</span>
               </div>
             ) : null}
 
             {aiCondition && !analyzing && !conditionOverridden ? (
-              <div className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-3 space-y-2">
-                <p className="text-sm text-[#ccc]">
-                  <Sparkles className="inline h-3.5 w-3.5 text-[#C9A265] mr-1" />
+              <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+                <p className="text-sm text-foreground/80">
+                  <Sparkles className="inline h-3.5 w-3.5 text-accent mr-1" />
                   AI condition read:{' '}
-                  <span className="text-[#C9A265] font-medium">
+                  <span className="text-accent font-medium">
                     {aiCondition.wrestle_score.toFixed(1)} / 10 · {gradeDisplay(aiCondition.grade)}
                   </span>
                 </p>
@@ -378,14 +378,14 @@ export function QuickTradeListingSheet({
                   <button
                     type="button"
                     onClick={applyAiGrade}
-                    className="rounded-full bg-[#C9A265] text-black text-xs font-medium px-3 py-1.5"
+                    className="rounded-full bg-accent text-accent-foreground text-xs font-medium px-3 py-1.5"
                   >
                     Apply grade: {gradeDisplay(aiCondition.grade)} ✓
                   </button>
                   <button
                     type="button"
                     onClick={() => setConditionOverridden(true)}
-                    className="rounded-full border border-[#444] text-xs px-3 py-1.5 text-[#888]"
+                    className="rounded-full border border-border text-xs px-3 py-1.5 text-muted-foreground"
                   >
                     Override
                   </button>
@@ -396,13 +396,13 @@ export function QuickTradeListingSheet({
 
           {/* Step 2 — Details */}
           {images.length > 0 ? (
-            <section className="space-y-3 border-t border-[#1a1a1a] pt-5">
-              <p className="text-sm font-medium text-white">Details</p>
+            <section className="space-y-3 border-t border-border pt-5">
+              <p className="text-sm font-medium text-foreground">Details</p>
               <div className="grid gap-3">
                 <div>
-                  <Label className="text-xs text-[#666]">Brand</Label>
+                  <Label className="text-xs text-muted-foreground">Brand</Label>
                   <select
-                    className="w-full mt-1 rounded-lg border border-[#333] bg-[#1a1a1a] px-3 py-2 text-sm text-white"
+                    className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
                   >
@@ -414,18 +414,18 @@ export function QuickTradeListingSheet({
                   </select>
                 </div>
                 <div>
-                  <Label className="text-xs text-[#666]">Model</Label>
+                  <Label className="text-xs text-muted-foreground">Model</Label>
                   <Input
-                    className="mt-1 bg-[#1a1a1a] border-[#333]"
+                    className="mt-1 bg-card border-border"
                     value={model}
                     onChange={(e) => setModel(e.target.value)}
                     placeholder="e.g. JB Elite IV"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-[#666]">Size</Label>
+                  <Label className="text-xs text-muted-foreground">Size</Label>
                   <select
-                    className="w-full mt-1 rounded-lg border border-[#333] bg-[#1a1a1a] px-3 py-2 text-sm text-white"
+                    className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                     value={size}
                     onChange={(e) => setSize(e.target.value)}
                   >
@@ -437,10 +437,10 @@ export function QuickTradeListingSheet({
                   </select>
                 </div>
                 <div>
-                  <Label className="text-xs text-[#666]">Condition</Label>
+                  <Label className="text-xs text-muted-foreground">Condition</Label>
                   {(conditionOverridden || !aiCondition) && (
                     <select
-                      className="w-full mt-1 rounded-lg border border-[#333] bg-[#1a1a1a] px-3 py-2 text-sm text-white"
+                      className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       value={condition}
                       onChange={(e) => setCondition(e.target.value)}
                     >
@@ -453,7 +453,7 @@ export function QuickTradeListingSheet({
                     </select>
                   )}
                   {condition && !conditionOverridden && aiCondition ? (
-                    <p className="mt-1 text-sm text-[#C9A265]">
+                    <p className="mt-1 text-sm text-accent">
                       {CONDITION_OPTIONS.find((o) => o.id === condition)?.label ?? condition}
                     </p>
                   ) : null}
@@ -464,13 +464,13 @@ export function QuickTradeListingSheet({
 
           {/* Step 3 — Confirm */}
           {detailsComplete ? (
-            <section className="space-y-3 border-t border-[#1a1a1a] pt-5">
+            <section className="space-y-3 border-t border-border pt-5">
               {publishError ? (
                 <div className="flex items-center justify-between gap-2 text-sm text-red-400">
                   <span>{publishError}</span>
                   <button
                     type="button"
-                    className="text-[#C9A265] underline shrink-0"
+                    className="text-accent underline shrink-0"
                     onClick={() => void handleConfirm()}
                   >
                     Try again
@@ -478,7 +478,7 @@ export function QuickTradeListingSheet({
                 </div>
               ) : null}
               <Button
-                className="w-full min-h-[48px] bg-[#C9A265] text-black font-semibold rounded-full hover:bg-[#C9A265]/90"
+                className="w-full min-h-[48px] bg-accent text-accent-foreground font-semibold rounded-full hover:bg-accent/90"
                 onClick={() => void handleConfirm()}
                 disabled={publishing}
               >

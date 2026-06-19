@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { getSellerProfile } from '@/lib/market/seller';
 import { fetchMarketSellerStats } from '@/lib/market/seller-reputation';
@@ -149,12 +150,13 @@ export async function DELETE(
 ) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, user } = ctx;
+  const { supabase, tenant, user } = ctx;
+  const admin = createAdminClient(tenant.slug);
   const { id } = await params;
 
   const { data: listing } = await supabase
     .from('market_listings')
-    .select('seller_id')
+    .select('seller_id, status')
     .eq('id', id)
     .single();
 
@@ -162,7 +164,33 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { data: images } = await supabase
+  const { count: pendingOfferCount } = await admin
+    .from('market_offers')
+    .select('id', { count: 'exact', head: true })
+    .eq('listing_id', id)
+    .eq('status', 'pending');
+
+  if (pendingOfferCount && pendingOfferCount > 0) {
+    return NextResponse.json(
+      { error: 'Resolve pending offers before deleting this listing.' },
+      { status: 409 }
+    );
+  }
+
+  const { count: openOrderCount } = await admin
+    .from('market_orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('listing_id', id)
+    .in('status', ['pending_payment', 'paid', 'shipped']);
+
+  if (openOrderCount && openOrderCount > 0) {
+    return NextResponse.json(
+      { error: 'This listing has an order in progress and cannot be deleted.' },
+      { status: 409 }
+    );
+  }
+
+  const { data: images } = await admin
     .from('market_listing_images')
     .select('storage_path, clean_storage_path')
     .eq('listing_id', id);
@@ -173,9 +201,22 @@ export async function DELETE(
     if (img.clean_storage_path) paths.push(img.clean_storage_path as string);
   }
   if (paths.length) {
-    await supabase.storage.from('market-listing-photos').remove(paths);
+    await admin.storage.from('market-listing-photos').remove(paths);
   }
 
-  await supabase.from('market_listings').delete().eq('id', id);
+  const { data: deleted, error } = await admin
+    .from('market_listings')
+    .delete()
+    .eq('id', id)
+    .select('id');
+
+  if (error) {
+    console.error('market listing DELETE:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (!deleted?.length) {
+    return NextResponse.json({ error: 'Could not delete listing' }, { status: 500 });
+  }
+
   return NextResponse.json({ ok: true });
 }

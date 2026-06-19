@@ -21,7 +21,7 @@ export function ListingSellerCard({
   return (
     <Link
       href={`/market/seller/${sellerId}`}
-      className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3 hover:border-zinc-600 transition-colors"
+      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/80 px-4 py-3 hover:border-accent/40 transition-colors"
     >
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">{displayName}</p>
@@ -31,7 +31,7 @@ export function ListingSellerCard({
             <StarRating averageRating={stats.averageRating} reviewCount={stats.reviewCount} size="sm" />
           </div>
         ) : stats.salesCount > 0 ? (
-          <p className="text-xs text-zinc-500 mt-1">{stats.salesCount} sale{stats.salesCount !== 1 ? 's' : ''} on Guild</p>
+          <p className="text-xs text-muted-foreground mt-1">{stats.salesCount} sale{stats.salesCount !== 1 ? 's' : ''} on Guild</p>
         ) : null}
       </div>
       <span className="text-xs text-accent shrink-0">View profile</span>

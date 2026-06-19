@@ -11,18 +11,18 @@ function typeBadge(listing: MarketBrowseListing): {
   className: string;
 } {
   if (listing.listing_type === 'collection') {
-    return { label: 'Collection', className: 'bg-[#1a1a1a] border border-[#333] text-[#555]' };
+    return { label: 'Collection', className: 'bg-card border border-border text-muted-foreground' };
   }
   if (listing.listing_type === 'vault') {
-    return { label: 'Vault', className: 'bg-[#C9A265]/90 text-black' };
+    return { label: 'Vault', className: 'bg-accent/90 text-accent-foreground' };
   }
   if (listing.listing_type === 'trade') {
-    return { label: 'Trade', className: 'bg-blue-500/90 text-white' };
+    return { label: 'Trade', className: 'bg-blue-500/90 text-foreground' };
   }
   if (listing.open_to_trade) {
-    return { label: 'Sell + trade', className: 'bg-emerald-600/90 text-white' };
+    return { label: 'Sell + trade', className: 'bg-emerald-600/90 text-foreground' };
   }
-  return { label: 'For sale', className: 'bg-emerald-600/90 text-white' };
+  return { label: 'For sale', className: 'bg-emerald-600/90 text-foreground' };
 }
 
 function cardCta(listing: MarketBrowseListing): { label: string; solid: boolean } | null {
@@ -36,24 +36,24 @@ function cardCta(listing: MarketBrowseListing): { label: string; solid: boolean 
 
 function priceLabel(listing: MarketBrowseListing): { text: string; className: string } {
   if (listing.listing_type === 'collection') {
-    return { text: 'Not for sale', className: 'text-[#555]' };
+    return { text: 'Not for sale', className: 'text-muted-foreground' };
   }
   if (listing.listing_type === 'vault') {
     if (listing.pending_offer_count > 0) {
       return {
         text: `${listing.pending_offer_count} offer${listing.pending_offer_count !== 1 ? 's' : ''} pending`,
-        className: 'text-[#C9A265]',
+        className: 'text-accent',
       };
     }
-    return { text: 'Offers only', className: 'text-zinc-500' };
+    return { text: 'Offers only', className: 'text-muted-foreground' };
   }
   if (listing.listing_type === 'trade') {
     return { text: 'Trade only', className: 'text-blue-400' };
   }
   if (listing.price_cents != null) {
-    return { text: `$${(listing.price_cents / 100).toFixed(0)}`, className: 'text-[#C9A265]' };
+    return { text: `$${(listing.price_cents / 100).toFixed(0)}`, className: 'text-accent' };
   }
-  return { text: 'Make offer', className: 'text-[#C9A265]' };
+  return { text: 'Make offer', className: 'text-accent' };
 }
 
 export function MarketListingCard({ listing }: { listing: MarketBrowseListing }) {
@@ -68,9 +68,9 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
   return (
     <Link
       href={`/market/listing/${listing.id}`}
-      className="bg-[#1a1a1a] rounded-xl overflow-hidden border border-[#222] hover:border-[#444] transition-colors flex flex-col group"
+      className="bg-card rounded-xl overflow-hidden border border-border hover:border-border transition-colors flex flex-col group"
     >
-      <div className="aspect-[4/5] sm:aspect-square relative overflow-hidden bg-[#111]">
+      <div className="aspect-[4/5] sm:aspect-square relative overflow-hidden bg-muted">
         {listing.primary_image_url ? (
           <img
             src={listing.primary_image_url}
@@ -78,7 +78,7 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
             className="w-full h-full object-contain p-1.5 group-hover:scale-[1.02] transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs">
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
             No photo
           </div>
         )}
@@ -92,35 +92,35 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
           {badge.label}
         </span>
         {hotOffers ? (
-          <span className="absolute top-2 right-2 bg-[#C9A265] text-black text-[8px] font-medium px-2 py-0.5 rounded-full flex items-center gap-0.5">
+          <span className="absolute top-2 right-2 bg-accent text-accent-foreground text-[8px] font-medium px-2 py-0.5 rounded-full flex items-center gap-0.5">
             <Flame className="h-2.5 w-2.5" />
             {listing.pending_offer_count} offers
           </span>
         ) : listing.ai_assisted ? (
-          <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 rounded-full bg-black/70 px-1.5 py-0.5 text-[8px] text-[#C9A265]">
+          <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 rounded-full bg-foreground/75 px-1.5 py-0.5 text-[8px] text-accent">
             <Sparkles className="h-2.5 w-2.5" />
             AI
           </span>
         ) : null}
         {listing.views_count > 0 && listing.listing_type !== 'collection' ? (
-          <span className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 text-[9px] text-[#888] flex items-center gap-1">
+          <span className="absolute bottom-2 right-2 bg-foreground/75 backdrop-blur-sm rounded-full px-2 py-1 text-[9px] text-muted-foreground flex items-center gap-1">
             <Eye className="h-3 w-3" />
             {listing.views_count}
           </span>
         ) : null}
       </div>
       <div className="p-2.5 flex flex-col gap-1.5 flex-1">
-        <p className="text-[9px] font-medium uppercase tracking-wider text-[#C9A265]">
+        <p className="text-[9px] font-medium uppercase tracking-wider text-accent">
           {listing.brand}
         </p>
-        <p className="text-[13px] font-semibold text-white line-clamp-2 leading-snug tracking-tight">
+        <p className="text-[13px] font-semibold text-foreground line-clamp-2 leading-snug tracking-tight">
           {displayTitle}
         </p>
         <div className="flex flex-wrap gap-1">
-          <span className="text-[9px] text-zinc-500 border border-[#333] rounded-full px-1.5 py-0.5">
+          <span className="text-[9px] text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
             Sz {listing.size}
           </span>
-          <span className="text-[9px] text-zinc-500 border border-[#333] rounded-full px-1.5 py-0.5">
+          <span className="text-[9px] text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
             {conditionLabel}
           </span>
         </div>
@@ -131,8 +131,8 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
               className={cn(
                 'text-[10px] font-medium rounded-full px-2.5 py-1 shrink-0',
                 cta.solid
-                  ? 'bg-[#C9A265] text-black'
-                  : 'border border-[#444] text-zinc-400'
+                  ? 'bg-accent text-accent-foreground'
+                  : 'border border-border text-muted-foreground'
               )}
             >
               {cta.label}

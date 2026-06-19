@@ -42,7 +42,7 @@ function CompSection({
 }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">{title}</p>
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
       {comps.length ? (
         <ul className="space-y-1">
           {comps.map((comp, i) => (
@@ -63,8 +63,8 @@ export function SimilarSalesGuidance({ comps }: { comps: PriceComp[] }) {
   if (!guildComps.length && !catalogComps.length) return null;
 
   return (
-    <div className="rounded-lg border border-[#333] bg-[#141414] px-3 py-3 space-y-3">
-      <p className="text-[11px] text-zinc-400">Similar sales used as guidance</p>
+    <div className="rounded-lg border border-border bg-muted px-3 py-3 space-y-3">
+      <p className="text-[11px] text-muted-foreground">Similar sales used as guidance</p>
       <CompSection
         title="On Guild"
         comps={guildComps}

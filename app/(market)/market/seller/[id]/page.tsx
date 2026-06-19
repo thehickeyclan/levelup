@@ -30,22 +30,22 @@ function InventoryGrid({ items, compact }: { items: SellerInventoryItem[]; compa
         <Link
           key={item.id}
           href={`/market/listing/${item.id}`}
-          className="rounded-lg border border-[#222] overflow-hidden bg-[#1a1a1a] hover:border-[#444] transition-colors"
+          className="rounded-lg border border-border overflow-hidden bg-card hover:border-border transition-colors"
         >
-          <div className={cn('bg-[#111] overflow-hidden', compact ? 'aspect-square' : 'aspect-[4/3]')}>
+          <div className={cn('bg-muted overflow-hidden', compact ? 'aspect-square' : 'aspect-[4/3]')}>
             {item.primary_image_url ? (
               <img src={item.primary_image_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-600">
+              <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
                 No photo
               </div>
             )}
           </div>
           <div className={cn('p-2', compact ? 'p-1.5' : 'p-2')}>
-            <p className={cn('font-medium text-white truncate', compact ? 'text-[10px]' : 'text-xs')}>
+            <p className={cn('font-medium text-foreground truncate', compact ? 'text-[10px]' : 'text-xs')}>
               {item.model?.trim() || item.title}
             </p>
-            <p className={cn('text-zinc-500 truncate', compact ? 'text-[9px]' : 'text-[10px]')}>
+            <p className={cn('text-muted-foreground truncate', compact ? 'text-[9px]' : 'text-[10px]')}>
               {item.brand} · Sz {item.size}
             </p>
           </div>
@@ -145,7 +145,7 @@ export default function SellerProfilePage() {
         ) : null}
         <p className="text-sm">{sellerTrustLabel(stats)}</p>
         {followerCount > 0 ? (
-          <p className="text-sm text-[#888]">
+          <p className="text-sm text-muted-foreground">
             {followerCount} follower{followerCount !== 1 ? 's' : ''}
           </p>
         ) : null}
@@ -164,8 +164,8 @@ export default function SellerProfilePage() {
             className={cn(
               'w-full rounded-full font-semibold',
               following
-                ? 'bg-[#C9A265] text-black hover:bg-[#C9A265]/90'
-                : 'border-[#333] text-white hover:border-[#555]'
+                ? 'bg-accent text-accent-foreground hover:bg-accent/90'
+                : 'border-border text-foreground hover:border-border'
             )}
           >
             {following ? 'Following' : 'Follow'}
@@ -182,7 +182,7 @@ export default function SellerProfilePage() {
               onClick={() => setTab(t.id)}
               className={cn(
                 'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                tab === t.id ? 'bg-[#C9A265] text-black' : 'border border-[#333] text-[#666]'
+                tab === t.id ? 'bg-accent text-accent-foreground' : 'border border-border text-muted-foreground'
               )}
             >
               {t.label}: {t.count}
@@ -194,16 +194,16 @@ export default function SellerProfilePage() {
         {tab === 'trading' ? <InventoryGrid items={inventory.trading} /> : null}
         {tab === 'collection' ? (
           <div className="space-y-2">
-            <p className="text-xs text-[#555]">
+            <p className="text-xs text-muted-foreground">
               {inventory.collection.length} pair{inventory.collection.length !== 1 ? 's' : ''} in collection
             </p>
             {viewer.isOwnProfile && collectionValuation ? (
-              <div className="rounded-xl border border-[#222] bg-[#1a1a1a] px-4 py-3">
-                <p className="text-sm text-[#888]">Estimated collection value</p>
-                <p className="text-2xl font-bold text-[#C9A265] mt-1">
+              <div className="rounded-xl border border-border bg-card px-4 py-3">
+                <p className="text-sm text-muted-foreground">Estimated collection value</p>
+                <p className="text-2xl font-bold text-accent mt-1">
                   ${(collectionValuation.total_cents / 100).toLocaleString()}
                 </p>
-                <p className="text-[11px] text-[#555] mt-1">
+                <p className="text-[11px] text-muted-foreground mt-1">
                   Based on Guild Market comps
                   {collectionValuation.pairs_with_estimates < collectionValuation.collection_count
                     ? ` · ${collectionValuation.pairs_with_estimates} of ${collectionValuation.collection_count} pairs estimated`
@@ -229,9 +229,9 @@ export default function SellerProfilePage() {
               <li key={`${item.source}-${item.listingId}`}>
                 <Link
                   href={`/market/listing/${item.listingId}`}
-                  className="flex gap-3 rounded-lg border border-zinc-800 p-3 hover:border-zinc-600 transition-colors"
+                  className="flex gap-3 rounded-lg border border-border p-3 hover:border-accent/40 transition-colors"
                 >
-                  <div className="w-16 h-16 rounded-md bg-[#1a1a1a] shrink-0 overflow-hidden">
+                  <div className="w-16 h-16 rounded-md bg-card shrink-0 overflow-hidden">
                     {item.imageUrl ? (
                       <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
                     ) : null}
@@ -260,7 +260,7 @@ export default function SellerProfilePage() {
         ) : (
           <ul className="space-y-3">
             {reviews.map((review) => (
-              <li key={review.id} className="rounded-lg border border-zinc-800 p-4 space-y-2">
+              <li key={review.id} className="rounded-lg border border-border p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">{review.buyerLabel}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(review.createdAt)}</p>
@@ -276,7 +276,7 @@ export default function SellerProfilePage() {
                 {review.tags.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {review.tags.map((tag) => (
-                      <span key={tag} className="text-[10px] uppercase tracking-wide border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-400">
+                      <span key={tag} className="text-[10px] uppercase tracking-wide border border-border rounded px-1.5 py-0.5 text-muted-foreground">
                         {tag}
                       </span>
                     ))}
@@ -291,7 +291,7 @@ export default function SellerProfilePage() {
         )}
       </section>
 
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted-foreground">
         {formatSalesCount(stats.salesCount)} on Guild Market. Feedback is from verified buyers after completed orders.
       </p>
     </div>

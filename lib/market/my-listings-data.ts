@@ -97,7 +97,10 @@ export async function fetchMyListings(
       primary_image_url: primaryListingImageUrl(l.market_listing_images),
       condition_label: listingConditionDisplay(wear, l.condition),
       pending_offer_count: pending,
-      can_delete: (l.status === 'draft' || l.status === 'active') && !hasPendingOrder && pending === 0,
+      can_delete:
+        (l.status === 'draft' || l.status === 'active' || l.listing_type === 'collection') &&
+        !hasPendingOrder &&
+        pending === 0,
       can_archive: l.status === 'active' && !hasPendingOrder,
     };
   });

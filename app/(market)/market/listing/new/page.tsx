@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BackLink } from '@/components/back-link';
 import { SELLER_AI_DISCLAIMER } from '@/lib/market/ai/prompts';
-import { buildListingDescription } from '@/lib/market/listing-description';
+import { buildListingDescription, buildListingAgentPrompt } from '@/lib/market/listing-description';
+import { sanitizeBuyerListingDescription } from '@/lib/market/sanitize-listing-description';
 import {
   WEAR_STATE_OPTIONS,
   USED_CONDITIONS,
@@ -219,12 +220,82 @@ export default function NewListingPage() {
   const descriptionInput = () => ({
     brand: form.brand,
     model: form.model,
+    colorway: form.colorway.trim() || null,
     modelYear: form.model_year ? Number(form.model_year) : null,
     size: Number(form.size) || 10,
     wearState: form.wear_state,
     condition: conditionForWearState(form.wear_state, form.condition),
-    analysis: null,
+    analysis: aiCondition
+      ? {
+          listing_tip: aiCondition.listing_tip,
+        }
+      : null,
   });
+
+  const agentPromptInput = (sellerNote?: string) => ({
+    brand: form.brand,
+    model: form.model,
+    colorway: form.colorway,
+    modelYear: form.model_year ? Number(form.model_year) : null,
+    size: Number(form.size) || 10,
+    wearState: form.wear_state,
+    condition: conditionForWearState(form.wear_state, form.condition),
+    listingType: form.listing_type,
+    sellerNote,
+    conditionAnalysis: aiCondition,
+  });
+
+  const generateDescription = useCallback(
+    async (opts?: { sellerNote?: string; silent?: boolean }) => {
+      if (!form.model.trim()) {
+        if (!opts?.silent) {
+          setError('Add a model (or use Shoe ID) before generating a description.');
+        }
+        return;
+      }
+      setAgentLoading(true);
+      if (!opts?.silent) setAgentReply(null);
+      setError(null);
+      try {
+        const id = await syncDraft();
+        const res = await fetch('/api/market/ai/agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            draftId: id,
+            messages: [
+              {
+                role: 'user',
+                content: buildListingAgentPrompt(agentPromptInput(opts?.sellerNote)),
+              },
+            ],
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Description failed');
+
+        if (data.has_draft && data.draft?.description) {
+          const clean = sanitizeBuyerListingDescription(data.draft.description);
+          setForm((f) => ({ ...f, description: clean }));
+          setDescriptionTouched(false);
+          setAiDescriptionDraft(true);
+          setAgentInput('');
+        } else if (data.message) {
+          setAgentReply(data.message);
+        } else if (!opts?.silent) {
+          setError('Could not generate description — try again.');
+        }
+      } catch (err) {
+        if (!opts?.silent) {
+          setError(err instanceof Error ? err.message : 'Description failed');
+        }
+      } finally {
+        setAgentLoading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form, aiCondition, listingId]
+  );
 
   const syncDraft = async () => {
     const id = await ensureDraft();
@@ -290,6 +361,9 @@ export default function NewListingPage() {
       if (form.listing_type !== 'collection') {
         await runPrice();
       }
+      if (!descriptionTouched && !form.description.trim() && form.model.trim()) {
+        void generateDescription({ silent: true });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
@@ -297,7 +371,7 @@ export default function NewListingPage() {
       pipelineRunning.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.wear_state, listingId, runPrice]);
+  }, [form.wear_state, listingId, runPrice, descriptionTouched, form.description, form.model, generateDescription]);
 
   useEffect(() => {
     if (!imageKey || uploading || analyzing || pipelineRunning.current) return;
@@ -341,36 +415,7 @@ export default function NewListingPage() {
 
   const submitAgent = async () => {
     const text = agentInput.trim();
-    if (!text) return;
-    setAgentLoading(true);
-    setAgentReply(null);
-    setError(null);
-    try {
-      const id = await ensureDraft();
-      const res = await fetch('/api/market/ai/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          draftId: id,
-          messages: [{ role: 'user', content: text }],
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Agent failed');
-
-      if (data.has_draft && data.draft?.description) {
-        setForm((f) => ({ ...f, description: data.draft.description }));
-        setDescriptionTouched(false);
-        setAiDescriptionDraft(true);
-        setAgentInput('');
-      } else if (data.message) {
-        setAgentReply(data.message);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Agent failed');
-    } finally {
-      setAgentLoading(false);
-    }
+    await generateDescription(text ? { sellerNote: text } : undefined);
   };
 
   const publish = async () => {
@@ -430,7 +475,7 @@ export default function NewListingPage() {
                 'w-full text-left rounded-lg border px-3 py-3 transition-colors',
                 form.wear_state === opt.value
                   ? 'border-accent bg-accent/10'
-                  : 'border-zinc-800 hover:border-zinc-600'
+                  : 'border-border hover:border-accent/40'
               )}
             >
               <p className="text-sm font-medium">{opt.label}</p>
@@ -466,7 +511,7 @@ export default function NewListingPage() {
           <div className="grid grid-cols-3 gap-2">
             {images.map((img) => (
               <div key={img.id}>
-                <div className="aspect-square rounded-lg border border-zinc-800 overflow-hidden bg-zinc-900">
+                <div className="aspect-square rounded-lg border border-border overflow-hidden bg-card">
                   <img src={photoThumbnailSrc(img)} alt="" className="w-full h-full object-cover" />
                 </div>
                 {listingId ? (
@@ -501,6 +546,9 @@ export default function NewListingPage() {
                   colorway: colorway?.trim() || form.colorway,
                 });
               }
+              if (!descriptionTouched && !form.description.trim()) {
+                void generateDescription({ silent: true });
+              }
             }}
           />
         ) : null}
@@ -510,7 +558,7 @@ export default function NewListingPage() {
         ) : null}
 
         {aiCondition && !analyzing ? (
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 space-y-3">
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-sm font-medium">
                 <Sparkles className="h-4 w-4 text-accent" />
@@ -520,14 +568,14 @@ export default function NewListingPage() {
                 {aiCondition.wrestle_score.toFixed(1)} / 10
               </span>
             </div>
-            <div className="border-t border-[#2a2a2a]" />
+            <div className="border-t border-border" />
             <div className="grid grid-cols-2 gap-2">
               {BREAKDOWN_KEYS.map((key) => (
                 <div
                   key={key}
-                  className="rounded-lg bg-[#111] border border-[#222] px-3 py-2 text-center"
+                  className="rounded-lg bg-muted border border-border px-3 py-2 text-center"
                 >
-                  <p className="text-[10px] text-zinc-500 capitalize">{key}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize">{key}</p>
                   <p className="text-sm font-semibold">
                     {aiCondition.breakdown[key]?.score ?? '—'}
                   </p>
@@ -536,7 +584,7 @@ export default function NewListingPage() {
             </div>
             {aiCondition.listing_tip ? (
               <>
-                <div className="border-t border-[#2a2a2a]" />
+                <div className="border-t border-border" />
                 <p className="text-sm text-muted-foreground border-l-2 border-accent pl-3">
                   {aiCondition.listing_tip}
                 </p>
@@ -547,14 +595,14 @@ export default function NewListingPage() {
                 <button
                   type="button"
                   onClick={applyAiGrade}
-                  className="rounded-full bg-accent text-black text-sm font-medium px-4 py-1.5 hover:bg-accent/90"
+                  className="rounded-full bg-accent text-accent-foreground text-sm font-medium px-4 py-1.5 hover:bg-accent/90"
                 >
                   Apply grade: {gradeDisplay(aiCondition.grade)} ✓
                 </button>
                 <button
                   type="button"
                   onClick={overrideCondition}
-                  className="rounded-full border border-[#444] text-sm px-4 py-1.5 text-muted-foreground hover:border-zinc-500"
+                  className="rounded-full border border-border text-sm px-4 py-1.5 text-muted-foreground hover:border-accent/50"
                 >
                   Override
                 </button>
@@ -568,22 +616,22 @@ export default function NewListingPage() {
         {pricing && !isCollection ? <AiSpinner label="Checking market prices…" /> : null}
 
         {aiPrice && !pricing && !isCollection ? (
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 space-y-3">
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-1.5 text-sm font-medium">
               <Sparkles className="h-4 w-4 text-accent" />
               <span>Market price range</span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center text-sm">
-              <div className="rounded-lg border border-[#333] px-2 py-3">
-                <p className="text-[10px] text-zinc-500 mb-1">Quick sale</p>
+              <div className="rounded-lg border border-border px-2 py-3">
+                <p className="text-[10px] text-muted-foreground mb-1">Quick sale</p>
                 <p className="font-semibold">${Math.round(aiPrice.suggested_low_cents / 100)}</p>
               </div>
               <div className="rounded-lg border-2 border-accent px-2 py-3">
-                <p className="text-[10px] text-zinc-500 mb-1">Market avg</p>
+                <p className="text-[10px] text-muted-foreground mb-1">Market avg</p>
                 <p className="font-semibold text-accent">${midPrice}</p>
               </div>
-              <div className="rounded-lg border border-[#333] px-2 py-3">
-                <p className="text-[10px] text-zinc-500 mb-1">Patient seller</p>
+              <div className="rounded-lg border border-border px-2 py-3">
+                <p className="text-[10px] text-muted-foreground mb-1">Patient seller</p>
                 <p className="font-semibold">${Math.round(aiPrice.suggested_high_cents / 100)}</p>
               </div>
             </div>
@@ -595,50 +643,15 @@ export default function NewListingPage() {
             <button
               type="button"
               onClick={applySuggestedPrice}
-              className="rounded-full bg-accent text-black text-sm font-medium px-4 py-1.5 hover:bg-accent/90"
+              className="rounded-full bg-accent text-accent-foreground text-sm font-medium px-4 py-1.5 hover:bg-accent/90"
             >
               Use ${midPrice} →
             </button>
           </div>
         ) : null}
 
-        {images.length > 0 ? (
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => setAgentExpanded((v) => !v)}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
-              <span>Let AI write your description</span>
-              <span className="text-xs">{agentExpanded ? '▾' : '▸'}</span>
-            </button>
-            {agentExpanded ? (
-              <div className="space-y-2 pl-1">
-                <Input
-                  value={agentInput}
-                  onChange={(e) => setAgentInput(e.target.value)}
-                  placeholder="Describe in one sentence (e.g. worn one season, toe scuff on left shoe)"
-                  disabled={agentLoading}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void submitAgent();
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void submitAgent()}
-                  disabled={agentLoading || !agentInput.trim()}
-                >
-                  {agentLoading ? 'Writing…' : 'Generate description'}
-                </Button>
-                {agentReply ? (
-                  <p className="text-sm text-muted-foreground">{agentReply}</p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+        {images.length > 0 && agentLoading ? (
+          <AiSpinner label="Writing listing description…" />
         ) : null}
       </div>
 
@@ -662,6 +675,16 @@ export default function NewListingPage() {
           <Input
             value={form.model}
             onChange={(e) => setForm({ ...form, model: e.target.value })}
+            onBlur={() => {
+              if (
+                !descriptionTouched &&
+                !form.description.trim() &&
+                form.model.trim() &&
+                aiCondition
+              ) {
+                void generateDescription({ silent: true });
+              }
+            }}
             placeholder="JB Elite III"
           />
         </div>
@@ -724,16 +747,16 @@ export default function NewListingPage() {
                   'w-full text-left rounded-lg border px-3 py-3 transition-colors',
                   form.listing_type === opt.value
                     ? 'border-accent bg-accent/10'
-                    : 'border-zinc-800 hover:border-zinc-600'
+                    : 'border-border hover:border-accent/40'
                 )}
               >
-                <p className="text-sm font-medium text-white">{opt.label}</p>
-                <p className="text-xs text-[#555] mt-0.5">{opt.hint}</p>
+                <p className="text-sm font-medium text-foreground">{opt.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{opt.hint}</p>
               </button>
             ))}
           </div>
           {form.listing_type === 'sell' ? (
-            <label className="flex items-start gap-3 rounded-lg border border-zinc-800 px-3 py-3 cursor-pointer">
+            <label className="flex items-start gap-3 rounded-lg border border-border px-3 py-3 cursor-pointer">
               <input
                 type="checkbox"
                 className="mt-0.5"
@@ -741,16 +764,16 @@ export default function NewListingPage() {
                 onChange={(e) => setForm((f) => ({ ...f, open_to_trade: e.target.checked }))}
               />
               <span>
-                <span className="text-sm font-medium text-white block">Also open to trades</span>
-                <span className="text-xs text-[#555]">
+                <span className="text-sm font-medium text-foreground block">Also open to trades</span>
+                <span className="text-xs text-muted-foreground">
                   Buyers can offer their shoes instead of paying cash
                 </span>
               </span>
             </label>
           ) : null}
           {isCollection ? (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-3">
-              <p className="text-sm text-zinc-300">
+            <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
+              <p className="text-sm text-foreground/80">
                 This pair appears on your profile under Collection. Buyers can see it but can&apos;t make offers.
                 Move it to &quot;Accept offers&quot; anytime from My listings.
               </p>
@@ -768,8 +791,8 @@ export default function NewListingPage() {
               />
             </div>
           ) : (
-            <div className="col-span-2 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-3">
-              <p className="text-sm text-zinc-400">
+            <div className="col-span-2 rounded-lg border border-border bg-card/60 px-3 py-3">
+              <p className="text-sm text-muted-foreground">
                 {form.listing_type === 'vault'
                   ? 'No set price — buyers send offers and you decide.'
                   : 'No price — buyers propose a trade with shoes from their listings.'}
@@ -791,7 +814,18 @@ export default function NewListingPage() {
         </div>
         ) : null}
         <div>
-          <Label>Description</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label>Description</Label>
+            <button
+              type="button"
+              onClick={() => void generateDescription()}
+              disabled={agentLoading || !form.model.trim()}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/80 disabled:opacity-40"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {agentLoading ? 'Writing…' : 'Generate with AI'}
+            </button>
+          </div>
           <textarea
             className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
             value={form.description}
@@ -800,8 +834,36 @@ export default function NewListingPage() {
               setAiDescriptionDraft(false);
               setForm({ ...form, description: e.target.value });
             }}
-            placeholder="Optional — use AI above or write your own."
+            placeholder={
+              form.model.trim()
+                ? 'AI can draft this from brand, model, colorway, and condition — or write your own.'
+                : 'Add model first, then use Generate with AI or write your own.'
+            }
           />
+          {agentReply ? (
+            <p className="text-xs text-muted-foreground mt-1">{agentReply}</p>
+          ) : null}
+          {agentExpanded ? (
+            <div className="mt-2 space-y-2">
+              <Input
+                value={agentInput}
+                onChange={(e) => setAgentInput(e.target.value)}
+                placeholder="Optional detail for AI (e.g. worn one season, small toe scuff)"
+                disabled={agentLoading}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void submitAgent();
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAgentExpanded(true)}
+              className="text-xs text-muted-foreground hover:text-foreground mt-1"
+            >
+              + Add a personal note for AI
+            </button>
+          )}
           {aiDescriptionDraft ? (
             <p className="text-xs text-muted-foreground mt-1">AI draft — tap to edit</p>
           ) : (
@@ -814,11 +876,11 @@ export default function NewListingPage() {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <Button className="w-full min-h-[48px] bg-accent text-black font-semibold" onClick={publish}>
+      <Button className="w-full min-h-[48px] bg-accent text-accent-foreground font-semibold" onClick={publish}>
         Publish listing
       </Button>
 
-      <p className="text-xs text-zinc-500">{SELLER_AI_DISCLAIMER}</p>
+      <p className="text-xs text-muted-foreground">{SELLER_AI_DISCLAIMER}</p>
     </div>
   );
 }

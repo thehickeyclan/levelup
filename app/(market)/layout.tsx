@@ -13,5 +13,9 @@ export default async function MarketLayout({ children }: { children: React.React
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login?redirect=/market');
 
-  return <>{children}</>;
+  return (
+    <div className="theme-market min-h-screen bg-background text-foreground">
+      {children}
+    </div>
+  );
 }

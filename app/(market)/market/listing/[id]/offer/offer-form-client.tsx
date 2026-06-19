@@ -102,8 +102,8 @@ export function OfferFormClient({
     <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
       <BackLink fallbackHref={`/market/listing/${listingId}`} label="Back to listing" />
 
-      <div className="flex gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
-        <div className="w-20 h-20 rounded-xl bg-[#1a1a1a] shrink-0 overflow-hidden">
+      <div className="flex gap-3 rounded-xl border border-border bg-card/80 p-3">
+        <div className="w-20 h-20 rounded-xl bg-card shrink-0 overflow-hidden">
           {listing.imageUrl ? (
             <img src={listing.imageUrl} alt="" className="w-full h-full object-cover" />
           ) : null}
@@ -120,7 +120,7 @@ export function OfferFormClient({
       </div>
 
       <div>
-        <p className="text-sm font-medium text-zinc-300 mb-2">Offer type</p>
+        <p className="text-sm font-medium text-foreground/80 mb-2">Offer type</p>
         <div className="flex flex-wrap gap-2">
           {OFFER_MODES.map((mode) => (
             <button
@@ -130,8 +130,8 @@ export function OfferFormClient({
               className={cn(
                 'rounded-full px-4 py-2 text-sm font-medium transition-colors',
                 offerMode === mode.id
-                  ? 'bg-[#C9A265] text-black'
-                  : 'border border-[#333] text-[#666]'
+                  ? 'bg-accent text-accent-foreground'
+                  : 'border border-border text-muted-foreground'
               )}
             >
               {mode.label}
@@ -144,7 +144,7 @@ export function OfferFormClient({
         <div>
           <Label htmlFor="offer-amount">Your offer</Label>
           <div className="relative mt-1">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-semibold text-zinc-500">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-semibold text-muted-foreground">
               $
             </span>
             <Input
@@ -178,19 +178,19 @@ export function OfferFormClient({
                     onClick={() => setTradeListingId(item.id)}
                     className={cn(
                       'shrink-0 w-28 rounded-xl border overflow-hidden text-left transition-colors',
-                      selected ? 'border-[#C9A265] ring-1 ring-[#C9A265]' : 'border-zinc-800'
+                      selected ? 'border-accent ring-1 ring-accent' : 'border-border'
                     )}
                   >
-                    <div className="aspect-square bg-[#1a1a1a]">
+                    <div className="aspect-square bg-card">
                       {item.imageUrl ? (
                         <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">
+                        <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
                           No photo
                         </div>
                       )}
                     </div>
-                    <div className="p-2 bg-zinc-900/60">
+                    <div className="p-2 bg-card/60">
                       <p className="text-xs font-medium truncate">{item.model || item.title}</p>
                       <p className="text-[10px] text-muted-foreground">Size {item.size}</p>
                     </div>
@@ -202,7 +202,7 @@ export function OfferFormClient({
           <button
             type="button"
             onClick={() => setShowQuickList(true)}
-            className="w-full border border-dashed border-[#333] rounded-xl py-3 text-sm text-[#555] flex items-center justify-center gap-2 hover:border-[#C9A265] hover:text-[#C9A265] transition-colors"
+            className="w-full border border-dashed border-border rounded-xl py-3 text-sm text-muted-foreground flex items-center justify-center gap-2 hover:border-accent hover:text-accent transition-colors"
           >
             <Plus className="h-4 w-4" />
             Add a pair to trade
@@ -235,7 +235,7 @@ export function OfferFormClient({
         <p className="text-xs text-muted-foreground mt-1 text-right">{message.length}/200</p>
       </div>
 
-      <div className="rounded-xl border-l-4 border-[#C9A265] bg-accent/5 px-4 py-3 text-sm text-zinc-300">
+      <div className="rounded-xl border-l-4 border-accent bg-accent/5 px-4 py-3 text-sm text-foreground/80">
         $4.99 platform fee per side when offer is accepted. No percentage on offer amount.
       </div>
 
@@ -243,7 +243,7 @@ export function OfferFormClient({
 
       <div className="fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-2 bg-gradient-to-t from-black via-black/95 to-transparent">
         <Button
-          className="w-full min-h-[48px] bg-[#C9A265] text-black font-semibold rounded-full hover:bg-[#C9A265]/90"
+          className="w-full min-h-[48px] bg-accent text-accent-foreground font-semibold rounded-full hover:bg-accent/90"
           onClick={submit}
           disabled={!canSubmit}
         >

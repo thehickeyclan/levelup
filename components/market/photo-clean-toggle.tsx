@@ -53,7 +53,7 @@ export function PhotoCleanToggle({
           type="button"
           onClick={() => void handleClean()}
           disabled={loading}
-          className="text-[10px] text-[#C9A265] flex items-center gap-1 disabled:opacity-50"
+          className="text-[10px] text-accent flex items-center gap-1 disabled:opacity-50"
         >
           {loading ? (
             <>
@@ -72,7 +72,7 @@ export function PhotoCleanToggle({
           type="button"
           onClick={() => void handleToggle()}
           className={`text-[10px] flex items-center gap-1 ${
-            active ? 'text-[#C9A265]' : 'text-[#555]'
+            active ? 'text-accent' : 'text-muted-foreground'
           }`}
         >
           {active ? (

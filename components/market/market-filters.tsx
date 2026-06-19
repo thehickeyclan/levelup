@@ -109,18 +109,18 @@ function FilterDropdown({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'bg-[#1a1a1a] border rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors',
+          'bg-card border rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors',
           active
-            ? 'border-[#C9A265] text-[#C9A265]'
-            : 'border-[#2a2a2a] text-[#666]'
+            ? 'border-accent text-accent'
+            : 'border-border text-muted-foreground'
         )}
       >
-        <span className={active ? 'text-[#C9A265]' : 'text-[#666]'}>{icon}</span>
+        <span className={active ? 'text-accent' : 'text-muted-foreground'}>{icon}</span>
         <span>{label}</span>
         <ChevronDown className={cn('h-3 w-3 shrink-0', open && 'rotate-180 transition-transform')} />
       </button>
       {open ? (
-        <div className="absolute left-0 top-full z-50 mt-1 min-w-[140px] rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] py-1 shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[140px] rounded-xl border border-border bg-card py-1 shadow-lg">
           {options.map((opt) => {
             const selected = value === opt.id;
             return (
@@ -129,8 +129,8 @@ function FilterDropdown({
                 type="button"
                 onClick={() => handleSelect(opt.id)}
                 className={cn(
-                  'flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-[#222]',
-                  selected ? 'text-[#C9A265]' : 'text-[#aaa]'
+                  'flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted',
+                  selected ? 'text-accent' : 'text-muted-foreground'
                 )}
               >
                 <span className="w-3.5 shrink-0">
@@ -155,7 +155,7 @@ function FilterSection({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-[10px] uppercase tracking-wide text-[#555]">{title}</p>
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{title}</p>
       {children}
     </div>
   );
@@ -189,7 +189,7 @@ export function MarketFilters({
   const typePillClass = (active: boolean) =>
     cn(
       'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-      active ? 'bg-[#C9A265] text-black' : 'border border-[#333] text-[#666]'
+      active ? 'bg-accent text-accent-foreground' : 'border border-border text-muted-foreground'
     );
 
   const brandOptions: FilterOption[] = BRAND_OPTIONS.map((b) => ({
@@ -297,7 +297,7 @@ export function MarketFilters({
 
   return (
     <>
-      <div className="sticky top-0 z-40 bg-[#111] border-b border-[#1a1a1a]">
+      <div className="sticky top-0 z-40 bg-muted border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-3 space-y-3">
           <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {TYPE_OPTIONS.map((opt) => (
@@ -323,10 +323,10 @@ export function MarketFilters({
               type="button"
               onClick={() => setMoreOpen(true)}
               className={cn(
-                'bg-[#1a1a1a] border rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 shrink-0',
+                'bg-card border rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 shrink-0',
                 condition !== 'all' || minPrice || maxPrice
-                  ? 'border-[#C9A265] text-[#C9A265]'
-                  : 'border-[#2a2a2a] text-[#666]'
+                  ? 'border-accent text-accent'
+                  : 'border-border text-muted-foreground'
               )}
             >
               More
@@ -336,12 +336,12 @@ export function MarketFilters({
         </div>
 
         {hasActiveFilters ? (
-          <div className="flex gap-2 flex-wrap items-center px-4 py-2 border-t border-[#1a1a1a] max-w-4xl mx-auto">
+          <div className="flex gap-2 flex-wrap items-center px-4 py-2 border-t border-border max-w-4xl mx-auto">
             {brand !== 'all' ? (
               <button
                 type="button"
                 onClick={() => setParam('brand', 'all')}
-                className="flex items-center gap-1 rounded-full border border-[#C9A265]/30 bg-[#C9A265]/10 px-2.5 py-1 text-[10px] text-[#C9A265]"
+                className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] text-accent"
               >
                 {brand}
                 <X className="h-2.5 w-2.5" />
@@ -351,7 +351,7 @@ export function MarketFilters({
               <button
                 type="button"
                 onClick={() => setParam('size', '')}
-                className="flex items-center gap-1 rounded-full border border-[#C9A265]/30 bg-[#C9A265]/10 px-2.5 py-1 text-[10px] text-[#C9A265]"
+                className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] text-accent"
               >
                 Sz {formatSizeLabel(size)}
                 <X className="h-2.5 w-2.5" />
@@ -361,7 +361,7 @@ export function MarketFilters({
               <button
                 type="button"
                 onClick={() => setParam('condition', 'all')}
-                className="flex items-center gap-1 rounded-full border border-[#C9A265]/30 bg-[#C9A265]/10 px-2.5 py-1 text-[10px] text-[#C9A265]"
+                className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] text-accent"
               >
                 {CONDITION_OPTIONS.find((o) => o.id === condition)?.label}
                 <X className="h-2.5 w-2.5" />
@@ -371,7 +371,7 @@ export function MarketFilters({
               <button
                 type="button"
                 onClick={() => setPriceRange()}
-                className="flex items-center gap-1 rounded-full border border-[#C9A265]/30 bg-[#C9A265]/10 px-2.5 py-1 text-[10px] text-[#C9A265]"
+                className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] text-accent"
               >
                 {priceChipLabel(minPrice, maxPrice)}
                 <X className="h-2.5 w-2.5" />
@@ -380,7 +380,7 @@ export function MarketFilters({
             <button
               type="button"
               onClick={clearAllFilters}
-              className="ml-auto text-[10px] text-[#444] hover:text-[#666]"
+              className="ml-auto text-[10px] text-muted-foreground hover:text-muted-foreground"
             >
               Clear all
             </button>
@@ -389,9 +389,9 @@ export function MarketFilters({
       </div>
 
       <Dialog open={moreOpen} onOpenChange={setMoreOpen}>
-        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto z-50 w-full max-w-none translate-x-0 translate-y-0 rounded-b-none rounded-t-xl border-[#2a2a2a] bg-[#111] p-4 pb-8 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom">
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto z-50 w-full max-w-none translate-x-0 translate-y-0 rounded-b-none rounded-t-xl border-border bg-muted p-4 pb-8 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom">
           <DialogHeader>
-            <DialogTitle className="text-sm text-white">Filters</DialogTitle>
+            <DialogTitle className="text-sm text-foreground">Filters</DialogTitle>
           </DialogHeader>
           <div className="mt-4 space-y-5">
             <FilterSection title="Brand">{brandDropdown}</FilterSection>

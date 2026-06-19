@@ -79,11 +79,11 @@ export function TradeStatusClient({
   };
 
   return (
-    <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6 bg-black">
+    <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6 bg-background">
       <BackLink fallbackHref="/market/offers" label="Back" />
 
       {feePaidBanner ? (
-        <p className="text-sm text-[#C9A265] bg-accent/10 border border-accent/30 rounded-lg p-3">
+        <p className="text-sm text-accent bg-accent/10 border border-accent/30 rounded-lg p-3">
           Fee payment received — waiting for your trade partner.
         </p>
       ) : null}
@@ -96,12 +96,12 @@ export function TradeStatusClient({
 
       <div className="flex items-center gap-2">
         <ListingMini card={trade.initiator_listing} />
-        <span className="text-2xl text-zinc-500">⇄</span>
+        <span className="text-2xl text-muted-foreground">⇄</span>
         <ListingMini card={trade.receiver_listing} />
       </div>
 
       {trade.boot_amount_cents > 0 ? (
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-muted-foreground">
           {trade.initiator_name} adds ${(trade.boot_amount_cents / 100).toFixed(0)} cash
         </p>
       ) : null}
@@ -112,10 +112,10 @@ export function TradeStatusClient({
             <div
               className={cn(
                 'h-1 rounded-full mb-1',
-                i <= current ? 'bg-[#C9A265]' : 'bg-zinc-800'
+                i <= current ? 'bg-accent' : 'bg-muted'
               )}
             />
-            <p className={cn('text-[10px]', i === current ? 'text-[#C9A265]' : 'text-zinc-600')}>
+            <p className={cn('text-[10px]', i === current ? 'text-accent' : 'text-muted-foreground')}>
               {label}
             </p>
           </div>
@@ -125,7 +125,7 @@ export function TradeStatusClient({
       {trade.status === 'pending' && trade.viewer_side === 'receiver' ? (
         <div className="flex gap-2">
           <Button
-            className="flex-1 bg-[#C9A265] text-black rounded-full"
+            className="flex-1 bg-accent text-accent-foreground rounded-full"
             disabled={acting}
             onClick={() => respond('accept')}
           >
@@ -133,7 +133,7 @@ export function TradeStatusClient({
           </Button>
           <Button
             variant="outline"
-            className="flex-1 rounded-full border-zinc-700"
+            className="flex-1 rounded-full border-border"
             disabled={acting}
             onClick={() => respond('decline')}
           >
@@ -144,7 +144,7 @@ export function TradeStatusClient({
 
       {needsFee ? (
         <Button
-          className="w-full min-h-[48px] bg-[#C9A265] text-black font-semibold rounded-full"
+          className="w-full min-h-[48px] bg-accent text-accent-foreground font-semibold rounded-full"
           disabled={acting}
           onClick={payFee}
         >
@@ -157,14 +157,14 @@ export function TradeStatusClient({
 
 function ListingMini({ card }: { card: TradeListingCard }) {
   return (
-    <div className="flex-1 rounded-xl border border-[#222] bg-[#1a1a1a] p-2 text-center">
-      <div className="aspect-square rounded-lg overflow-hidden bg-black mb-2">
+    <div className="flex-1 rounded-xl border border-border bg-card p-2 text-center">
+      <div className="aspect-square rounded-lg overflow-hidden bg-muted mb-2">
         {card.imageUrl ? (
           <img src={card.imageUrl} alt="" className="w-full h-full object-cover" />
         ) : null}
       </div>
-      <p className="text-xs font-medium text-white truncate">{card.model || card.title}</p>
-      <p className="text-[10px] text-zinc-500">Size {card.size}</p>
+      <p className="text-xs font-medium text-foreground truncate">{card.model || card.title}</p>
+      <p className="text-[10px] text-muted-foreground">Size {card.size}</p>
     </div>
   );
 }

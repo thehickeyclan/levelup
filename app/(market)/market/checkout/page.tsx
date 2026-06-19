@@ -72,12 +72,12 @@ export default function MarketCheckoutPage() {
       <p className="text-sm text-muted-foreground">Session cart is unchanged — this is Guild Market only.</p>
 
       {listing ? (
-        <div className="rounded-lg border border-zinc-800 p-4">
+        <div className="rounded-lg border border-border p-4">
           <p className="font-medium">{listing.title as string}</p>
           <p className="text-sm text-muted-foreground mt-1">
             Item ${(price / 100).toFixed(2)} + shipping ${(ship / 100).toFixed(2)} = ${((price + ship) / 100).toFixed(2)}
           </p>
-          <p className="text-xs text-zinc-500 mt-2">Platform fee: $0.00 to you</p>
+          <p className="text-xs text-muted-foreground mt-2">Platform fee: $0.00 to you</p>
         </div>
       ) : null}
 
@@ -95,7 +95,7 @@ export default function MarketCheckoutPage() {
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <Button
-        className="w-full min-h-[48px] bg-accent text-black font-semibold"
+        className="w-full min-h-[48px] bg-accent text-accent-foreground font-semibold"
         disabled={loading}
         onClick={checkout}
       >

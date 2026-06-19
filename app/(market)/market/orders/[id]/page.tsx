@@ -159,7 +159,7 @@ export default function MarketOrderDetailPage() {
       </div>
 
       {order.listing_image ? (
-        <div className="rounded-lg bg-[#1a1a1a] aspect-square max-w-[200px] overflow-hidden">
+        <div className="rounded-lg bg-card aspect-square max-w-[200px] overflow-hidden">
           <img src={order.listing_image} alt="" className="w-full h-full object-cover" />
         </div>
       ) : null}
@@ -169,7 +169,7 @@ export default function MarketOrderDetailPage() {
       </p>
 
       {order.role === 'seller' && order.shipping_address_formatted ? (
-        <div className="rounded-lg border border-zinc-800 p-4 space-y-2">
+        <div className="rounded-lg border border-border p-4 space-y-2">
           <p className="text-sm font-medium">Ship to</p>
           <p className="text-sm whitespace-pre-line text-muted-foreground">
             {order.shipping_address_formatted}
@@ -178,7 +178,7 @@ export default function MarketOrderDetailPage() {
       ) : null}
 
       {order.tracking_number ? (
-        <div className="rounded-lg border border-zinc-800 p-4 space-y-2">
+        <div className="rounded-lg border border-border p-4 space-y-2">
           <p className="text-sm font-medium">Tracking</p>
           <p className="text-sm font-mono">{order.tracking_number}</p>
           {order.tracking_url ? (
@@ -195,7 +195,7 @@ export default function MarketOrderDetailPage() {
       ) : null}
 
       {order.can_add_tracking ? (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-4">
+        <div className="rounded-lg border border-border bg-card/60 p-4 space-y-4">
           <div>
             <p className="text-sm font-medium">Add shipping</p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -241,7 +241,7 @@ export default function MarketOrderDetailPage() {
           {scanNote ? <p className="text-xs text-muted-foreground">{scanNote}</p> : null}
 
           <Button
-            className="w-full bg-accent text-black font-semibold"
+            className="w-full bg-accent text-accent-foreground font-semibold"
             onClick={confirmShip}
             disabled={confirming || !tracking.trim()}
           >
@@ -252,7 +252,7 @@ export default function MarketOrderDetailPage() {
 
       {order.can_mark_received ? (
         <Button
-          className="w-full bg-accent text-black font-semibold"
+          className="w-full bg-accent text-accent-foreground font-semibold"
           onClick={markReceived}
           disabled={receiving}
         >

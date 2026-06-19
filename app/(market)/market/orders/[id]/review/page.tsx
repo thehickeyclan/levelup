@@ -111,7 +111,7 @@ export default function MarketOrderReviewPage() {
                 disabled={!canReview}
                 onClick={() => toggleTag(tag)}
                 className={`text-xs rounded-full border px-3 py-1 ${
-                  tags.includes(tag) ? 'border-accent text-accent' : 'border-zinc-700 text-zinc-400'
+                  tags.includes(tag) ? 'border-accent text-accent' : 'border-border text-muted-foreground'
                 }`}
               >
                 {tag}
@@ -129,7 +129,7 @@ export default function MarketOrderReviewPage() {
 
           {canReview ? (
             <Button
-              className="w-full bg-accent text-black font-semibold"
+              className="w-full bg-accent text-accent-foreground font-semibold"
               onClick={submit}
               disabled={submitting}
             >

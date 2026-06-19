@@ -18,7 +18,7 @@ export function MarketSellerTrustBadge({
 }) {
   const positive = formatPositiveFeedback(stats.positivePercent, stats.reviewCount);
   const inner = (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 space-y-2">
+    <div className="rounded-lg border border-border bg-card/80 p-4 space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium">{displayName}</p>
@@ -34,7 +34,7 @@ export function MarketSellerTrustBadge({
       {stats.reviewCount > 0 ? (
         <StarRating averageRating={stats.averageRating} reviewCount={stats.reviewCount} size="sm" />
       ) : (
-        <p className="text-xs text-zinc-500">New seller — be the first to leave feedback after a sale.</p>
+        <p className="text-xs text-muted-foreground">New seller — be the first to leave feedback after a sale.</p>
       )}
     </div>
   );
@@ -42,7 +42,7 @@ export function MarketSellerTrustBadge({
   if (!linkToProfile) return inner;
 
   return (
-    <Link href={`/market/seller/${sellerId}`} className="block hover:border-zinc-600 transition-colors">
+    <Link href={`/market/seller/${sellerId}`} className="block hover:border-accent/40 transition-colors">
       {inner}
     </Link>
   );

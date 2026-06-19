@@ -4,18 +4,18 @@
 
 @layer base {
   :root {
-    /* Antique gold - muted museum bronze aesthetic */
+    /* Antique gold — single source of truth across Guild + Market */
     --guild-navy: #0A1628;
     --guild-navy-light: #121F33;
-    --guild-gold: #D4AF37;
-    --guild-gold-dark: #78350F;
-    --guild-gold-light: #B8963C;
+    --guild-gold: #B89D60;
+    --guild-gold-dark: #9A8550;
+    --guild-gold-light: #C9B078;
 
     --primary: var(--guild-navy);
     --accent: var(--guild-gold);
     --accent-hover: var(--guild-gold-dark);
 
-    /* App-wide dark theme with gold accents - PURE BLACK */
+    /* Guild app: dark with gold accents */
     --background: 0 0% 0%;
     --foreground: 0 0% 95%;
     --card: 0 0% 11%;
@@ -31,7 +31,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 20%;
     --input: 0 0% 18%;
-    --ring: 43 40% 50%;
+    --ring: 43 28% 48%;
     --radius: 0.5rem;
     
     /* Chart colors */
@@ -40,6 +40,25 @@
     --chart-3: 142 71% 45%;
     --chart-4: 280 65% 60%;
     --chart-5: 27 87% 67%;
+  }
+
+  /* Guild Market: warm light storefront, same antique gold */
+  .theme-market {
+    --background: 40 20% 97%;
+    --foreground: 0 0% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 11%;
+    --secondary: 40 18% 94%;
+    --secondary-foreground: 0 0% 11%;
+    --muted: 40 16% 92%;
+    --muted-foreground: 0 0% 42%;
+    --accent-foreground: 0 0% 0%;
+    --border: 40 14% 86%;
+    --input: 40 14% 90%;
+    --ring: 43 28% 48%;
+    color-scheme: light;
   }
 
   .dark {

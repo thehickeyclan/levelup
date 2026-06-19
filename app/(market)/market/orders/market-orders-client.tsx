@@ -34,11 +34,11 @@ function statusChip(status: string): { label: string; className: string } {
     case 'completed':
       return { label: 'Complete', className: 'text-emerald-400 border-emerald-500/40' };
     case 'cancelled':
-      return { label: 'Cancelled', className: 'text-zinc-500 border-zinc-600' };
+      return { label: 'Cancelled', className: 'text-muted-foreground border-border' };
     case 'disputed':
       return { label: 'Disputed', className: 'text-red-400 border-red-500/40' };
     default:
-      return { label: status.replace(/_/g, ' '), className: 'text-zinc-500 border-zinc-600' };
+      return { label: status.replace(/_/g, ' '), className: 'text-muted-foreground border-border' };
   }
 }
 
@@ -69,25 +69,25 @@ function OrderRow({ order, onRefresh }: { order: MarketOrderRow; onRefresh: () =
   };
 
   return (
-    <div className="bg-[#1a1a1a] rounded-xl p-3 flex gap-3 border border-[#222]">
+    <div className="bg-card rounded-xl p-3 flex gap-3 border border-border">
       <Link href={`/market/orders/${order.id}`} className="flex gap-3 flex-1 min-w-0">
-        <div className="w-12 h-12 rounded-lg bg-black shrink-0 overflow-hidden">
+        <div className="w-12 h-12 rounded-lg bg-muted shrink-0 overflow-hidden">
           {order.listing_image_url ? (
             <img src={order.listing_image_url} alt="" className="w-full h-full object-cover" />
           ) : null}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-xs text-zinc-500">{order.order_ref}</p>
-          <p className="text-sm font-medium text-white truncate">{order.listing_title}</p>
+          <p className="font-mono text-xs text-muted-foreground">{order.order_ref}</p>
+          <p className="text-sm font-medium text-foreground truncate">{order.listing_title}</p>
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <span className={cn('text-[10px] border rounded-full px-2 py-0.5', chip.className)}>
               {chip.label}
             </span>
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-muted-foreground">
               {formatEST(new Date(order.created_at), 'MMM d, yyyy')}
             </span>
           </div>
-          <p className="text-sm text-[#C9A265] mt-1">
+          <p className="text-sm text-accent mt-1">
             {order.is_buyer
               ? `$${(totalPaid / 100).toFixed(2)} paid`
               : `$${(order.seller_payout_cents / 100).toFixed(2)} payout`}
@@ -105,7 +105,7 @@ function OrderRow({ order, onRefresh }: { order: MarketOrderRow; onRefresh: () =
             />
             <Button
               size="sm"
-              className="h-8 text-xs bg-[#C9A265] text-black"
+              className="h-8 text-xs bg-accent text-accent-foreground"
               disabled={acting || !tracking.trim()}
               onClick={() => patch({ tracking_number: tracking.trim(), status: 'shipped' })}
             >
@@ -146,13 +146,13 @@ export function MarketOrdersClient({
   const visible = tab === 'buying' ? buying : selling;
 
   return (
-    <div className="min-h-screen pb-24 bg-black">
+    <div className="min-h-screen pb-24 bg-background">
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
-        <h1 className="text-2xl font-bold text-white">Orders</h1>
+        <h1 className="text-2xl font-bold text-foreground">Orders</h1>
         <MarketSubNav pendingOffers={pendingOffers} />
 
         {showSuccess ? (
-          <p className="text-sm text-[#C9A265] bg-accent/10 border border-accent/30 rounded-lg p-3">
+          <p className="text-sm text-accent bg-accent/10 border border-accent/30 rounded-lg p-3">
             Order placed — check your email for confirmation.
           </p>
         ) : null}
@@ -165,7 +165,7 @@ export function MarketOrdersClient({
               onClick={() => setTab(t)}
               className={cn(
                 'rounded-full px-4 py-1.5 text-sm font-medium',
-                tab === t ? 'bg-[#C9A265] text-black' : 'border border-[#333] text-[#666]'
+                tab === t ? 'bg-accent text-accent-foreground' : 'border border-border text-muted-foreground'
               )}
             >
               {t === 'buying' ? 'Buying' : 'Selling'}
@@ -174,7 +174,7 @@ export function MarketOrdersClient({
         </div>
 
         {visible.length === 0 ? (
-          <p className="text-sm text-zinc-500 py-8">No orders in this tab yet.</p>
+          <p className="text-sm text-muted-foreground py-8">No orders in this tab yet.</p>
         ) : (
           <div className="space-y-2 pb-4">
             {visible.map((o) => (

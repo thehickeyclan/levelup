@@ -53,17 +53,17 @@ export function ShoeIdCard({
   if (!images.length) return null;
 
   return (
-    <div className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a]/50 overflow-hidden">
+    <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
       <button
         type="button"
         onClick={() => {
           if (!result) void identify();
           else setExpanded((v) => !v);
         }}
-        className="w-full flex items-center justify-between px-4 py-3 text-sm text-[#888] hover:text-[#C9A265] transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 text-sm text-muted-foreground hover:text-accent transition-colors"
       >
         <span className="flex items-center gap-1.5">
-          <Sparkles className="h-3.5 w-3.5 text-[#C9A265]" />
+          <Sparkles className="h-3.5 w-3.5 text-accent" />
           Identify this shoe
         </span>
         {loading ? (
@@ -74,40 +74,40 @@ export function ShoeIdCard({
       </button>
       {error ? <p className="px-4 pb-3 text-xs text-destructive">{error}</p> : null}
       {expanded && result ? (
-        <div className="px-4 pb-4 space-y-3 border-t border-[#222] pt-3">
+        <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
           {images.length < 3 ? (
-            <p className="text-[10px] text-[#666]">
+            <p className="text-[10px] text-muted-foreground">
               Tip: add top, sole, and side photos for better IDs — using {images.length}{' '}
               photo{images.length !== 1 ? 's' : ''}.
             </p>
           ) : (
-            <p className="text-[10px] text-[#666]">
+            <p className="text-[10px] text-muted-foreground">
               Analyzing {images.length} angles together (top, sides, sole, etc.).
             </p>
           )}
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-            <dt className="text-[#666]">Brand</dt>
-            <dd className="text-white font-medium">{result.brand}</dd>
-            <dt className="text-[#666]">Model</dt>
-            <dd className="text-white font-medium">{result.model}</dd>
-            <dt className="text-[#666]">Colorway</dt>
-            <dd className="text-white font-medium">{result.colorway || '—'}</dd>
-            <dt className="text-[#666]">Era</dt>
-            <dd className="text-[#888]">{result.era}</dd>
-            <dt className="text-[#666]">Rarity</dt>
-            <dd className="text-[#888] capitalize">{result.rarity}</dd>
-            <dt className="text-[#666]">Est. value</dt>
-            <dd className="text-[#C9A265]">
+            <dt className="text-muted-foreground">Brand</dt>
+            <dd className="text-foreground font-medium">{result.brand}</dd>
+            <dt className="text-muted-foreground">Model</dt>
+            <dd className="text-foreground font-medium">{result.model}</dd>
+            <dt className="text-muted-foreground">Colorway</dt>
+            <dd className="text-foreground font-medium">{result.colorway || '—'}</dd>
+            <dt className="text-muted-foreground">Era</dt>
+            <dd className="text-muted-foreground">{result.era}</dd>
+            <dt className="text-muted-foreground">Rarity</dt>
+            <dd className="text-muted-foreground capitalize">{result.rarity}</dd>
+            <dt className="text-muted-foreground">Est. value</dt>
+            <dd className="text-accent">
               ${Math.round(result.value_low_cents / 100)}–$
               {Math.round(result.value_high_cents / 100)}
             </dd>
-            <dt className="text-[#666]">Confidence</dt>
-            <dd className="text-[#888]">{Math.round(result.confidence * 100)}%</dd>
+            <dt className="text-muted-foreground">Confidence</dt>
+            <dd className="text-muted-foreground">{Math.round(result.confidence * 100)}%</dd>
           </dl>
           <Button
             type="button"
             size="sm"
-            className="w-full bg-[#C9A265] text-black"
+            className="w-full bg-accent text-accent-foreground"
             onClick={() =>
               onAccept({
                 brand: result.brand,

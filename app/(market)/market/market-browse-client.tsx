@@ -96,12 +96,12 @@ export function MarketBrowseClient({
   }, [sourceListings, type, brand, size, condition, minPrice, maxPrice, isCollectors]);
 
   return (
-    <div className="min-h-screen pb-24 bg-black">
+    <div className="min-h-screen pb-24 bg-background">
       <div className="max-w-4xl mx-auto px-4 pt-6 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">The Guild Market</h1>
-            <p className="text-sm text-[#555] mt-0.5">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">The Guild Market</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               {isCollectors
                 ? `${collectionListings.length} pair${collectionListings.length !== 1 ? 's' : ''} in collections`
                 : `${initialListings.length} pair${initialListings.length !== 1 ? 's' : ''} for sale`}
@@ -131,13 +131,13 @@ export function MarketBrowseClient({
 
       <div className="max-w-4xl mx-auto px-4 py-4">
         {isCollectors ? (
-          <p className="text-xs text-[#555] mb-4">
+          <p className="text-xs text-muted-foreground mb-4">
             Collector showcases — not for sale. Tap a pair to view details.
           </p>
         ) : null}
         {filtered.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-muted-foreground">
               {isCollectors
                 ? 'No collection pairs yet.'
                 : sourceListings.length === 0
@@ -146,7 +146,7 @@ export function MarketBrowseClient({
             </p>
             <Button
               asChild
-              className="mt-4 bg-[#C9A265] text-black font-semibold rounded-full hover:bg-[#C9A265]/90"
+              className="mt-4 bg-accent text-accent-foreground font-semibold rounded-full hover:bg-accent/90"
             >
               <Link href="/market/listing/new">List a pair</Link>
             </Button>
@@ -162,7 +162,7 @@ export function MarketBrowseClient({
 
       <Link
         href="/market/listing/new"
-        className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-[#C9A265] text-black shadow-lg hover:bg-[#C9A265]/90 transition-colors"
+        className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-lg hover:bg-accent/90 transition-colors"
         aria-label="List a pair"
       >
         <Plus className="h-7 w-7" strokeWidth={2.5} />

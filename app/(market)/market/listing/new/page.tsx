@@ -23,11 +23,11 @@ import { PhotoCleanToggle, photoThumbnailSrc } from '@/components/market/photo-c
 import { ShoeIdCard } from '@/components/market/shoe-id-card';
 import { SimilarSalesGuidance, priceGuidanceFooter } from '@/components/market/similar-sales-guidance';
 import { shoeIdClientEnabled } from '@/lib/market/shoe-id/feature-flag';
+import { MARKET_BRANDS } from '@/lib/market/brands';
 import type { PriceComp } from '@/lib/market/ai/schemas';
 import type { MarketListingImageRow } from '@/lib/market/listing-images';
 import { cn } from '@/lib/utils';
 
-const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Other'];
 const MAX_PHOTOS = 6;
 const BREAKDOWN_KEYS = ['sole', 'upper', 'midsole', 'laces'] as const;
 
@@ -626,7 +626,7 @@ export default function NewListingPage() {
             value={form.brand}
             onChange={(e) => setForm({ ...form, brand: e.target.value })}
           >
-            {BRANDS.map((b) => (
+            {MARKET_BRANDS.map((b) => (
               <option key={b} value={b}>
                 {b}
               </option>

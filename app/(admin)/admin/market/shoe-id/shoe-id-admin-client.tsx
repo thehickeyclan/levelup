@@ -6,10 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { ShoeIdResult, SaleComp } from '@/lib/market/shoe-id/schemas';
+import { MARKET_BRANDS } from '@/lib/market/brands';
 import { cn } from '@/lib/utils';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'grail'] as const;
-const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Onitsuka', 'Onitsuka Tiger', 'Other'];
+
+const ADMIN_CATALOG_BRANDS = [
+  ...MARKET_BRANDS.filter((b) => b !== 'Other'),
+  'Onitsuka',
+  'Onitsuka Tiger',
+  'Other',
+] as const;
 const PRICE_SOURCES = [
   'Eastbay Catalog',
   'Wrestling USA Catalog',
@@ -106,7 +113,7 @@ function normalizeRarity(raw: string): (typeof RARITIES)[number] {
 
 function matchBrand(raw: string): string {
   const trimmed = raw.trim();
-  const hit = BRANDS.find((b) => b.toLowerCase() === trimmed.toLowerCase());
+  const hit = ADMIN_CATALOG_BRANDS.find((b) => b.toLowerCase() === trimmed.toLowerCase());
   return hit ?? trimmed;
 }
 
@@ -622,7 +629,7 @@ function CatalogForm({
             value={form.brand}
             onChange={(e) => setForm({ ...form, brand: e.target.value })}
           >
-            {BRANDS.map((b) => (
+            {ADMIN_CATALOG_BRANDS.map((b) => (
               <option key={b} value={b}>
                 {b}
               </option>

@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatSellerDisplayName } from '@/lib/market/seller';
 import { MARKET_LISTING_IMAGE_FIELDS, primaryListingImageUrl } from '@/lib/market/listing-images';
+import { BROWSE_BRANDS } from '@/lib/market/brands';
+
+export { BROWSE_BRANDS };
 
 export type MarketBrowseListing = {
   id: string;
@@ -155,8 +158,6 @@ export function browseConditionBucket(
   }
   return 'good';
 }
-
-export const BROWSE_BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance'] as const;
 
 export const BROWSE_US_SIZES: number[] = (() => {
   const sizes: number[] = [];

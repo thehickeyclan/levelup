@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
-
-const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Other'];
+import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
 
 export async function GET(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -58,7 +57,7 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ listings, brands: BRANDS });
+  return NextResponse.json({ listings, brands: [...MARKET_BRANDS] });
 }
 
 export async function POST(req: NextRequest) {
@@ -109,7 +108,7 @@ export async function POST(req: NextRequest) {
     wear_state: body.wear_state === 'bnib' || body.wear_state === 'new_no_box' ? body.wear_state : 'used',
   };
 
-  if (!BRANDS.includes(row.brand)) row.brand = 'Other';
+  row.brand = normalizeMarketBrand(row.brand);
 
   const { data, error } = await supabase.from('market_listings').insert(row).select('id').single();
   if (error) {

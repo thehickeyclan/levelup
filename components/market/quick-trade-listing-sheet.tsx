@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BROWSE_US_SIZES } from '@/lib/market/browse-listings';
+import { MARKET_BRANDS } from '@/lib/market/brands';
 import { listingConditionDisplay, conditionForWearState } from '@/lib/market/wear-state';
 import type { OfferListingSummary } from '@/app/(market)/market/listing/[id]/offer/offer-form-client';
 import { cn } from '@/lib/utils';
 
-const BRANDS = ['Adidas', 'Asics', 'Nike', 'New Balance', 'Other'] as const;
 const CONDITION_OPTIONS = [
   { id: 'new', label: 'New' },
   { id: 'like_new', label: 'Like new' },
@@ -54,7 +54,7 @@ export function QuickTradeListingSheet({
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
 
-  const [brand, setBrand] = useState<string>(BRANDS[0]);
+  const [brand, setBrand] = useState<string>(MARKET_BRANDS[0]);
   const [model, setModel] = useState('');
   const [size, setSize] = useState('10');
   const [condition, setCondition] = useState('');
@@ -74,7 +74,7 @@ export function QuickTradeListingSheet({
     setConditionOverridden(false);
     setPublishing(false);
     setPublishError(null);
-    setBrand(BRANDS[0]);
+    setBrand(MARKET_BRANDS[0]);
     setModel('');
     setSize('10');
     setCondition('');
@@ -406,7 +406,7 @@ export function QuickTradeListingSheet({
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
                   >
-                    {BRANDS.map((b) => (
+                    {MARKET_BRANDS.map((b) => (
                       <option key={b} value={b}>
                         {b}
                       </option>

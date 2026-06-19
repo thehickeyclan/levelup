@@ -1,7 +1,6 @@
 import type { PriceAnalysis } from '@/lib/market/ai/schemas';
 import type { ColorwayProfile } from '@/lib/market/shoe-id/schemas';
-
-const MAJOR_BRANDS = new Set(['Adidas', 'Asics', 'Nike', 'New Balance']);
+import { MAJOR_WRESTLING_BRANDS } from '@/lib/market/brands';
 
 /** Peak adult wrestling sizes (~9–11.5); smaller/larger sizes trade at a discount. */
 export function sizePriceMultiplier(sizeUs?: number | null): number {
@@ -122,7 +121,7 @@ export function applyUsedWrestlePriceFloor(
     brand: string;
   }
 ): PriceAnalysis {
-  if (opts.hasComps || opts.wearState !== 'used' || !MAJOR_BRANDS.has(opts.brand)) {
+  if (opts.hasComps || opts.wearState !== 'used' || !MAJOR_WRESTLING_BRANDS.has(opts.brand)) {
     return analysis;
   }
 

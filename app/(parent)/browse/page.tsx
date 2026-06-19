@@ -37,28 +37,19 @@ export default async function BrowsePage({
   const tenantSlug = tenant.slug;
   const supabase = await createClient(tenantSlug);
   const admin = createAdminClient(tenantSlug);
-  
-  // Check authentication
+
   const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    redirect('/login');
+
+  let userData: { role: string } | null = null;
+  if (user) {
+    const { data } = await supabase.from('users').select('role').eq('id', user.id).single();
+    userData = data;
+    if (userData?.role === 'coach') {
+      redirect('/athlete-dashboard');
+    }
   }
-
-  // Check user role
-  const { data: userData } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (userData?.role === 'coach') {
-    redirect('/athlete-dashboard');
-  }
-  // parent and admin can both access browse (admin can switch to product view)
-
   let initialFollowedCoachIds: string[] = [];
-  if (userData?.role === 'parent' || userData?.role === 'admin') {
+  if (user && (userData?.role === 'parent' || userData?.role === 'admin')) {
     const { data: followRows } = await supabase
       .from('coach_follows')
       .select('coach_id')

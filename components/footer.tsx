@@ -27,7 +27,7 @@ export function Footer() {
               <div className="h-1 w-16 bg-accent mt-2" />
             </div>
             <p className="text-white/80 text-sm mb-2">
-              Elite wrestling technique instruction
+              Connecting Division I programs to the wrestling community.
             </p>
             <p className="text-white/60 text-sm">{tenant.tagline}</p>
           </div>

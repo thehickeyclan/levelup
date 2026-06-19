@@ -14,6 +14,7 @@ import {
   primaryImageUsesClean,
   type MarketListingImageRow,
 } from '@/lib/market/listing-images';
+import { sellerCollectionHeading } from '@/lib/market/seller';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
 import { cn } from '@/lib/utils';
 
@@ -278,6 +279,17 @@ export default function ListingDetailPage() {
 
           {/* Info + CTAs */}
           <div className="space-y-4 md:space-y-5">
+            {isCollection ? (
+              <div className="space-y-1">
+                <Link
+                  href={`/market/seller/${data.seller.id}?tab=collection`}
+                  className="text-xl font-semibold text-foreground hover:text-accent transition-colors"
+                >
+                  {sellerCollectionHeading(data.seller.displayName)}
+                </Link>
+                <p className="text-xs text-muted-foreground">Showcase — not for sale</p>
+              </div>
+            ) : null}
             <div>
               <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-accent mb-2">
                 {l.brand as string}

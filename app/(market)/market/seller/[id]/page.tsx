@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Star } from 'lucide-react';
 import { BackLink } from '@/components/back-link';
 import { StarRating } from '@/components/star-rating';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import type { MarketSellerReview, MarketSellerStats, MarketSoldHistoryItem } from '@/lib/market/seller-reputation';
 import { formatPositiveFeedback, formatSalesCount, sellerTrustLabel } from '@/lib/market/seller-reputation';
 import type { SellerProfile } from '@/lib/market/seller';
+import { sellerCollectionHeading } from '@/lib/market/seller';
 import type { SellerInventoryItem } from '@/lib/market/seller-inventory';
 import type { CollectionValuation } from '@/lib/market/collection-valuation';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,11 @@ function formatDate(iso: string): string {
 }
 
 type TabId = 'for_sale' | 'trading' | 'collection';
+
+function parseTabParam(value: string | null): TabId {
+  if (value === 'collection' || value === 'trading' || value === 'for_sale') return value;
+  return 'for_sale';
+}
 
 function InventoryGrid({ items, compact }: { items: SellerInventoryItem[]; compact?: boolean }) {
   if (!items.length) {
@@ -57,8 +63,9 @@ function InventoryGrid({ items, compact }: { items: SellerInventoryItem[]; compa
 
 export default function SellerProfilePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const sellerId = params.id as string;
-  const [tab, setTab] = useState<TabId>('for_sale');
+  const [tab, setTab] = useState<TabId>(() => parseTabParam(searchParams.get('tab')));
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [data, setData] = useState<{
@@ -127,6 +134,8 @@ export default function SellerProfilePage() {
 
   const { seller, stats, soldHistory, reviews, inventory, followerCount, viewer, collectionValuation } = data;
   const positive = formatPositiveFeedback(stats.positivePercent, stats.reviewCount);
+  const collectionTitle = sellerCollectionHeading(seller.displayName);
+  const viewingCollection = tab === 'collection';
 
   const tabItems: { id: TabId; label: string; count: number }[] = [
     { id: 'for_sale', label: 'For sale', count: inventory.forSale.length },
@@ -139,8 +148,15 @@ export default function SellerProfilePage() {
       <BackLink fallbackHref="/market" label="Back to Market" />
 
       <div className="space-y-3">
-        <h1 className="text-2xl font-bold">{seller.displayName}</h1>
-        {stats.memberSince ? (
+        <h1 className="text-2xl font-bold">
+          {viewingCollection ? collectionTitle : seller.displayName}
+        </h1>
+        {viewingCollection ? (
+          <p className="text-sm text-muted-foreground">
+            {seller.displayName}
+            {stats.memberSince ? ` · Guild member since ${formatDate(stats.memberSince)}` : ''}
+          </p>
+        ) : stats.memberSince ? (
           <p className="text-sm text-muted-foreground">Guild member since {formatDate(stats.memberSince)}</p>
         ) : null}
         <p className="text-sm">{sellerTrustLabel(stats)}</p>
@@ -195,7 +211,10 @@ export default function SellerProfilePage() {
         {tab === 'collection' ? (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              {inventory.collection.length} pair{inventory.collection.length !== 1 ? 's' : ''} in collection
+              Showcase pairs — not for sale
+              {inventory.collection.length > 0
+                ? ` · ${inventory.collection.length} pair${inventory.collection.length !== 1 ? 's' : ''}`
+                : ''}
             </p>
             {viewer.isOwnProfile && collectionValuation ? (
               <div className="rounded-xl border border-border bg-card px-4 py-3">

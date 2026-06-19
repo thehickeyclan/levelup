@@ -20,6 +20,14 @@ export function formatSellerDisplayName(
   return s ? `${base} · ${s}` : base;
 }
 
+/** Possessive heading for a seller's showcase tab, e.g. "Matt's Collection". */
+export function sellerCollectionHeading(displayName: string): string {
+  const segment = displayName.split(' · ')[0]?.trim() || displayName.trim();
+  const firstName = segment.split(/\s+/)[0] || segment;
+  if (!firstName) return 'Collection';
+  return `${firstName}'s Collection`;
+}
+
 export async function getSellerProfile(
   supabase: SupabaseClient,
   userId: string

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveListingPhotoMime } from '@/lib/market/listing-photo-mime';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE = 10 * 1024 * 1024;
 
 export async function POST(
@@ -28,15 +29,17 @@ export async function POST(
   const orderRaw = formData.get('display_order');
   const displayOrder = orderRaw != null ? Number(orderRaw) : 0;
 
-  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json(
-      { error: 'Please upload JPEG, PNG, or WebP images. HEIC not yet supported.' },
-      { status: 400 }
-    );
+  if (!file || !file.size) {
+    return NextResponse.json({ error: 'No photo received — try again.' }, { status: 400 });
   }
+
+  const mime = resolveListingPhotoMime(file);
+  if ('error' in mime) {
+    return NextResponse.json({ error: mime.error }, { status: 400 });
+  }
+
   if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: 'File must be under 10MB' }, { status: 400 });
+    return NextResponse.json({ error: 'Photo must be under 10MB' }, { status: 400 });
   }
 
   const { count } = await supabase
@@ -48,15 +51,16 @@ export async function POST(
     return NextResponse.json({ error: 'Maximum 6 photos per listing' }, { status: 400 });
   }
 
-  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-  const fileName = `${Date.now()}.${ext}`;
+  const fileName = `${Date.now()}-${displayOrder}.${mime.ext}`;
   const storagePath = `${tenant.slug}/${user!.id}/${listingId}/${fileName}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { data: uploadData, error: uploadError } = await supabase.storage
+  const admin = createAdminClient(tenant.slug);
+
+  const { data: uploadData, error: uploadError } = await admin.storage
     .from('market-listing-photos')
     .upload(storagePath, buffer, {
-      contentType: file.type,
+      contentType: mime.contentType,
       cacheControl: '3600',
       upsert: false,
     });
@@ -66,7 +70,7 @@ export async function POST(
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const { data: urlData } = supabase.storage.from('market-listing-photos').getPublicUrl(uploadData.path);
+  const { data: urlData } = admin.storage.from('market-listing-photos').getPublicUrl(uploadData.path);
 
   const { data: row, error: insertErr } = await supabase
     .from('market_listing_images')

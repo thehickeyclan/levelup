@@ -32,6 +32,7 @@
     "clsx": "^2.1.0",
     "date-fns": "^3.0.0",
     "date-fns-tz": "^3.2.0",
+    "heic2any": "^0.0.4",
     "lucide-react": "^0.446.0",
     "mapbox-gl": "^3.21.0",
     "nanoid": "^5.1.7",

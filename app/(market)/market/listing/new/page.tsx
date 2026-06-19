@@ -33,6 +33,7 @@ import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
 import type { PriceComp } from '@/lib/market/ai/schemas';
 import type { MarketListingImageRow } from '@/lib/market/listing-images';
+import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
 import { cn } from '@/lib/utils';
 
 const MAX_PHOTOS = 6;
@@ -83,6 +84,7 @@ export default function NewListingPage() {
   const [shoeIdAutoApplied, setShoeIdAutoApplied] = useState(false);
   const [pricing, setPricing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [aiCondition, setAiCondition] = useState<AiCondition | null>(null);
   const [aiPrice, setAiPrice] = useState<AiPrice | null>(null);
   const [conditionOverridden, setConditionOverridden] = useState(false);
@@ -177,18 +179,29 @@ export default function NewListingPage() {
   };
 
   const onPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
+    const rawFiles = Array.from(e.target.files ?? []);
+    if (!rawFiles.length) return;
     setError(null);
+    setUploadError(null);
     setUploading(true);
     try {
+      let files: File[];
+      try {
+        setUploadProgress('Preparing photos…');
+        files = await prepareListingPhotos(rawFiles);
+      } catch {
+        throw new Error(
+          'Could not read these photos. If they are iPhone HEIC, try Settings → Camera → Formats → Most Compatible.'
+        );
+      }
+
       const id = await ensureDraft();
       let order = images.length;
       const uploaded: ListingImage[] = [];
 
       for (let i = 0; i < files.length; i++) {
         if (order >= MAX_PHOTOS) {
-          setError(`Maximum ${MAX_PHOTOS} photos per listing.`);
+          setUploadError(`Maximum ${MAX_PHOTOS} photos per listing.`);
           break;
         }
         setUploadProgress(`Uploading ${i + 1} of ${files.length}…`);
@@ -204,19 +217,23 @@ export default function NewListingPage() {
         }
       }
 
-      if (uploaded.length) {
-        setImages((prev) =>
-          [...prev, ...uploaded].sort((a, b) => a.display_order - b.display_order)
-        );
-        setAiCondition(null);
-        setAiPrice(null);
-        setConditionOverridden(false);
-        setShoeIdResult(null);
-        setShoeIdAutoApplied(false);
-        lastAutoKey.current = null;
+      if (!uploaded.length) {
+        throw new Error('No photos uploaded — try again.');
       }
+
+      setImages((prev) =>
+        [...prev, ...uploaded].sort((a, b) => a.display_order - b.display_order)
+      );
+      setAiCondition(null);
+      setAiPrice(null);
+      setConditionOverridden(false);
+      setShoeIdResult(null);
+      setShoeIdAutoApplied(false);
+      lastAutoKey.current = null;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      setUploadError(msg);
+      setError(msg);
     } finally {
       setUploading(false);
       setUploadProgress(null);
@@ -593,7 +610,9 @@ export default function NewListingPage() {
             'w-full rounded-xl border border-dashed py-8 flex flex-col items-center justify-center gap-2 transition-colors touch-manipulation',
             error && images.length === 0
               ? 'border-destructive/50 text-destructive'
-              : 'border-border text-muted-foreground hover:border-accent hover:text-accent'
+              : uploadError
+                ? 'border-destructive/50 text-destructive'
+                : 'border-border text-muted-foreground hover:border-accent hover:text-accent'
           )}
         >
           {uploading ? (
@@ -612,6 +631,9 @@ export default function NewListingPage() {
             </>
           )}
         </button>
+        {uploadError ? (
+          <p className="text-sm text-destructive">{uploadError}</p>
+        ) : null}
         <p className="text-xs text-muted-foreground">
           {form.wear_state === 'bnib'
             ? 'Include box and shoes. Up to 6 photos.'

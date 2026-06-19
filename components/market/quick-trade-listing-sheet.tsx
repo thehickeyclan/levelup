@@ -9,6 +9,7 @@ import { BROWSE_US_SIZES } from '@/lib/market/browse-listings';
 import { MARKET_BRANDS } from '@/lib/market/brands';
 import { listingConditionDisplay, conditionForWearState } from '@/lib/market/wear-state';
 import type { OfferListingSummary } from '@/app/(market)/market/listing/[id]/offer/offer-form-client';
+import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
 import { cn } from '@/lib/utils';
 
 const CONDITION_OPTIONS = [
@@ -96,12 +97,19 @@ export function QuickTradeListingSheet({
   };
 
   const onPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
+    const rawFiles = Array.from(e.target.files ?? []);
+    if (!rawFiles.length) return;
     setUploadError(null);
     setCreateError(null);
     setUploading(true);
     try {
+      let files: File[];
+      try {
+        files = await prepareListingPhotos(rawFiles);
+      } catch {
+        throw new Error('Could not read these photos — try again or use JPEG/PNG.');
+      }
+
       const id = await ensureDraft();
       let order = images.length;
       const uploaded: ListingImage[] = [];
@@ -120,15 +128,17 @@ export function QuickTradeListingSheet({
         }
       }
 
-      if (uploaded.length) {
-        setImages((prev) =>
-          [...prev, ...uploaded].sort((a, b) => a.display_order - b.display_order)
-        );
-        setAiCondition(null);
-        setConditionOverridden(false);
-        setCondition('');
-        lastAutoKey.current = null;
+      if (!uploaded.length) {
+        throw new Error('No photos uploaded — try again.');
       }
+
+      setImages((prev) =>
+        [...prev, ...uploaded].sort((a, b) => a.display_order - b.display_order)
+      );
+      setAiCondition(null);
+      setConditionOverridden(false);
+      setCondition('');
+      lastAutoKey.current = null;
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
     } finally {

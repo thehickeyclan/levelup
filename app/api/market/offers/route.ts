@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { createNotification } from '@/lib/notifications';
+import { notifyListingFollowers } from '@/lib/market/notify-listing-followers';
 import { marketOfferPostSchema } from '@/lib/market/offer-schemas';
 import { normalizePhone, sendSms } from '@/lib/twilio';
 
@@ -206,6 +207,25 @@ export async function POST(req: NextRequest) {
       }
     );
   }
+
+  const { count: pendingCount } = await admin
+    .from('market_offers')
+    .select('id', { count: 'exact', head: true })
+    .eq('listing_id', listingId)
+    .eq('status', 'pending');
+
+  void notifyListingFollowers(
+    tenant.slug,
+    {
+      id: listingId,
+      seller_id: listing.seller_id as string,
+      title: listing.title as string,
+      brand: listing.brand as string,
+      model: listing.model as string,
+    },
+    { type: 'new_offer', pendingCount: pendingCount ?? 1 },
+    { excludeUserIds: [user!.id, listing.seller_id as string] }
+  );
 
   return NextResponse.json({ success: true, offerId: data.id }, { status: 201 });
 }

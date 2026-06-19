@@ -14,7 +14,7 @@ function statusBadge(listing: MyListingRow): { label: string; className: string 
     return { label: 'Collection', className: 'text-muted-foreground border-border' };
   }
   if (listing.listing_type === 'vault' && listing.status === 'active') {
-    return { label: 'Accept offers', className: 'text-accent border-accent/40' };
+    return { label: 'Offers', className: 'text-accent border-accent/40' };
   }
   switch (listing.status) {
     case 'active':
@@ -31,7 +31,7 @@ function statusBadge(listing: MyListingRow): { label: string; className: string 
 
 function priceLabel(listing: MyListingRow): string {
   if (listing.listing_type === 'collection') return 'Not for sale';
-  if (listing.listing_type === 'vault') return 'Accept offers';
+  if (listing.listing_type === 'vault') return 'Offers only';
   if (listing.listing_type === 'trade') return 'Trade only';
   if (listing.price_cents != null) return `$${(listing.price_cents / 100).toFixed(0)}`;
   return 'Make offer';
@@ -140,7 +140,7 @@ function ListingRow({
                   disabled={acting}
                   onClick={() => runAction('move_to_market')}
                 >
-                  Move to market
+                  Move to Offers
                 </button>
               ) : null}
               {listing.can_archive ? (

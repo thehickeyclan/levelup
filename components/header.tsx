@@ -23,7 +23,6 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { Bell, Mail, User } from 'lucide-react';
-import { AddToHomeScreen } from '@/components/add-to-home-screen';
 import { useTenant } from '@/components/theme-provider';
 import { BrandLogo } from '@/components/brand-logo';
 import { CartDropdown } from '@/components/cart-dropdown';
@@ -136,7 +135,6 @@ export function Header() {
                 textFallback={tenant.productName}
               />
             </Link>
-            <AddToHomeScreen variant="toolbar" />
           </div>
 
           {user ? (

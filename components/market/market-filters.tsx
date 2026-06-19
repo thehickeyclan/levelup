@@ -13,10 +13,10 @@ import { cn } from '@/lib/utils';
 
 const TYPE_OPTIONS = [
   { id: 'all', label: 'All' },
-  { id: 'buy', label: 'Buy' },
+  { id: 'buy', label: 'For Sale' },
   { id: 'trade', label: 'Trade' },
-  { id: 'vault', label: 'Vault' },
-  { id: 'collectors', label: 'Collectors' },
+  { id: 'vault', label: 'Offers' },
+  { id: 'collectors', label: 'Collection' },
 ] as const;
 
 const CONDITION_OPTIONS = [

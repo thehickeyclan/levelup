@@ -5,6 +5,7 @@ import { getStripeInstance } from '@/lib/stripe/webhooks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, tenants } from '@/config/tenants';
 import { createNotification } from '@/lib/notifications';
+import { notifyListingFollowers } from '@/lib/market/notify-listing-followers';
 import { normalizePhone, sendSms } from '@/lib/twilio';
 
 function getMarketWebhookSecret(tenantSlug: string): string {
@@ -68,6 +69,19 @@ export async function POST(req: NextRequest) {
       if (trade?.initiator_fee_paid && trade.receiver_fee_paid) {
         await supabase.from('market_trades').update({ status: 'completed' }).eq('id', tradeId);
         await supabase.from('market_listings').update({ status: 'traded' }).in('id', [trade.initiator_listing_id, trade.receiver_listing_id]);
+        const { data: tradedListings } = await supabase
+          .from('market_listings')
+          .select('id, seller_id, title, brand, model')
+          .in('id', [trade.initiator_listing_id, trade.receiver_listing_id]);
+        for (const row of tradedListings ?? []) {
+          void notifyListingFollowers(tenantSlug, {
+            id: row.id as string,
+            seller_id: row.seller_id as string,
+            title: row.title as string,
+            brand: row.brand as string,
+            model: row.model as string,
+          }, { type: 'traded' });
+        }
         await createNotification(supabase, {
           user_id: trade.initiator_id,
           type: 'market_trade_completed',
@@ -129,10 +143,20 @@ export async function POST(req: NextRequest) {
     const sellerId = session.metadata.seller_id;
     const { data: listingRow } = await supabase
       .from('market_listings')
-      .select('title')
+      .select('title, brand, model, seller_id')
       .eq('id', listingId)
       .maybeSingle();
     const listingTitle = (listingRow?.title as string) || 'listing';
+
+    if (listingRow) {
+      void notifyListingFollowers(tenantSlug, {
+        id: listingId,
+        seller_id: listingRow.seller_id as string,
+        title: listingRow.title as string,
+        brand: listingRow.brand as string,
+        model: listingRow.model as string,
+      }, { type: 'sold' });
+    }
 
     const { data: orderRow } = await supabase
       .from('market_orders')

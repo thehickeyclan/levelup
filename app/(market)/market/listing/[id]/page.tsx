@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Eye, Flame, Lock, Send, ShoppingCart, Sparkles } from 'lucide-react';
+import { Eye, Flame, Heart, Send, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BackLink } from '@/components/back-link';
 import { ListingSellerCard } from '@/components/market/listing-seller-card';
@@ -29,17 +29,56 @@ export default function ListingDetailPage() {
     seller: { id: string; displayName: string; school?: string | null };
     sellerStats: MarketSellerStats | null;
     pending_offer_count: number;
+    following?: boolean;
+    follower_count?: number;
+    viewer?: { isSeller: boolean };
   } | null>(null);
   const [activeImage, setActiveImage] = useState(0);
+  const [following, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
 
   useEffect(() => {
     fetch(`/api/market/listings/${id}`)
       .then((r) => r.json())
       .then((d) => {
         setData(d);
+        setFollowing(Boolean(d.following));
         setActiveImage(0);
       });
   }, [id]);
+
+  const toggleFollow = async () => {
+    if (!data || data.viewer?.isSeller) return;
+    setFollowBusy(true);
+    const wasFollowing = following;
+    setFollowing(!wasFollowing);
+    try {
+      const res = await fetch(`/api/market/listings/${id}/follow`, {
+        method: wasFollowing ? 'DELETE' : 'POST',
+      });
+      if (!res.ok) {
+        setFollowing(wasFollowing);
+        const d = await res.json();
+        throw new Error(d.error || 'Failed');
+      }
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              following: !wasFollowing,
+              follower_count: Math.max(
+                0,
+                (prev.follower_count ?? 0) + (wasFollowing ? -1 : 1)
+              ),
+            }
+          : prev
+      );
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   if (!data?.listing) {
     return (
@@ -64,7 +103,6 @@ export default function ListingDetailPage() {
   const shippingCents = (l.shipping_cents as number) ?? 0;
   const listingType = (l.listing_type as string) || 'sell';
   const isCollection = listingType === 'collection';
-  const isVault = listingType === 'vault';
   const isActive = l.status === 'active';
   const openToTrade = Boolean(l.open_to_trade);
   const aiAssisted = Boolean(l.ai_assisted);
@@ -72,6 +110,8 @@ export default function ListingDetailPage() {
   const conditionLabel = listingConditionDisplay(wearState, l.condition as string);
   const viewsCount = (l.views_count as number) ?? 0;
   const offerCount = data.pending_offer_count ?? 0;
+  const followerCount = data.follower_count ?? 0;
+  const isSeller = Boolean(data.viewer?.isSeller);
 
   const stats: MarketSellerStats = data.sellerStats ?? {
     salesCount: 0,
@@ -89,30 +129,27 @@ export default function ListingDetailPage() {
   ].filter(Boolean) as string[];
 
   const displayTitle = (l.model as string)?.trim() || (l.title as string);
+  const isOffersListing = listingType === 'vault';
   const isTradeOnly = listingType === 'trade';
   const showTradeOnlyCta = isActive && isTradeOnly;
-  const showVaultOfferCtAs = isActive && !isTradeOnly && !isCollection && (isVault || priceCents == null);
-  const showBuyCta = isActive && !isVault && !isTradeOnly && !isCollection && priceCents != null;
+  const showOffersCtAs = isActive && isOffersListing && !isCollection;
+  const showMakeOfferCta =
+    isActive && !isOffersListing && !isTradeOnly && !isCollection && priceCents == null;
+  const showBuyCta =
+    isActive && !isOffersListing && !isTradeOnly && !isCollection && priceCents != null;
 
   const collectionBlock = (
     <div className="bg-card border border-border rounded-xl p-4 text-center">
       <p className="text-muted-foreground text-sm mb-1">Not for sale</p>
       <p className="text-muted-foreground text-xs">
-        Part of {data.seller.displayName}&apos;s collection —{' '}
-        <Link href={`/market/seller/${data.seller.id}`} className="text-accent hover:underline">
-          follow them for updates
-        </Link>
+        Tap the heart to follow this pair — get updates if it goes up for sale, gets an offer, or sells.
       </p>
     </div>
   );
 
-  const askingLabel =
-    isVault || priceCents == null
-      ? 'Offer basis'
-      : 'Asking';
+  const askingLabel = 'Asking';
 
-  const askingValue =
-    priceCents != null ? `$${(priceCents / 100).toFixed(0)}` : 'Offers';
+  const askingValue = priceCents != null ? `$${(priceCents / 100).toFixed(0)}` : null;
 
   const ctaBlock = (
     <>
@@ -129,7 +166,7 @@ export default function ListingDetailPage() {
           </Button>
         </div>
       ) : null}
-      {showVaultOfferCtAs ? (
+      {showOffersCtAs ? (
         <div className="space-y-2">
           <Button
             asChild
@@ -145,7 +182,20 @@ export default function ListingDetailPage() {
             variant="outline"
             className="w-full rounded-full border-border text-muted-foreground hover:text-foreground hover:border-border"
           >
-            <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade instead</Link>
+            <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
+          </Button>
+        </div>
+      ) : null}
+      {showMakeOfferCta ? (
+        <div className="space-y-2">
+          <Button
+            asChild
+            className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full text-base hover:bg-accent/90"
+          >
+            <Link href={`/market/listing/${id}/offer`} className="flex items-center justify-center gap-2">
+              <Send className="h-4 w-4" />
+              Make an offer
+            </Link>
           </Button>
         </div>
       ) : null}
@@ -236,12 +286,39 @@ export default function ListingDetailPage() {
                 <h1 className="text-3xl font-medium tracking-tight text-foreground leading-tight">
                   {displayTitle}
                 </h1>
-                {viewsCount > 0 && !isCollection ? (
-                  <span className="shrink-0 flex items-center gap-1 text-xs text-muted-foreground pt-1">
-                    <Eye className="h-3.5 w-3.5 text-accent" />
-                    {viewsCount} watching
-                  </span>
-                ) : null}
+                <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
+                  {!isSeller ? (
+                    <button
+                      type="button"
+                      disabled={followBusy}
+                      onClick={() => void toggleFollow()}
+                      className={cn(
+                        'flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full border transition-colors touch-manipulation',
+                        following
+                          ? 'border-accent bg-accent/15 text-accent'
+                          : 'border-border bg-card text-muted-foreground hover:border-accent/50 hover:text-accent'
+                      )}
+                      aria-label={following ? 'Unfollow this pair' : 'Follow this pair'}
+                      title={following ? 'Following — tap to unfollow' : 'Follow this pair for updates'}
+                    >
+                      <Heart
+                        className={cn('h-5 w-5', following && 'fill-current')}
+                        strokeWidth={following ? 2 : 1.75}
+                      />
+                    </button>
+                  ) : null}
+                  {followerCount > 0 ? (
+                    <span className="text-[10px] text-muted-foreground">
+                      {followerCount} following
+                    </span>
+                  ) : null}
+                  {viewsCount > 0 && !isCollection ? (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Eye className="h-3.5 w-3.5 text-accent" />
+                      {viewsCount} views
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -273,19 +350,16 @@ export default function ListingDetailPage() {
               </div>
             ) : null}
 
-            {isVault && !isCollection ? (
-              <div className="rounded-xl border border-border border-l-[3px] border-l-accent bg-card px-4 py-3 flex gap-3">
-                <Lock className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">In the vault</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Owner isn&apos;t actively selling — but the right offer changes that.
-                  </p>
-                </div>
+            {isOffersListing && !isCollection ? (
+              <div className="rounded-xl border border-border border-l-4 border-l-accent bg-card px-4 py-3">
+                <p className="text-accent text-xs font-medium mb-0.5">Offers only — no set price</p>
+                <p className="text-muted-foreground text-xs">
+                  Owner isn&apos;t actively selling — but the right offer changes that.
+                </p>
               </div>
             ) : null}
 
-            {!isCollection ? (
+            {!isCollection && !isOffersListing && askingValue != null ? (
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-card border border-border rounded-xl p-3 text-center">
                   <p className="text-lg font-bold text-accent">{askingValue}</p>
@@ -293,7 +367,20 @@ export default function ListingDetailPage() {
                 </div>
                 <div className="bg-card border border-border rounded-xl p-3 text-center">
                   <p className="text-lg font-bold text-foreground">{viewsCount}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Watching</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Views</p>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-foreground">{offerCount}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Offers</p>
+                </div>
+              </div>
+            ) : null}
+
+            {isOffersListing && !isCollection ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-card border border-border rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-foreground">{viewsCount}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Views</p>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-3 text-center">
                   <p className="text-lg font-bold text-foreground">{offerCount}</p>
@@ -306,7 +393,7 @@ export default function ListingDetailPage() {
               <div className="hidden md:block">{collectionBlock}</div>
             ) : null}
 
-            {!isVault && !isCollection && priceCents != null && shippingCents > 0 ? (
+            {!isOffersListing && !isCollection && priceCents != null && shippingCents > 0 ? (
               <p className="text-sm text-muted-foreground">
                 + ${(shippingCents / 100).toFixed(2)} shipping
               </p>
@@ -337,7 +424,7 @@ export default function ListingDetailPage() {
         </div>
       </div>
 
-      {(showTradeOnlyCta || showVaultOfferCtAs || showBuyCta || (isCollection && isActive)) ? (
+      {(showTradeOnlyCta || showOffersCtAs || showMakeOfferCta || showBuyCta || (isCollection && isActive)) ? (
         <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-3 bg-gradient-to-t from-background via-background/98 to-transparent">
           {isCollection && isActive ? (
             collectionBlock
@@ -345,7 +432,20 @@ export default function ListingDetailPage() {
             <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
               <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
             </Button>
-          ) : showVaultOfferCtAs ? (
+          ) : showOffersCtAs ? (
+            <div className="space-y-2">
+              <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
+                <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="w-full min-h-[44px] rounded-full border-border text-muted-foreground"
+              >
+                <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
+              </Button>
+            </div>
+          ) : showMakeOfferCta ? (
             <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
               <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>
             </Button>

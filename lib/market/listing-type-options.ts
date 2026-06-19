@@ -9,23 +9,23 @@ export const SELLER_LISTING_TYPE_OPTIONS: {
 }[] = [
   {
     value: 'sell',
-    label: 'Set a price',
-    hint: 'Buyers check out instantly at your price',
+    label: 'For Sale',
+    hint: 'Set a price — buyers check out instantly',
   },
   {
     value: 'trade',
-    label: 'Trade only',
+    label: 'Trade',
     hint: 'Swap for another pair — no cash',
   },
   {
     value: 'vault',
-    label: 'Accept offers',
-    hint: 'Show it off, see what people offer',
+    label: 'Offers',
+    hint: 'No set price — see what people offer',
   },
   {
     value: 'collection',
-    label: 'Add to collection',
-    hint: 'Display on your profile — not for sale',
+    label: 'Collection',
+    hint: 'Display only — not for sale',
   },
 ];
 

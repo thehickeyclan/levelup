@@ -121,7 +121,8 @@ export default function NewListingPage() {
       listing_type: listingType,
       open_to_trade: listingType === 'sell' ? f.open_to_trade : false,
       price_cents: listingType === 'sell' ? f.price_cents : '',
-      shipping_cents: listingType === 'collection' ? '0' : f.shipping_cents,
+      shipping_cents:
+        listingType === 'collection' || listingType === 'vault' ? '0' : f.shipping_cents,
     }));
     if (listingType === 'collection') {
       setAiPrice(null);
@@ -775,43 +776,41 @@ export default function NewListingPage() {
             <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
               <p className="text-sm text-foreground/80">
                 This pair appears on your profile under Collection. Buyers can see it but can&apos;t make offers.
-                Move it to &quot;Accept offers&quot; anytime from My listings.
+                Move it to Offers anytime from My listings.
+              </p>
+            </div>
+          ) : null}
+          {form.listing_type === 'vault' ? (
+            <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
+              <p className="text-sm text-foreground/80">
+                Buyers send you cash or trade offers. You pick the best one.
               </p>
             </div>
           ) : null}
         </div>
-        {!isCollection ? (
+        {isPricedListing ? (
         <div className="grid grid-cols-2 gap-3">
-          {isPricedListing ? (
-            <div>
-              <Label>Price ($)</Label>
-              <Input
-                value={form.price_cents}
-                onChange={(e) => setForm({ ...form, price_cents: e.target.value })}
-              />
-            </div>
-          ) : (
-            <div className="col-span-2 rounded-lg border border-border bg-card/60 px-3 py-3">
-              <p className="text-sm text-muted-foreground">
-                {form.listing_type === 'vault'
-                  ? 'No set price — buyers send offers and you decide.'
-                  : 'No price — buyers propose a trade with shoes from their listings.'}
-              </p>
-            </div>
-          )}
-          <div className={isPricedListing ? '' : 'col-span-2'}>
+          <div>
+            <Label>Price ($)</Label>
+            <Input
+              value={form.price_cents}
+              onChange={(e) => setForm({ ...form, price_cents: e.target.value })}
+            />
+          </div>
+          <div>
             <Label>Shipping ($)</Label>
             <Input
               value={form.shipping_cents}
               onChange={(e) => setForm({ ...form, shipping_cents: e.target.value })}
             />
-            {!isPricedListing ? (
-              <p className="text-xs text-muted-foreground mt-1">
-                Used if an accepted offer includes cash and you ship to the buyer.
-              </p>
-            ) : null}
           </div>
         </div>
+        ) : form.listing_type === 'trade' ? (
+          <div className="rounded-lg border border-border bg-card/60 px-3 py-3">
+            <p className="text-sm text-muted-foreground">
+              No price — buyers propose a trade with shoes from their listings.
+            </p>
+          </div>
         ) : null}
         <div>
           <div className="flex items-center justify-between gap-2">

@@ -4,7 +4,6 @@ import { Playfair_Display } from 'next/font/google';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 import { Analytics } from '@vercel/analytics/next';
 import { ThemeProvider } from '@/components/theme-provider';
-import { PwaInstallProvider, PwaInstallBanner } from '@/components/pwa-install-provider';
 import { AuthProvider } from '@/lib/auth/auth-provider';
 import { CartProvider } from '@/lib/cart-context';
 import { Header } from '@/components/header';
@@ -97,18 +96,15 @@ export default async function RootLayout({
     <html {...htmlProps}>
       <body className="flex flex-col min-h-screen font-sans bg-background text-foreground">
         <ThemeProvider tenant={tenant}>
-          <PwaInstallProvider>
-            <AuthProvider tenantSlug={tenant.slug}>
-              <CartProvider>
-                <Header />
-                <PwaInstallBanner />
-                <main className="flex-1 pb-[env(safe-area-inset-bottom)]">
-                  <ParentBottomNavWrapper>{children}</ParentBottomNavWrapper>
-                </main>
-                <Footer />
-              </CartProvider>
-            </AuthProvider>
-          </PwaInstallProvider>
+          <AuthProvider tenantSlug={tenant.slug}>
+            <CartProvider>
+              <Header />
+              <main className="flex-1 pb-[env(safe-area-inset-bottom)]">
+                <ParentBottomNavWrapper>{children}</ParentBottomNavWrapper>
+              </main>
+              <Footer />
+            </CartProvider>
+          </AuthProvider>
         </ThemeProvider>
         <Analytics />
         {metaPixelId ? <MetaPixel pixelId={metaPixelId} /> : null}

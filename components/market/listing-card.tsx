@@ -14,7 +14,7 @@ function typeBadge(listing: MarketBrowseListing): {
     return { label: 'Collection', className: 'bg-card border border-border text-muted-foreground' };
   }
   if (listing.listing_type === 'vault') {
-    return { label: 'Vault', className: 'bg-accent/90 text-accent-foreground' };
+    return { label: 'OFFERS', className: 'bg-accent/90 text-accent-foreground' };
   }
   if (listing.listing_type === 'trade') {
     return { label: 'Trade', className: 'bg-blue-500/90 text-foreground' };
@@ -28,7 +28,10 @@ function typeBadge(listing: MarketBrowseListing): {
 function cardCta(listing: MarketBrowseListing): { label: string; solid: boolean } | null {
   if (listing.listing_type === 'collection') return null;
   if (listing.listing_type === 'trade') return { label: 'Trade', solid: false };
-  if (listing.listing_type === 'vault' || listing.price_cents == null) {
+  if (listing.listing_type === 'vault') {
+    return { label: 'Offer', solid: false };
+  }
+  if (listing.price_cents == null) {
     return { label: 'Offer', solid: false };
   }
   return { label: 'Buy', solid: true };
@@ -39,13 +42,7 @@ function priceLabel(listing: MarketBrowseListing): { text: string; className: st
     return { text: 'Not for sale', className: 'text-muted-foreground' };
   }
   if (listing.listing_type === 'vault') {
-    if (listing.pending_offer_count > 0) {
-      return {
-        text: `${listing.pending_offer_count} offer${listing.pending_offer_count !== 1 ? 's' : ''} pending`,
-        className: 'text-accent',
-      };
-    }
-    return { text: 'Offers only', className: 'text-muted-foreground' };
+    return { text: 'Offers only', className: 'text-muted-foreground italic text-xs font-normal' };
   }
   if (listing.listing_type === 'trade') {
     return { text: 'Trade only', className: 'text-blue-400' };
@@ -63,7 +60,9 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
   const displayTitle = listing.model?.trim() || listing.title;
   const wearState = (listing.wear_state as 'bnib' | 'new_no_box' | 'used' | null) || 'used';
   const conditionLabel = listingConditionDisplay(wearState, listing.condition);
-  const hotOffers = listing.pending_offer_count >= 2 && listing.listing_type !== 'collection';
+  const offerCount = listing.pending_offer_count;
+  const showOfferCount = offerCount > 0 && listing.listing_type !== 'collection';
+  const hotOffers = offerCount >= 2 && listing.listing_type !== 'collection';
 
   return (
     <Link
@@ -94,7 +93,7 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
         {hotOffers ? (
           <span className="absolute top-2 right-2 bg-accent text-accent-foreground text-[8px] font-medium px-2 py-0.5 rounded-full flex items-center gap-0.5">
             <Flame className="h-2.5 w-2.5" />
-            {listing.pending_offer_count} offers
+            {offerCount} offers
           </span>
         ) : listing.ai_assisted ? (
           <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 rounded-full bg-foreground/75 px-1.5 py-0.5 text-[8px] text-accent">
@@ -124,19 +123,38 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
             {conditionLabel}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-2 mt-auto pt-1">
-          <p className={cn('text-[13px] font-bold', price.className)}>{price.text}</p>
-          {cta ? (
-            <span
+        <div className="mt-auto pt-1 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <p
               className={cn(
-                'text-[10px] font-medium rounded-full px-2.5 py-1 shrink-0',
-                cta.solid
-                  ? 'bg-accent text-accent-foreground'
-                  : 'border border-border text-muted-foreground'
+                listing.listing_type === 'vault'
+                  ? 'text-xs font-normal italic'
+                  : 'text-[13px] font-bold',
+                price.className
               )}
             >
-              {cta.label}
-            </span>
+              {price.text}
+            </p>
+            {cta ? (
+              <span
+                className={cn(
+                  'text-[10px] font-medium rounded-full px-2.5 py-1 shrink-0',
+                  cta.solid
+                    ? 'bg-accent text-accent-foreground'
+                    : 'border border-border text-muted-foreground'
+                )}
+              >
+                {cta.label}
+              </span>
+            ) : null}
+          </div>
+          {showOfferCount ? (
+            <div className="flex items-center gap-1">
+              <Flame className="h-2.5 w-2.5 text-accent shrink-0" />
+              <span className="text-[10px] text-accent font-medium">
+                {offerCount} {offerCount === 1 ? 'offer' : 'offers'}
+              </span>
+            </div>
           ) : null}
         </div>
       </div>

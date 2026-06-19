@@ -4,6 +4,10 @@ import { requireMarketUser } from '@/lib/market/auth';
 import { getSellerProfile } from '@/lib/market/seller';
 import { fetchMarketSellerStats } from '@/lib/market/seller-reputation';
 import { notifySellerDropFollowers } from '@/lib/market/notify-seller-drop';
+import {
+  detectListingFollowEvents,
+  notifyListingFollowers,
+} from '@/lib/market/notify-listing-followers';
 import { MARKET_LISTING_IMAGE_FIELDS_WITH_ID } from '@/lib/market/listing-images';
 
 export async function GET(
@@ -58,6 +62,22 @@ export async function GET(
     (listing.market_ai_analysis as { analyzed_at?: string } | null)?.analyzed_at
   );
 
+  const { count: followerCount } = await supabase
+    .from('market_listing_follows')
+    .select('id', { count: 'exact', head: true })
+    .eq('listing_id', id);
+
+  let following = false;
+  if (!isOwner) {
+    const { data: followRow } = await supabase
+      .from('market_listing_follows')
+      .select('id')
+      .eq('listing_id', id)
+      .eq('follower_id', user!.id)
+      .maybeSingle();
+    following = Boolean(followRow);
+  }
+
   const publicListing = isOwner
     ? { ...listing, views_count: displayViews, ai_assisted: aiAssisted }
     : {
@@ -72,6 +92,8 @@ export async function GET(
     seller: seller ? { ...seller, school: seller.school } : seller,
     sellerStats,
     pending_offer_count: pendingOfferCount ?? 0,
+    following,
+    follower_count: followerCount ?? 0,
     viewer: { id: user!.id, isSeller: isOwner },
   });
 }
@@ -87,7 +109,7 @@ export async function PATCH(
 
   const { data: existing } = await supabase
     .from('market_listings')
-    .select('seller_id, status, listing_type, title, brand, model')
+    .select('seller_id, status, listing_type, title, brand, model, price_cents')
     .eq('id', id)
     .single();
 
@@ -125,11 +147,32 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const prevType = existing.listing_type as string;
-  const nextType = updates.listing_type as string | undefined;
+  const nextType = (updates.listing_type ?? prevType) as string;
+  const prevStatus = existing.status as string;
+  const nextStatus = (updates.status ?? prevStatus) as string;
+  const prevPrice = existing.price_cents as number | null | undefined;
+  const nextPrice = (updates.price_cents ?? prevPrice) as number | null | undefined;
+
+  const listingMeta = {
+    id: data.id as string,
+    seller_id: existing.seller_id as string,
+    title: data.title as string,
+    brand: data.brand as string,
+    model: data.model as string,
+  };
+
+  const followEvents = detectListingFollowEvents(
+    { listing_type: prevType, status: prevStatus, price_cents: prevPrice },
+    { listing_type: nextType, status: nextStatus, price_cents: nextPrice }
+  );
+  for (const event of followEvents) {
+    void notifyListingFollowers(tenant.slug, listingMeta, event);
+  }
+
   if (
     prevType === 'collection' &&
-    nextType &&
-    (nextType === 'vault' || nextType === 'sell') &&
+    updates.listing_type &&
+    (updates.listing_type === 'vault' || updates.listing_type === 'sell') &&
     data
   ) {
     void notifySellerDropFollowers(tenant.slug, existing.seller_id as string, {

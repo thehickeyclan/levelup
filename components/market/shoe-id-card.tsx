@@ -6,6 +6,12 @@ import { Button } from '@/components/ui/button';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { cn } from '@/lib/utils';
 
+export type ShoeIdAcceptPayload = {
+  brand: string;
+  model: string;
+  colorway?: string;
+};
+
 export function ShoeIdCard({
   listingId,
   images,
@@ -13,7 +19,7 @@ export function ShoeIdCard({
 }: {
   listingId: string;
   images: { public_url: string }[];
-  onAccept: (brand: string, model: string) => void;
+  onAccept: (payload: ShoeIdAcceptPayload) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -84,6 +90,8 @@ export function ShoeIdCard({
             <dd className="text-white font-medium">{result.brand}</dd>
             <dt className="text-[#666]">Model</dt>
             <dd className="text-white font-medium">{result.model}</dd>
+            <dt className="text-[#666]">Colorway</dt>
+            <dd className="text-white font-medium">{result.colorway || '—'}</dd>
             <dt className="text-[#666]">Era</dt>
             <dd className="text-[#888]">{result.era}</dd>
             <dt className="text-[#666]">Rarity</dt>
@@ -100,7 +108,13 @@ export function ShoeIdCard({
             type="button"
             size="sm"
             className="w-full bg-[#C9A265] text-black"
-            onClick={() => onAccept(result.brand, result.model)}
+            onClick={() =>
+              onAccept({
+                brand: result.brand,
+                model: result.model,
+                colorway: result.colorway,
+              })
+            }
           >
             Use this identification
           </Button>

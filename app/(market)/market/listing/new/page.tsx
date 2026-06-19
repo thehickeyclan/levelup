@@ -91,6 +91,7 @@ export default function NewListingPage() {
     title: '',
     brand: 'Adidas',
     model: '',
+    colorway: '',
     model_year: '',
     size: '10',
     wear_state: 'used' as MarketWearState,
@@ -197,18 +198,23 @@ export default function NewListingPage() {
     }
   };
 
-  const draftPayload = () => ({
-    title: form.title || `${form.brand} ${form.model}`.trim(),
-    brand: form.brand,
-    model: form.model,
-    model_year: form.model_year ? Number(form.model_year) : null,
-    size: Number(form.size),
-    wear_state: form.wear_state,
-    condition: conditionForWearState(form.wear_state, form.condition),
-    listing_type: form.listing_type,
-    open_to_trade: form.listing_type === 'sell' ? form.open_to_trade : false,
-    description: form.description,
-  });
+  const draftPayload = (overrides?: Partial<typeof form>) => {
+    const merged = { ...form, ...overrides };
+    const colorway = merged.colorway.trim();
+    return {
+      title: merged.title || `${merged.brand} ${merged.model}`.trim(),
+      brand: merged.brand,
+      model: merged.model,
+      colorway: colorway || null,
+      model_year: merged.model_year ? Number(merged.model_year) : null,
+      size: Number(merged.size),
+      wear_state: merged.wear_state,
+      condition: conditionForWearState(merged.wear_state, merged.condition),
+      listing_type: merged.listing_type,
+      open_to_trade: merged.listing_type === 'sell' ? merged.open_to_trade : false,
+      description: merged.description,
+    };
+  };
 
   const descriptionInput = () => ({
     brand: form.brand,
@@ -230,15 +236,21 @@ export default function NewListingPage() {
     return id;
   };
 
-  const runPrice = useCallback(async () => {
-    if (form.listing_type === 'collection') return;
+  const runPrice = useCallback(async (overrides?: Partial<typeof form>) => {
+    if ((overrides?.listing_type ?? form.listing_type) === 'collection') return;
     setPricing(true);
     try {
-      const id = await syncDraft();
+      const id = await ensureDraft();
+      const payload = draftPayload(overrides);
+      await fetch(`/api/market/listings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
       const res = await fetch('/api/market/ai/price', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId: id, ...draftPayload() }),
+        body: JSON.stringify({ listingId: id, ...payload }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Price failed');
@@ -475,8 +487,20 @@ export default function NewListingPage() {
           <ShoeIdCard
             listingId={listingId}
             images={images}
-            onAccept={(brand, model) => {
-              setForm((f) => ({ ...f, brand, model }));
+            onAccept={({ brand, model, colorway }) => {
+              setForm((f) => ({
+                ...f,
+                brand,
+                model,
+                colorway: colorway?.trim() || f.colorway,
+              }));
+              if (form.listing_type !== 'collection') {
+                void runPrice({
+                  brand,
+                  model,
+                  colorway: colorway?.trim() || form.colorway,
+                });
+              }
             }}
           />
         ) : null}
@@ -641,6 +665,20 @@ export default function NewListingPage() {
             placeholder="JB Elite III"
           />
         </div>
+        <div>
+          <Label>Colorway (optional)</Label>
+          <Input
+            value={form.colorway}
+            onChange={(e) => setForm({ ...form, colorway: e.target.value })}
+            onBlur={() => {
+              if (!isCollection && images.length > 0 && !pricing) void runPrice();
+            }}
+            placeholder="Cherry, Black/Gold, Dick's exclusive"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Helps match rare or discontinued colorways for pricing and your collection.
+          </p>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Model year (optional)</Label>
@@ -652,7 +690,6 @@ export default function NewListingPage() {
               placeholder="2016"
               inputMode="numeric"
             />
-            <p className="text-xs text-muted-foreground mt-1">Helps price rare or older colorways.</p>
           </div>
           <div>
             <Label>Size (US)</Label>

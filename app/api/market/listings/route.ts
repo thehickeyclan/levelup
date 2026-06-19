@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
     weight_class?: string;
     model_year?: number | null;
     wear_state?: string;
+    colorway?: string | null;
   };
 
   const isDraft = body.draft === true || !body.brand;
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
     weight_class: body.weight_class || null,
     model_year: body.model_year ?? null,
     wear_state: body.wear_state === 'bnib' || body.wear_state === 'new_no_box' ? body.wear_state : 'used',
+    colorway: typeof body.colorway === 'string' ? body.colorway.trim() || null : null,
   };
 
   row.brand = normalizeMarketBrand(row.brand);

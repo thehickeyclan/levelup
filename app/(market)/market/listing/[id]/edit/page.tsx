@@ -32,6 +32,10 @@ import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
 import { normalizeMarketRarity, rarityShortHint, type MarketRarity } from '@/lib/market/rarity';
 import { RarityBadge } from '@/components/market/rarity-badge';
+import {
+  ListingTypeQuickActions,
+  type ListingTypePatch,
+} from '@/components/market/listing-type-quick-actions';
 import type { MarketListingImageRow } from '@/lib/market/listing-images';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
 import { cn } from '@/lib/utils';
@@ -440,6 +444,29 @@ export default function EditListingPage() {
           Fix brand, model, photos, and description — your changes save to this listing.
         </p>
       </div>
+
+      <ListingTypeQuickActions
+        listingId={listingId}
+        currentType={form.listing_type}
+        currentPriceCents={
+          form.price_cents ? Math.round(Number(form.price_cents) * 100) : null
+        }
+        onUpdated={(patch: ListingTypePatch) => {
+          setForm((f) => ({
+            ...f,
+            listing_type: patch.listing_type,
+            price_cents:
+              patch.price_cents != null ? String(Math.round(patch.price_cents / 100)) : '',
+            shipping_cents:
+              patch.shipping_cents != null
+                ? String(Math.round(patch.shipping_cents / 100))
+                : patch.listing_type === 'collection' || patch.listing_type === 'vault'
+                  ? '0'
+                  : f.shipping_cents,
+            open_to_trade: patch.listing_type === 'sell' ? f.open_to_trade : false,
+          }));
+        }}
+      />
 
       <div className="grid gap-4">
         <div>

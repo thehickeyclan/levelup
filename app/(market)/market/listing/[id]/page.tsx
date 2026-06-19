@@ -17,7 +17,9 @@ import {
 import { sellerCollectionHeading } from '@/lib/market/seller';
 import { formatListingColorLabel } from '@/lib/market/color-family';
 import { RarityBadge } from '@/components/market/rarity-badge';
+import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-actions';
 import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
+import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
 import { cn } from '@/lib/utils';
 
@@ -127,7 +129,7 @@ export default function ListingDetailPage() {
     : null;
   const priceCents = l.price_cents as number | null;
   const shippingCents = (l.shipping_cents as number) ?? 0;
-  const listingType = (l.listing_type as string) || 'sell';
+  const listingType = (l.listing_type as MarketListingType) || 'sell';
   const isCollection = listingType === 'collection';
   const isActive = l.status === 'active';
   const openToTrade = Boolean(l.open_to_trade);
@@ -452,7 +454,32 @@ export default function ListingDetailPage() {
               </div>
             ) : null}
 
-            {isCollection && isActive ? (
+            {isSeller && canEdit ? (
+              <ListingTypeQuickActions
+                listingId={id}
+                currentType={listingType}
+                currentPriceCents={priceCents}
+                onUpdated={(patch) => {
+                  setData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          listing: {
+                            ...prev.listing,
+                            listing_type: patch.listing_type,
+                            price_cents: patch.price_cents,
+                            ...(patch.shipping_cents != null
+                              ? { shipping_cents: patch.shipping_cents }
+                              : {}),
+                          },
+                        }
+                      : prev
+                  );
+                }}
+              />
+            ) : null}
+
+            {isCollection && isActive && !isSeller ? (
               <div className="hidden md:block">{collectionBlock}</div>
             ) : null}
 
@@ -487,9 +514,38 @@ export default function ListingDetailPage() {
         </div>
       </div>
 
-      {(showTradeOnlyCta || showOffersCtAs || showMakeOfferCta || showBuyCta || (isCollection && isActive)) ? (
+      {(showTradeOnlyCta ||
+        showOffersCtAs ||
+        showMakeOfferCta ||
+        showBuyCta ||
+        (isCollection && isActive && !isSeller) ||
+        (isSeller && canEdit)) ? (
         <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-3 bg-gradient-to-t from-background via-background/98 to-transparent">
-          {isCollection && isActive ? (
+          {isSeller && canEdit ? (
+            <ListingTypeQuickActions
+              listingId={id}
+              currentType={listingType}
+              currentPriceCents={priceCents}
+              title="List this pair"
+              onUpdated={(patch) => {
+                setData((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        listing: {
+                          ...prev.listing,
+                          listing_type: patch.listing_type,
+                          price_cents: patch.price_cents,
+                          ...(patch.shipping_cents != null
+                            ? { shipping_cents: patch.shipping_cents }
+                            : {}),
+                        },
+                      }
+                    : prev
+                );
+              }}
+            />
+          ) : isCollection && isActive ? (
             collectionBlock
           ) : showTradeOnlyCta ? (
             <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">

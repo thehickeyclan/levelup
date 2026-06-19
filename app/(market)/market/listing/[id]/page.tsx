@@ -16,6 +16,8 @@ import {
 } from '@/lib/market/listing-images';
 import { sellerCollectionHeading } from '@/lib/market/seller';
 import { formatListingColorLabel } from '@/lib/market/color-family';
+import { RarityBadge } from '@/components/market/rarity-badge';
+import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +50,28 @@ export default function ListingDetailPage() {
         setActiveImage(0);
       });
   }, [id]);
+
+  useEffect(() => {
+    if (!data?.listing) return;
+    const l = data.listing;
+    if (normalizeMarketRarity(l.rarity as string | null)) return;
+    if (!String(l.brand ?? '').trim() || !String(l.model ?? '').trim()) return;
+
+    void fetch('/api/market/ai/rarity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listingId: id, persist: true }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.rarity) {
+          setData((prev) =>
+            prev ? { ...prev, listing: { ...prev.listing, rarity: d.rarity } } : prev
+          );
+        }
+      })
+      .catch(() => {});
+  }, [id, data?.listing?.rarity, data?.listing?.brand, data?.listing?.model]);
 
   const toggleFollow = async () => {
     if (!data || data.viewer?.isSeller) return;
@@ -114,6 +138,9 @@ export default function ListingDetailPage() {
   const offerCount = data.pending_offer_count ?? 0;
   const followerCount = data.follower_count ?? 0;
   const isSeller = Boolean(data.viewer?.isSeller);
+  const canEdit =
+    isSeller &&
+    (l.status === 'active' || l.status === 'draft' || l.status === 'archived');
 
   const stats: MarketSellerStats = data.sellerStats ?? {
     salesCount: 0,
@@ -135,6 +162,7 @@ export default function ListingDetailPage() {
   ].filter(Boolean) as string[];
 
   const displayTitle = (l.model as string)?.trim() || (l.title as string);
+  const listingRarity = normalizeMarketRarity(l.rarity as string | null);
   const isOffersListing = listingType === 'vault';
   const isTradeOnly = listingType === 'trade';
   const showTradeOnlyCta = isActive && isTradeOnly;
@@ -233,7 +261,17 @@ export default function ListingDetailPage() {
   return (
     <div className="min-h-screen pb-24 bg-background">
       <div className="px-4 pt-6 max-w-4xl mx-auto">
-        <BackLink fallbackHref="/market" label="Market" />
+        <div className="flex items-center justify-between gap-3">
+          <BackLink fallbackHref="/market" label="Market" />
+          {canEdit ? (
+            <Link
+              href={`/market/listing/${id}/edit`}
+              className="text-sm font-medium text-accent hover:text-accent/80 shrink-0"
+            >
+              Edit listing
+            </Link>
+          ) : null}
+        </div>
 
         {offerSent ? (
           <p className="mt-4 text-sm text-accent bg-accent/10 border border-accent/30 rounded-xl p-3">
@@ -299,6 +337,14 @@ export default function ListingDetailPage() {
               <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-accent mb-2">
                 {l.brand as string}
               </p>
+              {listingRarity ? (
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <RarityBadge rarity={listingRarity} size="md" />
+                  <span className="text-xs text-muted-foreground">{rarityShortHint(listingRarity)}</span>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mb-2">Assessing how rare this pair is…</p>
+              )}
               <div className="flex items-start justify-between gap-3">
                 <h1 className="text-3xl font-medium tracking-tight text-foreground leading-tight">
                   {displayTitle}

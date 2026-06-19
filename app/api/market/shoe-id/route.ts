@@ -9,6 +9,7 @@ import { SHOE_ID_SYSTEM_PROMPT, shoeIdUserMessage } from '@/lib/market/shoe-id/p
 import { ShoeIdResultSchema } from '@/lib/market/shoe-id/schemas';
 import { shoeIdServerEnabled } from '@/lib/market/shoe-id/feature-flag';
 import { normalizeMarketBrand } from '@/lib/market/brands';
+import { isMissingColumnError } from '@/lib/market/listing-column-fallback';
 import {
   dominantSellerBrand,
   dominantSellerListing,
@@ -137,6 +138,17 @@ export async function POST(req: NextRequest) {
 
   if (insertErr) {
     console.error('shoe_id_results insert:', insertErr);
+  }
+
+  if (listingId) {
+    const { error: rarityErr } = await supabase
+      .from('market_listings')
+      .update({ rarity: parsed.rarity })
+      .eq('id', listingId)
+      .eq('seller_id', user!.id);
+    if (rarityErr && !isMissingColumnError(rarityErr.message, 'rarity')) {
+      console.error('shoe-id listing rarity update:', rarityErr);
+    }
   }
 
   const tokens = claude.ok ? claude.result : { tokensIn: 0, tokensOut: 0 };

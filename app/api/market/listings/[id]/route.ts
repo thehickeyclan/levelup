@@ -9,7 +9,7 @@ import {
   notifyListingFollowers,
 } from '@/lib/market/notify-listing-followers';
 import { MARKET_LISTING_IMAGE_FIELDS_WITH_ID } from '@/lib/market/listing-images';
-import { isMissingColumnError, withoutColorFamily } from '@/lib/market/listing-column-fallback';
+import { isMissingColumnError, withoutColorFamily, withoutColumn } from '@/lib/market/listing-column-fallback';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function applyListingUpdate(
@@ -17,16 +17,22 @@ async function applyListingUpdate(
   id: string,
   updates: Record<string, unknown>
 ) {
-  let result = await supabase.from('market_listings').update(updates).eq('id', id).select().single();
-  if (result.error && isMissingColumnError(result.error.message, 'color_family') && 'color_family' in updates) {
-    result = await supabase
-      .from('market_listings')
-      .update(withoutColorFamily(updates))
-      .eq('id', id)
-      .select()
-      .single();
+  let payload = { ...updates };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const result = await supabase.from('market_listings').update(payload).eq('id', id).select().single();
+    if (!result.error) return result;
+    const msg = result.error.message;
+    if (isMissingColumnError(msg, 'color_family') && 'color_family' in payload) {
+      payload = withoutColorFamily(payload);
+      continue;
+    }
+    if (isMissingColumnError(msg, 'rarity') && 'rarity' in payload) {
+      payload = withoutColumn(payload, 'rarity');
+      continue;
+    }
+    return result;
   }
-  return result;
+  return await supabase.from('market_listings').update(updates).eq('id', id).select().single();
 }
 
 export async function GET(
@@ -139,7 +145,7 @@ export async function PATCH(
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const allowed = [
     'title', 'brand', 'model', 'size', 'condition', 'price_cents', 'shipping_cents',
-    'listing_type', 'open_to_trade', 'open_to_boot', 'description', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family',
+    'listing_type', 'open_to_trade', 'open_to_boot', 'description', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family', 'rarity',
   ];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {

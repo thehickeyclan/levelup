@@ -12,3 +12,12 @@ export function withoutColorFamily<T extends Record<string, unknown>>(row: T): O
   const { color_family: _omit, ...rest } = row;
   return rest;
 }
+
+export function withoutColumn<T extends Record<string, unknown>, K extends keyof T>(
+  row: T,
+  column: K
+): Omit<T, K> {
+  const copy = { ...row };
+  delete copy[column];
+  return copy;
+}

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
-import { isMissingColumnError, withoutColorFamily } from '@/lib/market/listing-column-fallback';
+import { isMissingColumnError, withoutColorFamily, withoutColumn } from '@/lib/market/listing-column-fallback';
+import { normalizeMarketRarity } from '@/lib/market/rarity';
 
 export async function GET(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
     wear_state?: string;
     colorway?: string | null;
     color_family?: string | null;
+    rarity?: string | null;
   };
 
   const isDraft = body.draft === true || !body.brand;
@@ -114,17 +116,23 @@ export async function POST(req: NextRequest) {
       typeof body.color_family === 'string' && body.color_family.trim()
         ? body.color_family.trim().toLowerCase()
         : null,
+    rarity: normalizeMarketRarity(body.rarity ?? null),
   };
 
   row.brand = normalizeMarketBrand(row.brand);
 
-  let { data, error } = await supabase.from('market_listings').insert(row).select('id').single();
-  if (error && isMissingColumnError(error.message, 'color_family')) {
-    ({ data, error } = await supabase
-      .from('market_listings')
-      .insert(withoutColorFamily(row))
-      .select('id')
-      .single());
+  let insertRow: Record<string, unknown> = { ...row };
+  let { data, error } = await supabase.from('market_listings').insert(insertRow).select('id').single();
+  for (let attempt = 0; attempt < 3 && error; attempt++) {
+    const msg = error.message;
+    if (isMissingColumnError(msg, 'color_family') && 'color_family' in insertRow) {
+      insertRow = withoutColorFamily(insertRow);
+    } else if (isMissingColumnError(msg, 'rarity') && 'rarity' in insertRow) {
+      insertRow = withoutColumn(insertRow, 'rarity');
+    } else {
+      break;
+    }
+    ({ data, error } = await supabase.from('market_listings').insert(insertRow).select('id').single());
   }
   if (error || !data) {
     console.error('market listings POST:', error);

@@ -7,6 +7,7 @@ import {
   parseColorFamily,
   type ColorFamilyId,
 } from '@/lib/market/color-family';
+import { normalizeMarketRarity, type MarketRarity } from '@/lib/market/rarity';
 
 export { BROWSE_BRANDS };
 
@@ -30,6 +31,7 @@ export type MarketBrowseListing = {
   created_at: string;
   views_count: number;
   pending_offer_count: number;
+  rarity: MarketRarity | null;
 };
 
 type ListingRow = {
@@ -48,6 +50,7 @@ type ListingRow = {
   seller_id: string;
   created_at: string;
   views_count: number;
+  rarity?: string | null;
   market_listing_images: { public_url: string; clean_public_url?: string | null; use_clean?: boolean; display_order: number }[] | null;
   market_ai_analysis: { analyzed_at?: string } | { analyzed_at?: string }[] | null;
 };
@@ -57,6 +60,13 @@ export type BrowseListingQueryOptions = {
   minPrice?: number;
   maxPrice?: number;
 };
+
+const BROWSE_SELECT_WITH_RARITY = `
+  id, title, brand, model, size, condition, wear_state, colorway, color_family, rarity, price_cents,
+  listing_type, open_to_trade, seller_id, created_at, views_count,
+  market_listing_images(${MARKET_LISTING_IMAGE_FIELDS}),
+  market_ai_analysis(analyzed_at)
+`;
 
 const BROWSE_SELECT_WITH_COLOR_FAMILY = `
   id, title, brand, model, size, condition, wear_state, colorway, color_family, price_cents,
@@ -107,7 +117,11 @@ export async function fetchMarketBrowseListings(
     return q;
   };
 
-  let result = await runQuery(BROWSE_SELECT_WITH_COLOR_FAMILY);
+  let result = await runQuery(BROWSE_SELECT_WITH_RARITY);
+
+  if (result.error?.message?.includes('rarity')) {
+    result = await runQuery(BROWSE_SELECT_WITH_COLOR_FAMILY);
+  }
 
   if (result.error?.message?.includes('color_family')) {
     result = await runQuery(BROWSE_SELECT_LEGACY);
@@ -176,6 +190,7 @@ export async function fetchMarketBrowseListings(
       created_at: row.created_at,
       views_count: row.views_count ?? 0,
       pending_offer_count: offerCounts.get(row.id) ?? 0,
+      rarity: normalizeMarketRarity(row.rarity ?? null),
     };
   });
 }

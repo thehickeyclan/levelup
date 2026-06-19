@@ -127,7 +127,7 @@ function ListingRow({
           {menuOpen ? (
             <div className="absolute right-0 top-8 z-10 min-w-[120px] rounded-lg border border-border bg-card py-1 shadow-lg">
               <Link
-                href={`/market/listing/${listing.id}`}
+                href={`/market/listing/${listing.id}/edit`}
                 className="block px-3 py-2 text-xs hover:bg-muted"
                 onClick={() => setMenuOpen(false)}
               >

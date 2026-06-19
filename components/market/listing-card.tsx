@@ -5,6 +5,7 @@ import { Eye, Flame, Sparkles } from 'lucide-react';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import type { MarketBrowseListing } from '@/lib/market/browse-listings';
 import { formatListingColorLabel } from '@/lib/market/color-family';
+import { RarityBadge } from '@/components/market/rarity-badge';
 import { cn } from '@/lib/utils';
 
 function typeBadge(listing: MarketBrowseListing): {
@@ -124,6 +125,9 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
           <span className="text-[9px] text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
             {conditionLabel}
           </span>
+          {listing.rarity ? (
+            <RarityBadge rarity={listing.rarity} className="!text-[8px] !px-1.5 !py-0" />
+          ) : null}
           {colorLabel ? (
             <span className="text-[9px] text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
               {colorLabel}

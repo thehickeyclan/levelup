@@ -31,6 +31,7 @@ import { SimilarSalesGuidance, priceGuidanceFooter } from '@/components/market/s
 import { shoeIdClientEnabled } from '@/lib/market/shoe-id/feature-flag';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
+import type { MarketRarity } from '@/lib/market/rarity';
 import type { PriceComp } from '@/lib/market/ai/schemas';
 import type { MarketListingImageRow } from '@/lib/market/listing-images';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
@@ -118,6 +119,7 @@ export default function NewListingPage() {
     price_cents: '',
     shipping_cents: '10',
     description: '',
+    rarity: '' as MarketRarity | '',
   });
 
   const sellerPrefillDone = useRef(false);
@@ -305,6 +307,7 @@ export default function NewListingPage() {
       listing_type: merged.listing_type,
       open_to_trade: merged.listing_type === 'sell' ? merged.open_to_trade : false,
       description: merged.description,
+      rarity: merged.rarity || null,
     };
   };
 
@@ -495,6 +498,10 @@ export default function NewListingPage() {
               shoeOverrides.model_year = String(dominant.model_year);
             }
             setShoeIdResult(data.result as ShoeIdResult);
+            if (data.result.rarity) {
+              overrides = { ...overrides, rarity: data.result.rarity };
+              setForm((f) => ({ ...f, rarity: data.result.rarity }));
+            }
             if (locked) {
               overrides = { ...overrides, ...shoeOverrides };
               setForm((f) => ({ ...f, ...shoeOverrides }));
@@ -640,6 +647,14 @@ export default function NewListingPage() {
           status: 'active',
         }),
       });
+
+      if (!form.rarity) {
+        await fetch('/api/market/ai/rarity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listingId: id, persist: true }),
+        });
+      }
 
       router.push(`/market/listing/${id}`);
     } catch (err) {

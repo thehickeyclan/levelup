@@ -34,6 +34,12 @@ When estimating value_low/mid/high_cents, use DOCUMENTED SALES and COLORWAY PROF
 match the identified colorway to the right profile. Discontinued/grail colorways (e.g. Nike Freek Cherry) can far exceed
 current-retail colorways of the same model still sold at Dick's for ~$99. Current-retail colorways stay near retail for used pairs.
 
+RARITY (required — assess the specific colorway when visible, not just the base model):
+- common: current retail, team stock, widely produced colorways still at Dick's/Foot Locker
+- uncommon: older runs, regional/team exclusives, harder-to-find but not hype
+- rare: discontinued model years, scarce colorways, strong collector demand
+- grail: OG vintage, samples, <500-pair drops, iconic wrestler PEs, 5–10x+ resale vs MSRP
+
 Return ONLY valid JSON matching this exact schema — no markdown, no preamble:
 {
   "brand": "string",

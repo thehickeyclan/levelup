@@ -58,6 +58,20 @@ export type BrowseListingQueryOptions = {
   maxPrice?: number;
 };
 
+const BROWSE_SELECT_WITH_COLOR_FAMILY = `
+  id, title, brand, model, size, condition, wear_state, colorway, color_family, price_cents,
+  listing_type, open_to_trade, seller_id, created_at, views_count,
+  market_listing_images(${MARKET_LISTING_IMAGE_FIELDS}),
+  market_ai_analysis(analyzed_at)
+`;
+
+const BROWSE_SELECT_LEGACY = `
+  id, title, brand, model, size, condition, wear_state, colorway, price_cents,
+  listing_type, open_to_trade, seller_id, created_at, views_count,
+  market_listing_images(${MARKET_LISTING_IMAGE_FIELDS}),
+  market_ai_analysis(analyzed_at)
+`;
+
 /** Active browse feed — newest first, max 48. */
 export async function fetchMarketBrowseListings(
   supabase: SupabaseClient,
@@ -66,43 +80,47 @@ export async function fetchMarketBrowseListings(
 ): Promise<MarketBrowseListing[]> {
   const collectorsOnly = options?.collectorsOnly === true;
 
-  let q = supabase
-    .from('market_listings')
-    .select(`
-      id, title, brand, model, size, condition, wear_state, colorway, color_family, price_cents,
-      listing_type, open_to_trade, seller_id, created_at, views_count,
-      market_listing_images(${MARKET_LISTING_IMAGE_FIELDS}),
-      market_ai_analysis(analyzed_at)
-    `)
-    .eq('tenant_slug', tenantSlug)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(48);
+  const runQuery = async (select: string) => {
+    let q = supabase
+      .from('market_listings')
+      .select(select)
+      .eq('tenant_slug', tenantSlug)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(48);
 
-  if (collectorsOnly) {
-    q = q.eq('listing_type', 'collection');
-  } else {
-    q = q.neq('listing_type', 'collection');
+    if (collectorsOnly) {
+      q = q.eq('listing_type', 'collection');
+    } else {
+      q = q.neq('listing_type', 'collection');
+      if (options?.maxPrice != null) {
+        q = q.lte('price_cents', options.maxPrice * 100);
+      }
+      if (options?.minPrice != null) {
+        q = q.gte('price_cents', options.minPrice * 100);
+      }
+      if (options?.minPrice != null || options?.maxPrice != null) {
+        q = q.not('price_cents', 'is', null);
+      }
+    }
+
+    return q;
+  };
+
+  let result = await runQuery(BROWSE_SELECT_WITH_COLOR_FAMILY);
+
+  if (result.error?.message?.includes('color_family')) {
+    result = await runQuery(BROWSE_SELECT_LEGACY);
   }
 
-  if (options?.maxPrice != null) {
-    q = q.lte('price_cents', options.maxPrice * 100);
-  }
-  if (options?.minPrice != null) {
-    q = q.gte('price_cents', options.minPrice * 100);
-  }
-  if (options?.minPrice != null || options?.maxPrice != null) {
-    q = q.not('price_cents', 'is', null);
-  }
-
-  const { data, error } = await q;
+  const { data, error } = result;
 
   if (error) {
     console.error('fetchMarketBrowseListings:', error);
     return [];
   }
 
-  const rows = (data ?? []) as ListingRow[];
+  const rows = (data ?? []) as unknown as ListingRow[];
   const listingIds = rows.map((r) => r.id);
   const sellerIds = [...new Set(rows.map((r) => r.seller_id))];
   const sellerNames = new Map<string, string>();

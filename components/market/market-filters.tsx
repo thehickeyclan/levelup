@@ -319,7 +319,7 @@ export function MarketFilters({
       {colorDropdown}
       {sizeDropdown}
       {conditionDropdown}
-      {priceDropdown}
+      {type !== 'collectors' ? priceDropdown : null}
     </>
   );
 
@@ -405,7 +405,7 @@ export function MarketFilters({
                 <X className="h-2.5 w-2.5" />
               </button>
             ) : null}
-            {minPrice || maxPrice ? (
+            {type !== 'collectors' && (minPrice || maxPrice) ? (
               <button
                 type="button"
                 onClick={() => setPriceRange()}
@@ -436,7 +436,7 @@ export function MarketFilters({
             <FilterSection title="Color">{colorDropdown}</FilterSection>
             <FilterSection title="Size">{sizeDropdown}</FilterSection>
             <FilterSection title="Condition">{conditionDropdown}</FilterSection>
-            <FilterSection title="Price">{priceDropdown}</FilterSection>
+            {type !== 'collectors' ? <FilterSection title="Price">{priceDropdown}</FilterSection> : null}
           </div>
         </DialogContent>
       </Dialog>

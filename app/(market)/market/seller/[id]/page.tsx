@@ -66,6 +66,10 @@ export default function SellerProfilePage() {
   const searchParams = useSearchParams();
   const sellerId = params.id as string;
   const [tab, setTab] = useState<TabId>(() => parseTabParam(searchParams.get('tab')));
+
+  useEffect(() => {
+    setTab(parseTabParam(searchParams.get('tab')));
+  }, [searchParams]);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [data, setData] = useState<{

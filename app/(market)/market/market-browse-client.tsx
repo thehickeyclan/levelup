@@ -33,12 +33,19 @@ export function MarketBrowseClient({
   const minPrice = searchParams.get('minPrice') || '';
   const maxPrice = searchParams.get('maxPrice') || '';
   const isCollectors = type === 'collectors';
+  const hasActiveFilters =
+    brand !== 'all' || color !== 'all' || Boolean(size) || condition !== 'all' || Boolean(minPrice || maxPrice);
 
   const setParam = useCallback(
     (key: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString());
       if (!value || value === 'all') params.delete(key);
       else params.set(key, value);
+      // Collection pairs have no price — drop stale price filters when switching tabs.
+      if (key === 'type' && value === 'collectors') {
+        params.delete('minPrice');
+        params.delete('maxPrice');
+      }
       const qs = params.toString();
       router.replace(qs ? `/market?${qs}` : '/market', { scroll: false });
     },
@@ -89,7 +96,7 @@ export function MarketBrowseClient({
         const bucket = browseConditionBucket(l.condition, l.wear_state);
         if (bucket !== condition) return false;
       }
-      if (min != null || max != null) {
+      if (!isCollectors && (min != null || max != null)) {
         if (l.price_cents == null) return false;
         if (min != null && l.price_cents < min * 100) return false;
         if (max != null && l.price_cents > max * 100) return false;
@@ -143,7 +150,11 @@ export function MarketBrowseClient({
           <div className="py-16 text-center">
             <p className="text-sm text-muted-foreground">
               {isCollectors
-                ? 'No collection pairs yet.'
+                ? collectionListings.length === 0
+                  ? 'No collection pairs yet. List a pair as Collection type to showcase it here.'
+                  : hasActiveFilters
+                    ? 'No collection pairs match these filters.'
+                    : 'No collection pairs yet. List a pair as Collection type to showcase it here.'
                 : sourceListings.length === 0
                   ? 'No listings yet — be the first to list a pair.'
                   : 'No listings match these filters.'}

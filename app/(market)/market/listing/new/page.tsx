@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -97,6 +97,7 @@ export default function NewListingPage() {
   const lastAutoKey = useRef<string | null>(null);
   const pipelineRunning = useRef(false);
   const userEditedModel = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     title: '',
@@ -575,21 +576,47 @@ export default function NewListingPage() {
             {images.length}/{MAX_PHOTOS}
           </span>
         </div>
-        <Input
+        <input
+          ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/*"
           multiple
+          className="hidden"
           onChange={onPhoto}
           disabled={uploading || images.length >= MAX_PHOTOS}
         />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || images.length >= MAX_PHOTOS}
+          className={cn(
+            'w-full rounded-xl border border-dashed py-8 flex flex-col items-center justify-center gap-2 transition-colors touch-manipulation',
+            error && images.length === 0
+              ? 'border-destructive/50 text-destructive'
+              : 'border-border text-muted-foreground hover:border-accent hover:text-accent'
+          )}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">{uploadProgress ?? 'Uploading…'}</span>
+            </>
+          ) : (
+            <>
+              <Plus className="h-5 w-5" />
+              <span className="text-sm">
+                {images.length
+                  ? `Add more photos (${images.length}/${MAX_PHOTOS})`
+                  : 'Tap to add photos'}
+              </span>
+            </>
+          )}
+        </button>
         <p className="text-xs text-muted-foreground">
           {form.wear_state === 'bnib'
             ? 'Include box and shoes. Up to 6 photos.'
             : 'Use a light background or white surface so shoes stay visible. Up to 6 photos.'}
         </p>
-        {uploading && uploadProgress ? (
-          <p className="text-sm text-muted-foreground">{uploadProgress}</p>
-        ) : null}
         {images.length > 0 ? (
           <div className="grid grid-cols-3 gap-2">
             {images.map((img) => (

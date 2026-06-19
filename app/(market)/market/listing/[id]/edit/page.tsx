@@ -451,6 +451,7 @@ export default function EditListingPage() {
         currentPriceCents={
           form.price_cents ? Math.round(Number(form.price_cents) * 100) : null
         }
+        compact
         onUpdated={(patch: ListingTypePatch) => {
           setForm((f) => ({
             ...f,

@@ -109,9 +109,11 @@ export function ListingTypeQuickActions({
 
   if (compact) {
     return (
-      <div className="space-y-2 pt-2 border-t border-border" onClick={(e) => e.preventDefault()}>
-        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-          List this pair
+      <div className="space-y-2" onClick={(e) => e.preventDefault()}>
+        <p className="text-xs text-muted-foreground">
+          Currently{' '}
+          <span className="text-foreground font-medium">{sellerListingTypeLabel(currentType)}</span>
+          {currentType === 'collection' ? ' — tap below to list for sale or offers' : ''}
         </p>
         <div className="flex flex-wrap gap-1.5">
           {(['sell', 'vault', 'trade', 'collection'] as const).map((type) => {
@@ -144,28 +146,39 @@ export function ListingTypeQuickActions({
             );
           })}
         </div>
-        {sellMode || currentType === 'sell' ? (
+        {sellMode || (currentType === 'sell' && !price) ? (
           <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
             <Input
               value={price}
               onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ''))}
-              placeholder="Price $"
-              className="h-8 text-sm flex-1"
+              placeholder="Asking price $"
+              className="h-9 text-sm flex-1"
               inputMode="decimal"
             />
             <Button
               type="button"
               size="sm"
-              className="h-8 bg-accent text-accent-foreground shrink-0"
+              className="h-9 bg-accent text-accent-foreground shrink-0"
               disabled={acting === 'sell'}
               onClick={(e) => {
                 e.stopPropagation();
                 void applyType('sell', price);
               }}
             >
-              {acting === 'sell' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Go'}
+              {acting === 'sell' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'List'}
             </Button>
           </div>
+        ) : currentType === 'sell' && price ? (
+          <button
+            type="button"
+            className="text-xs text-accent hover:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSellMode(true);
+            }}
+          >
+            Change price (${price})
+          </button>
         ) : null}
         {error ? <p className="text-[10px] text-destructive">{error}</p> : null}
       </div>

@@ -455,28 +455,31 @@ export default function ListingDetailPage() {
             ) : null}
 
             {isSeller && canEdit ? (
-              <ListingTypeQuickActions
-                listingId={id}
-                currentType={listingType}
-                currentPriceCents={priceCents}
-                onUpdated={(patch) => {
-                  setData((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          listing: {
-                            ...prev.listing,
-                            listing_type: patch.listing_type,
-                            price_cents: patch.price_cents,
-                            ...(patch.shipping_cents != null
-                              ? { shipping_cents: patch.shipping_cents }
-                              : {}),
-                          },
-                        }
-                      : prev
-                  );
-                }}
-              />
+              <div className="rounded-xl border border-border bg-card p-3">
+                <ListingTypeQuickActions
+                  listingId={id}
+                  currentType={listingType}
+                  currentPriceCents={priceCents}
+                  compact
+                  onUpdated={(patch) => {
+                    setData((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            listing: {
+                              ...prev.listing,
+                              listing_type: patch.listing_type,
+                              price_cents: patch.price_cents,
+                              ...(patch.shipping_cents != null
+                                ? { shipping_cents: patch.shipping_cents }
+                                : {}),
+                            },
+                          }
+                        : prev
+                    );
+                  }}
+                />
+              </div>
             ) : null}
 
             {isCollection && isActive && !isSeller ? (
@@ -518,34 +521,9 @@ export default function ListingDetailPage() {
         showOffersCtAs ||
         showMakeOfferCta ||
         showBuyCta ||
-        (isCollection && isActive && !isSeller) ||
-        (isSeller && canEdit)) ? (
+        (isCollection && isActive && !isSeller)) ? (
         <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-3 bg-gradient-to-t from-background via-background/98 to-transparent">
-          {isSeller && canEdit ? (
-            <ListingTypeQuickActions
-              listingId={id}
-              currentType={listingType}
-              currentPriceCents={priceCents}
-              title="List this pair"
-              onUpdated={(patch) => {
-                setData((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        listing: {
-                          ...prev.listing,
-                          listing_type: patch.listing_type,
-                          price_cents: patch.price_cents,
-                          ...(patch.shipping_cents != null
-                            ? { shipping_cents: patch.shipping_cents }
-                            : {}),
-                        },
-                      }
-                    : prev
-                );
-              }}
-            />
-          ) : isCollection && isActive ? (
+          {isCollection && isActive ? (
             collectionBlock
           ) : showTradeOnlyCta ? (
             <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">

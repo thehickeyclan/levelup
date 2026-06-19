@@ -4,6 +4,8 @@ import { requireMarketUser } from '@/lib/market/auth';
 import { calcMarketFees } from '@/lib/market/fees';
 import { resolvePayoutRecipientId } from '@/lib/market/seller';
 import { createNotification } from '@/lib/notifications';
+import { findOrCreateThread } from '@/lib/guild-messaging';
+import { lockListingsForTrade } from '@/lib/market/trade-lifecycle';
 import { normalizePhone, sendSms } from '@/lib/twilio';
 
 export async function POST(
@@ -136,6 +138,27 @@ export async function POST(
     if (tradeErr || !trade) {
       return NextResponse.json({ error: tradeErr?.message || 'Could not create trade' }, { status: 500 });
     }
+
+    const locked = await lockListingsForTrade(
+      admin,
+      [tradeListingId, offer.listing_id as string],
+      offer.buyer_id as string
+    );
+    if (!locked) {
+      await admin.from('market_trades').delete().eq('id', trade.id);
+      return NextResponse.json(
+        { error: 'One of these pairs is no longer available for trade.' },
+        { status: 409 }
+      );
+    }
+
+    await findOrCreateThread(admin, {
+      threadType: 'trade',
+      tenantSlug: tenant.slug,
+      participantIds: [offer.buyer_id as string, listing.seller_id],
+      listingId: offer.listing_id as string,
+      tradeId: trade.id,
+    });
 
     acceptedTradeId = trade.id;
     redirectUrl = `/market/trade/${trade.id}`;

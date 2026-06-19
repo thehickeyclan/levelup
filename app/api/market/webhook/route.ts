@@ -6,6 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, tenants } from '@/config/tenants';
 import { createNotification } from '@/lib/notifications';
 import { notifyListingFollowers } from '@/lib/market/notify-listing-followers';
+import { completeTradeListings } from '@/lib/market/trade-lifecycle';
+import { findOrCreateThread } from '@/lib/guild-messaging';
 import { normalizePhone, sendSms } from '@/lib/twilio';
 
 function getMarketWebhookSecret(tenantSlug: string): string {
@@ -68,7 +70,10 @@ export async function POST(req: NextRequest) {
 
       if (trade?.initiator_fee_paid && trade.receiver_fee_paid) {
         await supabase.from('market_trades').update({ status: 'completed' }).eq('id', tradeId);
-        await supabase.from('market_listings').update({ status: 'traded' }).in('id', [trade.initiator_listing_id, trade.receiver_listing_id]);
+        await completeTradeListings(supabase, [
+          trade.initiator_listing_id as string,
+          trade.receiver_listing_id as string,
+        ]);
         const { data: tradedListings } = await supabase
           .from('market_listings')
           .select('id, seller_id, title, brand, model')
@@ -195,6 +200,16 @@ export async function POST(req: NextRequest) {
         title: 'Order placed',
         body: `Order placed — #${orderRow?.order_ref ?? 'MKT'}`,
         data: { order_id: orderId, link: `/market/orders/${orderId}` },
+      });
+    }
+
+    if (buyerId && sellerId) {
+      await findOrCreateThread(supabase, {
+        threadType: 'order',
+        tenantSlug: tenantSlug,
+        participantIds: [buyerId, sellerId],
+        listingId,
+        orderId,
       });
     }
   }

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tenants } from '@/config/tenants';
+import { getStripeInstance } from '@/lib/stripe/webhooks';
+import {
+  listingIdsInActiveTrades,
+  terminateActiveTrade,
+  type TradeLifecycleRow,
+} from '@/lib/market/trade-lifecycle';
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -15,6 +21,7 @@ export async function GET(req: NextRequest) {
     locksReleased: number;
     ordersCancelled: number;
     tradesExpired: number;
+    tradeFeeWindowsExpired: number;
     offersExpired: number;
     draftsDeleted: number;
   }> = {};
@@ -24,8 +31,11 @@ export async function GET(req: NextRequest) {
     let locksReleased = 0;
     let ordersCancelled = 0;
     let tradesExpired = 0;
+    let tradeFeeWindowsExpired = 0;
     let offersExpired = 0;
     let draftsDeleted = 0;
+
+    const tradeLockedListingIds = await listingIdsInActiveTrades(admin);
 
     const { data: staleLocks } = await admin
       .from('market_listings')
@@ -34,12 +44,16 @@ export async function GET(req: NextRequest) {
       .not('locked_at', 'is', null)
       .lt('locked_at', new Date(Date.now() - 35 * 60 * 1000).toISOString());
 
-    if (staleLocks?.length) {
+    const checkoutStaleLocks = (staleLocks ?? []).filter(
+      (r) => !tradeLockedListingIds.has(r.id as string)
+    );
+
+    if (checkoutStaleLocks.length) {
       await admin
         .from('market_listings')
         .update({ locked_buyer_id: null, locked_at: null })
-        .in('id', staleLocks.map((r) => r.id));
-      locksReleased = staleLocks.length;
+        .in('id', checkoutStaleLocks.map((r) => r.id));
+      locksReleased = checkoutStaleLocks.length;
     }
 
     const { data: staleOrders } = await admin
@@ -68,6 +82,25 @@ export async function GET(req: NextRequest) {
     if (expiredTrades?.length) {
       await admin.from('market_trades').update({ status: 'expired' }).in('id', expiredTrades.map((t) => t.id));
       tradesExpired = expiredTrades.length;
+    }
+
+    const stripe = getStripeInstance(slug);
+    const { data: staleFeeTrades } = await admin
+      .from('market_trades')
+      .select(`
+        id, initiator_id, receiver_id,
+        initiator_listing_id, receiver_listing_id,
+        initiator_fee_paid, receiver_fee_paid,
+        initiator_stripe_session_id, receiver_stripe_session_id
+      `)
+      .in('status', ['receiver_accepted', 'fees_pending'])
+      .lt('expires_at', new Date().toISOString());
+
+    for (const trade of staleFeeTrades ?? []) {
+      await terminateActiveTrade(admin, stripe, trade as TradeLifecycleRow, {
+        finalStatus: 'expired',
+      });
+      tradeFeeWindowsExpired += 1;
     }
 
     const { data: expiredOffers } = await admin
@@ -101,7 +134,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    results[slug] = { locksReleased, ordersCancelled, tradesExpired, offersExpired, draftsDeleted };
+    results[slug] = {
+      locksReleased,
+      ordersCancelled,
+      tradesExpired,
+      tradeFeeWindowsExpired,
+      offersExpired,
+      draftsDeleted,
+    };
   }
 
   return NextResponse.json({ ok: true, results });

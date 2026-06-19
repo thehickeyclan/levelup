@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { fetchSellerOffers } from '@/lib/market/seller-offers-data';
+import { getUnreadCount } from '@/lib/guild-messaging';
 import { OffersInboxClient } from './offers-inbox-client';
 
 async function pendingOfferCount(tenantSlug: string, userId: string): Promise<number> {
@@ -38,9 +39,10 @@ export default async function MarketOffersPage({
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [groups, pendingOffers] = await Promise.all([
+  const [groups, pendingOffers, messageUnread] = await Promise.all([
     fetchSellerOffers(supabase, user.id, filterListingId ?? undefined),
     pendingOfferCount(tenant.slug, user.id),
+    getUnreadCount(createAdminClient(tenant.slug), user.id),
   ]);
 
   return (
@@ -49,6 +51,8 @@ export default async function MarketOffersPage({
         groups={groups}
         filterListingId={filterListingId}
         pendingOffers={pendingOffers}
+        currentUserId={user.id}
+        messageUnread={messageUnread}
       />
     </Suspense>
   );

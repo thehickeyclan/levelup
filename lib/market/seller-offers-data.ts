@@ -1,12 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatSellerDisplayName } from '@/lib/market/seller';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
+import {
+  mapTradeListingReview,
+  TRADE_LISTING_REVIEW_SELECT,
+  type TradeOfferListingReview,
+} from '@/lib/market/trade-listing-review';
 
-export type SellerOfferTradeListing = {
-  id: string;
-  model: string;
-  title: string;
-  size: number;
+export type SellerOfferTradeListing = TradeOfferListingReview & {
   primary_image_url: string | null;
 };
 
@@ -25,6 +26,7 @@ export type SellerOfferRow = {
   listing_model: string;
   listing_image_url: string | null;
   trade_listing: SellerOfferTradeListing | null;
+  thread_id: string | null;
 };
 
 export type SellerOfferGroup = {
@@ -60,14 +62,18 @@ export async function fetchSellerOffers(
   const tradeListingIds = [
     ...new Set(offers.map((o) => o.trade_listing_id as string | null).filter(Boolean)),
   ] as string[];
+  const offerIds = offers.map((o) => o.id as string);
 
-  const [{ data: buyers }, { data: tradeListings }] = await Promise.all([
+  const [{ data: buyers }, { data: tradeListings }, { data: offerThreads }] = await Promise.all([
     supabase.from('users').select('id, first_name, last_name').in('id', buyerIds),
     tradeListingIds.length
       ? supabase
           .from('market_listings')
-          .select('id, title, model, size, market_listing_images(public_url, clean_public_url, use_clean, display_order)')
+          .select(TRADE_LISTING_REVIEW_SELECT)
           .in('id', tradeListingIds)
+      : Promise.resolve({ data: [] }),
+    offerIds.length
+      ? supabase.from('guild_threads').select('id, offer_id').in('offer_id', offerIds)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -78,15 +84,16 @@ export async function fetchSellerOffers(
 
   const tradeMap = new Map<string, SellerOfferTradeListing>();
   for (const t of tradeListings ?? []) {
+    const review = mapTradeListingReview(t as Parameters<typeof mapTradeListingReview>[0]);
     tradeMap.set(t.id as string, {
-      id: t.id as string,
-      model: t.model as string,
-      title: t.title as string,
-      size: Number(t.size),
-      primary_image_url: primaryListingImageUrl(
-        t.market_listing_images as { public_url: string; display_order: number }[] | null
-      ),
+      ...review,
+      primary_image_url: review.image_urls[0] ?? null,
     });
+  }
+
+  const threadByOffer = new Map<string, string>();
+  for (const row of offerThreads ?? []) {
+    threadByOffer.set(row.offer_id as string, row.id as string);
   }
 
   const rows: SellerOfferRow[] = offers.map((o) => {
@@ -113,6 +120,7 @@ export async function fetchSellerOffers(
       listing_model: listing?.model ?? '',
       listing_image_url: primaryListingImageUrl(listing?.market_listing_images ?? null),
       trade_listing: tradeId ? tradeMap.get(tradeId) ?? null : null,
+      thread_id: threadByOffer.get(o.id as string) ?? null,
     };
   });
 

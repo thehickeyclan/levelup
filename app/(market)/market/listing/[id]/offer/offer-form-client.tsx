@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus } from 'lucide-react';
 import { BackLink } from '@/components/back-link';
+import { MessageThread } from '@/components/guild/message-thread';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,16 +30,30 @@ const OFFER_MODES: { id: OfferMode; label: string }[] = [
   { id: 'cash_and_trade', label: 'Cash + trade' },
 ];
 
+export type PendingOfferSummary = {
+  id: string;
+  offer_type: string;
+  amount_cents: number | null;
+  status: string;
+  thread_id: string | null;
+};
+
 export function OfferFormClient({
   listingId,
   listing,
   myListings,
   defaultTrade,
+  currentUserId,
+  pendingOffer,
+  justSent = false,
 }: {
   listingId: string;
   listing: OfferListingSummary;
   myListings: OfferListingSummary[];
   defaultTrade: boolean;
+  currentUserId: string;
+  pendingOffer: PendingOfferSummary | null;
+  justSent?: boolean;
 }) {
   const router = useRouter();
   const [offerMode, setOfferMode] = useState<OfferMode>(defaultTrade ? 'trade' : 'cash');
@@ -90,13 +105,59 @@ export function OfferFormClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send offer');
-      router.push(`/market/listing/${listingId}?offered=true`);
+      router.push(`/market/listing/${listingId}/offer?sent=1`);
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to send offer');
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (pendingOffer) {
+    const typeLabel =
+      pendingOffer.offer_type === 'cash_and_trade'
+        ? 'Cash + trade'
+        : pendingOffer.offer_type === 'trade'
+          ? 'Trade'
+          : 'Cash';
+
+    return (
+      <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
+        <BackLink fallbackHref={`/market/listing/${listingId}`} label="Back to listing" />
+
+        {justSent ? (
+          <p className="text-sm text-accent bg-accent/10 border border-accent/30 rounded-xl p-3">
+            Offer sent — seller has been notified.
+          </p>
+        ) : null}
+
+        <div className="rounded-xl border border-border bg-card/80 p-4 space-y-2">
+          <p className="text-sm font-medium text-foreground">Your offer</p>
+          <p className="text-xs text-muted-foreground capitalize">{typeLabel}</p>
+          {pendingOffer.amount_cents != null ? (
+            <p className="text-2xl font-bold text-accent">
+              ${(pendingOffer.amount_cents / 100).toFixed(0)}
+            </p>
+          ) : null}
+          <p className="text-xs text-muted-foreground capitalize">Status: {pendingOffer.status}</p>
+        </div>
+
+        {pendingOffer.thread_id ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-muted-foreground">Message seller</h3>
+            <MessageThread
+              threadId={pendingOffer.thread_id}
+              currentUserId={currentUserId}
+              placeholder="Reply or follow up on your offer…"
+              maxHeight="280px"
+              showSenderName
+            />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">

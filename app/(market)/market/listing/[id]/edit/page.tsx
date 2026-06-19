@@ -428,7 +428,7 @@ export default function EditListingPage() {
   if (loadError) {
     return (
       <div className="px-4 py-8 max-w-lg mx-auto space-y-4">
-        <BackLink fallbackHref="/market/my-listings" label="My listings" />
+        <BackLink fallbackHref="/market/my-listings" label="My pairs" />
         <p className="text-destructive">{loadError}</p>
       </div>
     );

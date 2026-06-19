@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { NotificationBell } from '@/components/notification-bell';
 import { useNotificationCount } from '@/lib/hooks/use-notification-count';
+import { useGuildUnreadCount } from '@/lib/hooks/use-guild-unread-count';
 import { IN_APP_MESSAGING_ENABLED } from '@/lib/in-app-messaging';
 import { useInboxUnreadCount } from '@/lib/hooks/use-inbox-unread-count';
 
@@ -25,6 +26,12 @@ type Props = {
 export function CoachHeaderMobile({ onSignOut }: Props) {
   const [open, setOpen] = useState(false);
   const [notificationCount, refreshNotifications] = useNotificationCount(true);
+  const [guildUnread, refreshGuildUnread] = useGuildUnreadCount(true);
+  const bellCount = notificationCount + guildUnread;
+  const refreshBell = () => {
+    refreshNotifications();
+    refreshGuildUnread();
+  };
   const [inboxUnreadCount] = useInboxUnreadCount(IN_APP_MESSAGING_ENABLED);
 
   const linkClass =
@@ -46,7 +53,7 @@ export function CoachHeaderMobile({ onSignOut }: Props) {
           )}
         </Link>
       ) : null}
-      <NotificationBell count={notificationCount} onRefresh={refreshNotifications} />
+      <NotificationBell count={bellCount} onRefresh={refreshBell} />
       <Button
         type="button"
         variant="ghost"

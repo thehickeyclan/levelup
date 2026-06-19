@@ -13,50 +13,75 @@ import type { SellerProfile } from '@/lib/market/seller';
 import { sellerCollectionHeading } from '@/lib/market/seller';
 import type { SellerInventoryItem } from '@/lib/market/seller-inventory';
 import type { CollectionValuation } from '@/lib/market/collection-valuation';
+import { sellerListingStatusBadge } from '@/lib/market/listing-type-options';
 import { cn } from '@/lib/utils';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
-type TabId = 'for_sale' | 'trading' | 'collection';
+type TabId = 'all' | 'for_sale' | 'trading' | 'collection';
 
-function parseTabParam(value: string | null): TabId {
+function parseTabParam(value: string | null, allowAll: boolean): TabId {
+  if (allowAll && value === 'all') return 'all';
   if (value === 'collection' || value === 'trading' || value === 'for_sale') return value;
-  return 'for_sale';
+  return allowAll ? 'all' : 'for_sale';
 }
 
-function InventoryGrid({ items, compact }: { items: SellerInventoryItem[]; compact?: boolean }) {
+function InventoryGrid({
+  items,
+  compact,
+  showStatusBadge = false,
+}: {
+  items: SellerInventoryItem[];
+  compact?: boolean;
+  showStatusBadge?: boolean;
+}) {
   if (!items.length) {
     return <p className="text-sm text-muted-foreground">Nothing listed here yet.</p>;
   }
   return (
     <div className={cn('grid gap-2', compact ? 'grid-cols-3' : 'grid-cols-2')}>
-      {items.map((item) => (
-        <Link
-          key={item.id}
-          href={`/market/listing/${item.id}`}
-          className="rounded-lg border border-border overflow-hidden bg-card hover:border-border transition-colors"
-        >
-          <div className={cn('bg-muted overflow-hidden', compact ? 'aspect-square' : 'aspect-[4/3]')}>
-            {item.primary_image_url ? (
-              <img src={item.primary_image_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
-                No photo
-              </div>
-            )}
-          </div>
-          <div className={cn('p-2', compact ? 'p-1.5' : 'p-2')}>
-            <p className={cn('font-medium text-foreground truncate', compact ? 'text-[10px]' : 'text-xs')}>
-              {item.model?.trim() || item.title}
-            </p>
-            <p className={cn('text-muted-foreground truncate', compact ? 'text-[9px]' : 'text-[10px]')}>
-              {item.brand} · Sz {item.size}
-            </p>
-          </div>
-        </Link>
-      ))}
+      {items.map((item) => {
+        const badge = showStatusBadge
+          ? sellerListingStatusBadge(item.listing_type, 'active')
+          : null;
+        return (
+          <Link
+            key={item.id}
+            href={`/market/listing/${item.id}`}
+            className="rounded-lg border border-border overflow-hidden bg-card hover:border-border transition-colors"
+          >
+            <div className={cn('relative bg-muted overflow-hidden', compact ? 'aspect-square' : 'aspect-[4/3]')}>
+              {item.primary_image_url ? (
+                <img src={item.primary_image_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
+                  No photo
+                </div>
+              )}
+              {badge ? (
+                <span
+                  className={cn(
+                    'absolute top-1 left-1 text-[8px] border rounded-full px-1.5 py-0.5 bg-background/90 backdrop-blur-sm',
+                    badge.className
+                  )}
+                >
+                  {badge.label}
+                </span>
+              ) : null}
+            </div>
+            <div className={cn('p-2', compact ? 'p-1.5' : 'p-2')}>
+              <p className={cn('font-medium text-foreground truncate', compact ? 'text-[10px]' : 'text-xs')}>
+                {item.model?.trim() || item.title}
+              </p>
+              <p className={cn('text-muted-foreground truncate', compact ? 'text-[9px]' : 'text-[10px]')}>
+                {item.brand} · Sz {item.size}
+              </p>
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -65,11 +90,7 @@ export default function SellerProfilePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const sellerId = params.id as string;
-  const [tab, setTab] = useState<TabId>(() => parseTabParam(searchParams.get('tab')));
-
-  useEffect(() => {
-    setTab(parseTabParam(searchParams.get('tab')));
-  }, [searchParams]);
+  const [tab, setTab] = useState<TabId>('for_sale');
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [data, setData] = useState<{
@@ -83,6 +104,12 @@ export default function SellerProfilePage() {
     viewer: { isOwnProfile: boolean };
     collectionValuation: CollectionValuation | null;
   } | null>(null);
+
+  useEffect(() => {
+    if (!data) return;
+    const fromUrl = searchParams.get('tab');
+    setTab(parseTabParam(fromUrl, data.viewer.isOwnProfile));
+  }, [data, searchParams]);
 
   const load = useCallback(() => {
     fetch(`/api/market/sellers/${sellerId}`)
@@ -140,12 +167,20 @@ export default function SellerProfilePage() {
   const positive = formatPositiveFeedback(stats.positivePercent, stats.reviewCount);
   const collectionTitle = sellerCollectionHeading(seller.displayName);
   const viewingCollection = tab === 'collection';
+  const allPairs = [...inventory.forSale, ...inventory.trading, ...inventory.collection];
 
-  const tabItems: { id: TabId; label: string; count: number }[] = [
-    { id: 'for_sale', label: 'For sale', count: inventory.forSale.length },
-    { id: 'trading', label: 'Trading', count: inventory.trading.length },
-    { id: 'collection', label: 'Collection', count: inventory.collection.length },
-  ];
+  const tabItems: { id: TabId; label: string; count: number }[] = viewer.isOwnProfile
+    ? [
+        { id: 'all', label: 'All pairs', count: allPairs.length },
+        { id: 'for_sale', label: 'For sale', count: inventory.forSale.length },
+        { id: 'trading', label: 'Trading', count: inventory.trading.length },
+        { id: 'collection', label: 'Showcase', count: inventory.collection.length },
+      ]
+    : [
+        { id: 'for_sale', label: 'For sale', count: inventory.forSale.length },
+        { id: 'trading', label: 'Trading', count: inventory.trading.length },
+        { id: 'collection', label: 'Collection', count: inventory.collection.length },
+      ];
 
   return (
     <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
@@ -210,6 +245,28 @@ export default function SellerProfilePage() {
           ))}
         </div>
 
+        {tab === 'all' ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Your full closet — pairs stay here whether they&apos;re for sale or showcase only.
+            </p>
+            {collectionValuation ? (
+              <div className="rounded-xl border border-border bg-card px-4 py-3">
+                <p className="text-sm text-muted-foreground">Estimated showcase value</p>
+                <p className="text-2xl font-bold text-accent mt-1">
+                  ${(collectionValuation.total_cents / 100).toLocaleString()}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Based on Guild Market comps · showcase pairs only
+                  {collectionValuation.pairs_with_estimates < collectionValuation.collection_count
+                    ? ` · ${collectionValuation.pairs_with_estimates} of ${collectionValuation.collection_count} pairs estimated`
+                    : ''}
+                </p>
+              </div>
+            ) : null}
+            <InventoryGrid items={allPairs} showStatusBadge compact />
+          </div>
+        ) : null}
         {tab === 'for_sale' ? <InventoryGrid items={inventory.forSale} /> : null}
         {tab === 'trading' ? <InventoryGrid items={inventory.trading} /> : null}
         {tab === 'collection' ? (

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/use-auth';
 import { useNotificationCount } from '@/lib/hooks/use-notification-count';
+import { useGuildUnreadCount } from '@/lib/hooks/use-guild-unread-count';
 import { useInboxUnreadCount } from '@/lib/hooks/use-inbox-unread-count';
 import { NotificationBell } from '@/components/notification-bell';
 import { Button } from './ui/button';
@@ -52,6 +53,12 @@ export function Header() {
   const { user, userRole, viewAsRole, effectiveRole, viewAsCoachId, setViewAsRole, setViewAsCoachId, loading, signOut } = useAuth();
   const router = useRouter();
   const [notificationCount, refreshNotifications] = useNotificationCount(!!user);
+  const [guildUnread, refreshGuildUnread] = useGuildUnreadCount(!!user);
+  const bellCount = notificationCount + guildUnread;
+  const refreshBell = () => {
+    refreshNotifications();
+    refreshGuildUnread();
+  };
   const showInboxIcon =
     IN_APP_MESSAGING_ENABLED &&
     (effectiveRole === 'parent' || effectiveRole === 'coach' || effectiveRole === 'youth_wrestler');
@@ -217,7 +224,7 @@ export function Header() {
                       </span>
                     )}
                   </Link>
-                  <NotificationBell count={notificationCount} onRefresh={refreshNotifications} />
+                  <NotificationBell count={bellCount} onRefresh={refreshBell} />
                 </>
               )}
               {effectiveRole === 'youth_wrestler' && (
@@ -278,7 +285,7 @@ export function Header() {
                       </span>
                     )}
                   </Link>
-                  <NotificationBell count={notificationCount} onRefresh={refreshNotifications} />
+                  <NotificationBell count={bellCount} onRefresh={refreshBell} />
                 </>
               )}
               {effectiveRole === 'admin' && (
@@ -360,7 +367,7 @@ export function Header() {
                   </Link>
                   <CartDropdown />
                   <Link href="/account" className="text-white hover:text-accent transition-colors font-medium">Account</Link>
-                  <NotificationBell count={notificationCount} onRefresh={refreshNotifications} />
+                  <NotificationBell count={bellCount} onRefresh={refreshBell} />
                 </>
               )}
               <div className="flex items-center gap-3 pl-4 border-l border-white/20">

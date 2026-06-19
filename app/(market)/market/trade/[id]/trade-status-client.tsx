@@ -2,18 +2,22 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatDistanceToNow } from 'date-fns';
 import { BackLink } from '@/components/back-link';
 import { Button } from '@/components/ui/button';
-import { formatSellerDisplayName } from '@/lib/market/seller';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { MessageThread } from '@/components/guild/message-thread';
+import { TradeOfferListingReviewCard } from '@/components/market/trade-offer-listing-review';
+import type { TradeOfferListingReview } from '@/lib/market/trade-listing-review';
 import { cn } from '@/lib/utils';
 
-export type TradeListingCard = {
-  id: string;
-  model: string;
-  title: string;
-  size: number;
-  imageUrl: string | null;
-};
+export type TradeListingCard = TradeOfferListingReview;
 
 export type TradePageData = {
   id: string;
@@ -28,6 +32,7 @@ export type TradePageData = {
   viewer_side: 'initiator' | 'receiver';
   viewer_fee_paid: boolean;
   other_party_name: string;
+  expires_at: string | null;
 };
 
 const STEPS = ['Pending', 'Accepted', 'Fees paid', 'Complete'];
@@ -42,15 +47,27 @@ function stepIndex(status: string, initiatorPaid: boolean, receiverPaid: boolean
 export function TradeStatusClient({
   trade,
   feePaidBanner,
+  currentUserId,
+  threadId,
 }: {
   trade: TradePageData;
   feePaidBanner: boolean;
+  currentUserId: string;
+  threadId: string | null;
 }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const current = stepIndex(trade.status, trade.initiator_fee_paid, trade.receiver_fee_paid);
   const needsFee =
     ['receiver_accepted', 'fees_pending'].includes(trade.status) && !trade.viewer_fee_paid;
+  const canCancel =
+    ['receiver_accepted', 'fees_pending'].includes(trade.status) && !trade.viewer_fee_paid;
+  const waitingOnOther =
+    ['receiver_accepted', 'fees_pending'].includes(trade.status) &&
+    trade.viewer_fee_paid &&
+    !(trade.initiator_fee_paid && trade.receiver_fee_paid);
+  const otherPaidFee = trade.initiator_fee_paid || trade.receiver_fee_paid;
 
   const payFee = async () => {
     setActing(true);
@@ -78,6 +95,26 @@ export function TradeStatusClient({
     }
   };
 
+  const cancelTrade = async () => {
+    setActing(true);
+    try {
+      const res = await fetch(`/api/market/trade/${trade.id}/cancel`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      router.push('/market/offers');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setActing(false);
+      setShowCancelConfirm(false);
+    }
+  };
+
+  const expiryLabel =
+    trade.expires_at && new Date(trade.expires_at) > new Date()
+      ? formatDistanceToNow(new Date(trade.expires_at), { addSuffix: true })
+      : null;
+
   return (
     <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6 bg-background">
       <BackLink fallbackHref="/market/offers" label="Back" />
@@ -94,15 +131,29 @@ export function TradeStatusClient({
         </p>
       ) : null}
 
-      <div className="flex items-center gap-2">
-        <ListingMini card={trade.initiator_listing} />
-        <span className="text-2xl text-muted-foreground">⇄</span>
-        <ListingMini card={trade.receiver_listing} />
+      {trade.status === 'expired' || trade.status === 'cancelled' ? (
+        <p className="text-sm text-muted-foreground bg-muted border border-border rounded-lg p-3">
+          This trade is {trade.status}. Both pairs are active again in the market.
+        </p>
+      ) : null}
+
+      <div className="space-y-4">
+        <TradeOfferListingReviewCard
+          listing={trade.initiator_listing}
+          label={`${trade.initiator_name}'s pair`}
+        />
+        <div className="flex justify-center">
+          <span className="text-2xl text-muted-foreground">⇄</span>
+        </div>
+        <TradeOfferListingReviewCard
+          listing={trade.receiver_listing}
+          label={`${trade.receiver_name}'s pair`}
+        />
       </div>
 
       {trade.boot_amount_cents > 0 ? (
         <p className="text-sm text-muted-foreground">
-          {trade.initiator_name} adds ${(trade.boot_amount_cents / 100).toFixed(0)} cash
+          {trade.initiator_name} adds ${(trade.boot_amount_cents / 100).toFixed(0)} boot cash (settle off-platform)
         </p>
       ) : null}
 
@@ -151,20 +202,68 @@ export function TradeStatusClient({
           Pay $4.99 platform fee
         </Button>
       ) : null}
-    </div>
-  );
-}
 
-function ListingMini({ card }: { card: TradeListingCard }) {
-  return (
-    <div className="flex-1 rounded-xl border border-border bg-card p-2 text-center">
-      <div className="aspect-square rounded-lg overflow-hidden bg-muted mb-2">
-        {card.imageUrl ? (
-          <img src={card.imageUrl} alt="" className="w-full h-full object-cover" />
-        ) : null}
-      </div>
-      <p className="text-xs font-medium text-foreground truncate">{card.model || card.title}</p>
-      <p className="text-[10px] text-muted-foreground">Size {card.size}</p>
+      {waitingOnOther ? (
+        <p className="text-xs text-muted-foreground text-center">
+          Waiting on {trade.other_party_name}.
+          {expiryLabel
+            ? ` Trade auto-expires ${expiryLabel} if they don't pay.`
+            : ' Trade may auto-expire when the fee window closes.'}
+        </p>
+      ) : null}
+
+      {canCancel ? (
+        <button
+          type="button"
+          onClick={() => setShowCancelConfirm(true)}
+          className="w-full text-xs text-muted-foreground text-center py-2 hover:text-foreground transition-colors"
+        >
+          Cancel this trade
+        </button>
+      ) : null}
+
+      {threadId ? (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-muted-foreground">Coordinate shipping</h3>
+          <MessageThread
+            threadId={threadId}
+            currentUserId={currentUserId}
+            placeholder="Share your shipping address, tracking number…"
+            maxHeight="320px"
+            showSenderName
+          />
+        </div>
+      ) : null}
+
+      <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel this trade?</DialogTitle>
+            <DialogDescription>
+              Both listings will be reactivated. This can&apos;t be undone.
+              {otherPaidFee ? ' The party who already paid will be refunded.' : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              variant="destructive"
+              className="rounded-full"
+              disabled={acting}
+              onClick={() => void cancelTrade()}
+            >
+              Yes, cancel trade
+            </Button>
+            <Button
+              variant="ghost"
+              className="rounded-full"
+              disabled={acting}
+              onClick={() => setShowCancelConfirm(false)}
+            >
+              Keep trade
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

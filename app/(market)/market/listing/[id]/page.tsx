@@ -21,6 +21,7 @@ import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-
 import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
+import { ListingQaSection } from '@/components/market/listing-qa-section';
 import { cn } from '@/lib/utils';
 
 export default function ListingDetailPage() {
@@ -513,6 +514,12 @@ export default function ListingDetailPage() {
                 </p>
               </div>
             ) : null}
+
+            <ListingQaSection
+              listingId={id}
+              sellerId={data.seller.id}
+              currentUserId={(data.viewer as { id?: string } | undefined)?.id ?? null}
+            />
           </div>
         </div>
       </div>

@@ -3,6 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { MessageThread } from '@/components/guild/message-thread';
 import { cn } from '@/lib/utils';
 
 export type AdminMarketOrder = {
@@ -17,6 +24,7 @@ export type AdminMarketOrder = {
   status: string;
   created_at: string;
   seller_paid_at: string | null;
+  thread_id: string | null;
 };
 
 export type AdminMarketTrade = {
@@ -28,6 +36,7 @@ export type AdminMarketTrade = {
   initiator_fee_paid: boolean;
   receiver_fee_paid: boolean;
   created_at: string;
+  thread_id: string | null;
 };
 
 export type AdminMarketOffer = {
@@ -55,15 +64,18 @@ export function MarketAdminClient({
   offers,
   aiCosts,
   aiTotalCents,
+  adminUserId,
 }: {
   orders: AdminMarketOrder[];
   trades: AdminMarketTrade[];
   offers: AdminMarketOffer[];
   aiCosts: AdminAiCostRow[];
   aiTotalCents: number;
+  adminUserId: string;
 }) {
   const [tab, setTab] = useState<'orders' | 'trades' | 'offers' | 'ai'>('orders');
   const [acting, setActing] = useState<string | null>(null);
+  const [viewThreadId, setViewThreadId] = useState<string | null>(null);
 
   const markPaid = async (orderId: string) => {
     setActing(orderId);
@@ -73,6 +85,21 @@ export function MarketAdminClient({
         const d = await res.json();
         throw new Error(d.error || 'Failed');
       }
+      window.location.reload();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const cancelTrade = async (tradeId: string) => {
+    if (!window.confirm('Cancel this trade, refund any paid fee, and reactivate both listings?')) return;
+    setActing(tradeId);
+    try {
+      const res = await fetch(`/api/admin/market/trades/${tradeId}/cancel`, { method: 'POST' });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed');
       window.location.reload();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed');
@@ -121,6 +148,7 @@ export function MarketAdminClient({
                 <th className="p-2">Payout</th>
                 <th className="p-2">Status</th>
                 <th className="p-2">Payout</th>
+                <th className="p-2">Thread</th>
               </tr>
             </thead>
             <tbody>
@@ -145,6 +173,19 @@ export function MarketAdminClient({
                       '—'
                     )}
                   </td>
+                  <td className="p-2">
+                    {o.thread_id ? (
+                      <button
+                        type="button"
+                        className="text-xs text-accent hover:underline"
+                        onClick={() => setViewThreadId(o.thread_id)}
+                      >
+                        View thread
+                      </button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -164,6 +205,8 @@ export function MarketAdminClient({
                 <th className="p-2">Status</th>
                 <th className="p-2">Fees</th>
                 <th className="p-2">Created</th>
+                <th className="p-2">Actions</th>
+                <th className="p-2">Thread</th>
               </tr>
             </thead>
             <tbody>
@@ -178,6 +221,33 @@ export function MarketAdminClient({
                     {t.initiator_fee_paid ? 'I✓' : 'I✗'} / {t.receiver_fee_paid ? 'R✓' : 'R✗'}
                   </td>
                   <td className="p-2 text-xs">{new Date(t.created_at).toLocaleDateString()}</td>
+                  <td className="p-2">
+                    {t.status === 'receiver_accepted' || t.status === 'fees_pending' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={acting === t.id}
+                        onClick={() => cancelTrade(t.id)}
+                      >
+                        Cancel + refund
+                      </Button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="p-2">
+                    {t.thread_id ? (
+                      <button
+                        type="button"
+                        className="text-xs text-accent hover:underline"
+                        onClick={() => setViewThreadId(t.thread_id)}
+                      >
+                        View thread
+                      </button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -250,6 +320,23 @@ export function MarketAdminClient({
           </div>
         </div>
       ) : null}
+
+      <Dialog open={Boolean(viewThreadId)} onOpenChange={(open) => !open && setViewThreadId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Thread (read-only)</DialogTitle>
+          </DialogHeader>
+          {viewThreadId ? (
+            <MessageThread
+              threadId={viewThreadId}
+              currentUserId={adminUserId}
+              readOnly
+              maxHeight="360px"
+              showSenderName
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Link href="/admin" className="text-sm text-accent hover:underline">
         ← Back to admin

@@ -39,7 +39,7 @@ type ListingDb = {
 export async function fetchMyListings(
   supabase: SupabaseClient,
   userId: string
-): Promise<{ active: MyListingRow[]; collection: MyListingRow[]; soldTraded: MyListingRow[]; drafts: MyListingRow[] }> {
+): Promise<{ pairs: MyListingRow[]; soldTraded: MyListingRow[]; drafts: MyListingRow[] }> {
   const { data: rows } = await supabase
     .from('market_listings')
     .select(`
@@ -106,8 +106,7 @@ export async function fetchMyListings(
   });
 
   return {
-    active: mapped.filter((l) => l.status === 'active' && l.listing_type !== 'collection'),
-    collection: mapped.filter((l) => l.status === 'active' && l.listing_type === 'collection'),
+    pairs: mapped.filter((l) => l.status === 'active'),
     soldTraded: mapped.filter((l) => l.status === 'sold' || l.status === 'traded'),
     drafts: mapped.filter((l) => l.status === 'draft'),
   };

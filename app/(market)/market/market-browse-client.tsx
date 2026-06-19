@@ -8,10 +8,10 @@ import { Button } from '@/components/ui/button';
 import { MarketSubNav } from '@/components/market/market-sub-nav';
 import { MarketListingCard } from '@/components/market/listing-card';
 import { MarketFilters } from '@/components/market/market-filters';
-import { browseConditionBucket, type MarketBrowseListing } from '@/lib/market/browse-listings';
+import { matchesBrowseConditionFilter, type BrowseConditionFilter } from '@/lib/market/wear-state';
+import type { MarketBrowseListing } from '@/lib/market/browse-listings';
 
 type TypeFilter = 'all' | 'buy' | 'trade' | 'vault' | 'collectors';
-type ConditionFilter = 'all' | 'new' | 'like_new' | 'good' | 'fair';
 
 export function MarketBrowseClient({
   initialListings,
@@ -29,12 +29,22 @@ export function MarketBrowseClient({
   const brand = searchParams.get('brand') || 'all';
   const color = searchParams.get('color') || 'all';
   const size = searchParams.get('size') || '';
-  const condition = (searchParams.get('condition') || 'all') as ConditionFilter;
+  const rawCondition = searchParams.get('condition') || 'all';
+  const conditionMatch: BrowseConditionFilter | 'new' =
+    rawCondition === 'bnib' ||
+    rawCondition === 'new_no_box' ||
+    rawCondition === 'like_new' ||
+    rawCondition === 'good' ||
+    rawCondition === 'fair' ||
+    rawCondition === 'new'
+      ? rawCondition
+      : 'all';
+  const condition: BrowseConditionFilter = conditionMatch === 'new' ? 'all' : conditionMatch;
   const minPrice = searchParams.get('minPrice') || '';
   const maxPrice = searchParams.get('maxPrice') || '';
   const isCollectors = type === 'collectors';
   const hasActiveFilters =
-    brand !== 'all' || color !== 'all' || Boolean(size) || condition !== 'all' || Boolean(minPrice || maxPrice);
+    brand !== 'all' || color !== 'all' || Boolean(size) || conditionMatch !== 'all' || Boolean(minPrice || maxPrice);
 
   const setParam = useCallback(
     (key: string, value: string) => {
@@ -92,9 +102,8 @@ export function MarketBrowseClient({
       if (brand !== 'all' && l.brand !== brand) return false;
       if (color !== 'all' && l.browse_color !== color) return false;
       if (size && Number(l.size) !== Number(size)) return false;
-      if (condition !== 'all') {
-        const bucket = browseConditionBucket(l.condition, l.wear_state);
-        if (bucket !== condition) return false;
+      if (conditionMatch !== 'all' && !matchesBrowseConditionFilter(l.condition, l.wear_state, conditionMatch)) {
+        return false;
       }
       if (!isCollectors && (min != null || max != null)) {
         if (l.price_cents == null) return false;
@@ -103,7 +112,7 @@ export function MarketBrowseClient({
       }
       return true;
     });
-  }, [sourceListings, type, brand, color, size, condition, minPrice, maxPrice, isCollectors]);
+  }, [sourceListings, type, brand, color, size, conditionMatch, minPrice, maxPrice, isCollectors]);
 
   return (
     <div className="min-h-screen pb-24 bg-background">

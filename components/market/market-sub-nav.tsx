@@ -6,12 +6,18 @@ import { cn } from '@/lib/utils';
 
 const TABS = [
   { href: '/market', label: 'Browse', match: (p: string) => p === '/market' },
-  { href: '/market/my-listings', label: 'My listings', match: (p: string) => p.startsWith('/market/my-listings') },
+  { href: '/market/my-listings', label: 'My pairs', match: (p: string) => p.startsWith('/market/my-listings') },
   { href: '/market/offers', label: 'Offers', match: (p: string) => p.startsWith('/market/offers') },
   { href: '/market/orders', label: 'Orders', match: (p: string) => p.startsWith('/market/orders') },
 ] as const;
 
-export function MarketSubNav({ pendingOffers = 0 }: { pendingOffers?: number }) {
+export function MarketSubNav({
+  pendingOffers = 0,
+  messageUnread = 0,
+}: {
+  pendingOffers?: number;
+  messageUnread?: number;
+}) {
   const pathname = usePathname();
 
   return (
@@ -30,9 +36,9 @@ export function MarketSubNav({ pendingOffers = 0 }: { pendingOffers?: number }) 
             )}
           >
             {tab.label}
-            {tab.href === '/market/offers' && pendingOffers > 0 ? (
+            {tab.href === '/market/offers' && (pendingOffers > 0 || messageUnread > 0) ? (
               <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 rounded-full bg-accent text-accent-foreground text-[10px] font-bold px-1">
-                {pendingOffers}
+                {pendingOffers + messageUnread > 99 ? '99+' : pendingOffers + messageUnread}
               </span>
             ) : null}
           </Link>

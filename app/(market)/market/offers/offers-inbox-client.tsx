@@ -4,7 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
+import { MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { MarketSubNav } from '@/components/market/market-sub-nav';
+import { MessageThread } from '@/components/guild/message-thread';
+import { TradeOfferListingReviewCard } from '@/components/market/trade-offer-listing-review';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { SellerOfferGroup, SellerOfferRow } from '@/lib/market/seller-offers-data';
@@ -33,16 +36,19 @@ function statusChip(status: string): { label: string; className: string } {
 function OfferRowCard({
   offer,
   acting,
+  currentUserId,
   onAccept,
   onDecline,
 }: {
   offer: SellerOfferRow;
   acting: boolean;
+  currentUserId: string;
   onAccept?: () => void;
   onDecline?: () => void;
 }) {
   const chip = statusChip(offer.status);
   const typeLabel = offerTypeLabel(offer.offer_type);
+  const [threadOpen, setThreadOpen] = useState(false);
 
   return (
     <div className="bg-card rounded-xl p-3 space-y-3 border border-border">
@@ -56,27 +62,17 @@ function OfferRowCard({
         </span>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        {(offer.offer_type === 'cash' || offer.offer_type === 'cash_and_trade') && offer.amount_cents ? (
-          <p className="text-lg font-bold text-accent">${(offer.amount_cents / 100).toFixed(0)}</p>
-        ) : null}
-        {offer.trade_listing ? (
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted">
-              {offer.trade_listing.primary_image_url ? (
-                <img
-                  src={offer.trade_listing.primary_image_url}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              ) : null}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {offer.trade_listing.model || offer.trade_listing.title} · Size {offer.trade_listing.size}
-            </p>
-          </div>
-        ) : null}
-      </div>
+      {(offer.offer_type === 'cash' || offer.offer_type === 'cash_and_trade') && offer.amount_cents ? (
+        <p className="text-lg font-bold text-accent">${(offer.amount_cents / 100).toFixed(0)}</p>
+      ) : null}
+
+      {offer.trade_listing ? (
+        <TradeOfferListingReviewCard
+          listing={offer.trade_listing}
+          label="Offered in trade"
+          compact
+        />
+      ) : null}
 
       {offer.message ? (
         <p className="text-xs text-muted-foreground border-l-2 border-border pl-2">{offer.message}</p>
@@ -112,18 +108,49 @@ function OfferRowCard({
           </Button>
         </div>
       ) : null}
+
+      {offer.thread_id ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setThreadOpen((v) => !v)}
+            className="w-full text-[11px] text-muted-foreground flex items-center justify-center gap-1.5 py-2 border-t border-border"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            {threadOpen ? 'Hide messages' : 'Message buyer'}
+            {threadOpen ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+          </button>
+          {threadOpen ? (
+            <MessageThread
+              threadId={offer.thread_id}
+              currentUserId={currentUserId}
+              placeholder="Reply or negotiate…"
+              maxHeight="240px"
+              showSenderName
+            />
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }
 
 export function OffersInboxClient({
-  groups,
+  groups: initialGroups,
   filterListingId,
   pendingOffers,
+  currentUserId,
+  messageUnread = 0,
 }: {
   groups: SellerOfferGroup[];
   filterListingId: string | null;
   pendingOffers: number;
+  currentUserId: string;
+  messageUnread?: number;
 }) {
   const router = useRouter();
   const [acting, setActing] = useState<string | null>(null);
@@ -150,14 +177,14 @@ export function OffersInboxClient({
     }
   };
 
-  const allOffers = groups.flatMap((g) => g.offers);
+  const allOffers = initialGroups.flatMap((g) => g.offers);
   const hasOffers = allOffers.length > 0;
 
   return (
     <div className="min-h-screen pb-24 bg-background">
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
         <h1 className="text-2xl font-bold text-foreground">Offers</h1>
-        <MarketSubNav pendingOffers={pendingOffers} />
+        <MarketSubNav pendingOffers={pendingOffers} messageUnread={messageUnread} />
 
         {filterListingId ? (
           <Link
@@ -172,7 +199,7 @@ export function OffersInboxClient({
           <p className="text-sm text-muted-foreground py-8">No offers yet.</p>
         ) : (
           <div className="space-y-6 pb-4">
-            {groups.map((group) => (
+            {initialGroups.map((group) => (
               <section key={group.listing_id} className="space-y-3">
                 <div className="flex items-center gap-2">
                   {group.listing_image_url ? (
@@ -188,6 +215,7 @@ export function OffersInboxClient({
                       key={offer.id}
                       offer={offer}
                       acting={acting === offer.id}
+                      currentUserId={currentUserId}
                       onAccept={
                         offer.status === 'pending'
                           ? () => respond(offer.id, 'accept')

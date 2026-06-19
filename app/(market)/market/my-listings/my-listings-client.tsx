@@ -12,43 +12,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { MyListingRow } from '@/lib/market/my-listings-data';
+import { sellerListingStatusBadge } from '@/lib/market/listing-type-options';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
 
-function statusBadge(listing: MyListingRow): { label: string; className: string } {
-  if (listing.listing_type === 'collection' && listing.status === 'active') {
-    return { label: 'Collection', className: 'text-muted-foreground border-border' };
-  }
-  if (listing.listing_type === 'vault' && listing.status === 'active') {
-    return { label: 'Offers', className: 'text-accent border-accent/40' };
-  }
-  switch (listing.status) {
-    case 'active':
-      return { label: 'Active', className: 'text-emerald-400 border-emerald-500/40' };
-    case 'sold':
-    case 'traded':
-      return { label: listing.status === 'sold' ? 'Sold' : 'Traded', className: 'text-muted-foreground border-border' };
-    case 'draft':
-      return { label: 'Draft', className: 'text-amber-400 border-amber-500/40' };
-    default:
-      return { label: listing.status, className: 'text-muted-foreground border-border' };
-  }
-}
-
 function priceLabel(listing: MyListingRow): string {
-  if (listing.listing_type === 'collection') return 'Not for sale';
+  if (listing.listing_type === 'collection') return 'In your closet';
   if (listing.listing_type === 'vault') return 'Offers only';
   if (listing.listing_type === 'trade') return 'Trade only';
   if (listing.price_cents != null) return `$${(listing.price_cents / 100).toFixed(0)}`;
   return 'Make offer';
-}
-
-function showQuickListActions(listing: MyListingRow): boolean {
-  return (
-    listing.status === 'active' &&
-    (listing.listing_type === 'collection' ||
-      listing.listing_type === 'vault' ||
-      listing.listing_type === 'trade')
-  );
 }
 
 function ListingRow({
@@ -63,9 +35,9 @@ function ListingRow({
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [acting, setActing] = useState(false);
-  const badge = statusBadge(listing);
+  const badge = sellerListingStatusBadge(listing.listing_type, listing.status);
   const title = listing.model?.trim() || listing.title;
-  const quickActions = showQuickListActions(listing);
+  const showQuickActions = listing.status === 'active';
 
   const runAction = async (action: 'archive' | 'delete') => {
     setActing(true);
@@ -121,7 +93,7 @@ function ListingRow({
           </Link>
         ) : null}
 
-        {(listing.can_archive || listing.can_delete || quickActions) ? (
+        {(listing.can_archive || listing.can_delete || showQuickActions) ? (
           <div className="relative shrink-0">
             <button
               type="button"
@@ -173,7 +145,7 @@ function ListingRow({
         ) : null}
       </div>
 
-      {quickActions ? (
+      {showQuickActions ? (
         <ListingTypeQuickActions
           listingId={listing.id}
           currentType={listing.listing_type as MarketListingType}
@@ -188,11 +160,13 @@ function ListingRow({
 
 function Section({
   title,
+  description,
   listings,
   onDeleted,
   onListingUpdated,
 }: {
   title: string;
+  description?: string;
   listings: MyListingRow[];
   onDeleted: (id: string) => void;
   onListingUpdated: (id: string, patch: ListingTypePatch) => void;
@@ -200,7 +174,10 @@ function Section({
   if (!listings.length) return null;
   return (
     <section className="space-y-2">
-      <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
+      <div>
+        <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
+        {description ? <p className="text-xs text-muted-foreground mt-0.5">{description}</p> : null}
+      </div>
       <div className="space-y-2">
         {listings.map((l) => (
           <ListingRow
@@ -220,8 +197,7 @@ export function MyListingsClient({
   pendingOffers,
 }: {
   groups: {
-    active: MyListingRow[];
-    collection: MyListingRow[];
+    pairs: MyListingRow[];
     soldTraded: MyListingRow[];
     drafts: MyListingRow[];
   };
@@ -231,88 +207,66 @@ export function MyListingsClient({
 
   const removeListing = (id: string) => {
     setGroups((g) => ({
-      active: g.active.filter((l) => l.id !== id),
-      collection: g.collection.filter((l) => l.id !== id),
+      pairs: g.pairs.filter((l) => l.id !== id),
       soldTraded: g.soldTraded.filter((l) => l.id !== id),
       drafts: g.drafts.filter((l) => l.id !== id),
     }));
   };
 
-  const relocateListing = (id: string, patch: ListingTypePatch) => {
-    setGroups((g) => {
-      const all = [...g.active, ...g.collection, ...g.drafts];
-      const item = all.find((l) => l.id === id);
-      if (!item) return g;
-
-      const updated: MyListingRow = {
-        ...item,
-        listing_type: patch.listing_type,
-        price_cents: patch.price_cents,
-      };
-
-      const strip = (arr: MyListingRow[]) => arr.filter((l) => l.id !== id);
-      let active = strip(g.active);
-      let collection = strip(g.collection);
-
-      if (patch.listing_type === 'collection') {
-        collection = [updated, ...collection];
-      } else {
-        active = [updated, ...active];
-      }
-
-      return {
-        ...g,
-        active,
-        collection,
-        soldTraded: strip(g.soldTraded),
-        drafts: strip(g.drafts),
-      };
-    });
+  const updateListing = (id: string, patch: ListingTypePatch) => {
+    setGroups((g) => ({
+      ...g,
+      pairs: g.pairs.map((l) =>
+        l.id === id
+          ? {
+              ...l,
+              listing_type: patch.listing_type,
+              price_cents: patch.price_cents,
+            }
+          : l
+      ),
+    }));
   };
 
-  const total =
-    groups.active.length +
-    groups.collection.length +
-    groups.soldTraded.length +
-    groups.drafts.length;
+  const total = groups.pairs.length + groups.soldTraded.length + groups.drafts.length;
 
   return (
     <div className="min-h-screen pb-24 bg-background">
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-foreground">My listings</h1>
-          <Button asChild size="sm" className="bg-accent text-accent-foreground rounded-full">
-            <Link href="/market/listing/new">List a pair</Link>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">My pairs</h1>
+            <p className="text-xs text-muted-foreground mt-1">
+              Everything in your closet — list for sale without removing a pair.
+            </p>
+          </div>
+          <Button asChild size="sm" className="bg-accent text-accent-foreground rounded-full shrink-0">
+            <Link href="/market/listing/new">Add pair</Link>
           </Button>
         </div>
         <MarketSubNav pendingOffers={pendingOffers} />
         {total === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">No listings yet.</p>
+          <p className="text-sm text-muted-foreground py-8 text-center">No pairs yet.</p>
         ) : (
           <div className="space-y-6 pb-4">
             <Section
-              title="Active"
-              listings={groups.active}
+              title="In your closet"
+              description={`${groups.pairs.length} pair${groups.pairs.length !== 1 ? 's' : ''}`}
+              listings={groups.pairs}
               onDeleted={removeListing}
-              onListingUpdated={relocateListing}
+              onListingUpdated={updateListing}
             />
             <Section
-              title="Collection"
-              listings={groups.collection}
-              onDeleted={removeListing}
-              onListingUpdated={relocateListing}
-            />
-            <Section
-              title="Sold / traded"
+              title="Sold & traded"
               listings={groups.soldTraded}
               onDeleted={removeListing}
-              onListingUpdated={relocateListing}
+              onListingUpdated={updateListing}
             />
             <Section
               title="Drafts"
               listings={groups.drafts}
               onDeleted={removeListing}
-              onListingUpdated={relocateListing}
+              onListingUpdated={updateListing}
             />
           </div>
         )}

@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
+import { findThreadIdByContext } from '@/lib/guild-messaging';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
 import { OfferFormClient, type OfferListingSummary } from './offer-form-client';
@@ -44,7 +46,7 @@ export default async function ListingOfferPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ trade?: string }>;
+  searchParams: Promise<{ trade?: string; sent?: string }>;
 }) {
   const { id: listingId } = await params;
   const sp = await searchParams;
@@ -94,12 +96,42 @@ export default async function ListingOfferPage({
 
   const myListings = (myRows ?? []).map((row) => toSummary(row as ListingRow));
 
+  const admin = createAdminClient(tenant.slug);
+  const { data: pendingOffer } = await admin
+    .from('market_offers')
+    .select('id, offer_type, amount_cents, status, created_at')
+    .eq('listing_id', listingId)
+    .eq('buyer_id', user.id)
+    .in('status', ['pending', 'accepted'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const threadId = pendingOffer
+    ? await findThreadIdByContext(admin, 'offer', { offerId: pendingOffer.id as string })
+    : null;
+
+  const justSent = sp.sent === '1';
+
   return (
     <OfferFormClient
       listingId={listingId}
       listing={toSummary(listing as ListingRow)}
       myListings={myListings}
       defaultTrade={defaultTrade}
+      currentUserId={user.id}
+      justSent={justSent}
+      pendingOffer={
+        pendingOffer
+          ? {
+              id: pendingOffer.id as string,
+              offer_type: pendingOffer.offer_type as string,
+              amount_cents: pendingOffer.amount_cents as number | null,
+              status: pendingOffer.status as string,
+              thread_id: threadId,
+            }
+          : null
+      }
     />
   );
 }

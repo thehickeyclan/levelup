@@ -1,9 +1,15 @@
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
+import { findThreadIdByContext } from '@/lib/guild-messaging';
 import { formatSellerDisplayName } from '@/lib/market/seller';
-import { primaryListingImageUrl } from '@/lib/market/listing-images';
+import {
+  mapTradeListingReview,
+  TRADE_LISTING_REVIEW_SELECT,
+  type TradeOfferListingReview,
+} from '@/lib/market/trade-listing-review';
 import { TradeStatusClient } from './trade-status-client';
 
 export default async function TradePage({
@@ -32,7 +38,7 @@ export default async function TradePage({
     .from('market_trades')
     .select(`
       id, status, boot_amount_cents, initiator_id, receiver_id,
-      initiator_fee_paid, receiver_fee_paid,
+      initiator_fee_paid, receiver_fee_paid, expires_at,
       initiator_listing_id, receiver_listing_id
     `)
     .eq('id', id)
@@ -49,12 +55,12 @@ export default async function TradePage({
       supabase.from('users').select('first_name, last_name').eq('id', trade.receiver_id).maybeSingle(),
       supabase
         .from('market_listings')
-        .select('id, title, model, size, market_listing_images(public_url, clean_public_url, use_clean, display_order)')
+        .select(TRADE_LISTING_REVIEW_SELECT)
         .eq('id', trade.initiator_listing_id)
         .maybeSingle(),
       supabase
         .from('market_listings')
-        .select('id, title, model, size, market_listing_images(public_url, clean_public_url, use_clean, display_order)')
+        .select(TRADE_LISTING_REVIEW_SELECT)
         .eq('id', trade.receiver_listing_id)
         .maybeSingle(),
     ]);
@@ -65,9 +71,14 @@ export default async function TradePage({
   const otherId = isInitiator ? trade.receiver_id : trade.initiator_id;
   const otherUser = isInitiator ? receiverUser : initiatorUser;
 
+  const admin = createAdminClient(tenant.slug);
+  const threadId = await findThreadIdByContext(admin, 'trade', { tradeId: id });
+
   return (
     <TradeStatusClient
       feePaidBanner={feePaidBanner}
+      currentUserId={user.id}
+      threadId={threadId}
       trade={{
         id: trade.id as string,
         status: trade.status as string,
@@ -88,24 +99,9 @@ export default async function TradePage({
           otherUser?.first_name as string,
           otherUser?.last_name as string
         ),
-        initiator_listing: {
-          id: initiatorListing.id as string,
-          title: initiatorListing.title as string,
-          model: initiatorListing.model as string,
-          size: Number(initiatorListing.size),
-          imageUrl: primaryListingImageUrl(
-            initiatorListing.market_listing_images as { public_url: string; display_order: number }[] | null
-          ),
-        },
-        receiver_listing: {
-          id: receiverListing.id as string,
-          title: receiverListing.title as string,
-          model: receiverListing.model as string,
-          size: Number(receiverListing.size),
-          imageUrl: primaryListingImageUrl(
-            receiverListing.market_listing_images as { public_url: string; display_order: number }[] | null
-          ),
-        },
+        expires_at: (trade.expires_at as string | null) ?? null,
+        initiator_listing: mapTradeListingReview(initiatorListing as Parameters<typeof mapTradeListingReview>[0]),
+        receiver_listing: mapTradeListingReview(receiverListing as Parameters<typeof mapTradeListingReview>[0]),
       }}
     />
   );

@@ -10,6 +10,10 @@ import {
 } from '@/components/ui/dialog';
 import { BROWSE_BRANDS, BROWSE_US_SIZES } from '@/lib/market/browse-listings';
 import { BROWSE_COLOR_FAMILIES } from '@/lib/market/color-family';
+import {
+  BROWSE_CONDITION_OPTIONS,
+  type BrowseConditionFilter,
+} from '@/lib/market/wear-state';
 import { cn } from '@/lib/utils';
 
 const TYPE_OPTIONS = [
@@ -18,14 +22,6 @@ const TYPE_OPTIONS = [
   { id: 'trade', label: 'Trade' },
   { id: 'vault', label: 'Offers' },
   { id: 'collectors', label: 'Collection' },
-] as const;
-
-const CONDITION_OPTIONS = [
-  { id: 'all', label: 'All' },
-  { id: 'new', label: 'New' },
-  { id: 'like_new', label: 'Like new' },
-  { id: 'good', label: 'Good' },
-  { id: 'fair', label: 'Fair' },
 ] as const;
 
 const BRAND_OPTIONS = ['All', ...BROWSE_BRANDS, 'Other'] as const;
@@ -39,7 +35,6 @@ const PRICE_OPTIONS = [
 ] as const;
 
 type TypeFilter = (typeof TYPE_OPTIONS)[number]['id'];
-type ConditionFilter = (typeof CONDITION_OPTIONS)[number]['id'];
 
 function formatSizeLabel(size: string): string {
   const n = Number(size);
@@ -167,7 +162,7 @@ export type MarketFiltersProps = {
   brand: string;
   color: string;
   size: string;
-  condition: ConditionFilter;
+  condition: BrowseConditionFilter;
   minPrice: string;
   maxPrice: string;
   setParam: (key: string, value: string) => void;
@@ -208,7 +203,7 @@ export function MarketFilters({
     })),
   ];
 
-  const conditionOptions: FilterOption[] = CONDITION_OPTIONS.map((o) => ({
+  const conditionOptions: FilterOption[] = BROWSE_CONDITION_OPTIONS.map((o) => ({
     id: o.id,
     label: o.label,
   }));
@@ -229,7 +224,7 @@ export function MarketFilters({
   const sizeLabel = size ? `Size ${formatSizeLabel(size)}` : 'Size';
   const conditionLabel =
     condition !== 'all'
-      ? (CONDITION_OPTIONS.find((o) => o.id === condition)?.label ?? 'Condition')
+      ? (BROWSE_CONDITION_OPTIONS.find((o) => o.id === condition)?.label ?? 'Condition')
       : 'Condition';
   const priceLabel =
     activePrice && activePrice.id !== 'all' ? activePrice.label : '$ Price';
@@ -401,7 +396,7 @@ export function MarketFilters({
                 onClick={() => setParam('condition', 'all')}
                 className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] text-accent"
               >
-                {CONDITION_OPTIONS.find((o) => o.id === condition)?.label}
+                {BROWSE_CONDITION_OPTIONS.find((o) => o.id === condition)?.label}
                 <X className="h-2.5 w-2.5" />
               </button>
             ) : null}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { getMarketOrderForUser, orderRole } from '@/lib/market/order-access';
+import { findThreadIdByContext } from '@/lib/guild-messaging';
 import {
   formatShippingAddress,
   orderStatusLabel,
@@ -23,7 +24,8 @@ async function signedLabelUrl(admin: ReturnType<typeof createAdminClient>, stora
 function serializeOrder(
   order: Record<string, unknown>,
   role: 'buyer' | 'seller',
-  labelSignedUrl: string | null
+  labelSignedUrl: string | null,
+  threadId: string | null
 ) {
   const listing = order.market_listings as Record<string, unknown> | null;
   const images = (listing?.market_listing_images as Parameters<typeof primaryListingImageUrl>[0]) ?? [];
@@ -55,6 +57,8 @@ function serializeOrder(
     can_add_tracking: role === 'seller' && order.status === 'paid',
     can_mark_received: role === 'buyer' && order.status === 'shipped',
     can_review: role === 'buyer' && order.status === 'completed',
+    thread_id: threadId,
+    viewer_id: null as string | null,
   };
 }
 
@@ -76,8 +80,11 @@ export async function GET(
     admin,
     order.shipping_label_storage_path as string | null
   );
+  const threadId = await findThreadIdByContext(admin, 'order', { orderId: id });
+  const serialized = serializeOrder(order, role, labelSignedUrl, threadId);
+  serialized.viewer_id = user!.id;
 
-  return NextResponse.json({ order: serializeOrder(order, role, labelSignedUrl) });
+  return NextResponse.json({ order: serialized });
 }
 
 export async function PATCH(
@@ -92,6 +99,8 @@ export async function PATCH(
 
   const order = await getMarketOrderForUser(supabase, id, user!.id);
   if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+
+  const threadId = await findThreadIdByContext(admin, 'order', { orderId: id });
 
   const body = (await req.json().catch(() => ({}))) as {
     action?: string;
@@ -123,7 +132,9 @@ export async function PATCH(
 
     const updated = { ...order, status: 'shipped', tracking_number: tracking, shipped_at: now };
     const labelSignedUrl = await signedLabelUrl(admin, order.shipping_label_storage_path as string | null);
-    return NextResponse.json({ order: serializeOrder(updated, 'seller', labelSignedUrl) });
+    const serialized = serializeOrder(updated, 'seller', labelSignedUrl, threadId);
+    serialized.viewer_id = user!.id;
+    return NextResponse.json({ order: serialized });
   }
 
   if (body.status === 'completed' && role === 'buyer') {
@@ -146,7 +157,9 @@ export async function PATCH(
 
     const labelSignedUrl = await signedLabelUrl(admin, order.shipping_label_storage_path as string | null);
     const updated = { ...order, status: 'completed', delivered_at: now };
-    return NextResponse.json({ order: serializeOrder(updated, 'buyer', labelSignedUrl) });
+    const serialized = serializeOrder(updated, 'buyer', labelSignedUrl, threadId);
+    serialized.viewer_id = user!.id;
+    return NextResponse.json({ order: serialized });
   }
 
   if (body.action === 'received' && role === 'buyer') {
@@ -173,9 +186,9 @@ export async function PATCH(
       order.shipping_label_storage_path as string | null
     );
     const updated = { ...order, status: 'completed', delivered_at: now };
-    return NextResponse.json({
-      order: serializeOrder(updated, 'buyer', labelSignedUrl),
-    });
+    const serialized = serializeOrder(updated, 'buyer', labelSignedUrl, threadId);
+    serialized.viewer_id = user!.id;
+    return NextResponse.json({ order: serialized });
   }
 
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

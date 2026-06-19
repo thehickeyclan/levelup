@@ -195,17 +195,6 @@ export async function fetchMarketBrowseListings(
   });
 }
 
-/** Filter condition bucket for browse UI. */
-export function browseConditionBucket(
-  condition: string,
-  wearState: string | null | undefined
-): 'new' | 'like_new' | 'good' | 'fair' {
-  if (condition === 'new' || wearState === 'bnib' || wearState === 'new_no_box') return 'new';
-  if (condition === 'like_new' || condition === 'good' || condition === 'fair') {
-    return condition;
-  }
-  return 'good';
-}
 
 export const BROWSE_US_SIZES: number[] = (() => {
   const sizes: number[] = [];

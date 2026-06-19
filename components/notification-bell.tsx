@@ -178,11 +178,18 @@ export function NotificationBell({
                 </ul>
               )}
             </div>
-            <div className="border-t px-3 py-2 shrink-0">
+            <div className="border-t px-3 py-2 shrink-0 flex flex-col gap-1">
+              <Link
+                href="/guild-messages"
+                onClick={() => setOpen(false)}
+                className="text-sm text-accent hover:underline font-medium"
+              >
+                Guild messages
+              </Link>
               <Link
                 href="/notifications"
                 onClick={() => setOpen(false)}
-                className="text-sm text-accent hover:underline font-medium"
+                className="text-sm text-muted-foreground hover:text-foreground hover:underline"
               >
                 View all notifications
               </Link>

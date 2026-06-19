@@ -97,6 +97,25 @@ export default async function AdminMarketPage() {
     ])
   );
 
+  const orderIds = (orderRows ?? []).map((o) => o.id as string);
+  const tradeIds = (tradeRows ?? []).map((t) => t.id as string);
+
+  const [{ data: orderThreadRows }, { data: tradeThreadRows }] = await Promise.all([
+    orderIds.length
+      ? admin.from('guild_threads').select('id, order_id').eq('thread_type', 'order').in('order_id', orderIds)
+      : Promise.resolve({ data: [] as { id: string; order_id: string }[] }),
+    tradeIds.length
+      ? admin.from('guild_threads').select('id, trade_id').eq('thread_type', 'trade').in('trade_id', tradeIds)
+      : Promise.resolve({ data: [] as { id: string; trade_id: string }[] }),
+  ]);
+
+  const orderThreadMap = new Map(
+    (orderThreadRows ?? []).map((r) => [r.order_id as string, r.id as string])
+  );
+  const tradeThreadMap = new Map(
+    (tradeThreadRows ?? []).map((r) => [r.trade_id as string, r.id as string])
+  );
+
   const orders = (orderRows ?? []).map((o) => {
     const listing = o.market_listings as { title?: string; brand?: string; model?: string } | null;
     return {
@@ -111,6 +130,7 @@ export default async function AdminMarketPage() {
       status: o.status as string,
       created_at: o.created_at as string,
       seller_paid_at: o.seller_paid_at as string | null,
+      thread_id: orderThreadMap.get(o.id as string) ?? null,
     };
   });
 
@@ -123,6 +143,7 @@ export default async function AdminMarketPage() {
     initiator_fee_paid: t.initiator_fee_paid as boolean,
     receiver_fee_paid: t.receiver_fee_paid as boolean,
     created_at: t.created_at as string,
+    thread_id: tradeThreadMap.get(t.id as string) ?? null,
   }));
 
   const offers = (offerRows ?? []).map((o) => {
@@ -171,6 +192,7 @@ export default async function AdminMarketPage() {
         offers={offers}
         aiCosts={aiCosts}
         aiTotalCents={aiTotalCents}
+        adminUserId={user.id}
       />
     </div>
   );

@@ -1062,7 +1062,7 @@ export default function NewListingPage() {
             <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
               <p className="text-sm text-foreground/80">
                 This pair appears on your profile under Collection. Buyers can see it but can&apos;t make offers.
-                Move it to Offers anytime from My listings.
+                Move it to Offers anytime from My pairs.
               </p>
             </div>
           ) : null}

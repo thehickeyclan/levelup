@@ -4,6 +4,7 @@ import { requireMarketUser } from '@/lib/market/auth';
 import { createNotification } from '@/lib/notifications';
 import { notifyListingFollowers } from '@/lib/market/notify-listing-followers';
 import { marketOfferPostSchema } from '@/lib/market/offer-schemas';
+import { findOrCreateThread } from '@/lib/guild-messaging';
 import { normalizePhone, sendSms } from '@/lib/twilio';
 
 function buyerFirstName(firstName: string | null | undefined): string {
@@ -106,12 +107,18 @@ export async function POST(req: NextRequest) {
 
   const { data: listing } = await supabase
     .from('market_listings')
-    .select('id, seller_id, status, listing_type, title, brand, model, price_cents')
+    .select('id, seller_id, status, listing_type, title, brand, model, price_cents, locked_buyer_id')
     .eq('id', listingId)
     .single();
 
   if (!listing || listing.status !== 'active') {
     return NextResponse.json({ error: 'Listing not available' }, { status: 404 });
+  }
+  if (listing.locked_buyer_id) {
+    return NextResponse.json(
+      { error: 'This pair is tied up in a pending trade or checkout.' },
+      { status: 409 }
+    );
   }
   if (listing.seller_id === user!.id) {
     return NextResponse.json({ error: 'Cannot offer on your own listing' }, { status: 403 });
@@ -126,10 +133,15 @@ export async function POST(req: NextRequest) {
     }
     const { data: tradeListing } = await supabase
       .from('market_listings')
-      .select('id, seller_id, status')
+      .select('id, seller_id, status, locked_buyer_id')
       .eq('id', tradeListingId!)
       .maybeSingle();
-    if (!tradeListing || tradeListing.seller_id !== user!.id || tradeListing.status !== 'active') {
+    if (
+      !tradeListing ||
+      tradeListing.seller_id !== user!.id ||
+      tradeListing.status !== 'active' ||
+      tradeListing.locked_buyer_id
+    ) {
       return NextResponse.json({ error: 'Trade listing not available' }, { status: 403 });
     }
   }
@@ -171,6 +183,14 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await findOrCreateThread(admin, {
+    threadType: 'offer',
+    tenantSlug: tenant.slug,
+    participantIds: [user!.id, listing.seller_id as string],
+    listingId,
+    offerId: data.id as string,
+  });
 
   const [{ data: buyerRow }, { data: sellerRow }] = await Promise.all([
     admin.from('users').select('first_name').eq('id', user!.id).maybeSingle(),

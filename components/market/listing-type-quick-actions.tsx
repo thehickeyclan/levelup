@@ -104,22 +104,39 @@ export function ListingTypeQuickActions({
   const heading =
     title ??
     (currentType === 'collection'
-      ? 'Ready to sell or trade this pair?'
-      : 'Change how this pair is listed');
+      ? 'Ready to list this pair for sale?'
+      : currentType === 'sell'
+        ? 'Still in your closet — change how buyers see this pair'
+        : 'Change how this pair is listed');
 
   if (compact) {
     return (
-      <div className="space-y-2" onClick={(e) => e.preventDefault()}>
+      <div className="space-y-2 mt-2 pt-2 border-t border-border/60" onClick={(e) => e.preventDefault()}>
         <p className="text-xs text-muted-foreground">
-          Currently{' '}
-          <span className="text-foreground font-medium">{sellerListingTypeLabel(currentType)}</span>
-          {currentType === 'collection' ? ' — tap below to list for sale or offers' : ''}
+          {currentType === 'collection' ? (
+            <>
+              In your closet — tap <span className="text-foreground font-medium">For sale</span> or{' '}
+              <span className="text-foreground font-medium">Offers</span> when you&apos;re ready
+            </>
+          ) : (
+            <>
+              Listed as{' '}
+              <span className="text-foreground font-medium">{sellerListingTypeLabel(currentType)}</span>
+              {' — tap Showcase to pull back from the market'}
+            </>
+          )}
         </p>
         <div className="flex flex-wrap gap-1.5">
           {(['sell', 'vault', 'trade', 'collection'] as const).map((type) => {
             const opt = SELLER_LISTING_TYPE_OPTIONS.find((o) => o.value === type)!;
             const shortLabel =
-              type === 'collection' ? 'Showcase' : type === 'sell' ? 'For sale' : opt.label;
+              type === 'collection'
+                ? currentType === 'collection'
+                  ? 'Showcase'
+                  : 'Back to showcase'
+                : type === 'sell'
+                  ? 'For sale'
+                  : opt.label;
             const isCurrent = currentType === type;
             return (
               <button

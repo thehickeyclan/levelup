@@ -4,6 +4,7 @@ import { getStripeInstance, getWebhookSecret } from '@/lib/stripe/webhooks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, tenants } from '@/config/tenants';
 import { createNotification } from '@/lib/notifications';
+import { ensureSessionGuildThread } from '@/lib/guild-messaging';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { formatEST } from '@/lib/format-date';
 import { headers } from 'next/headers';
@@ -197,6 +198,7 @@ export async function POST(req: NextRequest) {
                   youthWrestlerId: ywid,
                 }).catch(() => {});
               }
+              void ensureSessionGuildThread(supabase, tenantSlug, sid, parentId, coachId);
             }
           } else {
             const wasAlreadyPaid = (existing as { paid?: boolean } | null)?.paid === true;
@@ -230,6 +232,7 @@ export async function POST(req: NextRequest) {
                   youthWrestlerId: ywid,
                 }).catch(() => {});
               }
+              void ensureSessionGuildThread(supabase, tenantSlug, sid, parentId, coachId);
             }
           }
         }
@@ -446,6 +449,7 @@ export async function POST(req: NextRequest) {
             youthWrestlerId,
           }).catch(() => {});
         }
+        void ensureSessionGuildThread(supabase, tenantSlug, sessionId, parentId, coachId);
         if (creditsUsed > 0) {
           const { applyCredits } = await import('@/lib/credits');
           await applyCredits({
@@ -598,6 +602,13 @@ export async function POST(req: NextRequest) {
                   youthWrestlerId: ywid,
                 }).catch(() => {});
               }
+              void ensureSessionGuildThread(
+                supabase,
+                tenantSlug,
+                sessionId,
+                parentIdBooking,
+                coachId
+              );
             }
           } else {
             const wasPaid = (existing as { paid?: boolean }).paid === true;
@@ -638,6 +649,13 @@ export async function POST(req: NextRequest) {
                   youthWrestlerId: ywid,
                 }).catch(() => {});
               }
+              void ensureSessionGuildThread(
+                supabase,
+                tenantSlug,
+                sessionId,
+                parentIdBooking,
+                coachId
+              );
             }
           }
         }

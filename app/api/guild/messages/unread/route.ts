@@ -1,0 +1,23 @@
+import { NextResponse } from 'next/server';
+import { headers } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getTenantByDomain } from '@/config/tenants';
+import { getUnreadCount } from '@/lib/guild-messaging';
+
+export async function GET() {
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  const tenant = getTenantByDomain(host);
+  if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+
+  const supabase = await createClient(tenant.slug);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const admin = createAdminClient(tenant.slug);
+  const count = await getUnreadCount(admin, user.id);
+  return NextResponse.json({ count });
+}

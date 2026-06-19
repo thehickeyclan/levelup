@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { BackLink } from '@/components/back-link';
+import { MessageThread } from '@/components/guild/message-thread';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +29,8 @@ type OrderDetail = {
   can_add_tracking: boolean;
   can_mark_received: boolean;
   can_review: boolean;
+  thread_id: string | null;
+  viewer_id: string | null;
   shipped_at: string | null;
 };
 
@@ -264,6 +267,19 @@ export default function MarketOrderDetailPage() {
         <Button asChild variant="outline" className="w-full">
           <Link href={`/market/orders/${orderId}/review`}>Rate seller</Link>
         </Button>
+      ) : null}
+
+      {order.thread_id && order.viewer_id ? (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-muted-foreground">Coordinate shipping</h3>
+          <MessageThread
+            threadId={order.thread_id}
+            currentUserId={order.viewer_id}
+            placeholder="Share your shipping address, tracking number…"
+            maxHeight="320px"
+            showSenderName
+          />
+        </div>
       ) : null}
 
       <Link href={`/market/listing/${order.listing_id}`} className="text-sm text-accent hover:underline block">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
+import { normalizeMarketBrand } from '@/lib/market/brands';
 import { cn } from '@/lib/utils';
 
 export type ShoeIdAcceptPayload = {
@@ -19,13 +20,20 @@ export function ShoeIdCard({
   externalResult = null,
   externalLoading = false,
   autoApplied = false,
+  userLocked = false,
+  formBrand = '',
+  formModel = '',
 }: {
   listingId: string;
   images: { public_url: string }[];
-  onAccept: (payload: ShoeIdAcceptPayload) => void;
+  onAccept: (payload: ShoeIdAcceptPayload, opts?: { colorwayOnly?: boolean }) => void;
   externalResult?: ShoeIdResult | null;
   externalLoading?: boolean;
   autoApplied?: boolean;
+  /** User set brand/model manually — AI must not overwrite identity fields. */
+  userLocked?: boolean;
+  formBrand?: string;
+  formModel?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,12 +43,23 @@ export function ShoeIdCard({
   const result = externalResult ?? localResult;
   const busy = loading || externalLoading;
 
+  const aiBrand = result ? normalizeMarketBrand(result.brand) : '';
+  const yourBrand = formBrand ? normalizeMarketBrand(formBrand) : '';
+  const aiModel = result?.model?.trim() ?? '';
+  const yourModel = formModel.trim();
+  const identityMismatch =
+    userLocked &&
+    result &&
+    ((yourBrand && aiBrand && yourBrand !== aiBrand) ||
+      (yourModel && aiModel && yourModel.toLowerCase() !== aiModel.toLowerCase()));
+
   useEffect(() => {
     if (externalResult) setExpanded(true);
   }, [externalResult]);
 
-  const identify = async () => {
+  const identify = async (opts?: { respectUserLock?: boolean }) => {
     if (!images.length) return;
+    const colorwayOnly = opts?.respectUserLock ?? userLocked;
     setLoading(true);
     setError(null);
     try {
@@ -50,17 +69,30 @@ export function ShoeIdCard({
         body: JSON.stringify({
           listingId,
           images: images.map((i) => i.public_url),
+          brandHint: formBrand.trim() || undefined,
+          modelHint: formModel.trim() || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Identification failed');
       setLocalResult(data.result);
       setExpanded(true);
-      onAccept({
-        brand: data.result.brand,
-        model: data.result.model,
-        colorway: data.result.colorway,
-      });
+      if (!colorwayOnly && data.autoApplyRecommended !== false) {
+        onAccept({
+          brand: data.result.brand,
+          model: data.result.model,
+          colorway: data.result.colorway,
+        });
+      } else if (colorwayOnly) {
+        onAccept(
+          {
+            brand: formBrand || data.result.brand,
+            model: formModel || data.result.model,
+            colorway: data.result.colorway,
+          },
+          { colorwayOnly: true }
+        );
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Identification failed');
     } finally {
@@ -72,14 +104,25 @@ export function ShoeIdCard({
 
   const headerLabel = busy
     ? 'Identifying shoe from photos…'
-    : result
-      ? autoApplied
-        ? 'Shoe identified — fields filled'
-        : 'Shoe identified'
-      : 'Identify this shoe';
+    : userLocked
+      ? identityMismatch
+        ? 'You overrode AI — using your brand/model'
+        : 'Using your brand/model'
+      : result
+        ? autoApplied
+          ? 'Shoe identified — fields filled'
+          : 'Shoe identified'
+        : 'Identify this shoe';
 
   return (
-    <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
+    <div
+      className={cn(
+        'rounded-xl border overflow-hidden',
+        userLocked && identityMismatch
+          ? 'border-amber-500/40 bg-amber-500/5'
+          : 'border-border bg-card/50'
+      )}
+    >
       <button
         type="button"
         onClick={() => {
@@ -101,6 +144,15 @@ export function ShoeIdCard({
       {error ? <p className="px-4 pb-3 text-xs text-destructive">{error}</p> : null}
       {expanded && result ? (
         <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+          {identityMismatch ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              AI guessed {result.brand} {result.model}. Your listing uses{' '}
+              <span className="font-medium">
+                {formBrand || '—'} {formModel || ''}
+              </span>{' '}
+              — your pick wins.
+            </p>
+          ) : null}
           {images.length < 3 ? (
             <p className="text-[10px] text-muted-foreground">
               Tip: add top, sole, and side photos for better IDs — using {images.length}{' '}
@@ -112,10 +164,22 @@ export function ShoeIdCard({
             </p>
           )}
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-            <dt className="text-muted-foreground">Brand</dt>
-            <dd className="text-foreground font-medium">{result.brand}</dd>
-            <dt className="text-muted-foreground">Model</dt>
-            <dd className="text-foreground font-medium">{result.model}</dd>
+            <dt className="text-muted-foreground">AI brand</dt>
+            <dd className={cn('font-medium', identityMismatch && 'line-through text-muted-foreground')}>
+              {result.brand}
+            </dd>
+            <dt className="text-muted-foreground">AI model</dt>
+            <dd className={cn('font-medium', identityMismatch && 'line-through text-muted-foreground')}>
+              {result.model}
+            </dd>
+            {userLocked && formBrand ? (
+              <>
+                <dt className="text-muted-foreground">Your brand</dt>
+                <dd className="text-foreground font-medium">{formBrand}</dd>
+                <dt className="text-muted-foreground">Your model</dt>
+                <dd className="text-foreground font-medium">{formModel || '—'}</dd>
+              </>
+            ) : null}
             <dt className="text-muted-foreground">Colorway</dt>
             <dd className="text-foreground font-medium">{result.colorway || '—'}</dd>
             <dt className="text-muted-foreground">Era</dt>
@@ -130,7 +194,18 @@ export function ShoeIdCard({
             <dt className="text-muted-foreground">Confidence</dt>
             <dd className="text-muted-foreground">{Math.round(result.confidence * 100)}%</dd>
           </dl>
-          {autoApplied ? (
+          {userLocked ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => void identify({ respectUserLock: true })}
+              disabled={busy}
+            >
+              Re-run AI for colorway only
+            </Button>
+          ) : autoApplied ? (
             <Button
               type="button"
               size="sm"

@@ -8,6 +8,13 @@ import { buildShoeIdVisionContent } from '@/lib/market/shoe-id/images';
 import { SHOE_ID_SYSTEM_PROMPT, shoeIdUserMessage } from '@/lib/market/shoe-id/prompts';
 import { ShoeIdResultSchema } from '@/lib/market/shoe-id/schemas';
 import { shoeIdServerEnabled } from '@/lib/market/shoe-id/feature-flag';
+import { normalizeMarketBrand } from '@/lib/market/brands';
+import {
+  dominantSellerBrand,
+  dominantSellerListing,
+  fetchSellerShoeHints,
+  formatSellerShoeHintsForPrompt,
+} from '@/lib/market/seller-shoe-hints';
 
 export async function POST(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -23,6 +30,7 @@ export async function POST(req: NextRequest) {
     images?: string[];
     listingId?: string;
     brandHint?: string;
+    modelHint?: string;
   };
 
   const images = (body.images ?? []).filter((u) => typeof u === 'string' && u.startsWith('http'));
@@ -54,19 +62,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const catalogContext = await getCatalogContext(supabase, body.brandHint);
-  const catalogEntries = await fetchCatalogEntries(supabase, body.brandHint);
+  const sellerHints = await fetchSellerShoeHints(supabase, user!.id);
+  const sellerContext = formatSellerShoeHintsForPrompt(sellerHints);
+  const dominantListing = dominantSellerListing(sellerHints);
+  const brandHint =
+    body.brandHint?.trim() ||
+    dominantSellerBrand(sellerHints) ||
+    undefined;
+  const modelHint =
+    body.modelHint?.trim() ||
+    (dominantListing && brandHint &&
+    dominantListing.brand.toLowerCase() === brandHint.toLowerCase()
+      ? dominantListing.model
+      : undefined);
+
+  const catalogContext = await getCatalogContext(supabase, brandHint);
+  const catalogEntries = await fetchCatalogEntries(supabase, brandHint);
   const { blocks, queryImageCount, referenceImageCount } = await buildShoeIdVisionContent(
     images,
     catalogEntries,
-    { brandHint: body.brandHint }
+    { brandHint, modelHint }
   );
   if (!queryImageCount) {
     return NextResponse.json({ error: 'Could not load photos for analysis.' }, { status: 400 });
   }
 
   const claude = await callClaude(
-    SHOE_ID_SYSTEM_PROMPT(catalogContext),
+    SHOE_ID_SYSTEM_PROMPT(catalogContext + sellerContext),
     [...blocks, { type: 'text', text: shoeIdUserMessage(queryImageCount, referenceImageCount) }],
     2048
   );
@@ -133,5 +155,11 @@ export async function POST(req: NextRequest) {
     resultId: resultRow?.id ?? null,
     catalogMatchId,
     remaining: usage.remaining,
+    sellerDominantBrand: brandHint ?? null,
+    sellerDominantListing: dominantListing,
+    autoApplyRecommended:
+      !brandHint ||
+      normalizeMarketBrand(parsed.brand) === normalizeMarketBrand(brandHint) ||
+      parsed.confidence >= 0.85,
   });
 }

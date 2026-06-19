@@ -9,6 +9,25 @@ import {
   notifyListingFollowers,
 } from '@/lib/market/notify-listing-followers';
 import { MARKET_LISTING_IMAGE_FIELDS_WITH_ID } from '@/lib/market/listing-images';
+import { isMissingColumnError, withoutColorFamily } from '@/lib/market/listing-column-fallback';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+async function applyListingUpdate(
+  supabase: SupabaseClient,
+  id: string,
+  updates: Record<string, unknown>
+) {
+  let result = await supabase.from('market_listings').update(updates).eq('id', id).select().single();
+  if (result.error && isMissingColumnError(result.error.message, 'color_family') && 'color_family' in updates) {
+    result = await supabase
+      .from('market_listings')
+      .update(withoutColorFamily(updates))
+      .eq('id', id)
+      .select()
+      .single();
+  }
+  return result;
+}
 
 export async function GET(
   _req: NextRequest,
@@ -137,12 +156,7 @@ export async function PATCH(
     }
   }
 
-  const { data, error } = await supabase
-    .from('market_listings')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
+  const { data, error } = await applyListingUpdate(supabase, id, updates);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

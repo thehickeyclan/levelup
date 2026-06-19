@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
+import { isMissingColumnError, withoutColorFamily } from '@/lib/market/listing-column-fallback';
 
 export async function GET(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -117,10 +118,17 @@ export async function POST(req: NextRequest) {
 
   row.brand = normalizeMarketBrand(row.brand);
 
-  const { data, error } = await supabase.from('market_listings').insert(row).select('id').single();
-  if (error) {
+  let { data, error } = await supabase.from('market_listings').insert(row).select('id').single();
+  if (error && isMissingColumnError(error.message, 'color_family')) {
+    ({ data, error } = await supabase
+      .from('market_listings')
+      .insert(withoutColorFamily(row))
+      .select('id')
+      .single());
+  }
+  if (error || !data) {
     console.error('market listings POST:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error?.message ?? 'Insert failed' }, { status: 500 });
   }
 
   return NextResponse.json({ listingId: data.id });

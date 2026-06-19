@@ -30,11 +30,18 @@ function brandMatchesHint(entryBrand: string, brandHint: string): boolean {
   return brand.includes(hint) || hint.includes(brand);
 }
 
+function modelMatchesHint(entryModel: string, modelHint: string): boolean {
+  const model = entryModel.trim().toLowerCase();
+  const hint = modelHint.trim().toLowerCase();
+  if (!model || !hint) return false;
+  return model.includes(hint) || hint.includes(model);
+}
+
 /** Build vision blocks: listing photos to ID, then labeled catalog reference photos. */
 export function buildShoeIdVisionContent(
   queryUrls: string[],
   catalogEntries: CatalogEntryRow[],
-  options?: { brandHint?: string }
+  options?: { brandHint?: string; modelHint?: string }
 ): { blocks: ClaudeMessageContent[]; queryImageCount: number; referenceImageCount: number } {
   const blocks: ClaudeMessageContent[] = [];
   const queryBlocks = imagesFromPublicUrls(queryUrls, MAX_QUERY_IMAGES);
@@ -48,10 +55,16 @@ export function buildShoeIdVisionContent(
 
   let entriesWithRefs = catalogEntries.filter((e) => e.reference_image_urls?.length);
   const brandHint = options?.brandHint?.trim();
+  const modelHint = options?.modelHint?.trim();
   if (brandHint) {
-    const matching = entriesWithRefs.filter((e) => brandMatchesHint(e.brand, brandHint));
-    const other = entriesWithRefs.filter((e) => !brandMatchesHint(e.brand, brandHint));
-    entriesWithRefs = [...matching, ...other];
+    const brandMatch = entriesWithRefs.filter((e) => brandMatchesHint(e.brand, brandHint));
+    const brandOther = entriesWithRefs.filter((e) => !brandMatchesHint(e.brand, brandHint));
+    entriesWithRefs = [...brandMatch, ...brandOther];
+  }
+  if (modelHint) {
+    const modelMatch = entriesWithRefs.filter((e) => modelMatchesHint(e.model, modelHint));
+    const modelOther = entriesWithRefs.filter((e) => !modelMatchesHint(e.model, modelHint));
+    entriesWithRefs = [...modelMatch, ...modelOther];
   }
 
   let referenceImageCount = 0;

@@ -82,6 +82,7 @@ export default function NewListingPage() {
   const [identifyingShoe, setIdentifyingShoe] = useState(false);
   const [shoeIdResult, setShoeIdResult] = useState<ShoeIdResult | null>(null);
   const [shoeIdAutoApplied, setShoeIdAutoApplied] = useState(false);
+  const [shoeIdUserOverride, setShoeIdUserOverride] = useState(false);
   const [pricing, setPricing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -98,7 +99,8 @@ export default function NewListingPage() {
 
   const lastAutoKey = useRef<string | null>(null);
   const pipelineRunning = useRef(false);
-  const userEditedModel = useRef(false);
+  /** User manually set brand/model — AI must not overwrite those fields. */
+  const shoeIdUserLocked = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -118,6 +120,33 @@ export default function NewListingPage() {
     description: '',
   });
 
+  const sellerPrefillDone = useRef(false);
+
+  useEffect(() => {
+    if (sellerPrefillDone.current) return;
+    sellerPrefillDone.current = true;
+    void (async () => {
+      try {
+        const res = await fetch('/api/market/seller-shoe-hints');
+        const data = await res.json();
+        if (!res.ok || !data.dominantListing) return;
+        const d = data.dominantListing as {
+          brand: string;
+          model: string;
+          model_year: number | null;
+        };
+        setForm((f) => ({
+          ...f,
+          brand: normalizeMarketBrand(d.brand),
+          model: f.model.trim() ? f.model : d.model,
+          model_year: f.model_year || (d.model_year ? String(d.model_year) : ''),
+        }));
+      } catch {
+        // Non-fatal — seller can set brand manually
+      }
+    })();
+  }, []);
+
   const isUsed = form.wear_state === 'used';
   const isPricedListing = form.listing_type === 'sell';
   const isCollection = form.listing_type === 'collection';
@@ -129,14 +158,29 @@ export default function NewListingPage() {
 
   const imageKey = images.map((i) => i.id).join(',');
 
-  const applyShoeIdPayload = useCallback((payload: ShoeIdAcceptPayload): Partial<typeof form> => {
-    const cw = payload.colorway?.trim() || '';
-    return {
-      brand: normalizeMarketBrand(payload.brand),
-      model: payload.model?.trim() || '',
-      colorway: cw,
-      color_family: inferColorFamilyFromColorway(cw) || '',
-    };
+  const applyShoeIdPayload = useCallback(
+    (payload: ShoeIdAcceptPayload, opts?: { colorwayOnly?: boolean }): Partial<typeof form> => {
+      const cw = payload.colorway?.trim() || '';
+      if (opts?.colorwayOnly || shoeIdUserLocked.current) {
+        return {
+          colorway: cw,
+          color_family: inferColorFamilyFromColorway(cw) || '',
+        };
+      }
+      return {
+        brand: normalizeMarketBrand(payload.brand),
+        model: payload.model?.trim() || '',
+        colorway: cw,
+        color_family: inferColorFamilyFromColorway(cw) || '',
+      };
+    },
+    []
+  );
+
+  const lockShoeIdentity = useCallback(() => {
+    shoeIdUserLocked.current = true;
+    setShoeIdUserOverride(true);
+    setShoeIdAutoApplied(false);
   }, []);
 
   const setListingType = (listingType: MarketListingType) => {
@@ -402,7 +446,7 @@ export default function NewListingPage() {
     try {
       const id = await ensureDraft();
 
-      if (shoeIdClientEnabled() && images.length > 0 && !userEditedModel.current) {
+      if (shoeIdClientEnabled() && images.length > 0) {
         setIdentifyingShoe(true);
         try {
           const res = await fetch('/api/market/shoe-id', {
@@ -411,19 +455,66 @@ export default function NewListingPage() {
             body: JSON.stringify({
               listingId: id,
               images: images.map((i) => i.public_url),
+              brandHint: form.brand.trim() || undefined,
+              modelHint: form.model.trim() || undefined,
             }),
           });
           const data = await res.json();
           if (res.ok && data.result) {
-            const shoeOverrides = applyShoeIdPayload({
-              brand: data.result.brand,
-              model: data.result.model,
-              colorway: data.result.colorway,
+            const locked = shoeIdUserLocked.current;
+            const dominant = data.sellerDominantListing as
+              | { brand: string; model: string; model_year: number | null }
+              | null
+              | undefined;
+            const useSellerIdentity =
+              !locked &&
+              data.autoApplyRecommended === false &&
+              dominant?.brand &&
+              dominant?.model;
+            const shoePayload = locked
+              ? {
+                  brand: form.brand,
+                  model: form.model,
+                  colorway: data.result.colorway,
+                }
+              : useSellerIdentity
+                ? {
+                    brand: dominant.brand,
+                    model: dominant.model,
+                    colorway: data.result.colorway,
+                  }
+                : {
+                    brand: data.result.brand,
+                    model: data.result.model,
+                    colorway: data.result.colorway,
+                  };
+            const shoeOverrides = applyShoeIdPayload(shoePayload, {
+              colorwayOnly: locked,
             });
-            overrides = { ...overrides, ...shoeOverrides };
+            if (!locked && useSellerIdentity && dominant.model_year) {
+              shoeOverrides.model_year = String(dominant.model_year);
+            }
             setShoeIdResult(data.result as ShoeIdResult);
-            setShoeIdAutoApplied(true);
-            setForm((f) => ({ ...f, ...shoeOverrides }));
+            if (locked) {
+              overrides = { ...overrides, ...shoeOverrides };
+              setForm((f) => ({ ...f, ...shoeOverrides }));
+              setUploadError(null);
+            } else if (data.autoApplyRecommended !== false || useSellerIdentity) {
+              overrides = { ...overrides, ...shoeOverrides };
+              setShoeIdAutoApplied(true);
+              setForm((f) => ({ ...f, ...shoeOverrides }));
+              if (useSellerIdentity) {
+                setUploadError(
+                  `Kept ${dominant.brand} ${dominant.model} from your past listings — only colorway came from AI.`
+                );
+              } else {
+                setUploadError(null);
+              }
+            } else {
+              setUploadError(
+                `AI guessed ${data.result.brand} but your listings are usually ${data.sellerDominantBrand ?? 'a different brand'} — pick brand from the dropdown.`
+              );
+            }
           }
         } catch {
           // Non-fatal — condition analysis can still run
@@ -586,6 +677,59 @@ export default function NewListingPage() {
         </div>
       </div>
 
+      <div className="grid gap-4">
+        <div>
+          <Label>Brand</Label>
+          <select
+            className={cn(
+              'w-full mt-1 rounded-md border bg-background px-3 py-2',
+              shoeIdUserOverride ? 'border-amber-500/50' : 'border-input'
+            )}
+            value={form.brand}
+            onChange={(e) => {
+              lockShoeIdentity();
+              setForm({ ...form, brand: e.target.value });
+            }}
+          >
+            {MARKET_BRANDS.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+          {shoeIdUserOverride ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+              Your brand wins over AI — change model if needed.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-1">
+              Set before photos if you already know the shoe — AI won&apos;t overwrite your brand or model.
+            </p>
+          )}
+        </div>
+        <div>
+          <Label>Model</Label>
+          <Input
+            value={form.model}
+            onChange={(e) => {
+              lockShoeIdentity();
+              setForm({ ...form, model: e.target.value });
+            }}
+            onBlur={() => {
+              if (
+                !descriptionTouched &&
+                !form.description.trim() &&
+                form.model.trim() &&
+                aiCondition
+              ) {
+                void generateDescription({ silent: true });
+              }
+            }}
+            placeholder="JB Elite III"
+          />
+        </div>
+      </div>
+
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <Label>Photos (JPEG, PNG, WebP)</Label>
@@ -667,10 +811,15 @@ export default function NewListingPage() {
             externalResult={shoeIdResult}
             externalLoading={identifyingShoe}
             autoApplied={shoeIdAutoApplied}
-            onAccept={(payload) => {
-              const shoeOverrides = applyShoeIdPayload(payload);
+            userLocked={shoeIdUserOverride}
+            formBrand={form.brand}
+            formModel={form.model}
+            onAccept={(payload, opts) => {
+              const shoeOverrides = applyShoeIdPayload(payload, opts);
               setForm((f) => ({ ...f, ...shoeOverrides }));
-              setShoeIdAutoApplied(true);
+              if (!opts?.colorwayOnly) {
+                setShoeIdAutoApplied(true);
+              }
               if (form.listing_type !== 'collection') {
                 void runPrice(shoeOverrides);
               }
@@ -788,41 +937,6 @@ export default function NewListingPage() {
       </div>
 
       <div className="grid gap-4">
-        <div>
-          <Label>Brand</Label>
-          <select
-            className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
-            value={form.brand}
-            onChange={(e) => setForm({ ...form, brand: e.target.value })}
-          >
-            {MARKET_BRANDS.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label>Model</Label>
-          <Input
-            value={form.model}
-            onChange={(e) => {
-              userEditedModel.current = true;
-              setForm({ ...form, model: e.target.value });
-            }}
-            onBlur={() => {
-              if (
-                !descriptionTouched &&
-                !form.description.trim() &&
-                form.model.trim() &&
-                aiCondition
-              ) {
-                void generateDescription({ silent: true });
-              }
-            }}
-            placeholder="JB Elite III"
-          />
-        </div>
         <div>
           <Label>Colorway (optional)</Label>
           <Input

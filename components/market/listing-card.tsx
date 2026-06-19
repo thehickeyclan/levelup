@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Eye, Flame, Sparkles } from 'lucide-react';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import type { MarketBrowseListing } from '@/lib/market/browse-listings';
+import { formatListingColorLabel } from '@/lib/market/color-family';
 import { cn } from '@/lib/utils';
 
 function typeBadge(listing: MarketBrowseListing): {
@@ -60,6 +61,7 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
   const displayTitle = listing.model?.trim() || listing.title;
   const wearState = (listing.wear_state as 'bnib' | 'new_no_box' | 'used' | null) || 'used';
   const conditionLabel = listingConditionDisplay(wearState, listing.condition);
+  const colorLabel = formatListingColorLabel(listing.color_family, listing.colorway);
   const offerCount = listing.pending_offer_count;
   const showOfferCount = offerCount > 0 && listing.listing_type !== 'collection';
   const hotOffers = offerCount >= 2 && listing.listing_type !== 'collection';
@@ -122,6 +124,11 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
           <span className="text-[9px] text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
             {conditionLabel}
           </span>
+          {colorLabel ? (
+            <span className="text-[9px] text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
+              {colorLabel}
+            </span>
+          ) : null}
         </div>
         <div className="mt-auto pt-1 space-y-1">
           <div className="flex items-center justify-between gap-2">

@@ -38,7 +38,7 @@ export function Footer() {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
-                  href="/browse"
+                  href="/training?tab=coaches"
                   className="block py-2.5 text-white/80 hover:text-accent transition-colors min-h-[44px] flex items-center"
                 >
                   Browse Coaches

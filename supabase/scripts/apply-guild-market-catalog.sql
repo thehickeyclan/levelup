@@ -262,6 +262,12 @@ ALTER TABLE public.market_listings
 
 COMMENT ON COLUMN public.market_listings.colorway IS 'Specific colorway name (e.g. Cherry) for catalog-matched pricing.';
 
+-- 20260718230000 market_listings.color_family
+ALTER TABLE public.market_listings
+  ADD COLUMN IF NOT EXISTS color_family text;
+
+COMMENT ON COLUMN public.market_listings.color_family IS 'Generic browse color (blue, red, black, …). Colorway stays the specific release name.';
+
 -- 20260718210000 seller delete policy
 DROP POLICY IF EXISTS market_listings_delete ON public.market_listings;
 CREATE POLICY market_listings_delete ON public.market_listings

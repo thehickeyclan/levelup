@@ -27,7 +27,7 @@ export function StickyMobileBar() {
       aria-label="Quick actions"
     >
       <Button variant="premium" asChild className="h-full flex-1 rounded-none">
-        <Link href="/browse">Browse Coaches</Link>
+        <Link href="/training?tab=coaches">Browse Coaches</Link>
       </Button>
       <Button
         variant="outline"

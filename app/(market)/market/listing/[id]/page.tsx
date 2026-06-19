@@ -15,6 +15,7 @@ import {
   type MarketListingImageRow,
 } from '@/lib/market/listing-images';
 import { sellerCollectionHeading } from '@/lib/market/seller';
+import { formatListingColorLabel } from '@/lib/market/color-family';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
 import { cn } from '@/lib/utils';
 
@@ -122,10 +123,14 @@ export default function ListingDetailPage() {
     memberSince: null,
   };
 
+  const colorLabel = formatListingColorLabel(
+    l.color_family as string | null,
+    l.colorway as string | null
+  );
   const specChips = [
     l.model_year ? String(l.model_year) : null,
     l.size != null ? `Size ${l.size}` : null,
-    (l.colorway as string)?.trim() || null,
+    colorLabel,
     conditionLabel,
   ].filter(Boolean) as string[];
 

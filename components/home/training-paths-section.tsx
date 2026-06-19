@@ -25,7 +25,7 @@ export function TrainingPathsSection() {
               asChild
               className="mt-5 min-h-[44px] w-full sm:w-auto"
             >
-              <Link href="/browse">Browse Coaches</Link>
+              <Link href="/training?tab=coaches">Browse Coaches</Link>
             </Button>
           </div>
 

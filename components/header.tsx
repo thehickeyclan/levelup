@@ -409,7 +409,7 @@ export function Header() {
             {/* Pre-login: public menu (matches signup flow: parent = Browse / Book; coach = For Coaches) */}
             <nav className="hidden md:flex items-center gap-6">
               <Link
-                href="/browse"
+                href="/training?tab=coaches"
                 className="text-white hover:text-accent transition-colors font-medium"
               >
                 Browse Coaches

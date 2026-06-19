@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Tag, Ruler, Star, DollarSign, ChevronDown, Check, X } from 'lucide-react';
+import { Tag, Ruler, Star, DollarSign, ChevronDown, Check, X, Palette } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { BROWSE_BRANDS, BROWSE_US_SIZES } from '@/lib/market/browse-listings';
+import { BROWSE_COLOR_FAMILIES } from '@/lib/market/color-family';
 import { cn } from '@/lib/utils';
 
 const TYPE_OPTIONS = [
@@ -164,6 +165,7 @@ function FilterSection({
 export type MarketFiltersProps = {
   type: TypeFilter;
   brand: string;
+  color: string;
   size: string;
   condition: ConditionFilter;
   minPrice: string;
@@ -176,6 +178,7 @@ export type MarketFiltersProps = {
 export function MarketFilters({
   type,
   brand,
+  color,
   size,
   condition,
   minPrice,
@@ -219,6 +222,10 @@ export function MarketFilters({
   const priceValue = activePrice?.id ?? (minPrice || maxPrice ? 'custom' : 'all');
 
   const brandLabel = brand !== 'all' ? brand : 'Brand';
+  const colorLabel =
+    color !== 'all'
+      ? (BROWSE_COLOR_FAMILIES.find((c) => c.id === color)?.label ?? 'Color')
+      : 'Color';
   const sizeLabel = size ? `Size ${formatSizeLabel(size)}` : 'Size';
   const conditionLabel =
     condition !== 'all'
@@ -228,7 +235,16 @@ export function MarketFilters({
     activePrice && activePrice.id !== 'all' ? activePrice.label : '$ Price';
 
   const hasActiveFilters =
-    brand !== 'all' || Boolean(size) || condition !== 'all' || Boolean(minPrice || maxPrice);
+    brand !== 'all' ||
+    color !== 'all' ||
+    Boolean(size) ||
+    condition !== 'all' ||
+    Boolean(minPrice || maxPrice);
+
+  const colorOptions: FilterOption[] = [
+    { id: 'all', label: 'All' },
+    ...BROWSE_COLOR_FAMILIES.map((c) => ({ id: c.id, label: c.label })),
+  ];
 
   const handlePriceSelect = useCallback(
     (id: string) => {
@@ -250,6 +266,17 @@ export function MarketFilters({
       options={brandOptions}
       onSelect={(id) => setParam('brand', id)}
       active={brand !== 'all'}
+    />
+  );
+
+  const colorDropdown = (
+    <FilterDropdown
+      icon={<Palette className="h-3 w-3" />}
+      label={colorLabel}
+      value={color}
+      options={colorOptions}
+      onSelect={(id) => setParam('color', id)}
+      active={color !== 'all'}
     />
   );
 
@@ -289,6 +316,7 @@ export function MarketFilters({
   const allDropdowns = (
     <>
       {brandDropdown}
+      {colorDropdown}
       {sizeDropdown}
       {conditionDropdown}
       {priceDropdown}
@@ -324,7 +352,7 @@ export function MarketFilters({
               onClick={() => setMoreOpen(true)}
               className={cn(
                 'bg-card border rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 shrink-0',
-                condition !== 'all' || minPrice || maxPrice
+                condition !== 'all' || color !== 'all' || minPrice || maxPrice
                   ? 'border-accent text-accent'
                   : 'border-border text-muted-foreground'
               )}
@@ -344,6 +372,16 @@ export function MarketFilters({
                 className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] text-accent"
               >
                 {brand}
+                <X className="h-2.5 w-2.5" />
+              </button>
+            ) : null}
+            {color !== 'all' ? (
+              <button
+                type="button"
+                onClick={() => setParam('color', 'all')}
+                className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] text-accent"
+              >
+                {colorLabel}
                 <X className="h-2.5 w-2.5" />
               </button>
             ) : null}
@@ -395,6 +433,7 @@ export function MarketFilters({
           </DialogHeader>
           <div className="mt-4 space-y-5">
             <FilterSection title="Brand">{brandDropdown}</FilterSection>
+            <FilterSection title="Color">{colorDropdown}</FilterSection>
             <FilterSection title="Size">{sizeDropdown}</FilterSection>
             <FilterSection title="Condition">{conditionDropdown}</FilterSection>
             <FilterSection title="Price">{priceDropdown}</FilterSection>

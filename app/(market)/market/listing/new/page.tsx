@@ -21,10 +21,16 @@ import {
   type MarketListingType,
 } from '@/lib/market/listing-type-options';
 import { PhotoCleanToggle, photoThumbnailSrc } from '@/components/market/photo-clean-toggle';
-import { ShoeIdCard } from '@/components/market/shoe-id-card';
+import { ShoeIdCard, type ShoeIdAcceptPayload } from '@/components/market/shoe-id-card';
+import {
+  BROWSE_COLOR_FAMILIES,
+  inferColorFamilyFromColorway,
+  parseColorFamily,
+} from '@/lib/market/color-family';
 import { SimilarSalesGuidance, priceGuidanceFooter } from '@/components/market/similar-sales-guidance';
 import { shoeIdClientEnabled } from '@/lib/market/shoe-id/feature-flag';
-import { MARKET_BRANDS } from '@/lib/market/brands';
+import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
+import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
 import type { PriceComp } from '@/lib/market/ai/schemas';
 import type { MarketListingImageRow } from '@/lib/market/listing-images';
 import { cn } from '@/lib/utils';
@@ -72,6 +78,9 @@ export default function NewListingPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [identifyingShoe, setIdentifyingShoe] = useState(false);
+  const [shoeIdResult, setShoeIdResult] = useState<ShoeIdResult | null>(null);
+  const [shoeIdAutoApplied, setShoeIdAutoApplied] = useState(false);
   const [pricing, setPricing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiCondition, setAiCondition] = useState<AiCondition | null>(null);
@@ -87,12 +96,14 @@ export default function NewListingPage() {
 
   const lastAutoKey = useRef<string | null>(null);
   const pipelineRunning = useRef(false);
+  const userEditedModel = useRef(false);
 
   const [form, setForm] = useState({
     title: '',
     brand: 'Adidas',
     model: '',
     colorway: '',
+    color_family: '',
     model_year: '',
     size: '10',
     wear_state: 'used' as MarketWearState,
@@ -114,6 +125,16 @@ export default function NewListingPage() {
   };
 
   const imageKey = images.map((i) => i.id).join(',');
+
+  const applyShoeIdPayload = useCallback((payload: ShoeIdAcceptPayload): Partial<typeof form> => {
+    const cw = payload.colorway?.trim() || '';
+    return {
+      brand: normalizeMarketBrand(payload.brand),
+      model: payload.model?.trim() || '',
+      colorway: cw,
+      color_family: inferColorFamilyFromColorway(cw) || '',
+    };
+  }, []);
 
   const setListingType = (listingType: MarketListingType) => {
     setForm((f) => ({
@@ -189,6 +210,8 @@ export default function NewListingPage() {
         setAiCondition(null);
         setAiPrice(null);
         setConditionOverridden(false);
+        setShoeIdResult(null);
+        setShoeIdAutoApplied(false);
         lastAutoKey.current = null;
       }
     } catch (err) {
@@ -200,14 +223,19 @@ export default function NewListingPage() {
     }
   };
 
+  const resolveColorFamily = (colorFamily: string, colorway: string) =>
+    parseColorFamily(colorFamily) ?? inferColorFamilyFromColorway(colorway.trim() || null);
+
   const draftPayload = (overrides?: Partial<typeof form>) => {
     const merged = { ...form, ...overrides };
     const colorway = merged.colorway.trim();
+    const color_family = resolveColorFamily(merged.color_family, colorway);
     return {
       title: merged.title || `${merged.brand} ${merged.model}`.trim(),
       brand: merged.brand,
       model: merged.model,
       colorway: colorway || null,
+      color_family,
       model_year: merged.model_year ? Number(merged.model_year) : null,
       size: Number(merged.size),
       wear_state: merged.wear_state,
@@ -233,22 +261,26 @@ export default function NewListingPage() {
       : null,
   });
 
-  const agentPromptInput = (sellerNote?: string) => ({
-    brand: form.brand,
-    model: form.model,
-    colorway: form.colorway,
-    modelYear: form.model_year ? Number(form.model_year) : null,
-    size: Number(form.size) || 10,
-    wearState: form.wear_state,
-    condition: conditionForWearState(form.wear_state, form.condition),
-    listingType: form.listing_type,
+  const agentPromptInput = (sellerNote?: string, overrides?: Partial<typeof form>) => {
+    const merged = { ...form, ...overrides };
+    return {
+    brand: merged.brand,
+    model: merged.model,
+    colorway: merged.colorway,
+    modelYear: merged.model_year ? Number(merged.model_year) : null,
+    size: Number(merged.size) || 10,
+    wearState: merged.wear_state,
+    condition: conditionForWearState(merged.wear_state, merged.condition),
+    listingType: merged.listing_type,
     sellerNote,
     conditionAnalysis: aiCondition,
-  });
+  };
+  };
 
   const generateDescription = useCallback(
-    async (opts?: { sellerNote?: string; silent?: boolean }) => {
-      if (!form.model.trim()) {
+    async (opts?: { sellerNote?: string; silent?: boolean; overrides?: Partial<typeof form> }) => {
+      const merged = { ...form, ...opts?.overrides };
+      if (!merged.model.trim()) {
         if (!opts?.silent) {
           setError('Add a model (or use Shoe ID) before generating a description.');
         }
@@ -267,7 +299,7 @@ export default function NewListingPage() {
             messages: [
               {
                 role: 'user',
-                content: buildListingAgentPrompt(agentPromptInput(opts?.sellerNote)),
+                content: buildListingAgentPrompt(agentPromptInput(opts?.sellerNote, opts?.overrides)),
               },
             ],
           }),
@@ -348,8 +380,46 @@ export default function NewListingPage() {
     pipelineRunning.current = true;
     setAnalyzing(true);
     setError(null);
+    let overrides: Partial<typeof form> = {};
     try {
-      const id = await syncDraft();
+      const id = await ensureDraft();
+
+      if (shoeIdClientEnabled() && images.length > 0 && !userEditedModel.current) {
+        setIdentifyingShoe(true);
+        try {
+          const res = await fetch('/api/market/shoe-id', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              listingId: id,
+              images: images.map((i) => i.public_url),
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.result) {
+            const shoeOverrides = applyShoeIdPayload({
+              brand: data.result.brand,
+              model: data.result.model,
+              colorway: data.result.colorway,
+            });
+            overrides = { ...overrides, ...shoeOverrides };
+            setShoeIdResult(data.result as ShoeIdResult);
+            setShoeIdAutoApplied(true);
+            setForm((f) => ({ ...f, ...shoeOverrides }));
+          }
+        } catch {
+          // Non-fatal — condition analysis can still run
+        } finally {
+          setIdentifyingShoe(false);
+        }
+      }
+
+      await fetch(`/api/market/listings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draftPayload(overrides)),
+      });
+
       const res = await fetch('/api/market/ai/condition', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -360,10 +430,11 @@ export default function NewListingPage() {
       setAiCondition(data.analysis as AiCondition);
       setConditionOverridden(false);
       if (form.listing_type !== 'collection') {
-        await runPrice();
+        await runPrice(overrides);
       }
-      if (!descriptionTouched && !form.description.trim() && form.model.trim()) {
-        void generateDescription({ silent: true });
+      const modelAfterId = overrides.model?.trim() || form.model.trim();
+      if (!descriptionTouched && !form.description.trim() && modelAfterId) {
+        void generateDescription({ silent: true, overrides });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
@@ -372,10 +443,21 @@ export default function NewListingPage() {
       pipelineRunning.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.wear_state, listingId, runPrice, descriptionTouched, form.description, form.model, generateDescription]);
+  }, [
+    form.wear_state,
+    form.listing_type,
+    form.model,
+    form.description,
+    listingId,
+    images,
+    runPrice,
+    descriptionTouched,
+    generateDescription,
+    applyShoeIdPayload,
+  ]);
 
   useEffect(() => {
-    if (!imageKey || uploading || analyzing || pipelineRunning.current) return;
+    if (!imageKey || uploading || analyzing || identifyingShoe || pipelineRunning.current) return;
     const key = `${imageKey}|${form.wear_state}`;
     if (lastAutoKey.current === key) return;
 
@@ -385,7 +467,7 @@ export default function NewListingPage() {
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [imageKey, form.wear_state, uploading, analyzing, runCondition]);
+  }, [imageKey, form.wear_state, uploading, analyzing, identifyingShoe, runCondition]);
 
   const applyAiGrade = () => {
     if (!isUsed || !aiCondition?.grade) return;
@@ -533,28 +615,28 @@ export default function NewListingPage() {
           <ShoeIdCard
             listingId={listingId}
             images={images}
-            onAccept={({ brand, model, colorway }) => {
-              setForm((f) => ({
-                ...f,
-                brand,
-                model,
-                colorway: colorway?.trim() || f.colorway,
-              }));
+            externalResult={shoeIdResult}
+            externalLoading={identifyingShoe}
+            autoApplied={shoeIdAutoApplied}
+            onAccept={(payload) => {
+              const shoeOverrides = applyShoeIdPayload(payload);
+              setForm((f) => ({ ...f, ...shoeOverrides }));
+              setShoeIdAutoApplied(true);
               if (form.listing_type !== 'collection') {
-                void runPrice({
-                  brand,
-                  model,
-                  colorway: colorway?.trim() || form.colorway,
-                });
+                void runPrice(shoeOverrides);
               }
               if (!descriptionTouched && !form.description.trim()) {
-                void generateDescription({ silent: true });
+                void generateDescription({ silent: true, overrides: shoeOverrides });
               }
             }}
           />
         ) : null}
 
-        {images.length > 0 && analyzing ? (
+        {images.length > 0 && identifyingShoe ? (
+          <AiSpinner label="Identifying shoe from photos…" />
+        ) : null}
+
+        {images.length > 0 && analyzing && !identifyingShoe ? (
           <AiSpinner label="Analyzing condition…" />
         ) : null}
 
@@ -675,7 +757,10 @@ export default function NewListingPage() {
           <Label>Model</Label>
           <Input
             value={form.model}
-            onChange={(e) => setForm({ ...form, model: e.target.value })}
+            onChange={(e) => {
+              userEditedModel.current = true;
+              setForm({ ...form, model: e.target.value });
+            }}
             onBlur={() => {
               if (
                 !descriptionTouched &&
@@ -695,12 +780,35 @@ export default function NewListingPage() {
             value={form.colorway}
             onChange={(e) => setForm({ ...form, colorway: e.target.value })}
             onBlur={() => {
+              setForm((f) => {
+                if (f.color_family) return f;
+                const inferred = inferColorFamilyFromColorway(f.colorway.trim());
+                return inferred ? { ...f, color_family: inferred } : f;
+              });
               if (!isCollection && images.length > 0 && !pricing) void runPrice();
             }}
             placeholder="Cherry, Black/Gold, Dick's exclusive"
           />
           <p className="text-xs text-muted-foreground mt-1">
             Helps match rare or discontinued colorways for pricing and your collection.
+          </p>
+        </div>
+        <div>
+          <Label>Color</Label>
+          <select
+            className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
+            value={form.color_family}
+            onChange={(e) => setForm({ ...form, color_family: e.target.value })}
+          >
+            <option value="">Auto from colorway</option>
+            {BROWSE_COLOR_FAMILIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            What buyers filter on — blue, red, black. Auto-guesses from colorway when you leave this on Auto.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3">

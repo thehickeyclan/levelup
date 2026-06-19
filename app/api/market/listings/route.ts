@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
     model_year?: number | null;
     wear_state?: string;
     colorway?: string | null;
+    color_family?: string | null;
   };
 
   const isDraft = body.draft === true || !body.brand;
@@ -108,6 +109,10 @@ export async function POST(req: NextRequest) {
     model_year: body.model_year ?? null,
     wear_state: body.wear_state === 'bnib' || body.wear_state === 'new_no_box' ? body.wear_state : 'used',
     colorway: typeof body.colorway === 'string' ? body.colorway.trim() || null : null,
+    color_family:
+      typeof body.color_family === 'string' && body.color_family.trim()
+        ? body.color_family.trim().toLowerCase()
+        : null,
   };
 
   row.brand = normalizeMarketBrand(row.brand);

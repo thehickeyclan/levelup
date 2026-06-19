@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
@@ -16,15 +16,28 @@ export function ShoeIdCard({
   listingId,
   images,
   onAccept,
+  externalResult = null,
+  externalLoading = false,
+  autoApplied = false,
 }: {
   listingId: string;
   images: { public_url: string }[];
   onAccept: (payload: ShoeIdAcceptPayload) => void;
+  externalResult?: ShoeIdResult | null;
+  externalLoading?: boolean;
+  autoApplied?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ShoeIdResult | null>(null);
+  const [localResult, setLocalResult] = useState<ShoeIdResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const result = externalResult ?? localResult;
+  const busy = loading || externalLoading;
+
+  useEffect(() => {
+    if (externalResult) setExpanded(true);
+  }, [externalResult]);
 
   const identify = async () => {
     if (!images.length) return;
@@ -41,8 +54,13 @@ export function ShoeIdCard({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Identification failed');
-      setResult(data.result);
+      setLocalResult(data.result);
       setExpanded(true);
+      onAccept({
+        brand: data.result.brand,
+        model: data.result.model,
+        colorway: data.result.colorway,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Identification failed');
     } finally {
@@ -52,21 +70,29 @@ export function ShoeIdCard({
 
   if (!images.length) return null;
 
+  const headerLabel = busy
+    ? 'Identifying shoe from photos…'
+    : result
+      ? autoApplied
+        ? 'Shoe identified — fields filled'
+        : 'Shoe identified'
+      : 'Identify this shoe';
+
   return (
     <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
       <button
         type="button"
         onClick={() => {
-          if (!result) void identify();
-          else setExpanded((v) => !v);
+          if (!result && !busy) void identify();
+          else if (result) setExpanded((v) => !v);
         }}
         className="w-full flex items-center justify-between px-4 py-3 text-sm text-muted-foreground hover:text-accent transition-colors"
       >
         <span className="flex items-center gap-1.5">
           <Sparkles className="h-3.5 w-3.5 text-accent" />
-          Identify this shoe
+          {headerLabel}
         </span>
-        {loading ? (
+        {busy ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} />
@@ -104,20 +130,33 @@ export function ShoeIdCard({
             <dt className="text-muted-foreground">Confidence</dt>
             <dd className="text-muted-foreground">{Math.round(result.confidence * 100)}%</dd>
           </dl>
-          <Button
-            type="button"
-            size="sm"
-            className="w-full bg-accent text-accent-foreground"
-            onClick={() =>
-              onAccept({
-                brand: result.brand,
-                model: result.model,
-                colorway: result.colorway,
-              })
-            }
-          >
-            Use this identification
-          </Button>
+          {autoApplied ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => void identify()}
+              disabled={busy}
+            >
+              Re-identify from photos
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              className="w-full bg-accent text-accent-foreground"
+              onClick={() =>
+                onAccept({
+                  brand: result.brand,
+                  model: result.model,
+                  colorway: result.colorway,
+                })
+              }
+            >
+              Use this identification
+            </Button>
+          )}
         </div>
       ) : null}
     </div>

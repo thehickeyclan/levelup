@@ -21,7 +21,7 @@ export function HomeHero({ coaches }: Props) {
 
       <div className="flex w-full max-w-sm flex-col gap-3 sm:max-w-md">
         <Button size="lg" variant="premium" asChild className="min-h-[44px] w-full">
-          <Link href="/browse">Browse Coaches</Link>
+          <Link href="/training?tab=coaches">Browse Coaches</Link>
         </Button>
         <Button
           size="lg"

@@ -27,6 +27,7 @@ export function MarketBrowseClient({
 
   const type = (searchParams.get('type') || 'all') as TypeFilter;
   const brand = searchParams.get('brand') || 'all';
+  const color = searchParams.get('color') || 'all';
   const size = searchParams.get('size') || '';
   const condition = (searchParams.get('condition') || 'all') as ConditionFilter;
   const minPrice = searchParams.get('minPrice') || '';
@@ -60,6 +61,7 @@ export function MarketBrowseClient({
   const clearAllFilters = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete('brand');
+    params.delete('color');
     params.delete('size');
     params.delete('condition');
     params.delete('minPrice');
@@ -81,6 +83,7 @@ export function MarketBrowseClient({
         if (type === 'vault' && l.listing_type !== 'vault') return false;
       }
       if (brand !== 'all' && l.brand !== brand) return false;
+      if (color !== 'all' && l.browse_color !== color) return false;
       if (size && Number(l.size) !== Number(size)) return false;
       if (condition !== 'all') {
         const bucket = browseConditionBucket(l.condition, l.wear_state);
@@ -93,7 +96,7 @@ export function MarketBrowseClient({
       }
       return true;
     });
-  }, [sourceListings, type, brand, size, condition, minPrice, maxPrice, isCollectors]);
+  }, [sourceListings, type, brand, color, size, condition, minPrice, maxPrice, isCollectors]);
 
   return (
     <div className="min-h-screen pb-24 bg-background">
@@ -120,6 +123,7 @@ export function MarketBrowseClient({
       <MarketFilters
         type={type}
         brand={brand}
+        color={color}
         size={size}
         condition={condition}
         minPrice={minPrice}

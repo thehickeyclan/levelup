@@ -120,7 +120,7 @@ export async function PATCH(
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const allowed = [
     'title', 'brand', 'model', 'size', 'condition', 'price_cents', 'shipping_cents',
-    'listing_type', 'open_to_trade', 'open_to_boot', 'description', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway',
+    'listing_type', 'open_to_trade', 'open_to_boot', 'description', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family',
   ];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {

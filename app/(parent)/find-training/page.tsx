@@ -31,19 +31,20 @@ export default async function FindTrainingPage({
   const supabase = await createClient(tenant.slug);
   const admin = createAdminClient(tenant.slug);
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    const qs = new URLSearchParams();
-    if (sp.date) qs.set('date', sp.date);
-    if (sp.time) qs.set('time', sp.time);
-    if (sp.location) qs.set('location', sp.location);
-    if (sp.coach) qs.set('coach', sp.coach);
-    const path = qs.toString() ? `/find-training?${qs.toString()}` : '/find-training';
-    redirect(`/login?redirect=${encodeURIComponent(path)}`);
-  }
 
-  const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
-  if (userData?.role === 'coach') redirect('/athlete-dashboard');
-  if (userData?.role !== 'parent' && userData?.role !== 'admin' && userData?.role !== 'youth_wrestler') redirect('/dashboard');
+  let userData: { role: string } | null = null;
+  if (user) {
+    const { data } = await supabase.from('users').select('role').eq('id', user.id).single();
+    userData = data;
+    if (userData?.role === 'coach') redirect('/athlete-dashboard');
+    if (
+      userData?.role !== 'parent' &&
+      userData?.role !== 'admin' &&
+      userData?.role !== 'youth_wrestler'
+    ) {
+      redirect('/dashboard');
+    }
+  }
 
   const { data: facilities } = await supabase
     .from('facilities')

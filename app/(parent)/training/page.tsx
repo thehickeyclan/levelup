@@ -74,15 +74,24 @@ export default async function TrainingPage({
   const supabase = await createClient(tenant.slug);
   const admin = createAdminClient(tenant.slug);
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
 
-  const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
-  if (userData?.role === 'coach') redirect('/athlete-dashboard');
-  if (userData?.role !== 'parent' && userData?.role !== 'admin' && userData?.role !== 'youth_wrestler') redirect('/dashboard');
+  let userData: { role: string } | null = null;
+  if (user) {
+    const { data } = await supabase.from('users').select('role').eq('id', user.id).single();
+    userData = data;
+    if (userData?.role === 'coach') redirect('/athlete-dashboard');
+    if (
+      userData?.role !== 'parent' &&
+      userData?.role !== 'admin' &&
+      userData?.role !== 'youth_wrestler'
+    ) {
+      redirect('/dashboard');
+    }
+  }
 
   /** Match client grid sort on first paint (avoids followed coaches jumping after /api/coach-follows loads). */
   let initialFollowedCoachIds: string[] = [];
-  if (userData?.role === 'parent' || userData?.role === 'admin') {
+  if (user && (userData?.role === 'parent' || userData?.role === 'admin')) {
     const { data: followRows } = await supabase
       .from('coach_follows')
       .select('coach_id')
@@ -92,12 +101,15 @@ export default async function TrainingPage({
     ];
   }
 
-  // Fetch parent's wrestlers for "Booked" state check
-  const { data: parentWrestlers } = await supabase
-    .from('youth_wrestlers')
-    .select('id')
-    .eq('parent_id', user.id);
-  const parentWrestlerIds = (parentWrestlers || []).map((w) => w.id);
+  // Fetch parent's wrestlers for "Booked" state check (logged-in parents only)
+  let parentWrestlerIds: string[] = [];
+  if (user) {
+    const { data: parentWrestlers } = await supabase
+      .from('youth_wrestlers')
+      .select('id')
+      .eq('parent_id', user.id);
+    parentWrestlerIds = (parentWrestlers || []).map((w) => w.id);
+  }
 
   const { data: facilities } = await supabase
     .from('facilities')

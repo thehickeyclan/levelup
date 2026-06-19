@@ -2,6 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatSellerDisplayName } from '@/lib/market/seller';
 import { MARKET_LISTING_IMAGE_FIELDS, primaryListingImageUrl } from '@/lib/market/listing-images';
 import { BROWSE_BRANDS } from '@/lib/market/brands';
+import {
+  effectiveListingColorFamily,
+  parseColorFamily,
+  type ColorFamilyId,
+} from '@/lib/market/color-family';
 
 export { BROWSE_BRANDS };
 
@@ -13,6 +18,9 @@ export type MarketBrowseListing = {
   size: number;
   condition: string;
   wear_state: string | null;
+  colorway: string | null;
+  color_family: ColorFamilyId | null;
+  browse_color: ColorFamilyId | null;
   price_cents: number | null;
   listing_type: 'sell' | 'trade' | 'vault' | 'collection';
   open_to_trade: boolean;
@@ -32,6 +40,8 @@ type ListingRow = {
   size: number;
   condition: string;
   wear_state: string | null;
+  colorway: string | null;
+  color_family: string | null;
   price_cents: number | null;
   listing_type: string;
   open_to_trade: boolean;
@@ -59,7 +69,7 @@ export async function fetchMarketBrowseListings(
   let q = supabase
     .from('market_listings')
     .select(`
-      id, title, brand, model, size, condition, wear_state, price_cents,
+      id, title, brand, model, size, condition, wear_state, colorway, color_family, price_cents,
       listing_type, open_to_trade, seller_id, created_at, views_count,
       market_listing_images(${MARKET_LISTING_IMAGE_FIELDS}),
       market_ai_analysis(analyzed_at)
@@ -126,6 +136,8 @@ export async function fetchMarketBrowseListings(
   return rows.map((row) => {
     const ai = row.market_ai_analysis;
     const aiRow = Array.isArray(ai) ? ai[0] : ai;
+    const colorway = typeof row.colorway === 'string' ? row.colorway.trim() || null : null;
+    const color_family = parseColorFamily(row.color_family as string | null);
     return {
       id: row.id,
       title: row.title,
@@ -134,6 +146,9 @@ export async function fetchMarketBrowseListings(
       size: Number(row.size),
       condition: row.condition,
       wear_state: row.wear_state,
+      colorway,
+      color_family: color_family,
+      browse_color: effectiveListingColorFamily(color_family, colorway),
       price_cents: row.price_cents,
       listing_type: row.listing_type as 'sell' | 'trade' | 'vault' | 'collection',
       open_to_trade: row.open_to_trade,

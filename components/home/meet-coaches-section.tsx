@@ -99,7 +99,7 @@ export function MeetCoachesSection({ coaches }: Props) {
         </div>
 
         <p className="mt-8 text-center">
-          <Link href="/browse" className="text-sm font-semibold text-accent hover:underline">
+          <Link href="/training?tab=coaches" className="text-sm font-semibold text-accent hover:underline">
             Browse All Coaches →
           </Link>
         </p>

@@ -142,9 +142,15 @@ export function BrowseAthletesClient({
     });
   };
 
-  // Get unique schools from athletes
+  // Get unique schools from athletes (Radix Select rejects empty-string values)
   const schools = useMemo(() => {
-    const uniqueSchools = Array.from(new Set(initialAthletes.map(a => a.school))).sort();
+    const uniqueSchools = Array.from(
+      new Set(
+        initialAthletes
+          .map((a) => a.school?.trim())
+          .filter((school): school is string => Boolean(school))
+      )
+    ).sort();
     return uniqueSchools;
   }, [initialAthletes]);
 

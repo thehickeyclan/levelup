@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { checkAndIncrementAiUsage } from '@/lib/market/ai/rate-limit';
 import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
-import { getCatalogContext, matchCatalogEntry, fetchCatalogEntries } from '@/lib/market/shoe-id/catalog';
+import { findCatalogEntry, matchCatalogEntry, getCatalogContext, fetchCatalogEntries } from '@/lib/market/shoe-id/catalog';
+import { enrichmentFromCatalog } from '@/lib/market/catalog-listing-enrich';
 import { buildShoeIdVisionContent } from '@/lib/market/shoe-id/images';
 import { SHOE_ID_SYSTEM_PROMPT, shoeIdUserMessage } from '@/lib/market/shoe-id/prompts';
 import { ShoeIdResultSchema } from '@/lib/market/shoe-id/schemas';
@@ -23,8 +24,9 @@ export async function POST(req: NextRequest) {
   const { supabase, tenant, user, role } = ctx;
 
   const isAdmin = role === 'admin';
-  if (!shoeIdServerEnabled() && !isAdmin) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const anthropicConfigured = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+  if (!shoeIdServerEnabled() && !isAdmin && !anthropicConfigured) {
+    return NextResponse.json({ error: 'Shoe identification is not configured' }, { status: 503 });
   }
 
   const body = (await req.json().catch(() => ({}))) as {
@@ -114,6 +116,8 @@ export async function POST(req: NextRequest) {
   }
 
   const catalogMatchId = await matchCatalogEntry(admin, parsed.brand, parsed.model);
+  const catalogRow = await findCatalogEntry(admin, parsed.brand, parsed.model);
+  const catalogEnrichment = catalogRow ? enrichmentFromCatalog(catalogRow) : null;
 
   const { data: resultRow, error: insertErr } = await admin
     .from('shoe_id_results')
@@ -166,12 +170,13 @@ export async function POST(req: NextRequest) {
     result: parsed,
     resultId: resultRow?.id ?? null,
     catalogMatchId,
+    catalogEnrichment,
     remaining: usage.remaining,
     sellerDominantBrand: brandHint ?? null,
     sellerDominantListing: dominantListing,
     autoApplyRecommended:
       !brandHint ||
       normalizeMarketBrand(parsed.brand) === normalizeMarketBrand(brandHint) ||
-      parsed.confidence >= 0.85,
+      parsed.confidence >= 0.55,
   });
 }

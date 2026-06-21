@@ -34,6 +34,7 @@ export type CheckoutSummary = {
   brand: string;
   model: string;
   size: number;
+  selectedSizeUs: number | null;
   condition: string;
   wearState: string | null;
   sellerName: string;
@@ -67,6 +68,7 @@ export function ListingCheckoutClient({ summary }: { summary: CheckoutSummary })
         body: JSON.stringify({
           listingId: summary.listingId,
           orderId: summary.orderId ?? undefined,
+          sizeUs: summary.selectedSizeUs ?? undefined,
           shippingAddress: {
             name: values.name,
             line1: values.line1,

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getTenantByDomain } from '@/config/tenants';
 import { getSellerProfile } from '@/lib/market/seller';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
+import { fetchListingSizes, parseListingSizeUs } from '@/lib/market/listing-sizes';
 import { ListingCheckoutClient } from './checkout-form-client';
 
 export default async function ListingCheckoutPage({
@@ -11,11 +12,12 @@ export default async function ListingCheckoutPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ order?: string }>;
+  searchParams: Promise<{ order?: string; size?: string }>;
 }) {
   const { id: listingId } = await params;
   const sp = await searchParams;
   const orderId = sp.order?.trim() || null;
+  const sizeParam = sp.size?.trim() || null;
 
   const headersList = await headers();
   const host = headersList.get('host') || '';
@@ -45,11 +47,12 @@ export default async function ListingCheckoutPage({
   let amountCents = listing.price_cents as number | null;
   let shippingCents = (listing.shipping_cents as number) ?? 0;
   let resolvedOrderId: string | null = null;
+  let orderSizeUs: number | null = null;
 
   if (orderId) {
     const { data: order } = await supabase
       .from('market_orders')
-      .select('id, buyer_id, listing_id, amount_cents, shipping_cents, status')
+      .select('id, buyer_id, listing_id, amount_cents, shipping_cents, status, size_us')
       .eq('id', orderId)
       .maybeSingle();
 
@@ -64,6 +67,7 @@ export default async function ListingCheckoutPage({
     amountCents = order.amount_cents as number;
     shippingCents = (order.shipping_cents as number) ?? 0;
     resolvedOrderId = order.id as string;
+    if (order.size_us != null) orderSizeUs = Number(order.size_us);
   } else {
     if (listing.seller_id === user.id) redirect(`/market/listing/${listingId}`);
     if (!amountCents || amountCents <= 0) redirect(`/market/listing/${listingId}`);
@@ -74,6 +78,33 @@ export default async function ListingCheckoutPage({
 
   const seller = await getSellerProfile(supabase, listing.seller_id as string);
 
+  const inventorySizes = await fetchListingSizes(supabase, listingId);
+  const selectedSizeUs = orderId
+    ? orderSizeUs
+    : inventorySizes.length > 0
+      ? parseListingSizeUs(sizeParam)
+      : null;
+
+  if (inventorySizes.length > 0 && !orderId && selectedSizeUs == null) {
+    redirect(`/market/listing/${listingId}`);
+  }
+
+  if (
+    inventorySizes.length > 0 &&
+    !orderId &&
+    selectedSizeUs != null &&
+    !inventorySizes.some((row) => row.size_us === selectedSizeUs && row.quantity > 0)
+  ) {
+    redirect(`/market/listing/${listingId}`);
+  }
+
+  const displaySize =
+    orderId
+      ? orderSizeUs ?? Number(listing.size)
+      : selectedSizeUs != null
+        ? selectedSizeUs
+        : Number(listing.size);
+
   return (
     <ListingCheckoutClient
       summary={{
@@ -82,7 +113,9 @@ export default async function ListingCheckoutPage({
         title: listing.title as string,
         brand: listing.brand as string,
         model: listing.model as string,
-        size: Number(listing.size),
+        size: displaySize,
+        selectedSizeUs:
+          inventorySizes.length > 0 ? selectedSizeUs : orderSizeUs,
         condition: listing.condition as string,
         wearState: listing.wear_state as string | null,
         sellerName: seller?.displayName ?? 'Guild member',

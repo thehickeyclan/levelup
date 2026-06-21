@@ -21,20 +21,22 @@ import {
   type MarketListingType,
 } from '@/lib/market/listing-type-options';
 import { PhotoCleanToggle, photoThumbnailSrc } from '@/components/market/photo-clean-toggle';
-import { ShoeIdCard, type ShoeIdAcceptPayload } from '@/components/market/shoe-id-card';
+import { ShoeIdCard } from '@/components/market/shoe-id-card';
 import {
-  BROWSE_COLOR_FAMILIES,
   inferColorFamilyFromColorway,
   parseColorFamily,
 } from '@/lib/market/color-family';
 import { SimilarSalesGuidance, priceGuidanceFooter } from '@/components/market/similar-sales-guidance';
+import {
+  enrichmentFromShoeIdResult,
+  type ListingEnrichment,
+} from '@/lib/market/catalog-listing-enrich';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
 import {
   MARKET_RARITIES,
   normalizeMarketRarity,
   rarityLabel,
-  rarityShortHint,
   type MarketRarity,
 } from '@/lib/market/rarity';
 import { RarityBadge } from '@/components/market/rarity-badge';
@@ -48,6 +50,13 @@ import {
   type CollectionPurchaseNotes,
 } from '@/components/market/collection-purchase-notes';
 import { cn } from '@/lib/utils';
+import {
+  BnibSizeInventoryEditor,
+  emptySizeInventoryRow,
+  UsedListingSizeNote,
+  type SizeInventoryRow,
+} from '@/components/market/bnib-size-inventory-editor';
+import { supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 
 const MAX_PHOTOS = 6;
 const BREAKDOWN_KEYS = ['sole', 'upper', 'midsole', 'laces'] as const;
@@ -71,8 +80,69 @@ type AiPrice = {
   comps: PriceComp[];
 };
 
+function enrichmentToFormPatch(
+  enrichment: ListingEnrichment,
+  current: {
+    brand: string;
+    model: string;
+    colorway: string;
+    color_family: string;
+    model_year: string;
+    rarity: MarketRarity | '';
+    weight_class: string;
+  },
+  opts?: { colorwayOnly?: boolean; fillEmptyOnly?: boolean }
+) {
+  const patch: Partial<typeof current> = {};
+  const fillEmpty = opts?.fillEmptyOnly ?? false;
+
+  if (!opts?.colorwayOnly) {
+    if (enrichment.brand && (!fillEmpty || !current.brand.trim())) {
+      patch.brand = normalizeMarketBrand(enrichment.brand);
+    }
+    if (enrichment.model && (!fillEmpty || !current.model.trim())) {
+      patch.model = enrichment.model.trim();
+    }
+    if (
+      enrichment.model_year != null &&
+      enrichment.model_year > 0 &&
+      (!fillEmpty || !current.model_year)
+    ) {
+      patch.model_year = String(enrichment.model_year);
+    }
+    if (enrichment.weight_class && (!fillEmpty || !current.weight_class.trim())) {
+      patch.weight_class = enrichment.weight_class;
+    }
+    if (enrichment.rarity && (!fillEmpty || !current.rarity)) {
+      patch.rarity = enrichment.rarity;
+    }
+  }
+
+  const cw = enrichment.colorway?.trim() || '';
+  if (cw && (!fillEmpty || !current.colorway.trim())) {
+    patch.colorway = cw;
+    patch.color_family = inferColorFamilyFromColorway(cw) || current.color_family;
+  } else if (
+    enrichment.color_family &&
+    (!fillEmpty || !current.color_family.trim())
+  ) {
+    patch.color_family = enrichment.color_family;
+  }
+
+  return patch;
+}
+
 function gradeDisplay(grade: string) {
   return grade.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function conditionGradeFromAnalysis(
+  wearState: MarketWearState,
+  grade: string | undefined
+): string | null {
+  if (wearState !== 'used' || !grade) return null;
+  if (!(USED_CONDITIONS as readonly string[]).includes(grade)) return null;
+  return grade;
 }
 
 function AiSpinner({ label }: { label: string }) {
@@ -103,9 +173,9 @@ export default function NewListingPage() {
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [identifyingShoe, setIdentifyingShoe] = useState(false);
+  const [catalogEnriching, setCatalogEnriching] = useState(false);
   const [shoeIdResult, setShoeIdResult] = useState<ShoeIdResult | null>(null);
   const [shoeIdAutoApplied, setShoeIdAutoApplied] = useState(false);
-  const [shoeIdUserOverride, setShoeIdUserOverride] = useState(false);
   const [pricing, setPricing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -123,11 +193,14 @@ export default function NewListingPage() {
   const [purchaseNotes, setPurchaseNotes] = useState<CollectionPurchaseNotes>(
     emptyCollectionPurchaseNotes()
   );
+  const [sizeInventory, setSizeInventory] = useState<SizeInventoryRow[]>([
+    emptySizeInventoryRow('10'),
+  ]);
 
   const lastAutoKey = useRef<string | null>(null);
   const pipelineRunning = useRef(false);
-  /** User manually set brand/model — AI must not overwrite those fields. */
-  const shoeIdUserLocked = useRef(false);
+  const catalogEnrichTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCatalogEnrichKey = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -146,6 +219,7 @@ export default function NewListingPage() {
     shipping_cents: '10',
     description: '',
     rarity: '' as MarketRarity | '',
+    weight_class: '',
   });
 
   const sellerPrefillDone = useRef(false);
@@ -176,6 +250,7 @@ export default function NewListingPage() {
   }, []);
 
   const isUsed = form.wear_state === 'used';
+  const isBnibInventory = supportsMultiSizeInventory(form.wear_state);
   const isPricedListing = form.listing_type === 'sell';
   const isCollection = form.listing_type === 'collection';
   const updateImage = (imageId: string, patch: Partial<MarketListingImageRow>) => {
@@ -186,29 +261,9 @@ export default function NewListingPage() {
 
   const imageKey = images.map((i) => i.id).join(',');
 
-  const applyShoeIdPayload = useCallback(
-    (payload: ShoeIdAcceptPayload, opts?: { colorwayOnly?: boolean }): Partial<typeof form> => {
-      const cw = payload.colorway?.trim() || '';
-      if (opts?.colorwayOnly || shoeIdUserLocked.current) {
-        return {
-          colorway: cw,
-          color_family: inferColorFamilyFromColorway(cw) || '',
-        };
-      }
-      return {
-        brand: normalizeMarketBrand(payload.brand),
-        model: payload.model?.trim() || '',
-        colorway: cw,
-        color_family: inferColorFamilyFromColorway(cw) || '',
-      };
-    },
-    []
-  );
-
-  const lockShoeIdentity = useCallback(() => {
-    shoeIdUserLocked.current = true;
-    setShoeIdUserOverride(true);
-    setShoeIdAutoApplied(false);
+  const mergeFormPatch = useCallback((patch: Partial<typeof form>) => {
+    if (!Object.keys(patch).length) return;
+    setForm((f) => ({ ...f, ...patch }));
   }, []);
 
   const setListingType = (listingType: MarketListingType) => {
@@ -234,6 +289,9 @@ export default function NewListingPage() {
       wear_state: wearState,
       condition: wearState === 'used' ? (f.condition === 'new' ? 'good' : f.condition) : 'new',
     }));
+    if (supportsMultiSizeInventory(wearState) && sizeInventory.length === 0) {
+      setSizeInventory([emptySizeInventoryRow(form.size || '10')]);
+    }
     setAiCondition(null);
     setAiPrice(null);
     setConditionOverridden(false);
@@ -311,6 +369,7 @@ export default function NewListingPage() {
       setShoeIdResult(null);
       setShoeIdAutoApplied(false);
       lastAutoKey.current = null;
+      lastCatalogEnrichKey.current = null;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed';
       setUploadError(msg);
@@ -343,6 +402,7 @@ export default function NewListingPage() {
       open_to_trade: merged.listing_type === 'sell' ? merged.open_to_trade : false,
       description: merged.description,
       rarity: merged.rarity || null,
+      weight_class: merged.weight_class.trim() || null,
       ...(merged.listing_type === 'collection'
         ? collectionPurchaseNotesToPayload(purchaseNotes)
         : {}),
@@ -511,12 +571,86 @@ export default function NewListingPage() {
     [form]
   );
 
+  const runCatalogEnrich = useCallback(
+    async (overrides?: Partial<typeof form>): Promise<Partial<typeof form>> => {
+      const merged = { ...form, ...overrides };
+      const brand = merged.brand.trim();
+      const model = merged.model.trim();
+      if (!brand || model.length < 2) return {};
+
+      try {
+        const id = await ensureDraft();
+        const res = await fetch('/api/market/catalog/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            brand,
+            model,
+            colorway: merged.colorway.trim() || null,
+            listingId: id,
+            persist: true,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) return {};
+
+        const enrichment: ListingEnrichment = {
+          model_year: data.model_year ?? undefined,
+          weight_class: data.weight_class ?? undefined,
+          rarity: data.rarity ? normalizeMarketRarity(data.rarity) ?? undefined : undefined,
+        };
+        const patch = enrichmentToFormPatch(enrichment, merged, { fillEmptyOnly: true });
+        if (Object.keys(patch).length) mergeFormPatch(patch);
+        return patch;
+      } catch {
+        return {};
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form, mergeFormPatch, listingId]
+  );
+
+  const runPhotoCondition = useCallback(
+    async (
+      id: string,
+      overrides?: Partial<typeof form>
+    ): Promise<Partial<typeof form>> => {
+      if (images.length === 0) return {};
+
+      const merged = { ...form, ...overrides };
+      try {
+        const res = await fetch('/api/market/ai/condition', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listingId: id, wear_state: merged.wear_state }),
+        });
+        const data = await res.json();
+        if (!res.ok) return {};
+
+        const analysis = data.analysis as AiCondition;
+        setAiCondition(analysis);
+        setConditionOverridden(false);
+
+        const autoGrade = conditionGradeFromAnalysis(merged.wear_state, analysis.grade);
+        if (autoGrade) {
+          mergeFormPatch({ condition: autoGrade });
+          return { condition: autoGrade };
+        }
+      } catch {
+        // Non-fatal — catalog and description can still run
+      }
+      return {};
+    },
+    [form, images, mergeFormPatch]
+  );
+
   const runCondition = useCallback(async () => {
     if (pipelineRunning.current) return;
     pipelineRunning.current = true;
     setAnalyzing(true);
     setError(null);
     let overrides: Partial<typeof form> = {};
+    const formBase = () => ({ ...form, ...overrides });
     try {
       const id = await ensureDraft();
 
@@ -535,64 +669,24 @@ export default function NewListingPage() {
           });
           const data = await res.json();
           if (res.ok && data.result) {
-            const locked = shoeIdUserLocked.current;
-            const dominant = data.sellerDominantListing as
-              | { brand: string; model: string; model_year: number | null }
-              | null
-              | undefined;
-            const useSellerIdentity =
-              !locked &&
-              data.autoApplyRecommended === false &&
-              dominant?.brand &&
-              dominant?.model;
-            const shoePayload = locked
-              ? {
-                  brand: form.brand,
-                  model: form.model,
-                  colorway: data.result.colorway,
-                }
-              : useSellerIdentity
-                ? {
-                    brand: dominant.brand,
-                    model: dominant.model,
-                    colorway: data.result.colorway,
-                  }
-                : {
-                    brand: data.result.brand,
-                    model: data.result.model,
-                    colorway: data.result.colorway,
-                  };
-            const shoeOverrides = applyShoeIdPayload(shoePayload, {
-              colorwayOnly: locked,
-            });
-            if (!locked && useSellerIdentity && dominant.model_year) {
-              shoeOverrides.model_year = String(dominant.model_year);
-            }
-            setShoeIdResult(data.result as ShoeIdResult);
-            if (data.result.rarity) {
-              overrides = { ...overrides, rarity: data.result.rarity };
-              setForm((f) => ({ ...f, rarity: data.result.rarity }));
-            }
-            if (locked) {
-              overrides = { ...overrides, ...shoeOverrides };
-              setForm((f) => ({ ...f, ...shoeOverrides }));
-              setUploadError(null);
-            } else if (data.autoApplyRecommended !== false || useSellerIdentity) {
-              overrides = { ...overrides, ...shoeOverrides };
-              setShoeIdAutoApplied(true);
-              setForm((f) => ({ ...f, ...shoeOverrides }));
-              if (useSellerIdentity) {
-                setUploadError(
-                  `Kept ${dominant.brand} ${dominant.model} from your past listings — only colorway came from AI.`
-                );
-              } else {
-                setUploadError(null);
-              }
-            } else {
-              setUploadError(
-                `AI guessed ${data.result.brand} but your listings are usually ${data.sellerDominantBrand ?? 'a different brand'} — pick brand from the dropdown.`
-              );
-            }
+            const result = data.result as ShoeIdResult;
+            setShoeIdResult(result);
+            const colorFamily =
+              inferColorFamilyFromColorway(result.colorway?.trim() || '') || '';
+            const catalogExtra = data.catalogEnrichment as ListingEnrichment | null | undefined;
+            const enrichment = enrichmentFromShoeIdResult(result, colorFamily);
+            const mergedEnrichment: ListingEnrichment = {
+              ...enrichment,
+              model_year: enrichment.model_year ?? catalogExtra?.model_year ?? undefined,
+              weight_class: catalogExtra?.weight_class ?? enrichment.weight_class,
+              rarity: enrichment.rarity ?? catalogExtra?.rarity ?? undefined,
+            };
+            const shoeOverrides = enrichmentToFormPatch(mergedEnrichment, formBase());
+            overrides = { ...overrides, ...shoeOverrides };
+            mergeFormPatch(shoeOverrides);
+            setShoeIdAutoApplied(true);
+            setUploadError(null);
+            lastCatalogEnrichKey.current = `${formBase().brand.trim()}|${formBase().model.trim()}`;
           }
         } catch {
           // Non-fatal — condition analysis can still run
@@ -601,28 +695,27 @@ export default function NewListingPage() {
         }
       }
 
+      const catalogPatch = await runCatalogEnrich(overrides);
+      overrides = { ...overrides, ...catalogPatch };
+
       await fetch(`/api/market/listings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(draftPayload(overrides)),
       });
 
-      const res = await fetch('/api/market/ai/condition', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId: id, wear_state: form.wear_state }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Analysis failed');
-      setAiCondition(data.analysis as AiCondition);
-      setConditionOverridden(false);
-      if (form.listing_type !== 'collection') {
+      const conditionPatch = await runPhotoCondition(id, overrides);
+      overrides = { ...overrides, ...conditionPatch };
+
+      const listingType = formBase().listing_type;
+      if (listingType !== 'collection') {
         await runPrice(overrides);
       }
       await runRarity(id, overrides);
-      const modelAfterId = overrides.model?.trim() || form.model.trim();
+
+      const modelAfterId = formBase().model.trim();
       if (!descriptionTouched && !form.description.trim() && modelAfterId) {
-        void generateDescription({ silent: true, overrides });
+        await generateDescription({ silent: true, overrides });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
@@ -641,8 +734,10 @@ export default function NewListingPage() {
     runPrice,
     descriptionTouched,
     generateDescription,
-    applyShoeIdPayload,
     runRarity,
+    mergeFormPatch,
+    runCatalogEnrich,
+    runPhotoCondition,
   ]);
 
   useEffect(() => {
@@ -657,6 +752,85 @@ export default function NewListingPage() {
 
     return () => clearTimeout(timer);
   }, [imageKey, form.wear_state, uploading, analyzing, identifyingShoe, runCondition]);
+
+  useEffect(() => {
+    const brand = form.brand.trim();
+    const model = form.model.trim();
+    if (!brand || model.length < 3) return;
+    if (uploading || analyzing || identifyingShoe || pipelineRunning.current || catalogEnriching) return;
+
+    const key = `${brand}|${model}`;
+    if (lastCatalogEnrichKey.current === key) return;
+
+    if (catalogEnrichTimer.current) clearTimeout(catalogEnrichTimer.current);
+    catalogEnrichTimer.current = setTimeout(() => {
+      lastCatalogEnrichKey.current = key;
+      void (async () => {
+        setCatalogEnriching(true);
+        try {
+          const patch = await runCatalogEnrich();
+          const id = listingId ?? await ensureDraft();
+          let overrides: Partial<typeof form> = { ...patch };
+
+          await fetch(`/api/market/listings/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(draftPayload(overrides)),
+          });
+
+          if (images.length > 0) {
+            const conditionPatch = await runPhotoCondition(id, overrides);
+            overrides = { ...overrides, ...conditionPatch };
+            if (overrides.condition) {
+              await fetch(`/api/market/listings/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(draftPayload(overrides)),
+              });
+            }
+          }
+
+          await runRarity(id, overrides);
+
+          const listingType = overrides.listing_type ?? form.listing_type;
+          if (listingType !== 'collection' && images.length > 0) {
+            await runPrice(overrides);
+          }
+
+          if (
+            !descriptionTouched &&
+            !form.description.trim() &&
+            (overrides.model?.trim() || model)
+          ) {
+            await generateDescription({ silent: true, overrides });
+          }
+        } finally {
+          setCatalogEnriching(false);
+        }
+      })();
+    }, 900);
+
+    return () => {
+      if (catalogEnrichTimer.current) clearTimeout(catalogEnrichTimer.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    form.brand,
+    form.model,
+    uploading,
+    analyzing,
+    identifyingShoe,
+    catalogEnriching,
+    descriptionTouched,
+    form.description,
+    runCatalogEnrich,
+    runRarity,
+    generateDescription,
+    runPhotoCondition,
+    runPrice,
+    images.length,
+    listingId,
+  ]);
 
   const applyAiGrade = () => {
     if (!isUsed || !aiCondition?.grade) return;
@@ -690,6 +864,26 @@ export default function NewListingPage() {
     await generateDescription(text ? { sellerNote: text } : undefined);
   };
 
+  const saveSizeInventory = async (listingId: string) => {
+    if (!supportsMultiSizeInventory(form.wear_state)) return;
+    const res = await fetch(`/api/market/listings/${listingId}/sizes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sizes: sizeInventory.map((row) => ({
+          size_us: row.size_us,
+          quantity: row.quantity,
+        })),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save sizes');
+    if (data.sizes?.length) {
+      const minSize = Math.min(...data.sizes.map((s: { size_us: number }) => Number(s.size_us)));
+      setForm((f) => ({ ...f, size: String(minSize) }));
+    }
+  };
+
   const publish = async () => {
     setError(null);
     if (images.length === 0) {
@@ -721,6 +915,8 @@ export default function NewListingPage() {
         }),
       });
 
+      await saveSizeInventory(id);
+
       if (!form.rarity) {
         await fetch('/api/market/ai/rarity', {
           method: 'POST',
@@ -738,183 +934,28 @@ export default function NewListingPage() {
   const midPrice = aiPrice ? Math.round(aiPrice.suggested_mid_cents / 100) : 0;
 
   return (
-    <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
-      <BackLink fallbackHref="/market" label="Back to Market" />
+    <div className="min-h-screen pb-28 px-4 pt-4 max-w-lg mx-auto space-y-5">
+      <BackLink
+        fallbackHref={isCollection ? '/market/my-listings' : '/market'}
+        label={isCollection ? 'My pairs' : 'Back to Market'}
+      />
 
-      <h1 className="text-2xl font-bold">
-        {isCollection ? 'Add to your closet' : 'List a pair'}
-      </h1>
-      {isCollection ? (
-        <p className="text-sm text-muted-foreground">
-          Upload a photo — AI identifies the shoe, grades condition, and estimates rarity. Override
-          anything before you save.
+      <header className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight">
+          {isCollection ? 'Add to your closet' : 'List a pair'}
+        </h1>
+        <p className="text-sm text-muted-foreground leading-snug">
+          {isCollection
+            ? 'Photo first — AI fills brand, condition, and rarity. Tap anything to change it.'
+            : 'Add a photo first. AI helps with the details — you stay in control.'}
         </p>
-      ) : null}
+      </header>
 
-      <div className="space-y-3">
-        <Label>What are you selling?</Label>
-        <div className="space-y-2">
-          {WEAR_STATE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setWearState(opt.value)}
-              className={cn(
-                'w-full text-left rounded-lg border px-3 py-3 transition-colors',
-                form.wear_state === opt.value
-                  ? 'border-accent bg-accent/10'
-                  : 'border-border hover:border-accent/40'
-              )}
-            >
-              <p className="text-sm font-medium">{opt.label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{opt.hint}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <Label>How do you want to list it?</Label>
-        <div className="space-y-2">
-          {SELLER_LISTING_TYPE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setListingType(opt.value)}
-              className={cn(
-                'w-full text-left rounded-lg border px-3 py-3 transition-colors',
-                form.listing_type === opt.value
-                  ? 'border-accent bg-accent/10'
-                  : 'border-border hover:border-accent/40'
-              )}
-            >
-              <p className="text-sm font-medium text-foreground">{opt.label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{opt.hint}</p>
-            </button>
-          ))}
-        </div>
-        {form.listing_type === 'sell' ? (
-          <label className="flex items-start gap-3 rounded-lg border border-border px-3 py-3 cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={form.open_to_trade}
-              onChange={(e) => setForm((f) => ({ ...f, open_to_trade: e.target.checked }))}
-            />
-            <span>
-              <span className="text-sm font-medium text-foreground block">Also open to trades</span>
-              <span className="text-xs text-muted-foreground">
-                Buyers can offer their shoes instead of paying cash
-              </span>
-            </span>
-          </label>
-        ) : null}
-        {isCollection ? (
-          <>
-            <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
-              <p className="text-sm text-foreground/80">
-                Showcase pairs on your profile — not for sale until you list them for sale or offers.
-              </p>
-            </div>
-            <CollectionPurchaseNotesFields notes={purchaseNotes} onChange={setPurchaseNotes} />
-          </>
-        ) : null}
-        {form.listing_type === 'vault' ? (
-          <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
-            <p className="text-sm text-foreground/80">
-              Buyers send you cash or trade offers. You pick the best one.
-            </p>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="grid gap-4">
-        <div>
-          <Label>Brand</Label>
-          <select
-            className={cn(
-              'w-full mt-1 rounded-md border bg-background px-3 py-2',
-              shoeIdUserOverride ? 'border-amber-500/50' : 'border-input'
-            )}
-            value={form.brand}
-            onChange={(e) => {
-              lockShoeIdentity();
-              setForm({ ...form, brand: e.target.value, rarity: '' });
-            }}
-          >
-            {MARKET_BRANDS.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-          {shoeIdUserOverride ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-              Your brand wins over AI — change model if needed.
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-1">
-              Set before photos if you already know the shoe — AI won&apos;t overwrite your brand or model.
-            </p>
-          )}
-        </div>
-        <div>
-          <Label>Model</Label>
-          <Input
-            value={form.model}
-            onChange={(e) => {
-              lockShoeIdentity();
-              setForm({ ...form, model: e.target.value, rarity: '' });
-            }}
-            onBlur={() => {
-              if (
-                !descriptionTouched &&
-                !form.description.trim() &&
-                form.model.trim() &&
-                aiCondition
-              ) {
-                void generateDescription({ silent: true });
-              }
-            }}
-            placeholder="JB Elite III"
-          />
-        </div>
-        {form.rarity ? (
-          <div className="flex flex-wrap items-center gap-2 -mt-2">
-            <RarityBadge rarity={form.rarity} size="md" />
-            <span className="text-xs text-muted-foreground">{rarityShortHint(form.rarity)}</span>
-          </div>
-        ) : images.length > 0 && (analyzing || identifyingShoe) ? (
-          <p className="text-xs text-muted-foreground -mt-2">AI assessing rarity…</p>
-        ) : (
-          <p className="text-xs text-muted-foreground -mt-2">
-            Rarity is assessed from photos and catalog — override below after AI runs.
-          </p>
-        )}
-        <div>
-          <Label className="text-xs">Rarity (override)</Label>
-          <select
-            className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={form.rarity}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                rarity: (e.target.value as MarketRarity | '') || '',
-              })
-            }
-          >
-            <option value="">Let AI decide</option>
-            {MARKET_RARITIES.map((r) => (
-              <option key={r} value={r}>{rarityLabel(r)}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="space-y-3">
+      {/* —— 1. Photos + AI —— */}
+      <section className="space-y-3" aria-label="Photos">
         <div className="flex items-center justify-between gap-2">
-          <Label>Photos (JPEG, PNG, WebP)</Label>
-          <span className="text-xs text-muted-foreground">
+          <h2 className="text-sm font-semibold text-foreground">Photos</h2>
+          <span className="text-xs text-muted-foreground tabular-nums">
             {images.length}/{MAX_PHOTOS}
           </span>
         </div>
@@ -932,40 +973,39 @@ export default function NewListingPage() {
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading || images.length >= MAX_PHOTOS}
           className={cn(
-            'w-full rounded-xl border border-dashed py-8 flex flex-col items-center justify-center gap-2 transition-colors touch-manipulation',
+            'w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors touch-manipulation active:scale-[0.99]',
+            images.length === 0 ? 'min-h-[168px] py-6' : 'py-4 border-dashed',
             error && images.length === 0
-              ? 'border-destructive/50 text-destructive'
+              ? 'border-destructive/50 text-destructive bg-destructive/5'
               : uploadError
                 ? 'border-destructive/50 text-destructive'
-                : 'border-border text-muted-foreground hover:border-accent hover:text-accent'
+                : images.length === 0
+                  ? 'border-accent/40 bg-accent/5 text-accent hover:bg-accent/10'
+                  : 'border-border text-muted-foreground hover:border-accent/50'
           )}
         >
           {uploading ? (
             <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-sm">{uploadProgress ?? 'Uploading…'}</span>
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-sm font-medium">{uploadProgress ?? 'Uploading…'}</span>
             </>
           ) : (
             <>
-              <Plus className="h-5 w-5" />
-              <span className="text-sm">
+              <Plus className={cn('shrink-0', images.length === 0 ? 'h-8 w-8' : 'h-5 w-5')} />
+              <span className="text-sm font-medium">
                 {images.length
-                  ? `Add more photos (${images.length}/${MAX_PHOTOS})`
+                  ? `Add photo (${images.length}/${MAX_PHOTOS})`
                   : 'Tap to add photos'}
               </span>
+              {images.length === 0 ? (
+                <span className="text-xs text-muted-foreground px-4 text-center leading-snug">
+                  Clear shot on a plain background works best
+                </span>
+              ) : null}
             </>
           )}
         </button>
-        {uploadError ? (
-          <p className="text-sm text-destructive">{uploadError}</p>
-        ) : null}
-        <p className="text-xs text-muted-foreground">
-          {isCollection
-            ? 'Add a clear photo — AI fills brand, model, condition (1–10), and rarity. You can change any field.'
-            : form.wear_state === 'bnib'
-              ? 'Include box and shoes. Up to 6 photos.'
-              : 'Use a light background or white surface so shoes stay visible. Up to 6 photos.'}
-        </p>
+        {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
         {images.length > 0 ? (
           <div className="grid grid-cols-3 gap-2">
             {images.map((img) => (
@@ -983,9 +1023,7 @@ export default function NewListingPage() {
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No photos yet — add at least one before publishing.</p>
-        )}
+        ) : null}
 
         {listingId && images.length > 0 ? (
           <ShoeIdCard
@@ -994,14 +1032,21 @@ export default function NewListingPage() {
             externalResult={shoeIdResult}
             externalLoading={identifyingShoe}
             autoApplied={shoeIdAutoApplied}
-            userLocked={shoeIdUserOverride}
+            userLocked={false}
             formBrand={form.brand}
             formModel={form.model}
             onAccept={(payload, opts) => {
-              const shoeOverrides = applyShoeIdPayload(payload, opts);
-              setForm((f) => ({ ...f, ...shoeOverrides }));
+              const enrichment: ListingEnrichment = {
+                brand: payload.brand,
+                model: payload.model,
+                colorway: payload.colorway,
+                color_family: inferColorFamilyFromColorway(payload.colorway?.trim() || '') || undefined,
+              };
+              const shoeOverrides = enrichmentToFormPatch(enrichment, form, opts);
+              mergeFormPatch(shoeOverrides);
               if (!opts?.colorwayOnly) {
                 setShoeIdAutoApplied(true);
+                lastCatalogEnrichKey.current = `${shoeOverrides.brand?.trim() ?? form.brand}|${shoeOverrides.model?.trim() ?? form.model}`;
               }
               if (form.listing_type !== 'collection') {
                 void runPrice(shoeOverrides);
@@ -1016,11 +1061,21 @@ export default function NewListingPage() {
         ) : null}
 
         {images.length > 0 && identifyingShoe ? (
-          <AiSpinner label="Identifying brand, model, and colorway…" />
+          <AiSpinner label="AI recognizing brand, model, and colorway…" />
         ) : null}
 
         {images.length > 0 && analyzing && !identifyingShoe ? (
-          <AiSpinner label="Grading condition and assessing rarity…" />
+          <AiSpinner label="AI grading condition, rarity, and writing description…" />
+        ) : null}
+
+        {catalogEnriching && !analyzing && !identifyingShoe ? (
+          <AiSpinner
+            label={
+              images.length > 0
+                ? 'AI looking up details, grading condition, and writing description…'
+                : 'AI looking up shoe details…'
+            }
+          />
         ) : null}
 
         {aiCondition && !analyzing ? (
@@ -1056,7 +1111,7 @@ export default function NewListingPage() {
                 </p>
               </>
             ) : null}
-            {isUsed && !conditionOverridden ? (
+            {isUsed && !conditionOverridden && aiCondition.grade !== form.condition ? (
               <div className="flex flex-wrap gap-2 pt-1">
                 <button
                   type="button"
@@ -1073,6 +1128,10 @@ export default function NewListingPage() {
                   Override
                 </button>
               </div>
+            ) : isUsed && !conditionOverridden && aiCondition.grade === form.condition ? (
+              <p className="text-xs text-muted-foreground">
+                Wear grade applied: {gradeDisplay(form.condition)}
+              </p>
             ) : isUsed && conditionOverridden ? (
               <p className="text-xs text-muted-foreground">Pick condition manually below.</p>
             ) : null}
@@ -1119,12 +1178,185 @@ export default function NewListingPage() {
         {images.length > 0 && agentLoading ? (
           <AiSpinner label="Writing listing description…" />
         ) : null}
-      </div>
+      </section>
 
-      <div className="grid gap-4">
+      {/* —— 2. Shoe details —— */}
+      <section
+        className="rounded-xl border border-border bg-card p-4 space-y-4"
+        aria-label="Shoe details"
+      >
+        <h2 className="text-sm font-semibold text-foreground">Shoe details</h2>
+
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Condition type</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {WEAR_STATE_OPTIONS.map((opt) => {
+              const short =
+                opt.value === 'bnib'
+                  ? 'BNIB'
+                  : opt.value === 'new_no_box'
+                    ? 'New'
+                    : 'Used';
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setWearState(opt.value)}
+                  className={cn(
+                    'rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors touch-manipulation',
+                    form.wear_state === opt.value
+                      ? 'border-accent bg-accent/15 text-accent'
+                      : 'border-border text-muted-foreground hover:border-accent/40'
+                  )}
+                >
+                  {short}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Brand</Label>
+            <select
+              className="w-full mt-1 rounded-lg border bg-background px-3 py-2.5 text-sm h-11 border-input"
+              value={form.brand}
+              onChange={(e) => {
+                lastCatalogEnrichKey.current = null;
+                setForm({ ...form, brand: e.target.value, rarity: '' });
+              }}
+            >
+              {MARKET_BRANDS.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Model</Label>
+            <Input
+              className="mt-1 h-11"
+              value={form.model}
+              onChange={(e) => {
+                lastCatalogEnrichKey.current = null;
+                setForm({ ...form, model: e.target.value, rarity: '' });
+              }}
+              onBlur={() => {
+                if (
+                  !descriptionTouched &&
+                  !form.description.trim() &&
+                  form.model.trim() &&
+                  aiCondition
+                ) {
+                  void generateDescription({ silent: true });
+                }
+              }}
+              placeholder="JB Elite III"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {isBnibInventory ? (
+            <div className="col-span-2">
+              <BnibSizeInventoryEditor rows={sizeInventory} onChange={setSizeInventory} />
+            </div>
+          ) : (
+            <div>
+              <Label className="text-xs">Size (US)</Label>
+              <Input
+                className="mt-1 h-11"
+                value={form.size}
+                onChange={(e) => setForm({ ...form, size: e.target.value })}
+                inputMode="decimal"
+              />
+              <UsedListingSizeNote className="mt-1.5" />
+            </div>
+          )}
+          {isUsed ? (
+            <div>
+              <Label className="text-xs">Wear grade</Label>
+              <select
+                className="w-full mt-1 rounded-lg border border-input bg-background px-3 py-2.5 text-sm h-11"
+                value={form.condition}
+                onChange={(e) => setForm({ ...form, condition: e.target.value })}
+              >
+                {USED_CONDITIONS.map((c) => (
+                  <option key={c} value={c}>{c.replace('_', ' ')}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <Label className="text-xs">Year (optional)</Label>
+              <Input
+                className="mt-1 h-11"
+                value={form.model_year}
+                onChange={(e) =>
+                  setForm({ ...form, model_year: e.target.value.replace(/\D/g, '').slice(0, 4) })
+                }
+                placeholder="2016"
+                inputMode="numeric"
+              />
+            </div>
+          )}
+        </div>
+
+        {isUsed ? (
+          <div>
+            <Label className="text-xs">Year (optional)</Label>
+            <Input
+              className="mt-1 h-11"
+              value={form.model_year}
+              onChange={(e) =>
+                setForm({ ...form, model_year: e.target.value.replace(/\D/g, '').slice(0, 4) })
+              }
+              placeholder="2016"
+              inputMode="numeric"
+            />
+          </div>
+        ) : null}
+
         <div>
-          <Label>Colorway (optional)</Label>
+          <Label className="text-xs">Weight class (optional)</Label>
           <Input
+            className="mt-1 h-11"
+            value={form.weight_class}
+            onChange={(e) => setForm({ ...form, weight_class: e.target.value })}
+            placeholder="e.g. 9 oz — AI fills when known"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label className="text-xs">Rarity</Label>
+            {form.rarity ? (
+              <RarityBadge rarity={form.rarity} size="sm" />
+            ) : images.length > 0 && (analyzing || identifyingShoe) ? (
+              <span className="text-[10px] text-muted-foreground">AI assessing…</span>
+            ) : null}
+          </div>
+          <select
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm h-11"
+            value={form.rarity}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                rarity: (e.target.value as MarketRarity | '') || '',
+              })
+            }
+          >
+            <option value="">Let AI decide</option>
+            {MARKET_RARITIES.map((r) => (
+              <option key={r} value={r}>{rarityLabel(r)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <Label className="text-xs">Colorway (optional)</Label>
+          <Input
+            className="mt-1 h-11"
             value={form.colorway}
             onChange={(e) => setForm({ ...form, colorway: e.target.value })}
             onBlur={() => {
@@ -1135,90 +1367,82 @@ export default function NewListingPage() {
               });
               if (!isCollection && images.length > 0 && !pricing) void runPrice();
             }}
-            placeholder="Cherry, Black/Gold, Dick's exclusive"
+            placeholder="Cherry, Black/Gold…"
           />
-          <p className="text-xs text-muted-foreground mt-1">
-            Helps match rare or discontinued colorways for pricing and your collection.
-          </p>
         </div>
-        <div>
-          <Label>Color</Label>
-          <select
-            className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
-            value={form.color_family}
-            onChange={(e) => setForm({ ...form, color_family: e.target.value })}
-          >
-            <option value="">Auto from colorway</option>
-            {BROWSE_COLOR_FAMILIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground mt-1">
-            What buyers filter on — blue, red, black. Auto-guesses from colorway when you leave this on Auto.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Model year (optional)</Label>
-            <Input
-              value={form.model_year}
-              onChange={(e) =>
-                setForm({ ...form, model_year: e.target.value.replace(/\D/g, '').slice(0, 4) })
-              }
-              placeholder="2016"
-              inputMode="numeric"
-            />
-          </div>
-          <div>
-            <Label>Size (US)</Label>
-            <Input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
-          </div>
-        </div>
-        {isUsed ? (
-          <div>
-            <Label>Used condition</Label>
-            <select
-              className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
-              value={form.condition}
-              onChange={(e) => setForm({ ...form, condition: e.target.value })}
+      </section>
+
+      {/* —— 3. How to list —— */}
+      <section className="space-y-3" aria-label="Listing type">
+        <h2 className="text-sm font-semibold text-foreground">How should this show up?</h2>
+        <div className="grid grid-cols-2 gap-2">
+          {SELLER_LISTING_TYPE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setListingType(opt.value)}
+              className={cn(
+                'text-left rounded-xl border px-3 py-3 transition-colors touch-manipulation min-h-[72px]',
+                form.listing_type === opt.value
+                  ? 'border-accent bg-accent/10 ring-1 ring-accent/30'
+                  : 'border-border bg-card hover:border-accent/40'
+              )}
             >
-              {USED_CONDITIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c.replace('_', ' ')}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-        {isPricedListing ? (
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Price ($)</Label>
-            <Input
-              value={form.price_cents}
-              onChange={(e) => setForm({ ...form, price_cents: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label>Shipping ($)</Label>
-            <Input
-              value={form.shipping_cents}
-              onChange={(e) => setForm({ ...form, shipping_cents: e.target.value })}
-            />
-          </div>
+              <p className="text-sm font-medium text-foreground">{opt.label}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
+                {opt.hint}
+              </p>
+            </button>
+          ))}
         </div>
-        ) : form.listing_type === 'trade' ? (
-          <div className="rounded-lg border border-border bg-card/60 px-3 py-3">
-            <p className="text-sm text-muted-foreground">
-              No price — buyers propose a trade with shoes from their listings.
-            </p>
+        {form.listing_type === 'sell' ? (
+          <label className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-3 cursor-pointer touch-manipulation">
+            <input
+              type="checkbox"
+              className="h-4 w-4 shrink-0 accent-[hsl(var(--accent))]"
+              checked={form.open_to_trade}
+              onChange={(e) => setForm((f) => ({ ...f, open_to_trade: e.target.checked }))}
+            />
+            <span className="text-sm text-foreground">Also open to trades</span>
+          </label>
+        ) : null}
+        {isCollection ? (
+          <CollectionPurchaseNotesFields notes={purchaseNotes} onChange={setPurchaseNotes} />
+        ) : null}
+      </section>
+
+      {/* —— 4. Price & description —— */}
+      <section className="space-y-4" aria-label="Price and description">
+        {isPricedListing ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Price ($)</Label>
+              <Input
+                className="mt-1 h-11"
+                value={form.price_cents}
+                onChange={(e) => setForm({ ...form, price_cents: e.target.value })}
+                inputMode="decimal"
+                placeholder="120"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Shipping ($)</Label>
+              <Input
+                className="mt-1 h-11"
+                value={form.shipping_cents}
+                onChange={(e) => setForm({ ...form, shipping_cents: e.target.value })}
+                inputMode="decimal"
+              />
+            </div>
           </div>
+        ) : form.listing_type === 'trade' ? (
+          <p className="text-sm text-muted-foreground rounded-xl border border-border bg-card/60 px-3 py-3">
+            Trade only — buyers propose shoes from their listings.
+          </p>
         ) : null}
         <div>
           <div className="flex items-center justify-between gap-2">
-            <Label>Description</Label>
+            <Label className="text-xs">Description (optional)</Label>
             <button
               type="button"
               onClick={() => void generateDescription()}
@@ -1239,19 +1463,17 @@ export default function NewListingPage() {
             }}
             placeholder={
               form.model.trim()
-                ? 'AI can draft this from brand, model, colorway, and condition — or write your own.'
-                : 'Add model first, then use Generate with AI or write your own.'
+                ? 'What buyers see — or tap Generate with AI'
+                : 'Add model above, or let AI draft after photos'
             }
           />
-          {agentReply ? (
-            <p className="text-xs text-muted-foreground mt-1">{agentReply}</p>
-          ) : null}
+          {agentReply ? <p className="text-xs text-muted-foreground mt-1">{agentReply}</p> : null}
           {agentExpanded ? (
             <div className="mt-2 space-y-2">
               <Input
                 value={agentInput}
                 onChange={(e) => setAgentInput(e.target.value)}
-                placeholder="Optional detail for AI (e.g. worn one season, small toe scuff)"
+                placeholder="Optional note for AI"
                 disabled={agentLoading}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') void submitAgent();
@@ -1264,23 +1486,20 @@ export default function NewListingPage() {
               onClick={() => setAgentExpanded(true)}
               className="text-xs text-muted-foreground hover:text-foreground mt-1"
             >
-              + Add a personal note for AI
+              + Note for AI
             </button>
           )}
-          {aiDescriptionDraft ? (
-            <p className="text-xs text-muted-foreground mt-1">AI draft — tap to edit</p>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-1">
-              This is what buyers see. No scores or AI labels on the published listing.
-            </p>
-          )}
         </div>
-      </div>
+      </section>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <Button className="w-full min-h-[48px] bg-accent text-accent-foreground font-semibold" onClick={publish}>
-        Publish listing
+      <Button
+        className="w-full min-h-[52px] rounded-xl bg-accent text-accent-foreground font-semibold text-base touch-manipulation"
+        onClick={publish}
+        disabled={uploading || analyzing || identifyingShoe}
+      >
+        {isCollection ? 'Add to closet' : 'Publish listing'}
       </Button>
 
       <p className="text-xs text-muted-foreground">{SELLER_AI_DISCLAIMER}</p>

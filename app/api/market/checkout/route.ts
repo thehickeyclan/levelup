@@ -3,6 +3,12 @@ import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { calcMarketFees } from '@/lib/market/fees';
+import {
+  fetchListingSizes,
+  parseListingSizeUs,
+  reserveListingSize,
+  restoreListingSize,
+} from '@/lib/market/listing-sizes';
 import { resolvePayoutRecipientId } from '@/lib/market/seller';
 import { getStripeInstance } from '@/lib/stripe/webhooks';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
@@ -91,6 +97,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     listingId?: string;
     orderId?: string;
+    sizeUs?: number | string;
     shippingAddress?: ShippingAddress;
     shipping_address?: ShippingAddress;
   };
@@ -141,27 +148,74 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date().toISOString();
-  const { data: listing, error: lockErr } = await admin
+
+  const { data: listingRow, error: listingLoadErr } = await admin
     .from('market_listings')
-    .update({ locked_buyer_id: user!.id, locked_at: now })
+    .select('id, price_cents, shipping_cents, seller_id, title, condition, wear_state, status, locked_buyer_id')
     .eq('id', listingId)
     .eq('status', 'active')
-    .is('locked_buyer_id', null)
-    .select('id, price_cents, shipping_cents, seller_id, title, condition')
-    .single();
+    .maybeSingle();
+
+  if (listingLoadErr || !listingRow) {
+    return NextResponse.json({ error: 'This listing is no longer available.' }, { status: 409 });
+  }
+
+  const inventorySizes = await fetchListingSizes(admin, listingId);
+  const usesSizeInventory = inventorySizes.length > 0;
+
+  let resolvedSizeUs = parseListingSizeUs(body.sizeUs);
+  if (usesSizeInventory) {
+    if (!resolvedSizeUs) {
+      return NextResponse.json({ error: 'Select a size before checkout.' }, { status: 400 });
+    }
+    const reserve = await reserveListingSize(admin, listingId, resolvedSizeUs);
+    if (!reserve.ok) {
+      return NextResponse.json({ error: reserve.error }, { status: 409 });
+    }
+  }
+
+  if (!usesSizeInventory) {
+    if (listingRow.locked_buyer_id && listingRow.locked_buyer_id !== user!.id) {
+      return NextResponse.json({ error: 'This listing is no longer available.' }, { status: 409 });
+    }
+  }
+
+  const { data: listing, error: lockErr } = usesSizeInventory
+    ? { data: listingRow, error: null }
+    : await admin
+        .from('market_listings')
+        .update({ locked_buyer_id: user!.id, locked_at: now })
+        .eq('id', listingId)
+        .eq('status', 'active')
+        .is('locked_buyer_id', null)
+        .select('id, price_cents, shipping_cents, seller_id, title, condition')
+        .single();
 
   if (lockErr || !listing) {
+    if (resolvedSizeUs != null && usesSizeInventory) {
+      await restoreListingSize(admin, listingId, resolvedSizeUs);
+    }
     return NextResponse.json({ error: 'This listing is no longer available.' }, { status: 409 });
   }
 
   if (listing.seller_id === user!.id) {
-    await admin.from('market_listings').update({ locked_buyer_id: null, locked_at: null }).eq('id', listingId);
+    if (!usesSizeInventory) {
+      await admin.from('market_listings').update({ locked_buyer_id: null, locked_at: null }).eq('id', listingId);
+    }
+    if (resolvedSizeUs != null && usesSizeInventory) {
+      await restoreListingSize(admin, listingId, resolvedSizeUs);
+    }
     return NextResponse.json({ error: 'You cannot buy your own listing.' }, { status: 400 });
   }
 
   const priceCents = listing.price_cents ?? 0;
   if (priceCents <= 0) {
-    await admin.from('market_listings').update({ locked_buyer_id: null, locked_at: null }).eq('id', listingId);
+    if (!usesSizeInventory) {
+      await admin.from('market_listings').update({ locked_buyer_id: null, locked_at: null }).eq('id', listingId);
+    }
+    if (resolvedSizeUs != null && usesSizeInventory) {
+      await restoreListingSize(admin, listingId, resolvedSizeUs);
+    }
     return NextResponse.json({ error: 'Listing has no price.' }, { status: 400 });
   }
 
@@ -175,29 +229,39 @@ export async function POST(req: NextRequest) {
     .eq('listing_id', listingId)
     .maybeSingle();
 
+  const orderInsert: Record<string, unknown> = {
+    tenant_slug: tenant.slug,
+    listing_id: listingId,
+    buyer_id: user!.id,
+    seller_id: listing.seller_id,
+    payout_recipient_id: payoutRecipientId,
+    amount_cents: priceCents,
+    shipping_cents: shippingCents,
+    platform_fee_cents: feeCents,
+    seller_payout_cents: payoutCents,
+    status: 'pending_payment',
+    shipping_address: shippingAddress,
+    seller_condition: listing.condition,
+    ai_condition_grade: aiRow?.condition_grade_suggested ?? null,
+    ai_condition_score: aiRow?.condition_score ?? null,
+  };
+  if (resolvedSizeUs != null) {
+    orderInsert.size_us = resolvedSizeUs;
+  }
+
   const { data: order, error: orderErr } = await admin
     .from('market_orders')
-    .insert({
-      tenant_slug: tenant.slug,
-      listing_id: listingId,
-      buyer_id: user!.id,
-      seller_id: listing.seller_id,
-      payout_recipient_id: payoutRecipientId,
-      amount_cents: priceCents,
-      shipping_cents: shippingCents,
-      platform_fee_cents: feeCents,
-      seller_payout_cents: payoutCents,
-      status: 'pending_payment',
-      shipping_address: shippingAddress,
-      seller_condition: listing.condition,
-      ai_condition_grade: aiRow?.condition_grade_suggested ?? null,
-      ai_condition_score: aiRow?.condition_score ?? null,
-    })
+    .insert(orderInsert)
     .select('id, order_ref, amount_cents, shipping_cents, listing_id, buyer_id, seller_id, platform_fee_cents, seller_payout_cents')
     .single();
 
   if (orderErr || !order) {
-    await admin.from('market_listings').update({ locked_buyer_id: null, locked_at: null }).eq('id', listingId);
+    if (!usesSizeInventory) {
+      await admin.from('market_listings').update({ locked_buyer_id: null, locked_at: null }).eq('id', listingId);
+    }
+    if (resolvedSizeUs != null && usesSizeInventory) {
+      await restoreListingSize(admin, listingId, resolvedSizeUs);
+    }
     return NextResponse.json({ error: orderErr?.message || 'Order failed' }, { status: 500 });
   }
 

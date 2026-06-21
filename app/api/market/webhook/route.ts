@@ -5,7 +5,11 @@ import { getStripeInstance } from '@/lib/stripe/webhooks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, tenants } from '@/config/tenants';
 import { createNotification } from '@/lib/notifications';
-import { notifyListingFollowers } from '@/lib/market/notify-listing-followers';
+import {
+  detectListingFollowEvents,
+  notifyListingFollowers,
+} from '@/lib/market/notify-listing-followers';
+import { listingInventoryDepleted, restoreListingSize } from '@/lib/market/listing-sizes';
 import { completeTradeListings } from '@/lib/market/trade-lifecycle';
 import { findOrCreateThread } from '@/lib/guild-messaging';
 import { normalizePhone, sendSms } from '@/lib/twilio';
@@ -136,14 +140,25 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', orderId);
 
-    await supabase
-      .from('market_listings')
-      .update({
-        status: 'sold',
-        locked_buyer_id: null,
-        locked_at: null,
-      })
-      .eq('id', listingId);
+    const depleted = await listingInventoryDepleted(supabase, listingId);
+    if (depleted) {
+      await supabase
+        .from('market_listings')
+        .update({
+          status: 'sold',
+          locked_buyer_id: null,
+          locked_at: null,
+        })
+        .eq('id', listingId);
+    } else {
+      await supabase
+        .from('market_listings')
+        .update({
+          locked_buyer_id: null,
+          locked_at: null,
+        })
+        .eq('id', listingId);
+    }
 
     const sellerId = session.metadata.seller_id;
     const { data: listingRow } = await supabase
@@ -222,7 +237,15 @@ export async function POST(req: NextRequest) {
       const rawSlug = (pi.metadata?.tenant_slug as string | undefined)?.trim().toLowerCase();
       const tenantSlug = rawSlug && rawSlug in tenants ? rawSlug : tenant.slug;
       const supabase = createAdminClient(tenantSlug);
+      const { data: orderRow } = await supabase
+        .from('market_orders')
+        .select('size_us')
+        .eq('id', orderId)
+        .maybeSingle();
       await supabase.from('market_orders').update({ status: 'cancelled' }).eq('id', orderId);
+      if (orderRow?.size_us != null) {
+        await restoreListingSize(supabase, listingId, Number(orderRow.size_us));
+      }
       await supabase
         .from('market_listings')
         .update({ status: 'active', locked_buyer_id: null, locked_at: null })

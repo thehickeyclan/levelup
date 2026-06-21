@@ -47,6 +47,13 @@ import {
 import type { MarketListingImageRow } from '@/lib/market/listing-images';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
 import { cn } from '@/lib/utils';
+import {
+  BnibSizeInventoryEditor,
+  emptySizeInventoryRow,
+  UsedListingSizeNote,
+  type SizeInventoryRow,
+} from '@/components/market/bnib-size-inventory-editor';
+import { supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 
 const MAX_PHOTOS = 6;
 
@@ -81,6 +88,9 @@ export default function EditListingPage() {
   );
   const [modeBlockedReason, setModeBlockedReason] = useState<string | null>(null);
   const [activeTradeId, setActiveTradeId] = useState<string | null>(null);
+  const [sizeInventory, setSizeInventory] = useState<SizeInventoryRow[]>([
+    emptySizeInventoryRow('10'),
+  ]);
 
   const shoeIdUserLocked = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -152,6 +162,17 @@ export default function EditListingPage() {
           rarity: normalizeMarketRarity(l.rarity as string | null) ?? '',
         });
         setPurchaseNotes(collectionPurchaseNotesFromListing(l));
+        const loadedSizes = (data.sizes as { size_us: number; quantity: number }[] | undefined) ?? [];
+        if (loadedSizes.length) {
+          setSizeInventory(
+            loadedSizes.map((row) => ({
+              size_us: String(row.size_us),
+              quantity: String(row.quantity),
+            }))
+          );
+        } else if (supportsMultiSizeInventory(wear)) {
+          setSizeInventory([emptySizeInventoryRow(String(l.size ?? '10'))]);
+        }
         if (String(l.description ?? '').trim()) {
           setDescriptionTouched(true);
         }
@@ -164,6 +185,7 @@ export default function EditListingPage() {
   }, [listingId]);
 
   const isUsed = form.wear_state === 'used';
+  const isBnibInventory = supportsMultiSizeInventory(form.wear_state);
   const isPricedListing = form.listing_type === 'sell';
   const isCollection = form.listing_type === 'collection';
 
@@ -408,6 +430,21 @@ export default function EditListingPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
 
+      if (supportsMultiSizeInventory(form.wear_state)) {
+        const sizesRes = await fetch(`/api/market/listings/${listingId}/sizes`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sizes: sizeInventory.map((row) => ({
+              size_us: row.size_us,
+              quantity: row.quantity,
+            })),
+          }),
+        });
+        const sizesData = await sizesRes.json();
+        if (!sizesRes.ok) throw new Error(sizesData.error || 'Failed to save sizes');
+      }
+
       if (!form.rarity) {
         const rarityRes = await fetch('/api/market/ai/rarity', {
           method: 'POST',
@@ -576,11 +613,17 @@ export default function EditListingPage() {
               placeholder="2016"
             />
           </div>
-          <div>
-            <Label>Size (US)</Label>
-            <Input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
-          </div>
+          {!isBnibInventory ? (
+            <div>
+              <Label>Size (US)</Label>
+              <Input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
+              <UsedListingSizeNote className="mt-1.5" />
+            </div>
+          ) : null}
         </div>
+        {isBnibInventory ? (
+          <BnibSizeInventoryEditor rows={sizeInventory} onChange={setSizeInventory} />
+        ) : null}
       </div>
 
       <div className="space-y-3">

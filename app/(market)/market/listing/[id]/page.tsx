@@ -23,6 +23,11 @@ import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
 import { ListingQaSection } from '@/components/market/listing-qa-section';
 import { SellerPurchaseNotesCard } from '@/components/market/collection-purchase-notes';
+import { ListingSizePicker } from '@/components/market/listing-size-picker';
+import {
+  formatListingSizesLabel,
+  type ListingSizeRow,
+} from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
 
 export default function ListingDetailPage() {
@@ -49,6 +54,8 @@ export default function ListingDetailPage() {
   const [activeImage, setActiveImage] = useState(0);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [selectedSizeUs, setSelectedSizeUs] = useState<number | null>(null);
+  const [inventorySizes, setInventorySizes] = useState<ListingSizeRow[]>([]);
 
   useEffect(() => {
     fetch(`/api/market/listings/${id}`)
@@ -57,6 +64,10 @@ export default function ListingDetailPage() {
         setData(d);
         setFollowing(Boolean(d.following));
         setActiveImage(0);
+        const sizes = (d.sizes as ListingSizeRow[] | undefined) ?? [];
+        setInventorySizes(sizes);
+        const firstAvailable = sizes.find((row) => row.quantity > 0);
+        setSelectedSizeUs(firstAvailable?.size_us ?? null);
       });
   }, [id]);
 
@@ -163,9 +174,15 @@ export default function ListingDetailPage() {
     l.color_family as string | null,
     l.colorway as string | null
   );
+  const sizeLabel =
+    inventorySizes.length > 0
+      ? formatListingSizesLabel(inventorySizes)
+      : l.size != null
+        ? `Size ${l.size}`
+        : null;
   const specChips = [
     l.model_year ? String(l.model_year) : null,
-    l.size != null ? `Size ${l.size}` : null,
+    sizeLabel,
     colorLabel,
     conditionLabel,
   ].filter(Boolean) as string[];
@@ -193,6 +210,11 @@ export default function ListingDetailPage() {
   const askingLabel = 'Asking';
 
   const askingValue = priceCents != null ? `$${(priceCents / 100).toFixed(0)}` : null;
+
+  const checkoutHref =
+    inventorySizes.length > 0 && selectedSizeUs != null
+      ? `/market/listing/${id}/checkout?size=${selectedSizeUs}`
+      : `/market/listing/${id}/checkout`;
 
   const ctaBlock = (
     <>
@@ -243,16 +265,36 @@ export default function ListingDetailPage() {
         </div>
       ) : null}
       {showBuyCta ? (
-        <div className="space-y-2">
-          <Button
-            asChild
-            className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full text-base hover:bg-accent/90"
-          >
-            <Link href={`/market/listing/${id}/checkout`} className="flex items-center justify-center gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              Buy now — ${(priceCents! / 100).toFixed(0)}
-            </Link>
-          </Button>
+        <div className="space-y-3">
+          {inventorySizes.length > 0 ? (
+            <ListingSizePicker
+              sizes={inventorySizes}
+              value={selectedSizeUs}
+              onChange={setSelectedSizeUs}
+            />
+          ) : null}
+          {inventorySizes.length > 0 && selectedSizeUs == null ? (
+            <Button
+              disabled
+              className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full text-base opacity-50"
+            >
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Select a size to buy
+            </Button>
+          ) : (
+            <Button
+              asChild
+              className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full text-base hover:bg-accent/90"
+            >
+              <Link href={checkoutHref} className="flex items-center justify-center gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                Buy now — ${(priceCents! / 100).toFixed(0)}
+                {selectedSizeUs != null && inventorySizes.length > 0
+                  ? ` · size ${selectedSizeUs}`
+                  : ''}
+              </Link>
+            </Button>
+          )}
           {openToTrade ? (
             <Button
               asChild

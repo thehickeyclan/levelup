@@ -15,6 +15,7 @@ import {
   isListingModeChange,
 } from '@/lib/market/listing-mode-guards';
 import { stripSellerPrivateListingFields } from '@/lib/market/listing-private-fields';
+import { fetchListingSizes } from '@/lib/market/listing-sizes';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function applyListingUpdate(
@@ -115,6 +116,8 @@ export async function GET(
 
   const modeConstraints = isOwner ? await getListingModeConstraints(admin, id) : null;
 
+  const sizes = await fetchListingSizes(supabase, id);
+
   const publicListing = isOwner
     ? { ...listing, views_count: displayViews, ai_assisted: aiAssisted }
     : {
@@ -126,6 +129,7 @@ export async function GET(
 
   return NextResponse.json({
     listing: publicListing,
+    sizes,
     seller: seller ? { ...seller, school: seller.school } : seller,
     sellerStats,
     pending_offer_count: pendingOfferCount ?? 0,
@@ -153,7 +157,7 @@ export async function PATCH(
 
   const { data: existing } = await supabase
     .from('market_listings')
-    .select('seller_id, status, listing_type, title, brand, model, price_cents')
+    .select('seller_id, status, listing_type, title, brand, model, price_cents, wear_state')
     .eq('id', id)
     .single();
 
@@ -198,6 +202,11 @@ export async function PATCH(
   const { data, error } = await applyListingUpdate(supabase, id, updates);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const nextWear = (updates.wear_state ?? existing.wear_state) as string;
+  if (nextWear === 'used' && existing.wear_state !== 'used') {
+    await admin.from('market_listing_sizes').delete().eq('listing_id', id);
+  }
 
   const prevType = existing.listing_type as string;
   const nextType = (updates.listing_type ?? prevType) as string;

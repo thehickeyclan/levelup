@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
-import { checkAndIncrementAiUsage } from '@/lib/market/ai/rate-limit';
+import { checkAndIncrementAiUsage, isAiRateLimitBypass, aiLimitReachedMessage } from '@/lib/market/ai/rate-limit';
 import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
 import { RARITY_ASSESS_SYSTEM, rarityAssessUserMessage } from '@/lib/market/ai/rarity-prompts';
 import { getCatalogContext } from '@/lib/market/shoe-id/catalog';
@@ -19,7 +19,7 @@ const RarityAssessSchema = z.object({
 export async function POST(req: NextRequest) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, tenant, user } = ctx;
+  const { supabase, tenant, user, role } = ctx;
 
   const body = (await req.json().catch(() => ({}))) as {
     listingId?: string;
@@ -77,10 +77,12 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient(tenant.slug);
-  const usage = await checkAndIncrementAiUsage(admin, user!.id);
+  const usage = await checkAndIncrementAiUsage(admin, user!.id, {
+    bypass: isAiRateLimitBypass(role),
+  });
   if (!usage.allowed) {
     return NextResponse.json(
-      { error: 'AI limit reached. Try again in an hour.', remaining: 0 },
+      { error: aiLimitReachedMessage(usage.count, usage.limit), remaining: 0 },
       { status: 429 }
     );
   }

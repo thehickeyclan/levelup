@@ -199,6 +199,7 @@ export default function NewListingPage() {
   const pipelineRunning = useRef(false);
   const catalogEnrichTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCatalogEnrichKey = useRef<string | null>(null);
+  const descriptionAutoKey = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -373,6 +374,7 @@ export default function NewListingPage() {
       setShoeIdAutoApplied(false);
       setAiPipelineError(null);
       lastCatalogEnrichKey.current = null;
+      descriptionAutoKey.current = null;
 
       void runCondition(mergedImages);
     } catch (err) {
@@ -453,6 +455,15 @@ export default function NewListingPage() {
         }
         return;
       }
+
+      const autoKey = `${listingId ?? 'draft'}|${merged.model.trim()}|${merged.brand.trim()}`;
+      if (opts?.silent && descriptionAutoKey.current === autoKey) {
+        return;
+      }
+      if (opts?.silent) {
+        descriptionAutoKey.current = autoKey;
+      }
+
       setAgentLoading(true);
       if (!opts?.silent) setAgentReply(null);
       setError(null);
@@ -806,14 +817,6 @@ export default function NewListingPage() {
           if (listingType !== 'collection' && images.length > 0) {
             await runPrice(overrides);
           }
-
-          if (
-            !descriptionTouched &&
-            !form.description.trim() &&
-            (overrides.model?.trim() || model)
-          ) {
-            await generateDescription({ silent: true, overrides });
-          }
         } finally {
           setCatalogEnriching(false);
         }
@@ -1065,9 +1068,6 @@ export default function NewListingPage() {
               } else if (listingId) {
                 void runRarity(listingId, shoeOverrides);
               }
-              if (!descriptionTouched && !form.description.trim()) {
-                void generateDescription({ silent: true, overrides: shoeOverrides });
-              }
             }}
           />
         ) : null}
@@ -1251,17 +1251,8 @@ export default function NewListingPage() {
               value={form.model}
               onChange={(e) => {
                 lastCatalogEnrichKey.current = null;
+                descriptionAutoKey.current = null;
                 setForm({ ...form, model: e.target.value, rarity: '' });
-              }}
-              onBlur={() => {
-                if (
-                  !descriptionTouched &&
-                  !form.description.trim() &&
-                  form.model.trim() &&
-                  aiCondition
-                ) {
-                  void generateDescription({ silent: true });
-                }
               }}
               placeholder="JB Elite III"
             />

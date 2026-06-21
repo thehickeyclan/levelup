@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
-import { checkAndIncrementAiUsage } from '@/lib/market/ai/rate-limit';
+import { checkAndIncrementAiUsage, isAiRateLimitBypass, aiLimitReachedMessage } from '@/lib/market/ai/rate-limit';
 import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
 import { findCatalogEntry, matchCatalogEntry, getCatalogContext, fetchCatalogEntries } from '@/lib/market/shoe-id/catalog';
 import { enrichmentFromCatalog } from '@/lib/market/catalog-listing-enrich';
@@ -58,10 +58,12 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient(tenant.slug);
-  const usage = await checkAndIncrementAiUsage(admin, user!.id);
+  const usage = await checkAndIncrementAiUsage(admin, user!.id, {
+    bypass: isAiRateLimitBypass(role),
+  });
   if (!usage.allowed) {
     return NextResponse.json(
-      { error: 'AI limit reached. Try again in an hour.', remaining: 0 },
+      { error: aiLimitReachedMessage(usage.count, usage.limit), remaining: 0 },
       { status: 429 }
     );
   }

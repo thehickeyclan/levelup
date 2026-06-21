@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
-import { checkAndIncrementAiUsage } from '@/lib/market/ai/rate-limit';
+import { checkAndIncrementAiUsage, isAiRateLimitBypass, aiLimitReachedMessage } from '@/lib/market/ai/rate-limit';
 import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
 import { listingImagesForClaude } from '@/lib/market/ai/load-listing-images';
 import { listingQueryImageBlocks } from '@/lib/market/shoe-id/load-query-images';
@@ -37,7 +37,7 @@ function promptForWearState(wearState: MarketWearState): string {
 export async function POST(req: NextRequest) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, tenant, user } = ctx;
+  const { supabase, tenant, user, role } = ctx;
   const admin = createAdminClient(tenant.slug);
 
   const body = (await req.json().catch(() => ({}))) as {
@@ -59,10 +59,12 @@ export async function POST(req: NextRequest) {
 
   const wearState = (body.wear_state ?? listing.wear_state ?? 'used') as MarketWearState;
 
-  const usage = await checkAndIncrementAiUsage(admin, user!.id);
+  const usage = await checkAndIncrementAiUsage(admin, user!.id, {
+    bypass: isAiRateLimitBypass(role),
+  });
   if (!usage.allowed) {
     return NextResponse.json(
-      { error: 'AI analysis limit reached. Try again in an hour.', remaining: 0 },
+      { error: aiLimitReachedMessage(usage.count, usage.limit), remaining: 0 },
       { status: 429 }
     );
   }

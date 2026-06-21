@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
-import { checkAndIncrementAiUsage } from '@/lib/market/ai/rate-limit';
+import { checkAndIncrementAiUsage, isAiRateLimitBypass, aiLimitReachedMessage } from '@/lib/market/ai/rate-limit';
 import { callClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
 import { AGENT_SYSTEM_PROMPT } from '@/lib/market/ai/prompts';
 import { parseAgentResponse } from '@/lib/market/parse-agent-response';
@@ -61,7 +61,7 @@ function formatAgentListingContext(
 export async function POST(req: NextRequest) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, tenant, user } = ctx;
+  const { supabase, tenant, user, role } = ctx;
   const admin = createAdminClient(tenant.slug);
 
   const body = (await req.json().catch(() => ({}))) as {
@@ -131,9 +131,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const usage = await checkAndIncrementAiUsage(admin, user!.id);
+  const usage = await checkAndIncrementAiUsage(admin, user!.id, {
+    bypass: isAiRateLimitBypass(role),
+  });
   if (!usage.allowed) {
-    return NextResponse.json({ error: 'AI limit reached', remaining: 0 }, { status: 429 });
+    return NextResponse.json(
+      { error: aiLimitReachedMessage(usage.count, usage.limit), remaining: 0 },
+      { status: 429 }
+    );
   }
 
   const conversation = messages

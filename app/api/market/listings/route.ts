@@ -86,6 +86,9 @@ export async function POST(req: NextRequest) {
     colorway?: string | null;
     color_family?: string | null;
     rarity?: string | null;
+    purchase_source?: string | null;
+    purchase_price_cents?: number | null;
+    purchased_at?: string | null;
   };
 
   const isDraft = body.draft === true || !body.brand;
@@ -117,6 +120,16 @@ export async function POST(req: NextRequest) {
         ? body.color_family.trim().toLowerCase()
         : null,
     rarity: normalizeMarketRarity(body.rarity ?? null),
+    purchase_source:
+      typeof body.purchase_source === 'string' ? body.purchase_source.trim() || null : null,
+    purchase_price_cents:
+      typeof body.purchase_price_cents === 'number' && body.purchase_price_cents > 0
+        ? Math.round(body.purchase_price_cents)
+        : null,
+    purchased_at:
+      typeof body.purchased_at === 'string' && body.purchased_at.trim()
+        ? body.purchased_at.trim()
+        : null,
   };
 
   row.brand = normalizeMarketBrand(row.brand);
@@ -129,6 +142,10 @@ export async function POST(req: NextRequest) {
       insertRow = withoutColorFamily(insertRow);
     } else if (isMissingColumnError(msg, 'rarity') && 'rarity' in insertRow) {
       insertRow = withoutColumn(insertRow, 'rarity');
+    } else if (isMissingColumnError(msg, 'purchase_source') && 'purchase_source' in insertRow) {
+      insertRow = withoutColumn(insertRow, 'purchase_source');
+      insertRow = withoutColumn(insertRow, 'purchase_price_cents');
+      insertRow = withoutColumn(insertRow, 'purchased_at');
     } else {
       break;
     }

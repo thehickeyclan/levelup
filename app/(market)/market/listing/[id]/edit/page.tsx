@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,13 @@ import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
 import { normalizeMarketRarity, rarityShortHint, type MarketRarity } from '@/lib/market/rarity';
 import { RarityBadge } from '@/components/market/rarity-badge';
+import {
+  CollectionPurchaseNotesFields,
+  collectionPurchaseNotesFromListing,
+  collectionPurchaseNotesToPayload,
+  emptyCollectionPurchaseNotes,
+  type CollectionPurchaseNotes,
+} from '@/components/market/collection-purchase-notes';
 import {
   ListingTypeQuickActions,
   type ListingTypePatch,
@@ -68,6 +76,11 @@ export default function EditListingPage() {
   const [agentInput, setAgentInput] = useState('');
   const [agentExpanded, setAgentExpanded] = useState(false);
   const [descriptionTouched, setDescriptionTouched] = useState(false);
+  const [purchaseNotes, setPurchaseNotes] = useState<CollectionPurchaseNotes>(
+    emptyCollectionPurchaseNotes()
+  );
+  const [modeBlockedReason, setModeBlockedReason] = useState<string | null>(null);
+  const [activeTradeId, setActiveTradeId] = useState<string | null>(null);
 
   const shoeIdUserLocked = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,6 +121,10 @@ export default function EditListingPage() {
         }
 
         setStatus(listingStatus);
+        setModeBlockedReason(
+          data.viewer?.can_change_mode === false ? data.viewer.mode_blocked_reason ?? null : null
+        );
+        setActiveTradeId(data.viewer?.active_trade_id ?? null);
         const imgs = (
           (l.market_listing_images as MarketListingImageRow[] | undefined) ?? []
         )
@@ -134,6 +151,7 @@ export default function EditListingPage() {
           description: String(l.description ?? ''),
           rarity: normalizeMarketRarity(l.rarity as string | null) ?? '',
         });
+        setPurchaseNotes(collectionPurchaseNotesFromListing(l));
         if (String(l.description ?? '').trim()) {
           setDescriptionTouched(true);
         }
@@ -204,6 +222,7 @@ export default function EditListingPage() {
           ? 0
           : Math.round(Number(form.shipping_cents || 0) * 100),
       rarity: form.rarity || null,
+      ...collectionPurchaseNotesToPayload(purchaseNotes),
     };
   };
 
@@ -407,6 +426,7 @@ export default function EditListingPage() {
   };
 
   const setListingType = (listingType: MarketListingType) => {
+    if (modeBlockedReason && listingType !== form.listing_type) return;
     setForm((f) => ({
       ...f,
       listing_type: listingType,
@@ -452,6 +472,8 @@ export default function EditListingPage() {
           form.price_cents ? Math.round(Number(form.price_cents) * 100) : null
         }
         compact
+        modeBlockedReason={modeBlockedReason}
+        activeTradeId={activeTradeId}
         onUpdated={(patch: ListingTypePatch) => {
           setForm((f) => ({
             ...f,
@@ -466,6 +488,8 @@ export default function EditListingPage() {
                   : f.shipping_cents,
             open_to_trade: patch.listing_type === 'sell' ? f.open_to_trade : false,
           }));
+          setModeBlockedReason(null);
+          setActiveTradeId(null);
         }}
       />
 
@@ -698,29 +722,51 @@ export default function EditListingPage() {
       <div className="space-y-3">
         <Label>Listing type</Label>
         <div className="space-y-2">
-          {SELLER_LISTING_TYPE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setListingType(opt.value)}
-              className={cn(
-                'w-full text-left rounded-lg border px-3 py-3 transition-colors',
-                form.listing_type === opt.value
-                  ? 'border-accent bg-accent/10'
-                  : 'border-border hover:border-accent/40'
-              )}
-            >
-              <p className="text-sm font-medium">{opt.label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{opt.hint}</p>
-            </button>
-          ))}
+          {SELLER_LISTING_TYPE_OPTIONS.map((opt) => {
+            const isCurrent = form.listing_type === opt.value;
+            const disabled = Boolean(modeBlockedReason) && !isCurrent;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={disabled}
+                onClick={() => setListingType(opt.value)}
+                className={cn(
+                  'w-full text-left rounded-lg border px-3 py-3 transition-colors',
+                  isCurrent
+                    ? 'border-accent bg-accent/10'
+                    : disabled
+                      ? 'border-border/50 opacity-50 cursor-not-allowed'
+                      : 'border-border hover:border-accent/40'
+                )}
+              >
+                <p className="text-sm font-medium">{opt.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{opt.hint}</p>
+              </button>
+            );
+          })}
         </div>
+        {modeBlockedReason ? (
+          <p className="text-xs text-muted-foreground">
+            {modeBlockedReason}
+            {activeTradeId ? (
+              <>
+                {' '}
+                <Link href={`/market/trade/${activeTradeId}`} className="text-accent hover:underline">
+                  View trade
+                </Link>
+              </>
+            ) : null}
+          </p>
+        ) : null}
         {isCollection ? (
           <p className="text-xs text-muted-foreground">
             Collection pairs show on your profile — not for sale until you move them to Offers.
           </p>
         ) : null}
       </div>
+
+      <CollectionPurchaseNotesFields notes={purchaseNotes} onChange={setPurchaseNotes} />
 
       {isPricedListing ? (
         <div className="grid grid-cols-2 gap-3">

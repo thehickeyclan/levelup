@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,8 @@ export function ListingTypeQuickActions({
   onUpdated,
   compact = false,
   title,
+  modeBlockedReason = null,
+  activeTradeId = null,
 }: {
   listingId: string;
   currentType: MarketListingType;
@@ -57,6 +60,8 @@ export function ListingTypeQuickActions({
   onUpdated?: (patch: ListingTypePatch) => void;
   compact?: boolean;
   title?: string;
+  modeBlockedReason?: string | null;
+  activeTradeId?: string | null;
 }) {
   const [acting, setActing] = useState<MarketListingType | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +70,10 @@ export function ListingTypeQuickActions({
     currentPriceCents != null ? String(Math.round(currentPriceCents / 100)) : ''
   );
 
+  const modeBlocked = Boolean(modeBlockedReason);
+
   const applyType = async (type: MarketListingType, priceDollars?: string) => {
+    if (modeBlocked && type !== currentType) return;
     if (type === currentType && type !== 'sell') return;
     if (type === 'sell' && !priceDollars?.trim()) {
       setSellMode(true);
@@ -90,7 +98,14 @@ export function ListingTypeQuickActions({
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not update listing');
+      if (!res.ok) {
+        if (res.status === 409 && data.active_trade_id) {
+          throw new Error(
+            `${data.error || 'Cannot change listing mode right now.'} Open the trade to cancel or wait for it to finish.`
+          );
+        }
+        throw new Error(data.error || 'Could not update listing');
+      }
 
       setSellMode(false);
       onUpdated?.(body);
@@ -108,6 +123,27 @@ export function ListingTypeQuickActions({
       : currentType === 'sell'
         ? 'Still in your closet — change how buyers see this pair'
         : 'Change how this pair is listed');
+
+  const blockedNote = modeBlockedReason ? (
+    <p className="text-[10px] text-muted-foreground leading-snug">
+      {modeBlockedReason}
+      {activeTradeId ? (
+        <>
+          {' '}
+          <Link href={`/market/trade/${activeTradeId}`} className="text-accent hover:underline">
+            View trade
+          </Link>
+        </>
+      ) : modeBlockedReason.includes('pending offer') ? (
+        <>
+          {' '}
+          <Link href={`/market/offers?listing=${listingId}`} className="text-accent hover:underline">
+            Review offers
+          </Link>
+        </>
+      ) : null}
+    </p>
+  ) : null;
 
   if (compact) {
     return (
@@ -138,11 +174,12 @@ export function ListingTypeQuickActions({
                   ? 'For sale'
                   : opt.label;
             const isCurrent = currentType === type;
+            const disabled = Boolean(acting) || (modeBlocked && !isCurrent);
             return (
               <button
                 key={type}
                 type="button"
-                disabled={Boolean(acting)}
+                disabled={disabled}
                 onClick={(e) => {
                   e.stopPropagation();
                   void applyType(type, type === 'sell' ? price : undefined);
@@ -151,7 +188,9 @@ export function ListingTypeQuickActions({
                   'rounded-full px-2.5 py-1 text-[10px] font-medium border transition-colors',
                   isCurrent
                     ? 'border-accent bg-accent/15 text-accent'
-                    : 'border-border text-muted-foreground hover:border-accent/50 hover:text-accent'
+                    : disabled
+                      ? 'border-border/50 text-muted-foreground/50 cursor-not-allowed'
+                      : 'border-border text-muted-foreground hover:border-accent/50 hover:text-accent'
                 )}
               >
                 {acting === type ? (
@@ -197,6 +236,7 @@ export function ListingTypeQuickActions({
             Change price (${price})
           </button>
         ) : null}
+        {blockedNote}
         {error ? <p className="text-[10px] text-destructive">{error}</p> : null}
       </div>
     );
@@ -215,17 +255,20 @@ export function ListingTypeQuickActions({
         {SELLER_LISTING_TYPE_OPTIONS.map((opt) => {
           const isCurrent = currentType === opt.value;
           const busy = acting === opt.value;
+          const disabled = Boolean(acting) || (modeBlocked && !isCurrent);
           return (
             <button
               key={opt.value}
               type="button"
-              disabled={Boolean(acting)}
+              disabled={disabled}
               onClick={() => void applyType(opt.value, opt.value === 'sell' ? price : undefined)}
               className={cn(
                 'text-left rounded-lg border px-3 py-2.5 transition-colors',
                 isCurrent
                   ? 'border-accent bg-accent/15'
-                  : 'border-border bg-card hover:border-accent/40'
+                  : disabled
+                    ? 'border-border/50 bg-muted/30 cursor-not-allowed'
+                    : 'border-border bg-card hover:border-accent/40'
               )}
             >
               <p className="text-sm font-medium flex items-center gap-1.5">
@@ -260,6 +303,7 @@ export function ListingTypeQuickActions({
         </div>
       )}
 
+      {blockedNote ? <div className="text-xs text-muted-foreground">{blockedNote}</div> : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );

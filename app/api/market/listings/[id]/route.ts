@@ -10,6 +10,11 @@ import {
 } from '@/lib/market/notify-listing-followers';
 import { MARKET_LISTING_IMAGE_FIELDS_WITH_ID } from '@/lib/market/listing-images';
 import { isMissingColumnError, withoutColorFamily, withoutColumn } from '@/lib/market/listing-column-fallback';
+import {
+  getListingModeConstraints,
+  isListingModeChange,
+} from '@/lib/market/listing-mode-guards';
+import { stripSellerPrivateListingFields } from '@/lib/market/listing-private-fields';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function applyListingUpdate(
@@ -30,6 +35,12 @@ async function applyListingUpdate(
       payload = withoutColumn(payload, 'rarity');
       continue;
     }
+    if (isMissingColumnError(msg, 'purchase_source') && 'purchase_source' in payload) {
+      payload = withoutColumn(payload, 'purchase_source');
+      payload = withoutColumn(payload, 'purchase_price_cents');
+      payload = withoutColumn(payload, 'purchased_at');
+      continue;
+    }
     return result;
   }
   return await supabase.from('market_listings').update(updates).eq('id', id).select().single();
@@ -41,7 +52,7 @@ export async function GET(
 ) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, user } = ctx;
+  const { supabase, tenant, user } = ctx;
   const { id } = await params;
 
   const { data: listing, error } = await supabase
@@ -63,6 +74,7 @@ export async function GET(
     return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
   }
 
+  const admin = createAdminClient(tenant.slug);
   const seller = await getSellerProfile(supabase, listing.seller_id);
   const sellerStats = seller
     ? await fetchMarketSellerStats(supabase, listing.seller_id as string)
@@ -103,10 +115,12 @@ export async function GET(
     following = Boolean(followRow);
   }
 
+  const modeConstraints = isOwner ? await getListingModeConstraints(admin, id) : null;
+
   const publicListing = isOwner
     ? { ...listing, views_count: displayViews, ai_assisted: aiAssisted }
     : {
-        ...listing,
+        ...stripSellerPrivateListingFields(listing as Record<string, unknown>),
         views_count: displayViews,
         market_ai_analysis: undefined,
         ai_assisted: aiAssisted,
@@ -119,7 +133,13 @@ export async function GET(
     pending_offer_count: pendingOfferCount ?? 0,
     following,
     follower_count: followerCount ?? 0,
-    viewer: { id: user!.id, isSeller: isOwner },
+    viewer: {
+      id: user!.id,
+      isSeller: isOwner,
+      can_change_mode: modeConstraints?.can_change_mode ?? true,
+      mode_blocked_reason: modeConstraints?.blocked_reason ?? null,
+      active_trade_id: modeConstraints?.active_trade_id ?? null,
+    },
   });
 }
 
@@ -130,6 +150,7 @@ export async function PATCH(
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
   const { supabase, tenant, user } = ctx;
+  const admin = createAdminClient(tenant.slug);
   const { id } = await params;
 
   const { data: existing } = await supabase
@@ -146,6 +167,7 @@ export async function PATCH(
   const allowed = [
     'title', 'brand', 'model', 'size', 'condition', 'price_cents', 'shipping_cents',
     'listing_type', 'open_to_trade', 'open_to_boot', 'description', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family', 'rarity',
+    'purchase_source', 'purchase_price_cents', 'purchased_at',
   ];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
@@ -159,6 +181,19 @@ export async function PATCH(
       .eq('listing_id', id);
     if (!count || count < 1) {
       return NextResponse.json({ error: 'Add at least one photo before publishing.' }, { status: 400 });
+    }
+  }
+
+  if (isListingModeChange(updates, existing.listing_type as string)) {
+    const constraints = await getListingModeConstraints(admin, id);
+    if (!constraints.can_change_mode) {
+      return NextResponse.json(
+        {
+          error: constraints.blocked_reason ?? 'Cannot change listing mode right now.',
+          active_trade_id: constraints.active_trade_id,
+        },
+        { status: 409 }
+      );
     }
   }
 

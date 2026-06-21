@@ -22,6 +22,7 @@ import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
 import { ListingQaSection } from '@/components/market/listing-qa-section';
+import { SellerPurchaseNotesCard } from '@/components/market/collection-purchase-notes';
 import { cn } from '@/lib/utils';
 
 export default function ListingDetailPage() {
@@ -38,7 +39,12 @@ export default function ListingDetailPage() {
     pending_offer_count: number;
     following?: boolean;
     follower_count?: number;
-    viewer?: { isSeller: boolean };
+    viewer?: {
+      isSeller: boolean;
+      can_change_mode?: boolean;
+      mode_blocked_reason?: string | null;
+      active_trade_id?: string | null;
+    };
   } | null>(null);
   const [activeImage, setActiveImage] = useState(0);
   const [following, setFollowing] = useState(false);
@@ -462,6 +468,12 @@ export default function ListingDetailPage() {
                   currentType={listingType}
                   currentPriceCents={priceCents}
                   compact
+                  modeBlockedReason={
+                    data.viewer?.can_change_mode === false
+                      ? data.viewer.mode_blocked_reason
+                      : null
+                  }
+                  activeTradeId={data.viewer?.active_trade_id ?? null}
                   onUpdated={(patch) => {
                     setData((prev) =>
                       prev
@@ -475,6 +487,13 @@ export default function ListingDetailPage() {
                                 ? { shipping_cents: patch.shipping_cents }
                                 : {}),
                             },
+                            viewer: {
+                              ...prev.viewer,
+                              isSeller: prev.viewer?.isSeller ?? true,
+                              can_change_mode: true,
+                              mode_blocked_reason: null,
+                              active_trade_id: null,
+                            },
                           }
                         : prev
                     );
@@ -482,6 +501,8 @@ export default function ListingDetailPage() {
                 />
               </div>
             ) : null}
+
+            {isSeller ? <SellerPurchaseNotesCard listing={l} /> : null}
 
             {isCollection && isActive && !isSeller ? (
               <div className="hidden md:block">{collectionBlock}</div>

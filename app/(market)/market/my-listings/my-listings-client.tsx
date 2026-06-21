@@ -151,6 +151,8 @@ function ListingRow({
           currentType={listing.listing_type as MarketListingType}
           currentPriceCents={listing.price_cents}
           compact
+          modeBlockedReason={listing.can_change_mode ? null : listing.mode_blocked_reason}
+          activeTradeId={listing.active_trade_id}
           onUpdated={(patch) => onListingUpdated(listing.id, patch)}
         />
       ) : null}
@@ -200,6 +202,7 @@ export function MyListingsClient({
     pairs: MyListingRow[];
     soldTraded: MyListingRow[];
     drafts: MyListingRow[];
+    archived: MyListingRow[];
   };
   pendingOffers: number;
 }) {
@@ -210,6 +213,7 @@ export function MyListingsClient({
       pairs: g.pairs.filter((l) => l.id !== id),
       soldTraded: g.soldTraded.filter((l) => l.id !== id),
       drafts: g.drafts.filter((l) => l.id !== id),
+      archived: g.archived.filter((l) => l.id !== id),
     }));
   };
 
@@ -222,13 +226,20 @@ export function MyListingsClient({
               ...l,
               listing_type: patch.listing_type,
               price_cents: patch.price_cents,
+              can_change_mode: true,
+              mode_blocked_reason: null,
+              active_trade_id: null,
             }
           : l
       ),
     }));
   };
 
-  const total = groups.pairs.length + groups.soldTraded.length + groups.drafts.length;
+  const total =
+    groups.pairs.length +
+    groups.soldTraded.length +
+    groups.drafts.length +
+    groups.archived.length;
 
   return (
     <div className="min-h-screen pb-24 bg-background">
@@ -241,7 +252,7 @@ export function MyListingsClient({
             </p>
           </div>
           <Button asChild size="sm" className="bg-accent text-accent-foreground rounded-full shrink-0">
-            <Link href="/market/listing/new">Add pair</Link>
+            <Link href="/market/listing/new?type=collection">Add pair</Link>
           </Button>
         </div>
         <MarketSubNav pendingOffers={pendingOffers} />
@@ -265,6 +276,12 @@ export function MyListingsClient({
             <Section
               title="Drafts"
               listings={groups.drafts}
+              onDeleted={removeListing}
+              onListingUpdated={updateListing}
+            />
+            <Section
+              title="Archived"
+              listings={groups.archived}
               onDeleted={removeListing}
               onListingUpdated={updateListing}
             />

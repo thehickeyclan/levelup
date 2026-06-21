@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,13 +28,25 @@ import {
   parseColorFamily,
 } from '@/lib/market/color-family';
 import { SimilarSalesGuidance, priceGuidanceFooter } from '@/components/market/similar-sales-guidance';
-import { shoeIdClientEnabled } from '@/lib/market/shoe-id/feature-flag';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
-import type { MarketRarity } from '@/lib/market/rarity';
+import {
+  MARKET_RARITIES,
+  normalizeMarketRarity,
+  rarityLabel,
+  rarityShortHint,
+  type MarketRarity,
+} from '@/lib/market/rarity';
+import { RarityBadge } from '@/components/market/rarity-badge';
 import type { PriceComp } from '@/lib/market/ai/schemas';
 import type { MarketListingImageRow } from '@/lib/market/listing-images';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
+import {
+  CollectionPurchaseNotesFields,
+  collectionPurchaseNotesToPayload,
+  emptyCollectionPurchaseNotes,
+  type CollectionPurchaseNotes,
+} from '@/components/market/collection-purchase-notes';
 import { cn } from '@/lib/utils';
 
 const MAX_PHOTOS = 6;
@@ -75,6 +87,16 @@ function AiSpinner({ label }: { label: string }) {
 
 export default function NewListingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const typeParam = searchParams.get('type');
+  const initialListingType: MarketListingType =
+    typeParam === 'collection' ||
+    typeParam === 'vault' ||
+    typeParam === 'trade' ||
+    typeParam === 'sell'
+      ? typeParam
+      : 'sell';
+
   const [listingId, setListingId] = useState<string | null>(null);
   const [images, setImages] = useState<ListingImage[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -98,6 +120,10 @@ export default function NewListingPage() {
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentReply, setAgentReply] = useState<string | null>(null);
 
+  const [purchaseNotes, setPurchaseNotes] = useState<CollectionPurchaseNotes>(
+    emptyCollectionPurchaseNotes()
+  );
+
   const lastAutoKey = useRef<string | null>(null);
   const pipelineRunning = useRef(false);
   /** User manually set brand/model — AI must not overwrite those fields. */
@@ -114,7 +140,7 @@ export default function NewListingPage() {
     size: '10',
     wear_state: 'used' as MarketWearState,
     condition: 'good',
-    listing_type: 'sell' as MarketListingType,
+    listing_type: initialListingType,
     open_to_trade: false,
     price_cents: '',
     shipping_cents: '10',
@@ -197,6 +223,9 @@ export default function NewListingPage() {
     if (listingType === 'collection') {
       setAiPrice(null);
     }
+    if (images.length > 0 && !pipelineRunning.current) {
+      lastAutoKey.current = null;
+    }
   };
 
   const setWearState = (wearState: MarketWearState) => {
@@ -216,7 +245,13 @@ export default function NewListingPage() {
     const res = await fetch('/api/market/listings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ draft: true }),
+      body: JSON.stringify({
+        draft: true,
+        listing_type: form.listing_type,
+        wear_state: form.wear_state,
+        brand: form.brand,
+        model: form.model.trim() || undefined,
+      }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to create draft');
@@ -308,6 +343,9 @@ export default function NewListingPage() {
       open_to_trade: merged.listing_type === 'sell' ? merged.open_to_trade : false,
       description: merged.description,
       rarity: merged.rarity || null,
+      ...(merged.listing_type === 'collection'
+        ? collectionPurchaseNotesToPayload(purchaseNotes)
+        : {}),
     };
   };
 
@@ -440,6 +478,39 @@ export default function NewListingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, listingId]);
 
+  const runRarity = useCallback(
+    async (id: string, overrides?: Partial<typeof form>) => {
+      const merged = { ...form, ...overrides };
+      const brand = merged.brand.trim();
+      const model = merged.model.trim();
+      if (!brand || !model) return;
+      if (normalizeMarketRarity(merged.rarity)) return;
+
+      try {
+        const res = await fetch('/api/market/ai/rarity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            listingId: id,
+            brand,
+            model,
+            colorway: merged.colorway.trim() || null,
+            model_year: merged.model_year ? Number(merged.model_year) : null,
+            persist: true,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.rarity) {
+          const rarity = normalizeMarketRarity(data.rarity);
+          if (rarity) setForm((f) => ({ ...f, rarity }));
+        }
+      } catch {
+        // Non-fatal — seller can set rarity manually
+      }
+    },
+    [form]
+  );
+
   const runCondition = useCallback(async () => {
     if (pipelineRunning.current) return;
     pipelineRunning.current = true;
@@ -449,7 +520,7 @@ export default function NewListingPage() {
     try {
       const id = await ensureDraft();
 
-      if (shoeIdClientEnabled() && images.length > 0) {
+      if (images.length > 0) {
         setIdentifyingShoe(true);
         try {
           const res = await fetch('/api/market/shoe-id', {
@@ -548,6 +619,7 @@ export default function NewListingPage() {
       if (form.listing_type !== 'collection') {
         await runPrice(overrides);
       }
+      await runRarity(id, overrides);
       const modelAfterId = overrides.model?.trim() || form.model.trim();
       if (!descriptionTouched && !form.description.trim() && modelAfterId) {
         void generateDescription({ silent: true, overrides });
@@ -570,6 +642,7 @@ export default function NewListingPage() {
     descriptionTouched,
     generateDescription,
     applyShoeIdPayload,
+    runRarity,
   ]);
 
   useEffect(() => {
@@ -668,7 +741,15 @@ export default function NewListingPage() {
     <div className="min-h-screen pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
       <BackLink fallbackHref="/market" label="Back to Market" />
 
-      <h1 className="text-2xl font-bold">List a pair</h1>
+      <h1 className="text-2xl font-bold">
+        {isCollection ? 'Add to your closet' : 'List a pair'}
+      </h1>
+      {isCollection ? (
+        <p className="text-sm text-muted-foreground">
+          Upload a photo — AI identifies the shoe, grades condition, and estimates rarity. Override
+          anything before you save.
+        </p>
+      ) : null}
 
       <div className="space-y-3">
         <Label>What are you selling?</Label>
@@ -692,6 +773,61 @@ export default function NewListingPage() {
         </div>
       </div>
 
+      <div className="space-y-3">
+        <Label>How do you want to list it?</Label>
+        <div className="space-y-2">
+          {SELLER_LISTING_TYPE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setListingType(opt.value)}
+              className={cn(
+                'w-full text-left rounded-lg border px-3 py-3 transition-colors',
+                form.listing_type === opt.value
+                  ? 'border-accent bg-accent/10'
+                  : 'border-border hover:border-accent/40'
+              )}
+            >
+              <p className="text-sm font-medium text-foreground">{opt.label}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{opt.hint}</p>
+            </button>
+          ))}
+        </div>
+        {form.listing_type === 'sell' ? (
+          <label className="flex items-start gap-3 rounded-lg border border-border px-3 py-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={form.open_to_trade}
+              onChange={(e) => setForm((f) => ({ ...f, open_to_trade: e.target.checked }))}
+            />
+            <span>
+              <span className="text-sm font-medium text-foreground block">Also open to trades</span>
+              <span className="text-xs text-muted-foreground">
+                Buyers can offer their shoes instead of paying cash
+              </span>
+            </span>
+          </label>
+        ) : null}
+        {isCollection ? (
+          <>
+            <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
+              <p className="text-sm text-foreground/80">
+                Showcase pairs on your profile — not for sale until you list them for sale or offers.
+              </p>
+            </div>
+            <CollectionPurchaseNotesFields notes={purchaseNotes} onChange={setPurchaseNotes} />
+          </>
+        ) : null}
+        {form.listing_type === 'vault' ? (
+          <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
+            <p className="text-sm text-foreground/80">
+              Buyers send you cash or trade offers. You pick the best one.
+            </p>
+          </div>
+        ) : null}
+      </div>
+
       <div className="grid gap-4">
         <div>
           <Label>Brand</Label>
@@ -703,7 +839,7 @@ export default function NewListingPage() {
             value={form.brand}
             onChange={(e) => {
               lockShoeIdentity();
-              setForm({ ...form, brand: e.target.value });
+              setForm({ ...form, brand: e.target.value, rarity: '' });
             }}
           >
             {MARKET_BRANDS.map((b) => (
@@ -728,7 +864,7 @@ export default function NewListingPage() {
             value={form.model}
             onChange={(e) => {
               lockShoeIdentity();
-              setForm({ ...form, model: e.target.value });
+              setForm({ ...form, model: e.target.value, rarity: '' });
             }}
             onBlur={() => {
               if (
@@ -742,6 +878,36 @@ export default function NewListingPage() {
             }}
             placeholder="JB Elite III"
           />
+        </div>
+        {form.rarity ? (
+          <div className="flex flex-wrap items-center gap-2 -mt-2">
+            <RarityBadge rarity={form.rarity} size="md" />
+            <span className="text-xs text-muted-foreground">{rarityShortHint(form.rarity)}</span>
+          </div>
+        ) : images.length > 0 && (analyzing || identifyingShoe) ? (
+          <p className="text-xs text-muted-foreground -mt-2">AI assessing rarity…</p>
+        ) : (
+          <p className="text-xs text-muted-foreground -mt-2">
+            Rarity is assessed from photos and catalog — override below after AI runs.
+          </p>
+        )}
+        <div>
+          <Label className="text-xs">Rarity (override)</Label>
+          <select
+            className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={form.rarity}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                rarity: (e.target.value as MarketRarity | '') || '',
+              })
+            }
+          >
+            <option value="">Let AI decide</option>
+            {MARKET_RARITIES.map((r) => (
+              <option key={r} value={r}>{rarityLabel(r)}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -794,9 +960,11 @@ export default function NewListingPage() {
           <p className="text-sm text-destructive">{uploadError}</p>
         ) : null}
         <p className="text-xs text-muted-foreground">
-          {form.wear_state === 'bnib'
-            ? 'Include box and shoes. Up to 6 photos.'
-            : 'Use a light background or white surface so shoes stay visible. Up to 6 photos.'}
+          {isCollection
+            ? 'Add a clear photo — AI fills brand, model, condition (1–10), and rarity. You can change any field.'
+            : form.wear_state === 'bnib'
+              ? 'Include box and shoes. Up to 6 photos.'
+              : 'Use a light background or white surface so shoes stay visible. Up to 6 photos.'}
         </p>
         {images.length > 0 ? (
           <div className="grid grid-cols-3 gap-2">
@@ -819,7 +987,7 @@ export default function NewListingPage() {
           <p className="text-sm text-muted-foreground">No photos yet — add at least one before publishing.</p>
         )}
 
-        {shoeIdClientEnabled() && listingId && images.length > 0 ? (
+        {listingId && images.length > 0 ? (
           <ShoeIdCard
             listingId={listingId}
             images={images}
@@ -837,6 +1005,8 @@ export default function NewListingPage() {
               }
               if (form.listing_type !== 'collection') {
                 void runPrice(shoeOverrides);
+              } else if (listingId) {
+                void runRarity(listingId, shoeOverrides);
               }
               if (!descriptionTouched && !form.description.trim()) {
                 void generateDescription({ silent: true, overrides: shoeOverrides });
@@ -846,11 +1016,11 @@ export default function NewListingPage() {
         ) : null}
 
         {images.length > 0 && identifyingShoe ? (
-          <AiSpinner label="Identifying shoe from photos…" />
+          <AiSpinner label="Identifying brand, model, and colorway…" />
         ) : null}
 
         {images.length > 0 && analyzing && !identifyingShoe ? (
-          <AiSpinner label="Analyzing condition…" />
+          <AiSpinner label="Grading condition and assessing rarity…" />
         ) : null}
 
         {aiCondition && !analyzing ? (
@@ -1022,58 +1192,6 @@ export default function NewListingPage() {
             </select>
           </div>
         ) : null}
-        <div className="space-y-3">
-          <Label>How do you want to list it?</Label>
-          <div className="space-y-2">
-            {SELLER_LISTING_TYPE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setListingType(opt.value)}
-                className={cn(
-                  'w-full text-left rounded-lg border px-3 py-3 transition-colors',
-                  form.listing_type === opt.value
-                    ? 'border-accent bg-accent/10'
-                    : 'border-border hover:border-accent/40'
-                )}
-              >
-                <p className="text-sm font-medium text-foreground">{opt.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{opt.hint}</p>
-              </button>
-            ))}
-          </div>
-          {form.listing_type === 'sell' ? (
-            <label className="flex items-start gap-3 rounded-lg border border-border px-3 py-3 cursor-pointer">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={form.open_to_trade}
-                onChange={(e) => setForm((f) => ({ ...f, open_to_trade: e.target.checked }))}
-              />
-              <span>
-                <span className="text-sm font-medium text-foreground block">Also open to trades</span>
-                <span className="text-xs text-muted-foreground">
-                  Buyers can offer their shoes instead of paying cash
-                </span>
-              </span>
-            </label>
-          ) : null}
-          {isCollection ? (
-            <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
-              <p className="text-sm text-foreground/80">
-                This pair appears on your profile under Collection. Buyers can see it but can&apos;t make offers.
-                Move it to Offers anytime from My pairs.
-              </p>
-            </div>
-          ) : null}
-          {form.listing_type === 'vault' ? (
-            <div className="rounded-lg border border-border bg-card/80 px-3 py-3">
-              <p className="text-sm text-foreground/80">
-                Buyers send you cash or trade offers. You pick the best one.
-              </p>
-            </div>
-          ) : null}
-        </div>
         {isPricedListing ? (
         <div className="grid grid-cols-2 gap-3">
           <div>

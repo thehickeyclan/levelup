@@ -1,5 +1,6 @@
 import type { MarketWearState } from '@/lib/market/wear-state';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
+import { LISTING_DESCRIPTION_FORMAT } from '@/lib/market/ai/prompts';
 
 export type ListingDescriptionInput = {
   brand: string;
@@ -40,11 +41,6 @@ export function buildListingDescription(input: ListingDescriptionInput): string 
     lines.push('', cosmetic);
   }
 
-  const tip = analysis?.listing_tip?.trim();
-  if (tip && tip !== summary && tip !== cosmetic) {
-    lines.push('', tip);
-  }
-
   if (wearState === 'bnib') {
     lines.push('', 'Unworn with original box. See photos.');
   } else if (wearState === 'new_no_box') {
@@ -66,9 +62,10 @@ export type ListingAgentPromptInput = {
   condition: string;
   listingType?: string;
   sellerNote?: string;
+  rarity?: string | null;
+  weightClass?: string | null;
+  collectorNotes?: string | null;
   conditionAnalysis?: {
-    wrestle_score?: number;
-    grade?: string;
     listing_tip?: string;
     breakdown?: Partial<Record<string, { note?: string }>>;
   } | null;
@@ -77,33 +74,37 @@ export type ListingAgentPromptInput = {
 /** User message for the listing agent when auto-writing description from known fields. */
 export function buildListingAgentPrompt(input: ListingAgentPromptInput): string {
   const lines = [
-    'Write a buyer-facing listing description for these wrestling shoes using the details below.',
-    'Return has_draft: true with a concise, honest description (2–4 short paragraphs).',
-    'Never include score numbers, Guild ratings, Historical/Interest/Rarity/Cultural scales, or "/10" in the description.',
+    'Write a buyer-facing listing description for these wrestling shoes.',
+    'Return has_draft: true with the full description in draft.description.',
     '',
+    LISTING_DESCRIPTION_FORMAT,
+    '',
+    '--- Listing facts ---',
     `Brand: ${input.brand || 'unknown'}`,
     `Model: ${input.model || 'unknown'}`,
     input.colorway?.trim() ? `Colorway: ${input.colorway.trim()}` : null,
-    input.modelYear ? `Model year: ${input.modelYear}` : null,
+    input.modelYear ? `Model year / era: ${input.modelYear}` : null,
+    input.weightClass?.trim() ? `Weight: ${input.weightClass.trim()}` : null,
+    input.rarity ? `Rarity tier: ${input.rarity}` : null,
     `Size: ${input.size} US`,
     `Wear state: ${input.wearState}`,
     `Condition grade: ${input.condition}`,
     input.listingType ? `Listing type: ${input.listingType}` : null,
+    input.collectorNotes?.trim() ? `Catalog / collector notes: ${input.collectorNotes.trim()}` : null,
   ].filter(Boolean) as string[];
 
   if (input.conditionAnalysis) {
+    lines.push('', '--- Photo condition analysis (private — translate to Condition bullets, no scores) ---');
     const a = input.conditionAnalysis;
-    if (a.wrestle_score != null) lines.push(`Wrestle-ready (private): ${a.wrestle_score}/10`);
-    if (a.grade) lines.push(`Suggested grade (private): ${a.grade}`);
-    if (a.listing_tip?.trim()) lines.push(`Photo notes (private): ${a.listing_tip.trim()}`);
+    if (a.listing_tip?.trim()) lines.push(`Seller photo tip (do NOT quote): ${a.listing_tip.trim()}`);
     for (const part of ['sole', 'upper', 'midsole', 'laces'] as const) {
       const note = a.breakdown?.[part]?.note?.trim();
-      if (note) lines.push(`${part} (private): ${note}`);
+      if (note) lines.push(`${part}: ${note}`);
     }
   }
 
   if (input.sellerNote?.trim()) {
-    lines.push('', `Seller added detail: ${input.sellerNote.trim()}`);
+    lines.push('', `Seller personal note: ${input.sellerNote.trim()}`);
   }
 
   return lines.join('\n');

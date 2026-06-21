@@ -18,5 +18,6 @@ export async function GET() {
     hints,
     dominantBrand: dominantSellerBrand(hints),
     dominantListing,
+    isAdmin: ctx.role === 'admin',
   });
 }

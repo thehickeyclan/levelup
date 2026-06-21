@@ -33,13 +33,8 @@ import {
 } from '@/lib/market/catalog-listing-enrich';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
-import {
-  MARKET_RARITIES,
-  normalizeMarketRarity,
-  rarityLabel,
-  type MarketRarity,
-} from '@/lib/market/rarity';
-import { RarityBadge } from '@/components/market/rarity-badge';
+import { ListingRarityField } from '@/components/market/listing-rarity-field';
+import { normalizeMarketRarity, type MarketRarity } from '@/lib/market/rarity';
 import type { PriceComp } from '@/lib/market/ai/schemas';
 import type { MarketListingImageRow } from '@/lib/market/listing-images';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
@@ -193,6 +188,7 @@ export default function NewListingPage() {
   const [purchaseNotes, setPurchaseNotes] = useState<CollectionPurchaseNotes>(
     emptyCollectionPurchaseNotes()
   );
+  const [isAdmin, setIsAdmin] = useState(false);
   const [sizeInventory, setSizeInventory] = useState<SizeInventoryRow[]>([
     emptySizeInventoryRow('10'),
   ]);
@@ -231,6 +227,7 @@ export default function NewListingPage() {
       try {
         const res = await fetch('/api/market/seller-shoe-hints');
         const data = await res.json();
+        if (res.ok) setIsAdmin(Boolean(data.isAdmin));
         if (!res.ok || !data.dominantListing) return;
         const d = data.dominantListing as {
           brand: string;
@@ -417,27 +414,26 @@ export default function NewListingPage() {
     size: Number(form.size) || 10,
     wearState: form.wear_state,
     condition: conditionForWearState(form.wear_state, form.condition),
-    analysis: aiCondition
-      ? {
-          listing_tip: aiCondition.listing_tip,
-        }
-      : null,
+    analysis: null,
   });
 
   const agentPromptInput = (sellerNote?: string, overrides?: Partial<typeof form>) => {
     const merged = { ...form, ...overrides };
     return {
-    brand: merged.brand,
-    model: merged.model,
-    colorway: merged.colorway,
-    modelYear: merged.model_year ? Number(merged.model_year) : null,
-    size: Number(merged.size) || 10,
-    wearState: merged.wear_state,
-    condition: conditionForWearState(merged.wear_state, merged.condition),
-    listingType: merged.listing_type,
-    sellerNote,
-    conditionAnalysis: aiCondition,
-  };
+      brand: merged.brand,
+      model: merged.model,
+      colorway: merged.colorway,
+      modelYear: merged.model_year ? Number(merged.model_year) : null,
+      size: Number(merged.size) || 10,
+      wearState: merged.wear_state,
+      condition: conditionForWearState(merged.wear_state, merged.condition),
+      listingType: merged.listing_type,
+      rarity: merged.rarity || null,
+      weightClass: merged.weight_class || null,
+      collectorNotes: shoeIdResult?.collector_notes?.trim() || null,
+      sellerNote,
+      conditionAnalysis: aiCondition,
+    };
   };
 
   const generateDescription = useCallback(
@@ -476,15 +472,18 @@ export default function NewListingPage() {
           setDescriptionTouched(false);
           setAiDescriptionDraft(true);
           setAgentInput('');
+          setAgentReply(null);
         } else if (data.message) {
           setAgentReply(data.message);
         } else if (!opts?.silent) {
           setError('Could not generate description — try again.');
         }
       } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Description failed';
         if (!opts?.silent) {
-          setError(err instanceof Error ? err.message : 'Description failed');
+          setError(msg);
         }
+        setAgentReply(msg);
       } finally {
         setAgentLoading(false);
       }
@@ -1327,31 +1326,12 @@ export default function NewListingPage() {
           />
         </div>
 
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Label className="text-xs">Rarity</Label>
-            {form.rarity ? (
-              <RarityBadge rarity={form.rarity} size="sm" />
-            ) : images.length > 0 && (analyzing || identifyingShoe) ? (
-              <span className="text-[10px] text-muted-foreground">AI assessing…</span>
-            ) : null}
-          </div>
-          <select
-            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm h-11"
-            value={form.rarity}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                rarity: (e.target.value as MarketRarity | '') || '',
-              })
-            }
-          >
-            <option value="">Let AI decide</option>
-            {MARKET_RARITIES.map((r) => (
-              <option key={r} value={r}>{rarityLabel(r)}</option>
-            ))}
-          </select>
-        </div>
+        <ListingRarityField
+          rarity={form.rarity}
+          isAdmin={isAdmin}
+          assessing={analyzing || identifyingShoe || catalogEnriching}
+          onChange={(rarity) => setForm((f) => ({ ...f, rarity }))}
+        />
 
         <div>
           <Label className="text-xs">Colorway (optional)</Label>
@@ -1467,7 +1447,9 @@ export default function NewListingPage() {
                 : 'Add model above, or let AI draft after photos'
             }
           />
-          {agentReply ? <p className="text-xs text-muted-foreground mt-1">{agentReply}</p> : null}
+          {agentReply && !form.description.includes(agentReply) ? (
+            <p className="text-xs text-destructive mt-1">{agentReply}</p>
+          ) : null}
           {agentExpanded ? (
             <div className="mt-2 space-y-2">
               <Input

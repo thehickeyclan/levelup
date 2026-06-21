@@ -15,6 +15,7 @@ import {
   isListingModeChange,
 } from '@/lib/market/listing-mode-guards';
 import { stripSellerPrivateListingFields } from '@/lib/market/listing-private-fields';
+import { normalizeMarketRarity } from '@/lib/market/rarity';
 import { fetchListingSizes } from '@/lib/market/listing-sizes';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -51,7 +52,7 @@ export async function GET(
 ) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, tenant, user } = ctx;
+  const { supabase, tenant, user, role } = ctx;
   const { id } = await params;
 
   const { data: listing, error } = await supabase
@@ -138,6 +139,7 @@ export async function GET(
     viewer: {
       id: user!.id,
       isSeller: isOwner,
+      isAdmin: role === 'admin',
       can_change_mode: modeConstraints?.can_change_mode ?? true,
       mode_blocked_reason: modeConstraints?.blocked_reason ?? null,
       active_trade_id: modeConstraints?.active_trade_id ?? null,
@@ -151,13 +153,13 @@ export async function PATCH(
 ) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, tenant, user } = ctx;
+  const { supabase, tenant, user, role } = ctx;
   const admin = createAdminClient(tenant.slug);
   const { id } = await params;
 
   const { data: existing } = await supabase
     .from('market_listings')
-    .select('seller_id, status, listing_type, title, brand, model, price_cents, wear_state')
+    .select('seller_id, status, listing_type, title, brand, model, price_cents, wear_state, rarity')
     .eq('id', id)
     .single();
 
@@ -174,6 +176,14 @@ export async function PATCH(
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (body[key] !== undefined) updates[key] = body[key];
+  }
+
+  if ('rarity' in updates && role !== 'admin') {
+    const prev = normalizeMarketRarity(existing.rarity as string | null);
+    const next = normalizeMarketRarity(updates.rarity as string | null);
+    if (prev && next !== prev) {
+      delete updates.rarity;
+    }
   }
 
   if (updates.status === 'active') {

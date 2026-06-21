@@ -31,8 +31,8 @@ import {
 import { shoeIdClientEnabled } from '@/lib/market/shoe-id/feature-flag';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
-import { normalizeMarketRarity, rarityShortHint, type MarketRarity } from '@/lib/market/rarity';
-import { RarityBadge } from '@/components/market/rarity-badge';
+import { ListingRarityField } from '@/components/market/listing-rarity-field';
+import { normalizeMarketRarity, type MarketRarity } from '@/lib/market/rarity';
 import {
   CollectionPurchaseNotesFields,
   collectionPurchaseNotesFromListing,
@@ -88,6 +88,7 @@ export default function EditListingPage() {
   );
   const [modeBlockedReason, setModeBlockedReason] = useState<string | null>(null);
   const [activeTradeId, setActiveTradeId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [sizeInventory, setSizeInventory] = useState<SizeInventoryRow[]>([
     emptySizeInventoryRow('10'),
   ]);
@@ -135,6 +136,7 @@ export default function EditListingPage() {
           data.viewer?.can_change_mode === false ? data.viewer.mode_blocked_reason ?? null : null
         );
         setActiveTradeId(data.viewer?.active_trade_id ?? null);
+        setIsAdmin(Boolean(data.viewer?.isAdmin));
         const imgs = (
           (l.market_listing_images as MarketListingImageRow[] | undefined) ?? []
         )
@@ -562,16 +564,11 @@ export default function EditListingPage() {
             placeholder="Cronin 1"
           />
         </div>
-        {form.rarity ? (
-          <div className="flex flex-wrap items-center gap-2 -mt-2">
-            <RarityBadge rarity={form.rarity} size="md" />
-            <span className="text-xs text-muted-foreground">{rarityShortHint(form.rarity)}</span>
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground -mt-2">
-            Rarity is assessed automatically when you save (from catalog or AI).
-          </p>
-        )}
+        <ListingRarityField
+          rarity={form.rarity}
+          isAdmin={isAdmin}
+          onChange={(rarity) => setForm((f) => ({ ...f, rarity }))}
+        />
         <div>
           <Label>Colorway (optional)</Label>
           <Input

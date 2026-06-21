@@ -66,6 +66,7 @@ export type ListingAgentPromptInput = {
   weightClass?: string | null;
   collectorNotes?: string | null;
   conditionAnalysis?: {
+    summary?: string;
     listing_tip?: string;
     breakdown?: Partial<Record<string, { note?: string }>>;
   } | null;

@@ -32,6 +32,7 @@ import {
   type ListingEnrichment,
 } from '@/lib/market/catalog-listing-enrich';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
+import { identifyListingShoe } from '@/lib/market/identify-listing-shoe';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
 import { ListingRarityField } from '@/components/market/listing-rarity-field';
 import { normalizeMarketRarity, type MarketRarity } from '@/lib/market/rarity';
@@ -174,6 +175,7 @@ export default function NewListingPage() {
   const [pricing, setPricing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [aiPipelineError, setAiPipelineError] = useState<string | null>(null);
   const [aiCondition, setAiCondition] = useState<AiCondition | null>(null);
   const [aiPrice, setAiPrice] = useState<AiPrice | null>(null);
   const [conditionOverridden, setConditionOverridden] = useState(false);
@@ -357,16 +359,22 @@ export default function NewListingPage() {
         throw new Error('No photos uploaded — try again.');
       }
 
-      setImages((prev) =>
-        [...prev, ...uploaded].sort((a, b) => a.display_order - b.display_order)
+      const mergedImages = [...images, ...uploaded].sort(
+        (a, b) => a.display_order - b.display_order
       );
+      const pipelineKey = `${mergedImages.map((i) => i.id).join(',')}|${form.wear_state}`;
+      lastAutoKey.current = pipelineKey;
+
+      setImages(mergedImages);
       setAiCondition(null);
       setAiPrice(null);
       setConditionOverridden(false);
       setShoeIdResult(null);
       setShoeIdAutoApplied(false);
-      lastAutoKey.current = null;
+      setAiPipelineError(null);
       lastCatalogEnrichKey.current = null;
+
+      void runCondition(mergedImages);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed';
       setUploadError(msg);
@@ -484,6 +492,7 @@ export default function NewListingPage() {
           setError(msg);
         }
         setAgentReply(msg);
+        setAiPipelineError(msg);
       } finally {
         setAgentLoading(false);
       }
@@ -591,7 +600,10 @@ export default function NewListingPage() {
           }),
         });
         const data = await res.json();
-        if (!res.ok) return {};
+        if (!res.ok) {
+          setAiPipelineError(data.error || 'Could not look up shoe details');
+          return {};
+        }
 
         const enrichment: ListingEnrichment = {
           model_year: data.model_year ?? undefined,
@@ -614,8 +626,6 @@ export default function NewListingPage() {
       id: string,
       overrides?: Partial<typeof form>
     ): Promise<Partial<typeof form>> => {
-      if (images.length === 0) return {};
-
       const merged = { ...form, ...overrides };
       try {
         const res = await fetch('/api/market/ai/condition', {
@@ -624,7 +634,11 @@ export default function NewListingPage() {
           body: JSON.stringify({ listingId: id, wear_state: merged.wear_state }),
         });
         const data = await res.json();
-        if (!res.ok) return {};
+        if (!res.ok) {
+          const msg = data.error || 'Condition analysis failed';
+          setAiPipelineError(msg);
+          return {};
+        }
 
         const analysis = data.analysis as AiCondition;
         setAiCondition(analysis);
@@ -640,55 +654,52 @@ export default function NewListingPage() {
       }
       return {};
     },
-    [form, images, mergeFormPatch]
+    [form, mergeFormPatch]
   );
 
-  const runCondition = useCallback(async () => {
+  const runCondition = useCallback(async (imageOverride?: ListingImage[]) => {
     if (pipelineRunning.current) return;
     pipelineRunning.current = true;
     setAnalyzing(true);
+    setAiPipelineError(null);
     setError(null);
     let overrides: Partial<typeof form> = {};
+    const imageList = imageOverride ?? images;
     const formBase = () => ({ ...form, ...overrides });
     try {
       const id = await ensureDraft();
 
-      if (images.length > 0) {
+      if (imageList.length > 0) {
         setIdentifyingShoe(true);
         try {
-          const res = await fetch('/api/market/shoe-id', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              listingId: id,
-              images: images.map((i) => i.public_url),
-              brandHint: form.brand.trim() || undefined,
-              modelHint: form.model.trim() || undefined,
-            }),
+          const data = await identifyListingShoe({
+            listingId: id,
+            images: imageList.map((i) => i.public_url),
+            brandHint: form.brand.trim() || undefined,
+            modelHint: form.model.trim() || undefined,
           });
-          const data = await res.json();
-          if (res.ok && data.result) {
-            const result = data.result as ShoeIdResult;
-            setShoeIdResult(result);
-            const colorFamily =
-              inferColorFamilyFromColorway(result.colorway?.trim() || '') || '';
-            const catalogExtra = data.catalogEnrichment as ListingEnrichment | null | undefined;
-            const enrichment = enrichmentFromShoeIdResult(result, colorFamily);
-            const mergedEnrichment: ListingEnrichment = {
-              ...enrichment,
-              model_year: enrichment.model_year ?? catalogExtra?.model_year ?? undefined,
-              weight_class: catalogExtra?.weight_class ?? enrichment.weight_class,
-              rarity: enrichment.rarity ?? catalogExtra?.rarity ?? undefined,
-            };
-            const shoeOverrides = enrichmentToFormPatch(mergedEnrichment, formBase());
-            overrides = { ...overrides, ...shoeOverrides };
-            mergeFormPatch(shoeOverrides);
-            setShoeIdAutoApplied(true);
-            setUploadError(null);
-            lastCatalogEnrichKey.current = `${formBase().brand.trim()}|${formBase().model.trim()}`;
-          }
-        } catch {
-          // Non-fatal — condition analysis can still run
+          const result = data.result as ShoeIdResult;
+          setShoeIdResult(result);
+          const colorFamily =
+            inferColorFamilyFromColorway(result.colorway?.trim() || '') || '';
+          const catalogExtra = data.catalogEnrichment as ListingEnrichment | null | undefined;
+          const enrichment = enrichmentFromShoeIdResult(result, colorFamily);
+          const mergedEnrichment: ListingEnrichment = {
+            ...enrichment,
+            model_year: enrichment.model_year ?? catalogExtra?.model_year ?? undefined,
+            weight_class: catalogExtra?.weight_class ?? enrichment.weight_class,
+            rarity: enrichment.rarity ?? catalogExtra?.rarity ?? undefined,
+          };
+          const shoeOverrides = enrichmentToFormPatch(mergedEnrichment, formBase());
+          overrides = { ...overrides, ...shoeOverrides };
+          mergeFormPatch(shoeOverrides);
+          setShoeIdAutoApplied(true);
+          setUploadError(null);
+          lastCatalogEnrichKey.current = `${formBase().brand.trim()}|${formBase().model.trim()}`;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Shoe identification failed';
+          setAiPipelineError(msg);
+          setError(msg);
         } finally {
           setIdentifyingShoe(false);
         }
@@ -1005,6 +1016,18 @@ export default function NewListingPage() {
           )}
         </button>
         {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
+        {aiPipelineError ? (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+            <p className="text-sm text-destructive">{aiPipelineError}</p>
+            <button
+              type="button"
+              onClick={() => void runCondition()}
+              className="text-xs text-accent hover:text-accent/80"
+            >
+              Retry AI analysis
+            </button>
+          </div>
+        ) : null}
         {images.length > 0 && listingId ? (
           <ListingPhotoGrid
             listingId={listingId}

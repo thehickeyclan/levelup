@@ -6,6 +6,7 @@ import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market
 import { findCatalogEntry, matchCatalogEntry, getCatalogContext, fetchCatalogEntries } from '@/lib/market/shoe-id/catalog';
 import { enrichmentFromCatalog } from '@/lib/market/catalog-listing-enrich';
 import { buildShoeIdVisionContent } from '@/lib/market/shoe-id/images';
+import { listingQueryImageBlocks } from '@/lib/market/shoe-id/load-query-images';
 import { SHOE_ID_SYSTEM_PROMPT, shoeIdUserMessage } from '@/lib/market/shoe-id/prompts';
 import { ShoeIdResultSchema } from '@/lib/market/shoe-id/schemas';
 import { shoeIdServerEnabled } from '@/lib/market/shoe-id/feature-flag';
@@ -81,10 +82,24 @@ export async function POST(req: NextRequest) {
 
   const catalogContext = await getCatalogContext(supabase, brandHint);
   const catalogEntries = await fetchCatalogEntries(supabase, brandHint);
-  const { blocks, queryImageCount, referenceImageCount } = await buildShoeIdVisionContent(
+
+  let queryBlocks: Awaited<ReturnType<typeof listingQueryImageBlocks>> | undefined;
+  if (listingId) {
+    const { data: listingImages } = await supabase
+      .from('market_listing_images')
+      .select('storage_path, public_url')
+      .eq('listing_id', listingId)
+      .order('display_order', { ascending: true })
+      .limit(6);
+    if (listingImages?.length) {
+      queryBlocks = await listingQueryImageBlocks(admin, listingImages);
+    }
+  }
+
+  const { blocks, queryImageCount, referenceImageCount } = buildShoeIdVisionContent(
     images,
     catalogEntries,
-    { brandHint, modelHint }
+    { brandHint, modelHint, queryBlocks }
   );
   if (!queryImageCount) {
     return NextResponse.json({ error: 'Could not load photos for analysis.' }, { status: 400 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { identifyListingShoe } from '@/lib/market/identify-listing-shoe';
 import { ChevronDown, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
@@ -63,18 +64,12 @@ export function ShoeIdCard({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/market/shoe-id', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          listingId,
-          images: images.map((i) => i.public_url),
-          brandHint: formBrand.trim() || undefined,
-          modelHint: formModel.trim() || undefined,
-        }),
+      const data = await identifyListingShoe({
+        listingId,
+        images: images.map((i) => i.public_url),
+        brandHint: formBrand.trim() || undefined,
+        modelHint: formModel.trim() || undefined,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Identification failed');
       setLocalResult(data.result);
       setExpanded(true);
       if (!colorwayOnly && data.autoApplyRecommended !== false) {

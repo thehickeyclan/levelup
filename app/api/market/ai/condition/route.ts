@@ -4,6 +4,7 @@ import { requireMarketUser } from '@/lib/market/auth';
 import { checkAndIncrementAiUsage } from '@/lib/market/ai/rate-limit';
 import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
 import { listingImagesForClaude } from '@/lib/market/ai/load-listing-images';
+import { listingQueryImageBlocks } from '@/lib/market/shoe-id/load-query-images';
 import {
   CONDITION_SYSTEM_PROMPT,
   BNIB_CONDITION_PROMPT,
@@ -77,7 +78,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Upload photos first' }, { status: 400 });
   }
 
-  const visionBlocks = listingImagesForClaude(images);
+  const storageBlocks = await listingQueryImageBlocks(admin, images);
+  const visionBlocks =
+    storageBlocks.length > 0 ? storageBlocks : listingImagesForClaude(images);
   if (!visionBlocks.length) {
     return NextResponse.json({ error: 'Could not load photos for analysis. Try re-uploading.' }, { status: 500 });
   }

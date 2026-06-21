@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveListingPhotoMime } from '@/lib/market/listing-photo-mime';
+import { MAX_LISTING_PHOTO_BYTES } from '@/lib/market/listing-photo-upload-limits';
 
-const MAX_SIZE = 10 * 1024 * 1024;
+const MAX_SIZE = MAX_LISTING_PHOTO_BYTES;
 
 export async function POST(
   req: NextRequest,
@@ -39,7 +40,7 @@ export async function POST(
   }
 
   if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: 'Photo must be under 10MB' }, { status: 400 });
+    return NextResponse.json({ error: 'Photo must be under 4MB — it is auto-compressed on upload.' }, { status: 400 });
   }
 
   const { count } = await supabase

@@ -41,10 +41,18 @@ function modelMatchesHint(entryModel: string, modelHint: string): boolean {
 export function buildShoeIdVisionContent(
   queryUrls: string[],
   catalogEntries: CatalogEntryRow[],
-  options?: { brandHint?: string; modelHint?: string }
+  options?: {
+    brandHint?: string;
+    modelHint?: string;
+    /** When set (e.g. listing photos from storage), skips URL-based query blocks. */
+    queryBlocks?: ClaudeMessageContent[];
+  }
 ): { blocks: ClaudeMessageContent[]; queryImageCount: number; referenceImageCount: number } {
   const blocks: ClaudeMessageContent[] = [];
-  const queryBlocks = imagesFromPublicUrls(queryUrls, MAX_QUERY_IMAGES);
+  const queryBlocks =
+    options?.queryBlocks?.length
+      ? options.queryBlocks
+      : imagesFromPublicUrls(queryUrls, MAX_QUERY_IMAGES);
   const queryImageCount = queryBlocks.length;
 
   blocks.push({

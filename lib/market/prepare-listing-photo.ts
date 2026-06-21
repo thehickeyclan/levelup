@@ -1,5 +1,12 @@
+import { compressListingPhoto } from '@/lib/market/compress-listing-photo';
+
 /** Normalize mobile camera-roll picks (HEIC, empty MIME) to JPEG for market uploads. */
 export async function prepareListingPhoto(file: File): Promise<File> {
+  const normalized = await normalizeListingPhotoFile(file);
+  return compressListingPhoto(normalized);
+}
+
+async function normalizeListingPhotoFile(file: File): Promise<File> {
   const name = file.name?.trim() || 'photo.jpg';
   const ext = name.split('.').pop()?.toLowerCase() || '';
   const type = file.type?.toLowerCase() || '';

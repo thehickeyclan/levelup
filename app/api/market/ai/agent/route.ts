@@ -34,6 +34,9 @@ function formatAgentListingContext(
     shoe_era?: string | null;
   }
 ): string {
+  const wearState = listing.wear_state as 'bnib' | 'new_no_box' | 'used';
+  const isUnworn = wearState === 'bnib' || wearState === 'new_no_box';
+
   const lines = [
     'Server listing context:',
     `Brand: ${listing.brand}`,
@@ -44,16 +47,25 @@ function formatAgentListingContext(
     listing.rarity ? `Rarity: ${listing.rarity}` : null,
     listing.weight_class?.trim() ? `Weight: ${listing.weight_class.trim()}` : null,
     `Size: ${listing.size} US`,
-    `Wear: ${wearStateLabel(listing.wear_state as 'bnib' | 'new_no_box' | 'used')}`,
+    `Wear: ${wearStateLabel(wearState)}${wearState === 'bnib' ? ' — description must NOT use used-shoe wear language' : ''}`,
     `Condition: ${listing.condition}`,
     `Listing type: ${listing.listing_type}`,
     extras?.collector_notes?.trim()
       ? `Catalog / collector notes: ${extras.collector_notes.trim()}`
       : null,
-    ai?.condition_summary ? `Condition notes (private): ${ai.condition_summary}` : null,
-    ai?.cosmetic_summary ? `Appearance notes (private): ${ai.cosmetic_summary}` : null,
-    ai?.condition_grade_suggested ? `Suggested grade (private): ${ai.condition_grade_suggested}` : null,
-    ai?.condition_score != null ? `Wrestle-ready (private): ${ai.condition_score}/10` : null,
+    !isUnworn && ai?.condition_summary
+      ? `Condition notes (private): ${ai.condition_summary}`
+      : null,
+    !isUnworn && ai?.cosmetic_summary ? `Appearance notes (private): ${ai.cosmetic_summary}` : null,
+    !isUnworn && ai?.condition_grade_suggested
+      ? `Suggested grade (private): ${ai.condition_grade_suggested}`
+      : null,
+    !isUnworn && ai?.condition_score != null
+      ? `Wrestle-ready (private): ${ai.condition_score}/10`
+      : null,
+    isUnworn && ai?.condition_summary?.trim()
+      ? `BNIB/unworn verification (private): ${ai.condition_summary.trim()}`
+      : null,
   ].filter(Boolean) as string[];
   return lines.join('\n');
 }

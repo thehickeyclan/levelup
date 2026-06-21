@@ -61,9 +61,12 @@ Structure (use blank lines between sections; section headers on their own line):
 - Sole: (if known)
 - Other notable details (laces, box, etc.)
 
-5) "Condition" section with honest bullet lines from photo analysis (no numeric scores, no "/10")
+5) "Condition" section — MUST match wear state:
+   - BNIB: unworn, original box, tags/lacing as factory, no mat wear. Mention box condition if visible. Do NOT describe tread wear, scuffing, fading, or "used pair" language.
+   - New (no box): unworn deadstock, no box. Do NOT describe mat wear or used-shoe wear patterns.
+   - Used: honest bullet lines from photo analysis (no numeric scores, no "/10")
 
-6) "Collector Notes" section: 1 short paragraph on rarity, demand, or why collectors want this model/colorway/size.
+6) "Collector Notes" section: 1 short paragraph on rarity, demand, or why collectors want this model/colorway/size. For BNIB/new, focus on deadstock/BNIB market — never describe as a "used pair" or practice shoe.
 
 Rules:
 - Never include AI labels, wrestle scores, Guild ratings, Historical/Interest/Rarity/Cultural scales, or "/10".

@@ -87,19 +87,31 @@ export function buildListingAgentPrompt(input: ListingAgentPromptInput): string 
     input.weightClass?.trim() ? `Weight: ${input.weightClass.trim()}` : null,
     input.rarity ? `Rarity tier: ${input.rarity}` : null,
     `Size: ${input.size} US`,
-    `Wear state: ${input.wearState}`,
+    `Wear state: ${input.wearState}${input.wearState === 'bnib' ? ' (brand new in box — unworn)' : input.wearState === 'new_no_box' ? ' (unworn, no box)' : ''}`,
     `Condition grade: ${input.condition}`,
     input.listingType ? `Listing type: ${input.listingType}` : null,
     input.collectorNotes?.trim() ? `Catalog / collector notes: ${input.collectorNotes.trim()}` : null,
   ].filter(Boolean) as string[];
 
-  if (input.conditionAnalysis) {
+  if (input.conditionAnalysis && input.wearState === 'used') {
     lines.push('', '--- Photo condition analysis (private — translate to Condition bullets, no scores) ---');
     const a = input.conditionAnalysis;
     if (a.listing_tip?.trim()) lines.push(`Seller photo tip (do NOT quote): ${a.listing_tip.trim()}`);
     for (const part of ['sole', 'upper', 'midsole', 'laces'] as const) {
       const note = a.breakdown?.[part]?.note?.trim();
       if (note) lines.push(`${part}: ${note}`);
+    }
+  } else if (input.wearState === 'bnib' || input.wearState === 'new_no_box') {
+    lines.push(
+      '',
+      '--- Wear state rules ---',
+      input.wearState === 'bnib'
+        ? 'This is BNIB. Condition section must confirm unworn + original box. Never describe tread wear, mat scuffing, fading from use, or "used pairs". Collector Notes must not reference used-market scarcity.'
+        : 'This is unworn without box. Condition section must confirm unworn deadstock. Never describe mat wear or used-shoe condition.'
+    );
+    const a = input.conditionAnalysis;
+    if (a?.summary?.trim()) {
+      lines.push(`Photo verification note (use only if BNIB/unworn aligned): ${a.summary.trim()}`);
     }
   }
 

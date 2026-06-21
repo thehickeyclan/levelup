@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { fetchMarketBrowseListings } from '@/lib/market/browse-listings';
+import { fetchMarketCollectorBrowseData } from '@/lib/market/collector-browse';
 import { MarketBrowseClient } from './market-browse-client';
 
 async function fetchPendingOfferCount(tenantSlug: string, userId: string): Promise<number> {
@@ -47,6 +48,7 @@ export default async function MarketPage({
 
   let listings: Awaited<ReturnType<typeof fetchMarketBrowseListings>> = [];
   let collectionListings: Awaited<ReturnType<typeof fetchMarketBrowseListings>> = [];
+  let collectors: Awaited<ReturnType<typeof fetchMarketCollectorBrowseData>>['collectors'] = [];
   let pendingOffers = 0;
 
   if (tenant) {
@@ -58,10 +60,11 @@ export default async function MarketPage({
     listings = await fetchMarketBrowseListings(supabase, tenant.slug, browseFilters);
 
     try {
-      collectionListings = await fetchMarketBrowseListings(supabase, tenant.slug, {
-        collectorsOnly: true,
-      });
+      const collectorData = await fetchMarketCollectorBrowseData(supabase, tenant.slug);
+      collectors = collectorData.collectors;
+      collectionListings = collectorData.listings;
     } catch {
+      collectors = [];
       collectionListings = [];
     }
 
@@ -85,6 +88,7 @@ export default async function MarketPage({
       <MarketBrowseClient
         initialListings={listings}
         collectionListings={collectionListings}
+        collectors={collectors}
         pendingOffers={pendingOffers}
       />
     </Suspense>

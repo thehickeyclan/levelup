@@ -27,6 +27,7 @@ export type MarketBrowseListing = {
   open_to_trade: boolean;
   ai_assisted: boolean;
   primary_image_url: string | null;
+  seller_id: string;
   seller_name: string;
   created_at: string;
   views_count: number;
@@ -59,6 +60,8 @@ export type BrowseListingQueryOptions = {
   collectorsOnly?: boolean;
   minPrice?: number;
   maxPrice?: number;
+  /** Default 48 for sale browse; collectors use a higher cap for grouping. */
+  limit?: number;
 };
 
 const BROWSE_SELECT_WITH_RARITY = `
@@ -89,6 +92,7 @@ export async function fetchMarketBrowseListings(
   options?: BrowseListingQueryOptions
 ): Promise<MarketBrowseListing[]> {
   const collectorsOnly = options?.collectorsOnly === true;
+  const limit = options?.limit ?? (collectorsOnly ? 500 : 48);
 
   const runQuery = async (select: string) => {
     let q = supabase
@@ -97,7 +101,7 @@ export async function fetchMarketBrowseListings(
       .eq('tenant_slug', tenantSlug)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
-      .limit(48);
+      .limit(limit);
 
     if (collectorsOnly) {
       q = q.eq('listing_type', 'collection');
@@ -186,6 +190,7 @@ export async function fetchMarketBrowseListings(
       open_to_trade: row.open_to_trade,
       ai_assisted: Boolean(aiRow?.analyzed_at),
       primary_image_url: primaryListingImageUrl(row.market_listing_images),
+      seller_id: row.seller_id,
       seller_name: sellerNames.get(row.seller_id) ?? 'Guild member',
       created_at: row.created_at,
       views_count: row.views_count ?? 0,

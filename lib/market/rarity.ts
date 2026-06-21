@@ -46,3 +46,19 @@ export function rarityBadgeClass(rarity: MarketRarity): string {
       return 'bg-accent/20 text-accent border-accent/50';
   }
 }
+
+/** Higher = more rare. Unknown/null = 0. */
+export function rarityRank(rarity: MarketRarity | null | undefined): number {
+  switch (rarity) {
+    case 'grail':
+      return 4;
+    case 'rare':
+      return 3;
+    case 'uncommon':
+      return 2;
+    case 'common':
+      return 1;
+    default:
+      return 0;
+  }
+}

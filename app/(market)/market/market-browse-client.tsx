@@ -7,19 +7,26 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MarketSubNav } from '@/components/market/market-sub-nav';
 import { MarketListingCard } from '@/components/market/listing-card';
+import { CollectorCard } from '@/components/market/collector-card';
 import { MarketFilters } from '@/components/market/market-filters';
 import { matchesBrowseConditionFilter, type BrowseConditionFilter } from '@/lib/market/wear-state';
 import type { MarketBrowseListing } from '@/lib/market/browse-listings';
+import {
+  filterCollectorsForListings,
+  type MarketCollectorBrowse,
+} from '@/lib/market/collector-browse';
 
 type TypeFilter = 'all' | 'buy' | 'trade' | 'vault' | 'collectors';
 
 export function MarketBrowseClient({
   initialListings,
   collectionListings = [],
+  collectors = [],
   pendingOffers = 0,
 }: {
   initialListings: MarketBrowseListing[];
   collectionListings?: MarketBrowseListing[];
+  collectors?: MarketCollectorBrowse[];
   pendingOffers?: number;
 }) {
   const router = useRouter();
@@ -89,6 +96,32 @@ export function MarketBrowseClient({
 
   const sourceListings = isCollectors ? collectionListings : initialListings;
 
+  const filteredCollectionListings = useMemo(() => {
+    if (!isCollectors) return [];
+
+    return collectionListings.filter((l) => {
+      if (brand !== 'all' && l.brand !== brand) return false;
+      if (color !== 'all' && l.browse_color !== color) return false;
+      if (size && Number(l.size) !== Number(size)) return false;
+      if (
+        conditionMatch !== 'all' &&
+        !matchesBrowseConditionFilter(l.condition, l.wear_state, conditionMatch)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [collectionListings, isCollectors, brand, color, size, conditionMatch]);
+
+  const displayedCollectors = useMemo(() => {
+    if (!isCollectors) return [];
+    return filterCollectorsForListings(collectors, collectionListings, filteredCollectionListings);
+  }, [isCollectors, collectors, collectionListings, filteredCollectionListings]);
+
+  const totalCollectorPairs = collectors.reduce((sum, c) => sum + c.pair_count, 0);
+  const collectorsFilterActive =
+    isCollectors && filteredCollectionListings.length !== collectionListings.length;
+
   const filtered = useMemo(() => {
     const min = minPrice ? Number(minPrice) : undefined;
     const max = maxPrice ? Number(maxPrice) : undefined;
@@ -122,7 +155,7 @@ export function MarketBrowseClient({
             <h1 className="text-2xl font-bold text-foreground tracking-tight">The Guild Market</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isCollectors
-                ? `${collectionListings.length} pair${collectionListings.length !== 1 ? 's' : ''} in collections`
+                ? `${displayedCollectors.length} collector${displayedCollectors.length !== 1 ? 's' : ''} · ${totalCollectorPairs} pair${totalCollectorPairs !== 1 ? 's' : ''} showcased`
                 : `${initialListings.length} pair${initialListings.length !== 1 ? 's' : ''} for sale`}
               {!isCollectors &&
               initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length > 0
@@ -152,21 +185,48 @@ export function MarketBrowseClient({
       <div className="max-w-4xl mx-auto px-4 py-4">
         {isCollectors ? (
           <p className="text-xs text-muted-foreground mb-4">
-            Collector showcases — not for sale. Tap a pair to view details.
+            Browse collector closets — sorted by rarest collections first. Tap a profile to see every pair.
           </p>
         ) : null}
-        {filtered.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-sm text-muted-foreground">
-              {isCollectors
-                ? collectionListings.length === 0
+        {isCollectors ? (
+          displayedCollectors.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="text-sm text-muted-foreground">
+                {collectors.length === 0
                   ? 'No collection pairs yet. List a pair as Collection type to showcase it here.'
                   : hasActiveFilters
-                    ? 'No collection pairs match these filters.'
-                    : 'No collection pairs yet. List a pair as Collection type to showcase it here.'
-                : sourceListings.length === 0
-                  ? 'No listings yet — be the first to list a pair.'
-                  : 'No listings match these filters.'}
+                    ? 'No collectors match these filters.'
+                    : 'No collection pairs yet. List a pair as Collection type to showcase it here.'}
+              </p>
+              <Button
+                asChild
+                className="mt-4 bg-accent text-accent-foreground font-semibold rounded-full hover:bg-accent/90"
+              >
+                <Link href="/market/listing/new">List a pair</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {displayedCollectors.map((collector) => {
+                const totalForSeller =
+                  collectors.find((c) => c.seller_id === collector.seller_id)?.pair_count ?? collector.pair_count;
+                return (
+                  <CollectorCard
+                    key={collector.seller_id}
+                    collector={collector}
+                    showMatchingCount={collectorsFilterActive}
+                    totalPairCount={totalForSeller}
+                  />
+                );
+              })}
+            </div>
+          )
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-sm text-muted-foreground">
+              {sourceListings.length === 0
+                ? 'No listings yet — be the first to list a pair.'
+                : 'No listings match these filters.'}
             </p>
             <Button
               asChild

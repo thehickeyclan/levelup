@@ -21,3 +21,25 @@ export function withoutColumn<T extends Record<string, unknown>, K extends keyof
   delete copy[column];
   return copy;
 }
+
+export const PURCHASE_PRIVATE_LISTING_COLUMNS = [
+  'purchase_source',
+  'purchase_price_cents',
+  'purchased_at',
+] as const;
+
+export function hasPurchasePrivateListingFields(row: Record<string, unknown>): boolean {
+  return PURCHASE_PRIVATE_LISTING_COLUMNS.some((col) => col in row);
+}
+
+export function isMissingPurchasePrivateListingColumnError(message: string): boolean {
+  return PURCHASE_PRIVATE_LISTING_COLUMNS.some((col) => isMissingColumnError(message, col));
+}
+
+export function withoutPurchasePrivateListingFields<T extends Record<string, unknown>>(row: T): T {
+  const copy = { ...row };
+  for (const col of PURCHASE_PRIVATE_LISTING_COLUMNS) {
+    delete copy[col];
+  }
+  return copy;
+}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
-import { isMissingColumnError, withoutColorFamily, withoutColumn } from '@/lib/market/listing-column-fallback';
+import { isMissingColumnError, withoutColorFamily, withoutColumn, isMissingPurchasePrivateListingColumnError, withoutPurchasePrivateListingFields, hasPurchasePrivateListingFields } from '@/lib/market/listing-column-fallback';
 import { normalizeMarketRarity } from '@/lib/market/rarity';
 
 export async function GET(req: NextRequest) {
@@ -142,10 +142,11 @@ export async function POST(req: NextRequest) {
       insertRow = withoutColorFamily(insertRow);
     } else if (isMissingColumnError(msg, 'rarity') && 'rarity' in insertRow) {
       insertRow = withoutColumn(insertRow, 'rarity');
-    } else if (isMissingColumnError(msg, 'purchase_source') && 'purchase_source' in insertRow) {
-      insertRow = withoutColumn(insertRow, 'purchase_source');
-      insertRow = withoutColumn(insertRow, 'purchase_price_cents');
-      insertRow = withoutColumn(insertRow, 'purchased_at');
+    } else if (
+      isMissingPurchasePrivateListingColumnError(msg) &&
+      hasPurchasePrivateListingFields(insertRow)
+    ) {
+      insertRow = withoutPurchasePrivateListingFields(insertRow);
     } else {
       break;
     }

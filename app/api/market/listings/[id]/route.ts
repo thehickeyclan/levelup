@@ -9,7 +9,7 @@ import {
   notifyListingFollowers,
 } from '@/lib/market/notify-listing-followers';
 import { MARKET_LISTING_IMAGE_FIELDS_WITH_ID } from '@/lib/market/listing-images';
-import { isMissingColumnError, withoutColorFamily, withoutColumn } from '@/lib/market/listing-column-fallback';
+import { isMissingColumnError, withoutColorFamily, withoutColumn, isMissingPurchasePrivateListingColumnError, withoutPurchasePrivateListingFields, hasPurchasePrivateListingFields } from '@/lib/market/listing-column-fallback';
 import {
   getListingModeConstraints,
   isListingModeChange,
@@ -35,15 +35,13 @@ async function applyListingUpdate(
       payload = withoutColumn(payload, 'rarity');
       continue;
     }
-    if (isMissingColumnError(msg, 'purchase_source') && 'purchase_source' in payload) {
-      payload = withoutColumn(payload, 'purchase_source');
-      payload = withoutColumn(payload, 'purchase_price_cents');
-      payload = withoutColumn(payload, 'purchased_at');
+    if (isMissingPurchasePrivateListingColumnError(msg) && hasPurchasePrivateListingFields(payload)) {
+      payload = withoutPurchasePrivateListingFields(payload);
       continue;
     }
     return result;
   }
-  return await supabase.from('market_listings').update(updates).eq('id', id).select().single();
+  return await supabase.from('market_listings').update(payload).eq('id', id).select().single();
 }
 
 export async function GET(

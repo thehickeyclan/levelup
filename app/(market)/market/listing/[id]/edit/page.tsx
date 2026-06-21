@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,7 +21,7 @@ import {
   SELLER_LISTING_TYPE_OPTIONS,
   type MarketListingType,
 } from '@/lib/market/listing-type-options';
-import { PhotoCleanToggle, photoThumbnailSrc } from '@/components/market/photo-clean-toggle';
+import { ListingPhotoGrid } from '@/components/market/listing-photo-grid';
 import { ShoeIdCard, type ShoeIdAcceptPayload } from '@/components/market/shoe-id-card';
 import {
   BROWSE_COLOR_FAMILIES,
@@ -659,24 +659,13 @@ export default function EditListingPage() {
         </button>
         {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
         {images.length > 0 ? (
-          <div className="grid grid-cols-3 gap-2">
-            {images.map((img) => (
-              <div key={img.id} className="relative">
-                <div className="aspect-square rounded-lg border border-border overflow-hidden bg-card">
-                  <img src={photoThumbnailSrc(img)} alt="" className="w-full h-full object-cover" />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void removePhoto(img.id)}
-                  className="absolute top-1 right-1 rounded-full bg-background/90 border border-border p-1 text-muted-foreground hover:text-destructive"
-                  aria-label="Remove photo"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-                <PhotoCleanToggle listingId={listingId} image={img} onUpdate={updateImage} />
-              </div>
-            ))}
-          </div>
+          <ListingPhotoGrid
+            listingId={listingId}
+            images={images}
+            onImagesChange={setImages}
+            onUpdateImage={updateImage}
+            onRemove={(imageId) => void removePhoto(imageId)}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">No photos — add at least one.</p>
         )}

@@ -20,7 +20,7 @@ import {
   SELLER_LISTING_TYPE_OPTIONS,
   type MarketListingType,
 } from '@/lib/market/listing-type-options';
-import { PhotoCleanToggle, photoThumbnailSrc } from '@/components/market/photo-clean-toggle';
+import { ListingPhotoGrid } from '@/components/market/listing-photo-grid';
 import { ShoeIdCard } from '@/components/market/shoe-id-card';
 import {
   inferColorFamilyFromColorway,
@@ -1005,23 +1005,13 @@ export default function NewListingPage() {
           )}
         </button>
         {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
-        {images.length > 0 ? (
-          <div className="grid grid-cols-3 gap-2">
-            {images.map((img) => (
-              <div key={img.id}>
-                <div className="aspect-square rounded-lg border border-border overflow-hidden bg-card">
-                  <img src={photoThumbnailSrc(img)} alt="" className="w-full h-full object-cover" />
-                </div>
-                {listingId ? (
-                  <PhotoCleanToggle
-                    listingId={listingId}
-                    image={img}
-                    onUpdate={updateImage}
-                  />
-                ) : null}
-              </div>
-            ))}
-          </div>
+        {images.length > 0 && listingId ? (
+          <ListingPhotoGrid
+            listingId={listingId}
+            images={images}
+            onImagesChange={setImages}
+            onUpdateImage={updateImage}
+          />
         ) : null}
 
         {listingId && images.length > 0 ? (

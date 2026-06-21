@@ -21,13 +21,44 @@ export function listingImageDisplayUrl(image: MarketListingImageRow): string {
   return image.public_url;
 }
 
+export function sortListingImages<T extends { display_order: number }>(images: T[]): T[] {
+  return [...images].sort((a, b) => a.display_order - b.display_order);
+}
+
+/** Primary row — lowest display_order (first upload is 0). */
+export function primaryListingImage<T extends { display_order: number }>(
+  images: T[] | null | undefined
+): T | null {
+  if (!images?.length) return null;
+  return sortListingImages(images)[0] ?? null;
+}
+
+export function isPrimaryListingImage(
+  image: MarketListingImageRow & { id?: string },
+  images: (MarketListingImageRow & { id?: string })[]
+): boolean {
+  const primary = primaryListingImage(images);
+  if (!primary) return false;
+  if (image.id && primary.id) return image.id === primary.id;
+  return image.display_order === primary.display_order;
+}
+
+/** Reorder so the chosen image becomes cover (display_order 0). */
+export function reorderListingImagesForPrimary<T extends { id: string; display_order: number }>(
+  images: T[],
+  primaryId: string
+): T[] {
+  const target = images.find((i) => i.id === primaryId);
+  if (!target) return images;
+  const others = sortListingImages(images.filter((i) => i.id !== primaryId));
+  return [target, ...others].map((img, idx) => ({ ...img, display_order: idx }));
+}
+
 /** Primary listing photo — display_order 0 first; uses clean when selected. */
 export function primaryListingImageUrl(
   images: MarketListingImageRow[] | null | undefined
 ): string | null {
-  if (!images?.length) return null;
-  const sorted = [...images].sort((a, b) => a.display_order - b.display_order);
-  const primary = sorted[0];
+  const primary = primaryListingImage(images);
   if (!primary) return null;
   return listingImageDisplayUrl(primary);
 }
@@ -47,7 +78,6 @@ export function primaryImageUsesClean(
   images: MarketListingImageRow[] | null | undefined
 ): boolean {
   if (!images?.length) return false;
-  const sorted = [...images].sort((a, b) => a.display_order - b.display_order);
-  const primary = sorted[0];
+  const primary = primaryListingImage(images);
   return Boolean(primary?.use_clean && primary?.clean_public_url);
 }

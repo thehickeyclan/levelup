@@ -17,7 +17,7 @@ function typeBadge(listing: MarketBrowseListing): {
     return { label: 'Collection', className: 'bg-card border border-border text-muted-foreground' };
   }
   if (listing.listing_type === 'vault') {
-    return { label: 'OFFERS', className: 'bg-accent/90 text-accent-foreground' };
+    return { label: 'Offers', className: 'bg-accent/90 text-accent-foreground' };
   }
   if (listing.listing_type === 'trade') {
     return { label: 'Trade', className: 'bg-blue-500/90 text-foreground' };
@@ -56,7 +56,13 @@ function priceLabel(listing: MarketBrowseListing): { text: string; className: st
   return { text: 'Make offer', className: 'text-accent' };
 }
 
-export function MarketListingCard({ listing }: { listing: MarketBrowseListing }) {
+export function MarketListingCard({
+  listing,
+  emphasizeType = false,
+}: {
+  listing: MarketBrowseListing;
+  emphasizeType?: boolean;
+}) {
   const badge = typeBadge(listing);
   const price = priceLabel(listing);
   const cta = cardCta(listing);
@@ -87,7 +93,8 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
         )}
         <span
           className={cn(
-            'absolute top-2 left-2 rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide',
+            'absolute top-2 left-2 rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide',
+            emphasizeType ? 'text-[9px] shadow-sm' : 'text-[8px]',
             listing.listing_type === 'collection' ? 'border' : '',
             badge.className
           )}

@@ -59,7 +59,11 @@ export default async function MarketPage({
       data: { user },
     } = await supabase.auth.getUser();
 
-    listings = await fetchMarketBrowseListings(supabase, tenant.slug, browseFilters);
+    listings = await fetchMarketBrowseListings(supabase, tenant.slug, {
+      allTypes: true,
+      limit: 150,
+      ...browseFilters,
+    });
 
     try {
       const [collectorData, brandCatalog] = await Promise.all([

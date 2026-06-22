@@ -10,6 +10,7 @@ import { MarketListingCard } from '@/components/market/listing-card';
 import { CollectorCard } from '@/components/market/collector-card';
 import { MarketFilters } from '@/components/market/market-filters';
 import { matchesBrowseConditionFilter, type BrowseConditionFilter } from '@/lib/market/wear-state';
+import { matchesBrowseColorFilter } from '@/lib/market/color-family';
 import type { MarketBrowseListing } from '@/lib/market/browse-listings';
 import {
   filterCollectorsForListings,
@@ -17,6 +18,26 @@ import {
 } from '@/lib/market/collector-browse';
 
 type TypeFilter = 'all' | 'buy' | 'trade' | 'vault' | 'collectors';
+
+function sortListingsByNewest(listings: MarketBrowseListing[]): MarketBrowseListing[] {
+  return [...listings].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+}
+
+function summarizeListingTypes(listings: MarketBrowseListing[]) {
+  let sell = 0;
+  let trade = 0;
+  let vault = 0;
+  let collection = 0;
+  for (const l of listings) {
+    if (l.listing_type === 'sell') sell += 1;
+    else if (l.listing_type === 'trade') trade += 1;
+    else if (l.listing_type === 'vault') vault += 1;
+    else if (l.listing_type === 'collection') collection += 1;
+  }
+  return { sell, trade, vault, collection, total: listings.length };
+}
 
 export function MarketBrowseClient({
   initialListings,
@@ -103,7 +124,7 @@ export function MarketBrowseClient({
 
     return collectionListings.filter((l) => {
       if (brand !== 'all' && l.brand !== brand) return false;
-      if (color !== 'all' && l.browse_color !== color) return false;
+      if (color !== 'all' && !matchesBrowseColorFilter(color, l.browse_colors)) return false;
       if (size && Number(l.size) !== Number(size)) return false;
       if (
         conditionMatch !== 'all' &&
@@ -124,29 +145,34 @@ export function MarketBrowseClient({
   const collectorsFilterActive =
     isCollectors && filteredCollectionListings.length !== collectionListings.length;
 
+  const listingTypeCounts = useMemo(() => summarizeListingTypes(initialListings), [initialListings]);
+
   const filtered = useMemo(() => {
     const min = minPrice ? Number(minPrice) : undefined;
     const max = maxPrice ? Number(maxPrice) : undefined;
 
-    return sourceListings.filter((l) => {
+    const result = sourceListings.filter((l) => {
       if (!isCollectors) {
         if (type === 'buy' && l.listing_type !== 'sell') return false;
         if (type === 'trade' && l.listing_type !== 'trade') return false;
         if (type === 'vault' && l.listing_type !== 'vault') return false;
       }
       if (brand !== 'all' && l.brand !== brand) return false;
-      if (color !== 'all' && l.browse_color !== color) return false;
+      if (color !== 'all' && !matchesBrowseColorFilter(color, l.browse_colors)) return false;
       if (size && Number(l.size) !== Number(size)) return false;
       if (conditionMatch !== 'all' && !matchesBrowseConditionFilter(l.condition, l.wear_state, conditionMatch)) {
         return false;
       }
       if (!isCollectors && (min != null || max != null)) {
+        if (l.listing_type === 'collection') return false;
         if (l.price_cents == null) return false;
         if (min != null && l.price_cents < min * 100) return false;
         if (max != null && l.price_cents > max * 100) return false;
       }
       return true;
     });
+
+    return sortListingsByNewest(result);
   }, [sourceListings, type, brand, color, size, conditionMatch, minPrice, maxPrice, isCollectors]);
 
   return (
@@ -158,8 +184,29 @@ export function MarketBrowseClient({
             <p className="text-sm text-muted-foreground mt-0.5">
               {isCollectors
                 ? `${displayedCollectors.length} collector${displayedCollectors.length !== 1 ? 's' : ''} · ${totalCollectorPairs} pair${totalCollectorPairs !== 1 ? 's' : ''} in collections`
-                : `${initialListings.length} pair${initialListings.length !== 1 ? 's' : ''} for sale`}
+                : type === 'all'
+                  ? `${listingTypeCounts.total} pair${listingTypeCounts.total !== 1 ? 's' : ''} · newest first${
+                      listingTypeCounts.sell
+                        ? ` · ${listingTypeCounts.sell} for sale`
+                        : ''
+                    }${
+                      listingTypeCounts.collection
+                        ? ` · ${listingTypeCounts.collection} in collections`
+                        : ''
+                    }${
+                      listingTypeCounts.trade
+                        ? ` · ${listingTypeCounts.trade} for trade`
+                        : ''
+                    }${
+                      listingTypeCounts.vault
+                        ? ` · ${listingTypeCounts.vault} offers only`
+                        : ''
+                    }`
+                  : `${initialListings.filter((l) => l.listing_type === 'sell').length} pair${
+                      initialListings.filter((l) => l.listing_type === 'sell').length !== 1 ? 's' : ''
+                    } for sale`}
               {!isCollectors &&
+              type !== 'all' &&
               initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length > 0
                 ? ` · ${initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length} open to trade`
                 : ''}
@@ -239,11 +286,19 @@ export function MarketBrowseClient({
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filtered.map((listing) => (
-              <MarketListingCard key={listing.id} listing={listing} />
-            ))}
-          </div>
+          <>
+            {type === 'all' ? (
+              <p className="text-xs text-muted-foreground mb-4">
+                All pairs on the platform, sorted by newest. Badges show For sale, Collection, Trade, or
+                Offers.
+              </p>
+            ) : null}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filtered.map((listing) => (
+                <MarketListingCard key={listing.id} listing={listing} emphasizeType={type === 'all'} />
+              ))}
+            </div>
+          </>
         )}
       </div>
 

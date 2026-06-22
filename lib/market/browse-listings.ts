@@ -4,6 +4,7 @@ import { MARKET_LISTING_IMAGE_FIELDS, primaryListingImageUrl } from '@/lib/marke
 import { BROWSE_BRANDS } from '@/lib/market/brands';
 import {
   effectiveListingColorFamily,
+  listingBrowseColorFamilies,
   parseColorFamily,
   type ColorFamilyId,
 } from '@/lib/market/color-family';
@@ -22,6 +23,7 @@ export type MarketBrowseListing = {
   colorway: string | null;
   color_family: ColorFamilyId | null;
   browse_color: ColorFamilyId | null;
+  browse_colors: ColorFamilyId[];
   price_cents: number | null;
   listing_type: 'sell' | 'trade' | 'vault' | 'collection';
   open_to_trade: boolean;
@@ -60,9 +62,11 @@ type ListingRow = {
 
 export type BrowseListingQueryOptions = {
   collectorsOnly?: boolean;
+  /** Include sell, trade, vault, and collection in one feed (browse "All"). */
+  allTypes?: boolean;
   minPrice?: number;
   maxPrice?: number;
-  /** Default 48 for sale browse; collectors use a higher cap for grouping. */
+  /** Default 48 for sale browse; collectors 500; all-types 150. */
   limit?: number;
 };
 
@@ -87,14 +91,16 @@ const BROWSE_SELECT_LEGACY = `
   market_ai_analysis(analyzed_at)
 `;
 
-/** Active browse feed — newest first, max 48. */
+/** Active browse feed — newest first. */
 export async function fetchMarketBrowseListings(
   supabase: SupabaseClient,
   tenantSlug: string,
   options?: BrowseListingQueryOptions
 ): Promise<MarketBrowseListing[]> {
   const collectorsOnly = options?.collectorsOnly === true;
-  const limit = options?.limit ?? (collectorsOnly ? 500 : 48);
+  const allTypes = options?.allTypes === true;
+  const limit =
+    options?.limit ?? (collectorsOnly ? 500 : allTypes ? 150 : 48);
 
   const runQuery = async (select: string) => {
     let q = supabase
@@ -107,7 +113,7 @@ export async function fetchMarketBrowseListings(
 
     if (collectorsOnly) {
       q = q.eq('listing_type', 'collection');
-    } else {
+    } else if (!allTypes) {
       q = q.neq('listing_type', 'collection');
       if (options?.maxPrice != null) {
         q = q.lte('price_cents', options.maxPrice * 100);
@@ -174,6 +180,7 @@ export async function fetchMarketBrowseListings(
     const aiRow = Array.isArray(ai) ? ai[0] : ai;
     const colorway = typeof row.colorway === 'string' ? row.colorway.trim() || null : null;
     const color_family = parseColorFamily(row.color_family as string | null);
+    const browse_colors = listingBrowseColorFamilies(color_family, colorway);
     return {
       id: row.id,
       title: row.title,
@@ -185,6 +192,7 @@ export async function fetchMarketBrowseListings(
       colorway,
       color_family: color_family,
       browse_color: effectiveListingColorFamily(color_family, colorway),
+      browse_colors,
       price_cents: row.price_cents,
       listing_type: row.listing_type as 'sell' | 'trade' | 'vault' | 'collection',
       open_to_trade: row.open_to_trade,

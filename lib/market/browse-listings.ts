@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { formatSellerDisplayName, sellerFallbackDisplayName } from '@/lib/market/seller';
+import { fetchSellerPublicMetaBatch, sellerFallbackDisplayName } from '@/lib/market/seller';
 import { MARKET_LISTING_IMAGE_FIELDS, primaryListingImageUrl } from '@/lib/market/listing-images';
 import { BROWSE_BRANDS } from '@/lib/market/brands';
 import {
@@ -157,15 +157,9 @@ export async function fetchMarketBrowseListings(
   }
 
   if (sellerIds.length) {
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, first_name, last_name')
-      .in('id', sellerIds);
-    for (const u of users ?? []) {
-      sellerNames.set(
-        u.id as string,
-        formatSellerDisplayName(u.first_name as string, u.last_name as string)
-      );
+    const sellerMeta = await fetchSellerPublicMetaBatch(tenantSlug, sellerIds);
+    for (const [id, meta] of sellerMeta) {
+      sellerNames.set(id, meta.displayName);
     }
   }
 

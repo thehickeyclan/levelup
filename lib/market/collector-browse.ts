@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchMarketBrowseListings, type MarketBrowseListing } from '@/lib/market/browse-listings';
-import { formatSellerDisplayName, sellerFallbackDisplayName } from '@/lib/market/seller';
+import { fetchSellerPublicMetaBatch, sellerFallbackDisplayName } from '@/lib/market/seller';
 import { rarityRank, type MarketRarity } from '@/lib/market/rarity';
 
 export type MarketCollectorBrowse = {
@@ -24,59 +24,6 @@ type SellerMeta = {
   school: string | null;
   photo_url: string | null;
 };
-
-async function fetchSellerMetaBatch(
-  supabase: SupabaseClient,
-  sellerIds: string[]
-): Promise<Map<string, SellerMeta>> {
-  const map = new Map<string, SellerMeta>();
-  if (!sellerIds.length) return map;
-
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, first_name, last_name, role')
-    .in('id', sellerIds);
-
-  const coachIds = (users ?? []).filter((u) => u.role === 'coach').map((u) => u.id as string);
-  const youthIds = (users ?? []).filter((u) => u.role === 'youth_wrestler').map((u) => u.id as string);
-
-  const schoolMap = new Map<string, string>();
-  const photoMap = new Map<string, string>();
-
-  if (coachIds.length) {
-    const { data: athletes } = await supabase
-      .from('athletes')
-      .select('id, school, photo_url')
-      .in('id', coachIds);
-    for (const a of athletes ?? []) {
-      if (a.school) schoolMap.set(a.id as string, a.school as string);
-      if (a.photo_url) photoMap.set(a.id as string, a.photo_url as string);
-    }
-  }
-
-  if (youthIds.length) {
-    const { data: youths } = await supabase
-      .from('youth_wrestlers')
-      .select('id, school, photo_url')
-      .in('id', youthIds);
-    for (const y of youths ?? []) {
-      if (y.school) schoolMap.set(y.id as string, y.school as string);
-      if (y.photo_url) photoMap.set(y.id as string, y.photo_url as string);
-    }
-  }
-
-  for (const u of users ?? []) {
-    const id = u.id as string;
-    const school = schoolMap.get(id) ?? null;
-    map.set(id, {
-      display_name: formatSellerDisplayName(u.first_name as string, u.last_name as string, school),
-      school,
-      photo_url: photoMap.get(id) ?? null,
-    });
-  }
-
-  return map;
-}
 
 async function fetchEstimatedValuesBySeller(
   supabase: SupabaseClient,
@@ -258,10 +205,19 @@ export async function fetchMarketCollectorBrowseData(
     listingsBySeller.set(listing.seller_id, ids);
   }
 
-  const [sellerMeta, valueBySeller] = await Promise.all([
-    fetchSellerMetaBatch(supabase, sellerIds),
+  const [sellerMetaBatch, valueBySeller] = await Promise.all([
+    fetchSellerPublicMetaBatch(tenantSlug, sellerIds),
     fetchEstimatedValuesBySeller(supabase, listingsBySeller),
   ]);
+
+  const sellerMeta = new Map<string, SellerMeta>();
+  for (const [id, meta] of sellerMetaBatch) {
+    sellerMeta.set(id, {
+      display_name: meta.displayName,
+      school: meta.school,
+      photo_url: meta.photoUrl,
+    });
+  }
 
   const collectors = buildCollectorBrowseFromListings(listings, sellerMeta, valueBySeller);
   return { collectors, listings };

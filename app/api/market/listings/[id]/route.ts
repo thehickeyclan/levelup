@@ -77,7 +77,7 @@ export async function GET(
   }
 
   const admin = createAdminClient(tenant.slug);
-  const seller = await getSellerProfile(supabase, listing.seller_id as string);
+  const seller = await getSellerProfile(tenant.slug, listing.seller_id as string);
   const sellerStats = await fetchMarketSellerStats(supabase, listing.seller_id as string);
 
   const { count: pendingOfferCount } = await supabase

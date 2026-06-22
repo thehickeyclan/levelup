@@ -15,10 +15,10 @@ export async function GET(
 ) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, user } = ctx;
+  const { supabase, tenant, user } = ctx;
   const { id: sellerId } = await params;
 
-  const seller = await getSellerProfile(supabase, sellerId);
+  const seller = await getSellerProfile(tenant.slug, sellerId);
 
   const isOwnProfile = user!.id === sellerId;
 

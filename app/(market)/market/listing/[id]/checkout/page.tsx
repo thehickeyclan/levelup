@@ -76,7 +76,7 @@ export default async function ListingCheckoutPage({
     }
   }
 
-  const seller = await getSellerProfile(supabase, listing.seller_id as string);
+  const seller = await getSellerProfile(tenant.slug, listing.seller_id as string);
 
   const inventorySizes = await fetchListingSizes(supabase, listingId);
   const selectedSizeUs = orderId

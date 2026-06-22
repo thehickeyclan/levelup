@@ -16,7 +16,11 @@ export function ListingSellerCard({
   school?: string | null;
   stats: MarketSellerStats;
 }) {
-  const affiliation = school?.trim() ? `Guild member · ${school.trim()}` : 'Guild member';
+  const affiliation = school?.trim()
+    ? `Guild member · ${school.trim()}`
+    : displayName.includes('Guild member ·')
+      ? displayName
+      : 'Guild member';
 
   return (
     <Link

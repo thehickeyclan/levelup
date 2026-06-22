@@ -16,9 +16,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { createClient } from '@/lib/supabase/client';
-import { useTenant } from '@/components/theme-provider';
-import { getPasswordRecoveryRedirectTo } from '@/lib/password-recovery-redirect';
 
 const schema = z.object({
   email: z.string().email('Invalid email address'),
@@ -27,10 +24,8 @@ const schema = z.object({
 type ForgotPasswordValues = z.infer<typeof schema>;
 
 export default function ForgotPasswordPage() {
-  const tenant = useTenant();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rateLimited, setRateLimited] = useState(false);
   const [sent, setSent] = useState(false);
 
   const form = useForm<ForgotPasswordValues>({
@@ -41,28 +36,22 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (values: ForgotPasswordValues) => {
     setLoading(true);
     setError(null);
-    setRateLimited(false);
     try {
-      // Must use browser Supabase client so PKCE code_verifier is stored here; server API breaks recovery.
-      const supabase = createClient(tenant.slug);
-      const redirectTo = getPasswordRecoveryRedirectTo();
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        values.email.trim(),
-        { redirectTo }
-      );
-      if (resetError) {
-        const msg = resetError.message || 'Could not send reset email';
-        const rl =
-          /rate limit|too many|email rate/i.test(msg) || msg.toLowerCase().includes('exceeded');
-        setRateLimited(rl);
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: values.email.trim() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+
+      if (!res.ok) {
         setError(
-          rl
-            ? 'Too many reset emails were sent recently. Please wait about an hour and try again, or contact info@WrestlingGuild.com if you need help sooner.'
-            : msg
+          data.error ||
+            'Could not send reset email. Try again or contact info@WrestlingGuild.com for help.'
         );
-        setLoading(false);
         return;
       }
+
       setSent(true);
     } catch {
       setError('Something went wrong. Please try again.');
@@ -88,9 +77,8 @@ export default function ForgotPasswordPage() {
                 folder.
               </p>
               <p className="text-sm text-muted-foreground rounded-lg border border-border bg-muted/40 px-3 py-2.5 leading-relaxed">
-                Open the link in the <span className="font-medium text-foreground">same browser</span>{' '}
-                you used here. If you requested this in Safari, open the email in Mail/Safari — not
-                Gmail&apos;s in-app browser (they don&apos;t share login cookies).
+                Open the link in any browser (Chrome, Safari, etc.). The link works from your email
+                app — you do not need to use the same browser you used here.
               </p>
               <Button variant="outline" className="w-full" asChild>
                 <Link href="/login">Back to sign in</Link>
@@ -99,14 +87,8 @@ export default function ForgotPasswordPage() {
           ) : (
             <>
               {error && (
-                <div
-                  className={
-                    rateLimited
-                      ? 'mb-4 p-3 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100'
-                      : 'mb-4 p-3 bg-destructive/10 border border-destructive rounded-md'
-                  }
-                >
-                  <p className={`text-sm ${rateLimited ? '' : 'text-destructive'}`}>{error}</p>
+                <div className="mb-4 p-3 rounded-md border border-destructive/40 bg-destructive/10">
+                  <p className="text-sm text-destructive">{error}</p>
                 </div>
               )}
               <Form {...form}>

@@ -77,10 +77,8 @@ export async function GET(
   }
 
   const admin = createAdminClient(tenant.slug);
-  const seller = await getSellerProfile(supabase, listing.seller_id);
-  const sellerStats = seller
-    ? await fetchMarketSellerStats(supabase, listing.seller_id as string)
-    : null;
+  const seller = await getSellerProfile(supabase, listing.seller_id as string);
+  const sellerStats = await fetchMarketSellerStats(supabase, listing.seller_id as string);
 
   const { count: pendingOfferCount } = await supabase
     .from('market_offers')
@@ -133,7 +131,7 @@ export async function GET(
   return NextResponse.json({
     listing: publicListing,
     sizes,
-    seller: seller ? { ...seller, school: seller.school } : seller,
+    seller: { ...seller, school: seller.school },
     sellerStats,
     pending_offer_count: pendingOfferCount ?? 0,
     following,

@@ -58,7 +58,7 @@ import {
   UsedListingSizeNote,
   type SizeInventoryRow,
 } from '@/components/market/bnib-size-inventory-editor';
-import { supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
+import { supportsMultiSizeInventory, formatMarketShoeSizeFieldLabel } from '@/lib/market/listing-sizes';
 
 const MAX_PHOTOS = 6;
 const BREAKDOWN_KEYS = ['sole', 'upper', 'midsole', 'laces'] as const;
@@ -1435,7 +1435,7 @@ export default function NewListingPage() {
             </div>
           ) : (
             <div>
-              <Label className="text-xs">Size (US)</Label>
+              <Label className="text-xs">{formatMarketShoeSizeFieldLabel()}</Label>
               <Input
                 className="mt-1 h-11"
                 value={form.size}

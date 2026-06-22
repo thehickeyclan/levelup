@@ -1,6 +1,10 @@
 'use client';
 
 import type { ListingSizeRow } from '@/lib/market/listing-sizes';
+import {
+  formatMarketShoeSizeDual,
+  formatMarketShoeSizeDualLabel,
+} from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
 
 export function ListingSizePicker({
@@ -24,28 +28,36 @@ export function ListingSizePicker({
   }
 
   return (
-    <div className={cn('space-y-2', className)}>
-      <p className="text-xs font-medium text-foreground">Select size (US)</p>
-      <div className="flex flex-wrap gap-2">
-        {available.map((row) => (
-          <button
-            key={row.size_us}
-            type="button"
-            onClick={() => onChange(row.size_us)}
-            className={cn(
-              'min-h-10 min-w-[3rem] rounded-full border px-3 text-sm font-medium transition-colors touch-manipulation',
-              value === row.size_us
-                ? 'border-accent bg-accent/15 text-accent'
-                : 'border-border text-foreground hover:border-accent/40'
-            )}
-          >
-            {row.size_us}
-            {row.quantity > 1 ? (
-              <span className="text-[10px] text-muted-foreground ml-1">×{row.quantity}</span>
-            ) : null}
-          </button>
-        ))}
+    <div className={cn('space-y-3', className)}>
+      <p className="text-sm text-muted-foreground">{formatMarketShoeSizeDualLabel(value)}</p>
+      <div className="grid grid-cols-3 gap-2">
+        {available.map((row) => {
+          const selected = value === row.size_us;
+          return (
+            <button
+              key={row.size_us}
+              type="button"
+              onClick={() => onChange(row.size_us)}
+              className={cn(
+                'min-h-11 rounded-md border px-2 py-2 text-xs font-medium text-center leading-tight transition-colors touch-manipulation',
+                selected
+                  ? 'border-foreground border-2 bg-background text-foreground'
+                  : 'border-border text-foreground hover:border-foreground/40'
+              )}
+            >
+              {formatMarketShoeSizeDual(row.size_us)}
+              {row.quantity > 1 ? (
+                <span className="block text-[10px] text-muted-foreground mt-0.5">
+                  ×{row.quantity}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
+      <p className="text-[11px] text-muted-foreground leading-snug">
+        Men&apos;s / women&apos;s US sizes — same shoe, standard +1.5 conversion.
+      </p>
     </div>
   );
 }

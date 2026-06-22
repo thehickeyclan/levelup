@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
+import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
 import { isValidUsZipCode } from '@/lib/us-zip';
 
 const US_STATES = [
@@ -105,7 +106,7 @@ export function ListingCheckoutClient({ summary }: { summary: CheckoutSummary })
         <div className="min-w-0">
           <p className="font-semibold text-foreground">{displayTitle}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Size {summary.size} · {conditionLabel}
+            {formatMarketShoeSizeDual(summary.size)} · {conditionLabel}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Seller: {summary.sellerName}</p>
         </div>

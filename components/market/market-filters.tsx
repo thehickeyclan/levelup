@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { BROWSE_BRANDS, BROWSE_US_SIZES } from '@/lib/market/browse-listings';
+import { formatMarketShoeSizeDual, MARKET_SHOE_SIZE_UNIT } from '@/lib/market/listing-sizes';
 import { BROWSE_COLOR_FAMILIES } from '@/lib/market/color-family';
 import {
   BROWSE_CONDITION_OPTIONS,
@@ -38,11 +39,6 @@ const PRICE_OPTIONS = [
 ] as const;
 
 type TypeFilter = (typeof TYPE_OPTIONS)[number]['id'];
-
-function formatSizeLabel(size: string): string {
-  const n = Number(size);
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
-}
 
 function activePriceOption(minPrice: string, maxPrice: string) {
   const min = minPrice ? Number(minPrice) : undefined;
@@ -204,7 +200,7 @@ export function MarketFilters({
     { id: '', label: 'All' },
     ...BROWSE_US_SIZES.map((s) => ({
       id: String(s),
-      label: `Size ${formatSizeLabel(String(s))}`,
+      label: formatMarketShoeSizeDual(s),
     })),
   ];
 
@@ -226,7 +222,7 @@ export function MarketFilters({
     color !== 'all'
       ? (BROWSE_COLOR_FAMILIES.find((c) => c.id === color)?.label ?? 'Color')
       : 'Color';
-  const sizeLabel = size ? `Size ${formatSizeLabel(size)}` : 'Size';
+  const sizeLabel = size ? formatMarketShoeSizeDual(size) : `Size (${MARKET_SHOE_SIZE_UNIT})`;
   const conditionLabel =
     condition !== 'all'
       ? (BROWSE_CONDITION_OPTIONS.find((o) => o.id === condition)?.label ?? 'Condition')
@@ -391,7 +387,7 @@ export function MarketFilters({
                 onClick={() => setParam('size', '')}
                 className="flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] text-accent"
               >
-                Sz {formatSizeLabel(size)}
+                {formatMarketShoeSizeDual(size)}
                 <X className="h-2.5 w-2.5" />
               </button>
             ) : null}
@@ -434,7 +430,7 @@ export function MarketFilters({
           <div className="mt-4 space-y-5">
             <FilterSection title="Brand">{brandDropdown}</FilterSection>
             <FilterSection title="Color">{colorDropdown}</FilterSection>
-            <FilterSection title="Size">{sizeDropdown}</FilterSection>
+            <FilterSection title={`Size (${MARKET_SHOE_SIZE_UNIT})`}>{sizeDropdown}</FilterSection>
             <FilterSection title="Condition">{conditionDropdown}</FilterSection>
             {type !== 'collectors' ? <FilterSection title="Price">{priceDropdown}</FilterSection> : null}
           </div>

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchMarketBrowseListings, type MarketBrowseListing } from '@/lib/market/browse-listings';
-import { formatSellerDisplayName } from '@/lib/market/seller';
+import { formatSellerDisplayName, sellerFallbackDisplayName } from '@/lib/market/seller';
 import { rarityRank, type MarketRarity } from '@/lib/market/rarity';
 
 export type MarketCollectorBrowse = {
@@ -166,7 +166,7 @@ function buildCollectorEntry(
 
   return {
     seller_id: sellerId,
-    display_name: meta?.display_name ?? pairs[0]?.seller_name ?? 'Guild member',
+    display_name: meta?.display_name ?? pairs[0]?.seller_name ?? sellerFallbackDisplayName(sellerId),
     school: meta?.school ?? null,
     photo_url: meta?.photo_url ?? null,
     pair_count: pairs.length,

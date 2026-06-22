@@ -12,6 +12,7 @@ import { formatPositiveFeedback, formatSalesCount, sellerTrustLabel } from '@/li
 import type { SellerProfile } from '@/lib/market/seller';
 import { sellerCollectionHeading } from '@/lib/market/seller';
 import type { SellerInventoryItem } from '@/lib/market/seller-inventory';
+import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
 import type { CollectionValuation } from '@/lib/market/collection-valuation';
 import { sellerListingStatusBadge } from '@/lib/market/listing-type-options';
 import { cn } from '@/lib/utils';
@@ -76,7 +77,7 @@ function InventoryGrid({
                 {item.model?.trim() || item.title}
               </p>
               <p className={cn('text-muted-foreground truncate', compact ? 'text-[9px]' : 'text-[10px]')}>
-                {item.brand} · Sz {item.size}
+                {item.brand} · {formatMarketShoeSizeDual(item.size)}
               </p>
             </div>
           </Link>
@@ -93,6 +94,7 @@ export default function SellerProfilePage() {
   const [tab, setTab] = useState<TabId>('for_sale');
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [data, setData] = useState<{
     seller: SellerProfile;
     stats: MarketSellerStats;
@@ -112,11 +114,21 @@ export default function SellerProfilePage() {
   }, [data, searchParams]);
 
   const load = useCallback(() => {
+    setLoadError(null);
     fetch(`/api/market/sellers/${sellerId}`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) {
+          setLoadError(d.error || 'Could not load this member profile');
+          setData(null);
+          return;
+        }
         setData(d);
         setFollowing(Boolean(d.following));
+      })
+      .catch(() => {
+        setLoadError('Could not load this member profile');
+        setData(null);
       });
   }, [sellerId]);
 
@@ -154,17 +166,40 @@ export default function SellerProfilePage() {
     }
   };
 
-  if (!data?.seller) {
+  if (loadError) {
     return (
-      <div className="px-4 py-8">
-        <BackLink fallbackHref="/market" label="Back" />
-        <p className="mt-4 text-muted-foreground">Loading…</p>
+      <div className="px-4 py-8 max-w-lg mx-auto space-y-4">
+        <BackLink fallbackHref="/market" label="Back to Market" />
+        <p className="text-sm text-destructive">{loadError}</p>
+        <p className="text-xs text-muted-foreground">Member ID: {sellerId}</p>
+        <Button type="button" variant="outline" onClick={() => load()}>
+          Try again
+        </Button>
       </div>
     );
   }
 
-  const { seller, stats, soldHistory, reviews, inventory, followerCount, viewer, collectionValuation } = data;
-  const positive = formatPositiveFeedback(stats.positivePercent, stats.reviewCount);
+  if (!data?.seller) {
+    return (
+      <div className="px-4 py-8">
+        <BackLink fallbackHref="/market" label="Back to Market" />
+        <p className="mt-4 text-muted-foreground">Loading member profile…</p>
+      </div>
+    );
+  }
+
+  const { seller, stats, soldHistory, reviews, followerCount, viewer, collectionValuation } = data;
+  const inventory = data.inventory ?? { forSale: [], trading: [], collection: [] };
+  const soldHistorySafe = soldHistory ?? [];
+  const reviewsSafe = reviews ?? [];
+  const safeStats: MarketSellerStats = stats ?? {
+    salesCount: 0,
+    reviewCount: 0,
+    averageRating: null,
+    positivePercent: null,
+    memberSince: null,
+  };
+  const positive = formatPositiveFeedback(safeStats.positivePercent, safeStats.reviewCount);
   const collectionTitle = sellerCollectionHeading(seller.displayName);
   const viewingCollection = tab === 'collection';
   const allPairs = [...inventory.forSale, ...inventory.trading, ...inventory.collection];
@@ -193,19 +228,24 @@ export default function SellerProfilePage() {
         {viewingCollection ? (
           <p className="text-sm text-muted-foreground">
             {seller.displayName}
-            {stats.memberSince ? ` · Guild member since ${formatDate(stats.memberSince)}` : ''}
+            {safeStats.memberSince ? ` · Guild member since ${formatDate(safeStats.memberSince)}` : ''}
           </p>
-        ) : stats.memberSince ? (
-          <p className="text-sm text-muted-foreground">Guild member since {formatDate(stats.memberSince)}</p>
+        ) : safeStats.memberSince ? (
+          <p className="text-sm text-muted-foreground">
+            Guild member since {formatDate(safeStats.memberSince)}
+          </p>
         ) : null}
-        <p className="text-sm">{sellerTrustLabel(stats)}</p>
         {followerCount > 0 ? (
           <p className="text-sm text-muted-foreground">
             {followerCount} follower{followerCount !== 1 ? 's' : ''}
           </p>
         ) : null}
-        {stats.reviewCount > 0 ? (
-          <StarRating averageRating={stats.averageRating} reviewCount={stats.reviewCount} />
+        <p className="text-sm">{sellerTrustLabel(safeStats)}</p>
+        {safeStats.reviewCount > 0 ? (
+          <StarRating
+            averageRating={safeStats.averageRating}
+            reviewCount={safeStats.reviewCount}
+          />
         ) : null}
         {positive ? (
           <p className="text-sm text-accent font-medium">{positive} feedback</p>
@@ -301,11 +341,11 @@ export default function SellerProfilePage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Sold on Guild Market</h2>
-        {soldHistory.length === 0 ? (
+        {soldHistorySafe.length === 0 ? (
           <p className="text-sm text-muted-foreground">No completed sales yet.</p>
         ) : (
           <ul className="space-y-2">
-            {soldHistory.map((item) => (
+            {soldHistorySafe.map((item) => (
               <li key={`${item.source}-${item.listingId}`}>
                 <Link
                   href={`/market/listing/${item.listingId}`}
@@ -319,7 +359,7 @@ export default function SellerProfilePage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium line-clamp-2">{item.title || `${item.brand} ${item.model}`}</p>
                     <p className="text-xs text-muted-foreground">
-                      Size {item.size}
+                      {formatMarketShoeSizeDual(item.size)}
                       {item.amountCents != null ? ` · $${(item.amountCents / 100).toFixed(0)}` : ''}
                       {' · '}{formatDate(item.soldAt)}
                     </p>
@@ -333,13 +373,13 @@ export default function SellerProfilePage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Buyer feedback</h2>
-        {reviews.length === 0 ? (
+        {reviewsSafe.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {stats.salesCount > 0 ? 'No reviews yet.' : 'Feedback appears after completed sales.'}
+            {safeStats.salesCount > 0 ? 'No reviews yet.' : 'Feedback appears after completed sales.'}
           </p>
         ) : (
           <ul className="space-y-3">
-            {reviews.map((review) => (
+            {reviewsSafe.map((review) => (
               <li key={review.id} className="rounded-lg border border-border p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">{review.buyerLabel}</p>
@@ -372,7 +412,7 @@ export default function SellerProfilePage() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        {formatSalesCount(stats.salesCount)} on Guild Market. Feedback is from verified buyers after completed orders.
+        {formatSalesCount(safeStats.salesCount)} on Guild Market. Feedback is from verified buyers after completed orders.
       </p>
     </div>
   );

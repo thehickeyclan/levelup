@@ -19,9 +19,6 @@ export async function GET(
   const { id: sellerId } = await params;
 
   const seller = await getSellerProfile(supabase, sellerId);
-  if (!seller) {
-    return NextResponse.json({ error: 'Seller not found' }, { status: 404 });
-  }
 
   const isOwnProfile = user!.id === sellerId;
 

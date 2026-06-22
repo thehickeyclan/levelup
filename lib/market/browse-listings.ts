@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { formatSellerDisplayName } from '@/lib/market/seller';
+import { formatSellerDisplayName, sellerFallbackDisplayName } from '@/lib/market/seller';
 import { MARKET_LISTING_IMAGE_FIELDS, primaryListingImageUrl } from '@/lib/market/listing-images';
 import { BROWSE_BRANDS } from '@/lib/market/brands';
 import {
@@ -191,7 +191,7 @@ export async function fetchMarketBrowseListings(
       ai_assisted: Boolean(aiRow?.analyzed_at),
       primary_image_url: primaryListingImageUrl(row.market_listing_images),
       seller_id: row.seller_id,
-      seller_name: sellerNames.get(row.seller_id) ?? 'Guild member',
+      seller_name: sellerNames.get(row.seller_id) ?? sellerFallbackDisplayName(row.seller_id as string),
       created_at: row.created_at,
       views_count: row.views_count ?? 0,
       pending_offer_count: offerCounts.get(row.id) ?? 0,

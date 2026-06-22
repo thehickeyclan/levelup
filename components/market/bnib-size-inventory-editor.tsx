@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MARKET_SHOE_SIZE_UNIT } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
 
 export type SizeInventoryRow = {
@@ -40,9 +41,10 @@ export function BnibSizeInventoryEditor({
     <div className={cn('space-y-3', className)}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <Label className="text-xs">Sizes in stock</Label>
+          <Label className="text-xs">Sizes in stock ({MARKET_SHOE_SIZE_UNIT})</Label>
           <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-            One product page, shared photos. Add every BNIB size you have — buyers pick size at checkout.
+            One product page, shared photos. Add every BNIB size you have ({MARKET_SHOE_SIZE_UNIT}) —
+            buyers pick size at checkout.
           </p>
         </div>
         <button
@@ -66,7 +68,7 @@ export function BnibSizeInventoryEditor({
               onChange={(e) => updateRow(index, { size_us: e.target.value })}
               placeholder="10"
               inputMode="decimal"
-              aria-label={`US size row ${index + 1}`}
+              aria-label={`${MARKET_SHOE_SIZE_UNIT} size row ${index + 1}`}
             />
             <Input
               className="h-11"
@@ -92,7 +94,7 @@ export function BnibSizeInventoryEditor({
         ))}
       </div>
       <div className="grid grid-cols-[1fr_72px_auto] gap-2 text-[10px] text-muted-foreground px-0.5">
-        <span>US size</span>
+        <span>{MARKET_SHOE_SIZE_UNIT}</span>
         <span>Qty</span>
         <span className="w-11" />
       </div>

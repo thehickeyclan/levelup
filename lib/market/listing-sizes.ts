@@ -12,6 +12,49 @@ export type ListingSizeInput = {
   quantity: number;
 };
 
+/** Adult men's US sizing — shown on listings, filters, and checkout. */
+export const MARKET_SHOE_SIZE_UNIT = 'US Men';
+export const MARKET_SHOE_SIZE_UNIT_SHORT = 'USM';
+
+/** Standard US athletic-shoe conversion: women's size = men's + 1.5 */
+export const US_WOMEN_SIZE_OFFSET_FROM_MEN = 1.5;
+
+export function formatUsSizeNumber(size: number): string {
+  if (!Number.isFinite(size)) return '';
+  return Number.isInteger(size) ? String(size) : String(size);
+}
+
+export function usWomenSizeFromMen(menSize: number): number {
+  return Math.round((menSize + US_WOMEN_SIZE_OFFSET_FROM_MEN) * 10) / 10;
+}
+
+/** Retail-style dual label, e.g. "9M / 10.5W" (men's size stored in DB). */
+export function formatMarketShoeSizeDual(size: number | string | null | undefined): string {
+  const men = typeof size === 'number' ? size : Number(String(size ?? '').trim());
+  if (!Number.isFinite(men)) return '';
+  const women = usWomenSizeFromMen(men);
+  return `${formatUsSizeNumber(men)}M / ${formatUsSizeNumber(women)}W`;
+}
+
+export function formatMarketShoeSizeDualLabel(size: number | null | undefined): string {
+  if (size == null || !Number.isFinite(size)) {
+    return `Size (${MARKET_SHOE_SIZE_UNIT})`;
+  }
+  return `Size: ${formatMarketShoeSizeDual(size)}`;
+}
+
+export function formatMarketShoeSize(size: number | string | null | undefined): string {
+  if (size == null || size === '') return '';
+  const raw = typeof size === 'number' ? size : String(size).trim();
+  const n = typeof size === 'number' ? size : Number(raw);
+  const display = Number.isFinite(n) ? String(n) : raw;
+  return `${display} ${MARKET_SHOE_SIZE_UNIT_SHORT}`;
+}
+
+export function formatMarketShoeSizeFieldLabel(): string {
+  return `Size (${MARKET_SHOE_SIZE_UNIT})`;
+}
+
 export function supportsMultiSizeInventory(wearState: MarketWearState | string | null | undefined): boolean {
   return wearState === 'bnib' || wearState === 'new_no_box';
 }
@@ -27,9 +70,11 @@ export function formatListingSizesLabel(sizes: ListingSizeRow[]): string | null 
   const available = sizes.filter((s) => s.quantity > 0);
   if (!available.length) return null;
   const nums = available.map((s) => s.size_us).sort((a, b) => a - b);
-  if (nums.length === 1) return `Size ${nums[0]}`;
-  if (nums.length <= 4) return `Sizes ${nums.join(', ')}`;
-  return `${nums.length} sizes`;
+  if (nums.length === 1) return `Size ${formatMarketShoeSizeDual(nums[0])}`;
+  if (nums.length <= 4) {
+    return `Sizes ${nums.map((n) => formatMarketShoeSizeDual(n)).join(', ')}`;
+  }
+  return `${nums.length} sizes (${MARKET_SHOE_SIZE_UNIT_SHORT})`;
 }
 
 export function listingHasMultiSizeInventory(sizes: ListingSizeRow[]): boolean {

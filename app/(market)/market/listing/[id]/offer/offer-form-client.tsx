@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { QuickTradeListingSheet } from '@/components/market/quick-trade-listing-sheet';
+import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
 
 export type OfferMode = 'cash' | 'trade' | 'cash_and_trade';
@@ -174,7 +175,7 @@ export function OfferFormClient({
           <p className="text-xs text-accent font-medium mt-0.5">{listing.brand}</p>
           <p className="text-xs text-muted-foreground mt-1">
             {listing.modelYear ? `${listing.modelYear} · ` : ''}
-            Size {listing.size}
+            {formatMarketShoeSizeDual(listing.size)}
             {listing.conditionLabel ? ` · ${listing.conditionLabel}` : ''}
           </p>
         </div>
@@ -253,7 +254,7 @@ export function OfferFormClient({
                     </div>
                     <div className="p-2 bg-card/60">
                       <p className="text-xs font-medium truncate">{item.model || item.title}</p>
-                      <p className="text-[10px] text-muted-foreground">Size {item.size}</p>
+                      <p className="text-[10px] text-muted-foreground">{formatMarketShoeSizeDual(item.size)}</p>
                     </div>
                   </button>
                 );

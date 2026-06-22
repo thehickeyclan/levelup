@@ -10,10 +10,11 @@ import {
   type ListingTypePatch,
 } from '@/components/market/listing-type-quick-actions';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { formatMarketShoeSize } from '@/lib/market/listing-sizes';
 import type { MyListingRow } from '@/lib/market/my-listings-data';
 import { sellerListingStatusBadge } from '@/lib/market/listing-type-options';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
+import { cn } from '@/lib/utils';
 
 function priceLabel(listing: MyListingRow): string {
   if (listing.listing_type === 'collection') return 'In your closet';
@@ -73,7 +74,7 @@ function ListingRow({
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-foreground truncate">{title}</p>
             <p className="text-xs text-muted-foreground truncate">
-              {listing.brand} · Size {listing.size} · {listing.condition_label}
+              {listing.brand} · {formatMarketShoeSize(listing.size)} · {listing.condition_label}
             </p>
             <div className="flex flex-wrap items-center gap-2 mt-1">
               <span className={cn('text-[10px] border rounded-full px-2 py-0.5', badge.className)}>

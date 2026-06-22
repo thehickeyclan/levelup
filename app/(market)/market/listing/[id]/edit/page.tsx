@@ -59,7 +59,7 @@ import {
   UsedListingSizeNote,
   type SizeInventoryRow,
 } from '@/components/market/bnib-size-inventory-editor';
-import { supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
+import { supportsMultiSizeInventory, formatMarketShoeSizeFieldLabel } from '@/lib/market/listing-sizes';
 
 const MAX_PHOTOS = 6;
 
@@ -662,7 +662,7 @@ export default function EditListingPage() {
           </div>
           {!isBnibInventory ? (
             <div>
-              <Label>Size (US)</Label>
+              <Label>{formatMarketShoeSizeFieldLabel()}</Label>
               <Input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
               <UsedListingSizeNote className="mt-1.5" />
             </div>

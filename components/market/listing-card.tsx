@@ -6,6 +6,7 @@ import { listingConditionDisplay } from '@/lib/market/wear-state';
 import type { MarketBrowseListing } from '@/lib/market/browse-listings';
 import { formatListingColorLabel } from '@/lib/market/color-family';
 import { RarityBadge } from '@/components/market/rarity-badge';
+import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
 
 function typeBadge(listing: MarketBrowseListing): {
@@ -120,7 +121,7 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
         </p>
         <div className="flex flex-wrap gap-1">
           <span className="text-[9px] text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
-            Sz {listing.size}
+            {formatMarketShoeSizeDual(listing.size)}
           </span>
           <span className="text-[9px] text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
             {conditionLabel}

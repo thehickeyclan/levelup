@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import type { TradeOfferListingReview } from '@/lib/market/trade-listing-review';
+import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
 
 export function TradeOfferListingReviewCard({
@@ -19,7 +20,7 @@ export function TradeOfferListingReviewCard({
   const displayTitle = listing.model?.trim() || listing.title;
   const specChips = [
     listing.model_year ? String(listing.model_year) : null,
-    `Size ${listing.size}`,
+    formatMarketShoeSizeDual(listing.size),
     listing.condition_label,
   ].filter(Boolean) as string[];
 

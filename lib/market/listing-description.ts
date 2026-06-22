@@ -1,5 +1,6 @@
 import type { MarketWearState } from '@/lib/market/wear-state';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
+import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
 import { LISTING_DESCRIPTION_FORMAT } from '@/lib/market/ai/prompts';
 
 export type ListingDescriptionInput = {
@@ -26,7 +27,7 @@ export function buildListingDescription(input: ListingDescriptionInput): string 
   const conditionLabel = listingConditionDisplay(wearState, condition);
 
   const lines: string[] = [
-    `${titleParts}${yearBit}${colorBit} — Size ${size} US.`,
+    `${titleParts}${yearBit}${colorBit} — ${formatMarketShoeSizeDual(size)}.`,
     '',
     `${conditionLabel}.`,
   ];

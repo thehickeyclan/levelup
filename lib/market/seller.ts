@@ -25,20 +25,43 @@ export function sellerCollectionHeading(displayName: string): string {
   const segment = displayName.split(' · ')[0]?.trim() || displayName.trim();
   const firstName = segment.split(/\s+/)[0] || segment;
   if (!firstName) return 'Collection';
+  if (/^guild member/i.test(firstName)) return 'Guild member collection';
   return `${firstName}'s Collection`;
+}
+
+/** When we cannot load a user row — still show a stable label (includes id tail). */
+export function sellerFallbackDisplayName(sellerId: string): string {
+  const compact = sellerId.replace(/-/g, '').slice(0, 8);
+  return compact ? `Guild member · ${compact}` : 'Guild member';
+}
+
+export function resolveSellerDisplayName(
+  profile: SellerProfile | null | undefined,
+  sellerId: string
+): string {
+  if (profile?.displayName?.trim()) return profile.displayName.trim();
+  return sellerFallbackDisplayName(sellerId);
 }
 
 export async function getSellerProfile(
   supabase: SupabaseClient,
   userId: string
-): Promise<SellerProfile | null> {
+): Promise<SellerProfile> {
   const { data: user } = await supabase
     .from('users')
     .select('id, first_name, last_name, role')
     .eq('id', userId)
     .maybeSingle();
 
-  if (!user) return null;
+  if (!user) {
+    return {
+      id: userId,
+      displayName: sellerFallbackDisplayName(userId),
+      role: 'unknown',
+      school: null,
+      photoUrl: null,
+    };
+  }
 
   const role = user.role as string;
   let school: string | null = null;

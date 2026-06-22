@@ -1,6 +1,14 @@
-# Password reset email — Supabase dashboard setup
+# Password reset (production)
 
-Isabella (and others) hit "invalid link" loops when the recovery email uses PKCE-only links opened in a **different browser** than forgot-password (e.g. request in Safari, open link in Gmail in-app).
+The app sends reset links via **Resend** (`/api/auth/forgot-password`) using Supabase admin `generateLink` — not Supabase’s built-in SMTP (2 emails/hour project-wide).
+
+Required in production:
+
+- `RESEND_API_KEY`
+- `EMAIL_FROM` (verified domain in Resend)
+- `NEXT_PUBLIC_APP_URL` (canonical origin, e.g. `https://www.wrestlingguild.com`)
+
+Redirect URLs in Supabase → Authentication → URL Configuration (see section 1 below).
 
 ## 1. Redirect URLs (Supabase → Authentication → URL Configuration)
 
@@ -13,9 +21,15 @@ Add every production origin you use (wildcards cover query strings):
 - `http://localhost:3000/auth/confirm**` (local dev)
 - `http://localhost:3000/reset-password**`
 
-## 2. Recovery email template (Supabase → Authentication → Email Templates → Reset password)
+## 2. Recovery email (handled by app + Resend)
 
-Replace the link body so it hits our confirm route with **TokenHash** (works in any browser):
+Forgot-password on the site uses `/api/auth/forgot-password`, which emails a link like:
+
+`https://www.wrestlingguild.com/auth/confirm?token_hash=…&type=recovery&next=/reset-password`
+
+You do **not** need to customize Supabase’s “Reset password” email template for users to receive links — unless you disable the app route. Optional: disable Supabase’s automatic recovery emails in dashboard if duplicates occur.
+
+Legacy Supabase template (only if sending via Supabase SMTP instead of Resend):
 
 ```html
 <h2>Reset your password</h2>

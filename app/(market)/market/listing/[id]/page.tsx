@@ -13,7 +13,7 @@ import {
   primaryImageUsesClean,
   type MarketListingImageRow,
 } from '@/lib/market/listing-images';
-import { sellerCollectionHeading } from '@/lib/market/seller';
+import { sellerCollectionHeading, resolveSellerDisplayName } from '@/lib/market/seller';
 import { formatListingColorLabel } from '@/lib/market/color-family';
 import { RarityBadge } from '@/components/market/rarity-badge';
 import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-actions';
@@ -25,6 +25,7 @@ import { SellerPurchaseNotesCard } from '@/components/market/collection-purchase
 import { ListingSizePicker } from '@/components/market/listing-size-picker';
 import {
   formatListingSizesLabel,
+  formatMarketShoeSizeDual,
   type ListingSizeRow,
 } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
@@ -175,6 +176,20 @@ export default function ListingDetailPage() {
     memberSince: null,
   };
 
+  const sellerId = String(data.seller?.id ?? l.seller_id ?? '');
+  const sellerDisplayName = resolveSellerDisplayName(
+    data.seller
+      ? {
+          id: sellerId,
+          displayName: data.seller.displayName,
+          role: 'unknown',
+          school: data.seller.school ?? null,
+        }
+      : null,
+    sellerId
+  );
+  const sellerSchool = data.seller?.school ?? null;
+
   const colorLabel = formatListingColorLabel(
     l.color_family as string | null,
     l.colorway as string | null
@@ -183,7 +198,7 @@ export default function ListingDetailPage() {
     inventorySizes.length > 0
       ? formatListingSizesLabel(inventorySizes)
       : l.size != null
-        ? `Size ${l.size}`
+        ? formatMarketShoeSizeDual(Number(l.size))
         : null;
   const specChips = [
     l.model_year ? String(l.model_year) : null,
@@ -295,7 +310,7 @@ export default function ListingDetailPage() {
                 <ShoppingCart className="h-4 w-4" />
                 Buy now — ${(priceCents! / 100).toFixed(0)}
                 {selectedSizeUs != null && inventorySizes.length > 0
-                  ? ` · size ${selectedSizeUs}`
+                  ? ` · ${formatMarketShoeSizeDual(selectedSizeUs)}`
                   : ''}
               </Link>
             </Button>
@@ -388,10 +403,10 @@ export default function ListingDetailPage() {
             {isCollection ? (
               <div className="space-y-1">
                 <Link
-                  href={`/market/seller/${data.seller.id}?tab=collection`}
+                  href={`/market/seller/${sellerId}?tab=collection`}
                   className="text-xl font-semibold text-foreground hover:text-accent transition-colors"
                 >
-                  {sellerCollectionHeading(data.seller.displayName)}
+                  {sellerCollectionHeading(sellerDisplayName)}
                 </Link>
                 <p className="text-xs text-muted-foreground">Showcase — not for sale</p>
               </div>
@@ -573,9 +588,9 @@ export default function ListingDetailPage() {
             </div>
 
             <ListingSellerCard
-              sellerId={data.seller.id}
-              displayName={data.seller.displayName}
-              school={data.seller.school}
+              sellerId={sellerId}
+              displayName={sellerDisplayName}
+              school={sellerSchool}
               stats={stats}
             />
 
@@ -590,11 +605,13 @@ export default function ListingDetailPage() {
               </div>
             ) : null}
 
-            <ListingQaSection
-              listingId={id}
-              sellerId={data.seller.id}
-              currentUserId={(data.viewer as { id?: string } | undefined)?.id ?? null}
-            />
+            {sellerId ? (
+              <ListingQaSection
+                listingId={id}
+                sellerId={sellerId}
+                currentUserId={(data.viewer as { id?: string } | undefined)?.id ?? null}
+              />
+            ) : null}
           </div>
         </div>
       </div>

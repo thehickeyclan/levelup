@@ -11,6 +11,7 @@ import { listingConditionDisplay, conditionForWearState } from '@/lib/market/wea
 import type { OfferListingSummary } from '@/app/(market)/market/listing/[id]/offer/offer-form-client';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
 import { fetchListingImagesForClient } from '@/lib/market/listing-images';
+import { formatMarketShoeSizeFieldLabel } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
 
 const CONDITION_OPTIONS = [
@@ -442,7 +443,7 @@ export function QuickTradeListingSheet({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Size</Label>
+                  <Label className="text-xs text-muted-foreground">{formatMarketShoeSizeFieldLabel()}</Label>
                   <select
                     className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                     value={size}
@@ -450,7 +451,7 @@ export function QuickTradeListingSheet({
                   >
                     {BROWSE_US_SIZES.map((s) => (
                       <option key={s} value={String(s)}>
-                        {Number.isInteger(s) ? s : s.toFixed(1)}
+                        {Number.isInteger(s) ? `${s} USM` : `${s.toFixed(1)} USM`}
                       </option>
                     ))}
                   </select>

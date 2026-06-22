@@ -53,9 +53,9 @@ function InventoryGrid({
             href={`/market/listing/${item.id}`}
             className="rounded-lg border border-border overflow-hidden bg-card hover:border-border transition-colors"
           >
-            <div className={cn('relative bg-muted overflow-hidden', compact ? 'aspect-square' : 'aspect-[4/3]')}>
+            <div className={cn('relative bg-muted overflow-hidden flex items-center justify-center', compact ? 'aspect-square' : 'aspect-[4/5] sm:aspect-square')}>
               {item.primary_image_url ? (
-                <img src={item.primary_image_url} alt="" className="w-full h-full object-cover" />
+                <img src={item.primary_image_url} alt="" className="w-full h-full object-contain p-1.5" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
                   No photo

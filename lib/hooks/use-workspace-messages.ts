@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenant } from '@/components/theme-provider';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import { safeRealtimeSubscribe } from '@/lib/supabase/realtime-safe';
 
 export interface WorkspaceMessage {
   id: string;
@@ -107,7 +107,7 @@ export function useWorkspaceMessages(workspaceId: string) {
   useEffect(() => {
     if (!workspaceId) return;
 
-    let channel: RealtimeChannel;
+    let isMounted = true;
 
     async function fetchMessages() {
       try {
@@ -149,20 +149,21 @@ export function useWorkspaceMessages(workspaceId: string) {
           ...m,
           reactions: reactionsMap.get(m.id) || [],
         }));
-        setMessages(withReactions);
+        if (isMounted) setMessages(withReactions);
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to load messages'));
-        setMessages([]);
+        if (isMounted) {
+          setError(err instanceof Error ? err : new Error('Failed to load messages'));
+          setMessages([]);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
     fetchMessages();
 
-    channel = supabase
-      .channel(`workspace-messages:${workspaceId}`)
-      .on(
+    const channel = safeRealtimeSubscribe(supabase, `workspace-messages:${workspaceId}`, (ch) =>
+      ch.on(
         'postgres_changes',
         {
           event: 'INSERT',
@@ -195,10 +196,11 @@ export function useWorkspaceMessages(workspaceId: string) {
           setMessages((prev) => [...prev, msg]);
         }
       )
-      .subscribe();
+    );
 
     return () => {
-      supabase.removeChannel(channel);
+      isMounted = false;
+      if (channel) supabase.removeChannel(channel);
     };
   }, [workspaceId, resolveAuthors, supabase]);
 

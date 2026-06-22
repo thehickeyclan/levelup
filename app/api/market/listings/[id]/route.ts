@@ -17,7 +17,7 @@ import {
 import { stripSellerPrivateListingFields } from '@/lib/market/listing-private-fields';
 import { normalizeMarketRarity } from '@/lib/market/rarity';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
-import { fetchListingSizes } from '@/lib/market/listing-sizes';
+import { fetchListingSizes, supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
 import { normalizeListingAcceptsOffers } from '@/lib/market/accepts-offers';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -170,7 +170,10 @@ export async function GET(
       }
     }
 
-    const sizes = await fetchListingSizes(supabase, id);
+    const wearState = listing.wear_state as string | null;
+    const sizes = supportsMultiSizeInventory(wearState)
+      ? await fetchListingSizes(supabase, id)
+      : [];
 
     const publicListing = isOwner
       ? { ...listing, views_count: displayViews, ai_assisted: aiAssisted }

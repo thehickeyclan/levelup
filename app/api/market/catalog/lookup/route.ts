@@ -37,7 +37,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const catalog = await fetchCatalogListingEnrichment(supabase, brand, model);
+  const catalog = await fetchCatalogListingEnrichment(
+    supabase,
+    brand,
+    model,
+    body.colorway?.trim() || null
+  );
 
   let rarity = catalog?.rarity ?? null;
   if (!rarity) {
@@ -68,5 +73,8 @@ export async function POST(req: NextRequest) {
     weight_class: catalog?.weight_class ?? null,
     rarity: rarity ? normalizeMarketRarity(rarity) : null,
     collector_notes: catalog?.collector_notes ?? null,
+    colorway: catalog?.colorway ?? null,
+    upper_material: catalog?.upper_material ?? null,
+    sole_description: catalog?.sole_description ?? null,
   });
 }

@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { checkAndIncrementAiUsage, isAiRateLimitBypass, aiLimitReachedMessage } from '@/lib/market/ai/rate-limit';
 import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
-import { findCatalogEntry, matchCatalogEntry, getCatalogContext, fetchCatalogEntries } from '@/lib/market/shoe-id/catalog';
+import { findCatalogEntry, matchCatalogEntry, getCatalogContext, fetchCatalogEntries, type CatalogEntryRow } from '@/lib/market/shoe-id/catalog';
 import { enrichmentFromCatalog } from '@/lib/market/catalog-listing-enrich';
 import { buildShoeIdVisionContent } from '@/lib/market/shoe-id/images';
 import { listingQueryImageBlocks } from '@/lib/market/shoe-id/load-query-images';
@@ -126,7 +126,9 @@ export async function POST(req: NextRequest) {
 
   const catalogMatchId = await matchCatalogEntry(admin, parsed.brand, parsed.model);
   const catalogRow = await findCatalogEntry(admin, parsed.brand, parsed.model);
-  const catalogEnrichment = catalogRow ? enrichmentFromCatalog(catalogRow) : null;
+  const catalogEnrichment = catalogRow
+    ? enrichmentFromCatalog(catalogRow as CatalogEntryRow, parsed.colorway)
+    : null;
 
   const { data: resultRow, error: insertErr } = await admin
     .from('shoe_id_results')

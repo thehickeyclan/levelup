@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { BROWSE_BRANDS, BROWSE_US_SIZES } from '@/lib/market/browse-listings';
-import { formatMarketShoeSizeDual, MARKET_SHOE_SIZE_UNIT } from '@/lib/market/listing-sizes';
+import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
 import { BROWSE_COLOR_FAMILIES } from '@/lib/market/color-family';
 import {
   BROWSE_CONDITION_OPTIONS,
@@ -222,7 +222,7 @@ export function MarketFilters({
     color !== 'all'
       ? (BROWSE_COLOR_FAMILIES.find((c) => c.id === color)?.label ?? 'Color')
       : 'Color';
-  const sizeLabel = size ? formatMarketShoeSizeDual(size) : `Size (${MARKET_SHOE_SIZE_UNIT})`;
+  const sizeLabel = size ? formatMarketShoeSizeDual(size) : 'Size';
   const conditionLabel =
     condition !== 'all'
       ? (BROWSE_CONDITION_OPTIONS.find((o) => o.id === condition)?.label ?? 'Condition')
@@ -430,7 +430,7 @@ export function MarketFilters({
           <div className="mt-4 space-y-5">
             <FilterSection title="Brand">{brandDropdown}</FilterSection>
             <FilterSection title="Color">{colorDropdown}</FilterSection>
-            <FilterSection title={`Size (${MARKET_SHOE_SIZE_UNIT})`}>{sizeDropdown}</FilterSection>
+            <FilterSection title="Size">{sizeDropdown}</FilterSection>
             <FilterSection title="Condition">{conditionDropdown}</FilterSection>
             {type !== 'collectors' ? <FilterSection title="Price">{priceDropdown}</FilterSection> : null}
           </div>

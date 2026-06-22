@@ -29,6 +29,7 @@ import {
 import { SimilarSalesGuidance, priceGuidanceFooter } from '@/components/market/similar-sales-guidance';
 import {
   type ListingEnrichment,
+  enrichmentFromShoeIdResult,
 } from '@/lib/market/catalog-listing-enrich';
 import { shouldAutoConfirmIdentity } from '@/lib/market/catalog-from-listing';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
@@ -183,6 +184,8 @@ export default function NewListingPage() {
   /** User manually edited brand/model — vision must not overwrite identity. */
   const [shoeIdentityLocked, setShoeIdentityLocked] = useState(false);
   const [catalogCollectorNotes, setCatalogCollectorNotes] = useState<string | null>(null);
+  const [catalogUpperMaterial, setCatalogUpperMaterial] = useState<string | null>(null);
+  const [catalogSoleDescription, setCatalogSoleDescription] = useState<string | null>(null);
   const [pricing, setPricing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -581,6 +584,8 @@ export default function NewListingPage() {
         collectorNotesOverride?.trim() ||
         catalogCollectorNotes?.trim() ||
         null,
+      upperMaterial: catalogUpperMaterial,
+      soleDescription: catalogSoleDescription,
       sellerNote,
       conditionAnalysis: aiCondition,
     };
@@ -607,33 +612,6 @@ export default function NewListingPage() {
       }
       if (opts?.silent) {
         descriptionAutoKey.current = autoKey;
-      }
-
-      const catalogNotes =
-        opts?.collectorNotes?.trim() ||
-        catalogCollectorNotes?.trim() ||
-        null;
-
-      if (opts?.silent && catalogNotes) {
-        if (!descriptionTouchedRef.current) {
-          const templateDesc = sanitizeBuyerListingDescription(
-            buildListingDescription({
-              brand: merged.brand,
-              model: merged.model,
-              colorway: merged.colorway.trim() || null,
-              modelYear: merged.model_year ? Number(merged.model_year) : null,
-              size: Number(merged.size) || 10,
-              wearState: merged.wear_state,
-              condition: conditionForWearState(merged.wear_state, merged.condition),
-              analysis: { summary: catalogNotes },
-            })
-          );
-          setForm((f) => ({ ...f, description: templateDesc }));
-          setDescriptionTouched(false);
-          descriptionTouchedRef.current = false;
-          setAiDescriptionDraft(true);
-        }
-        return;
       }
 
       if (!opts?.silent) {
@@ -665,12 +643,27 @@ export default function NewListingPage() {
         if (descriptionEditedDuringAgentRef.current) return;
         if (opts?.silent && descriptionTouchedRef.current) return;
 
-        if (data.has_draft && data.draft?.description) {
-          const clean = sanitizeBuyerListingDescription(data.draft.description);
-          setForm((f) => ({ ...f, description: clean }));
-          setDescriptionTouched(false);
-          descriptionTouchedRef.current = false;
-          setAiDescriptionDraft(true);
+        if (data.has_draft && (data.draft?.description || data.draft?.colorway)) {
+          const clean = data.draft?.description
+            ? sanitizeBuyerListingDescription(data.draft.description)
+            : '';
+          const draftColorway = data.draft?.colorway?.trim() || '';
+          setForm((f) => ({
+            ...f,
+            ...(clean ? { description: clean } : {}),
+            ...(draftColorway && (!f.colorway.trim() || opts?.silent)
+              ? {
+                  colorway: draftColorway,
+                  color_family:
+                    inferColorFamilyFromColorway(draftColorway) || f.color_family,
+                }
+              : {}),
+          }));
+          if (clean) {
+            setDescriptionTouched(false);
+            descriptionTouchedRef.current = false;
+            setAiDescriptionDraft(true);
+          }
           setAgentInput('');
           setAgentReply(null);
         } else if (data.message) {
@@ -798,6 +791,8 @@ export default function NewListingPage() {
         if (!res.ok) {
           setAiPipelineError(data.error || 'Could not look up shoe details');
           setCatalogCollectorNotes(null);
+          setCatalogUpperMaterial(null);
+          setCatalogSoleDescription(null);
           return { patch: {}, collectorNotes: null };
         }
 
@@ -806,11 +801,29 @@ export default function NewListingPage() {
             ? data.collector_notes.trim()
             : null;
         setCatalogCollectorNotes(collectorNotes);
+        setCatalogUpperMaterial(
+          typeof data.upper_material === 'string' && data.upper_material.trim()
+            ? data.upper_material.trim()
+            : null
+        );
+        setCatalogSoleDescription(
+          typeof data.sole_description === 'string' && data.sole_description.trim()
+            ? data.sole_description.trim()
+            : null
+        );
 
         const enrichment: ListingEnrichment = {
           model_year: data.model_year ?? undefined,
           weight_class: data.weight_class ?? undefined,
           rarity: data.rarity ? normalizeMarketRarity(data.rarity) ?? undefined : undefined,
+          colorway:
+            typeof data.colorway === 'string' && data.colorway.trim()
+              ? data.colorway.trim()
+              : undefined,
+          upper_material:
+            typeof data.upper_material === 'string' ? data.upper_material : undefined,
+          sole_description:
+            typeof data.sole_description === 'string' ? data.sole_description : undefined,
         };
         const patch = enrichmentToFormPatch(enrichment, merged, {
           fillEmptyOnly: !opts?.overwriteCatalogFields,
@@ -881,10 +894,11 @@ export default function NewListingPage() {
       const result = data.result as ShoeIdResult;
       setShoeIdResult(result);
       if (data.autoApplyRecommended !== false) {
-        const shoeOverrides = enrichmentToFormPatch(
-          { brand: result.brand, model: result.model },
-          form
-        );
+        const enrichment: ListingEnrichment = {
+          ...enrichmentFromShoeIdResult(result),
+          ...(data.catalogEnrichment ?? {}),
+        };
+        const shoeOverrides = enrichmentToFormPatch(enrichment, form, { fillEmptyOnly: true });
         if (Object.keys(shoeOverrides).length) mergeFormPatch(shoeOverrides);
         setShoeIdAutoApplied(true);
       }
@@ -1104,7 +1118,7 @@ export default function NewListingPage() {
           ? 0
           : Math.round(Number(form.shipping_cents || 0) * 100);
 
-      const patchPromise = fetch(`/api/market/listings/${id}`, {
+      const res = await fetch(`/api/market/listings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1115,15 +1129,12 @@ export default function NewListingPage() {
           status: 'active',
         }),
       });
-      const sizesPromise = saveSizeInventory(id);
-
-      const res = await patchPromise;
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Publish failed');
       }
 
-      await sizesPromise;
+      await saveSizeInventory(id);
 
       if (!form.rarity) {
         void fetch('/api/market/ai/rarity', {

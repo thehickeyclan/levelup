@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -20,15 +21,23 @@ import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-
 import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
-import { ListingQaSection } from '@/components/market/listing-qa-section';
 import { SellerPurchaseNotesCard } from '@/components/market/collection-purchase-notes';
 import { ListingSizePicker } from '@/components/market/listing-size-picker';
 import {
   formatListingSizesLabel,
   formatMarketShoeSizeDual,
+  supportsMultiSizeInventory,
   type ListingSizeRow,
 } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
+
+const ListingQaSection = dynamic(
+  () =>
+    import('@/components/market/listing-qa-section').then((m) => ({
+      default: m.ListingQaSection,
+    })),
+  { ssr: false }
+);
 
 export default function ListingDetailClient() {
   const params = useParams();
@@ -76,8 +85,10 @@ export default function ListingDetailClient() {
         setFollowing(Boolean(d.following));
         setActiveImage(0);
         const sizes = (d.sizes as ListingSizeRow[] | undefined) ?? [];
-        setInventorySizes(sizes);
-        const firstAvailable = sizes.find((row) => row.quantity > 0);
+        const listingWear = (d.listing.wear_state as string) || 'used';
+        const multiSize = supportsMultiSizeInventory(listingWear);
+        setInventorySizes(multiSize ? sizes : []);
+        const firstAvailable = multiSize ? sizes.find((row) => row.quantity > 0) : undefined;
         setSelectedSizeUs(firstAvailable?.size_us ?? null);
       })
       .catch((err) => {
@@ -229,7 +240,7 @@ export default function ListingDetailClient() {
     l.colorway as string | null
   );
   const sizeLabel =
-    inventorySizes.length > 0
+    inventorySizes.length > 0 && supportsMultiSizeInventory(wearState)
       ? formatListingSizesLabel(inventorySizes)
       : l.size != null
         ? formatMarketShoeSizeDual(Number(l.size))
@@ -337,14 +348,16 @@ export default function ListingDetailClient() {
       ) : null}
       {showBuyCta ? (
         <div className="space-y-3">
-          {inventorySizes.length > 0 ? (
+          {inventorySizes.length > 0 && supportsMultiSizeInventory(wearState) ? (
             <ListingSizePicker
               sizes={inventorySizes}
               value={selectedSizeUs}
               onChange={setSelectedSizeUs}
             />
           ) : null}
-          {inventorySizes.length > 0 && selectedSizeUs == null ? (
+          {inventorySizes.length > 0 &&
+          supportsMultiSizeInventory(wearState) &&
+          selectedSizeUs == null ? (
             <Button
               disabled
               className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full text-base opacity-50"
@@ -360,7 +373,9 @@ export default function ListingDetailClient() {
               <Link href={checkoutHref} className="flex items-center justify-center gap-2">
                 <ShoppingCart className="h-4 w-4" />
                 Buy now — ${(priceCents! / 100).toFixed(0)}
-                {selectedSizeUs != null && inventorySizes.length > 0
+                {selectedSizeUs != null &&
+                inventorySizes.length > 0 &&
+                supportsMultiSizeInventory(wearState)
                   ? ` · ${formatMarketShoeSizeDual(selectedSizeUs)}`
                   : ''}
               </Link>

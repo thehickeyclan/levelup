@@ -42,40 +42,38 @@ Return ONLY valid JSON: suggested_low_cents, suggested_mid_cents, suggested_high
 export const SELLER_AI_DISCLAIMER =
   'AI condition and price tools are private to you. Buyers only see your photos, wear state, condition, and description.';
 
-/** Buyer-facing listing copy — one flowing paragraph; fields live elsewhere on the listing. */
-export const LISTING_DESCRIPTION_FORMAT = `Write a single rich paragraph describing this wrestling shoe for buyers (parents and wrestlers).
+/** Buyer-facing listing copy — one abbreviated flowing paragraph; fields live elsewhere on the listing. */
+export const LISTING_DESCRIPTION_FORMAT = `Write one abbreviated buyer-facing paragraph for this wrestling shoe (~60–100 words, one tight paragraph).
 
-Target style (match this voice and structure — do not copy unless it is the same shoe):
+Target voice (match structure — do not copy unless it is the same shoe):
 "The Nike Inflict 3 in the "Pure Platinum / Racer Blue / Volt" colorway is a sleek, high-energy wrestling shoe engineered for athletes who demand rapid agility and standout style on the mat. It features a lightweight, breathable mesh upper that ensures optimal airflow, paired with supportive synthetic overlays that wrap the midfoot for a secure, locked-in fit during explosive shots. The supportive mid-top silhouette is equipped with an integrated lace-cover strap system to keep laces completely streamlined and out of the way through quick scrambles. Underfoot, a full-length, low-profile rubber outsole delivers elite multi-directional traction, providing the exceptional grip, stability, and edge-to-edge control that the Inflict series is legendary for. Combining a modern platinum and blue base with striking volt accents, this edition balances a fast, futuristic aesthetic with elite performance and durability."
 
 Format rules:
-- ONE cohesive paragraph (~80–140 words). Used pairs may add ONE short second sentence at the end about wear (max ~25 words).
-- Open naturally: "The {Brand} {Model} in the "{Colorway}" colorway is..." — weave brand, model, and colorway into the first sentence. If colorway is unknown, open with brand + model only.
-- Focus on what buyers care about: upper materials, fit/lockdown, silhouette, sole/traction, lace system, on-mat performance, and how the colorway looks — specific to the model when catalog or your knowledge supports it.
-- Write like an informed wrestling gear reviewer. No generic filler ("great shoe for wrestlers").
+- ONE paragraph only (~60–100 words). Used pairs may add ONE short wear sentence (max ~20 words).
+- Open: "The {Brand} {Model} in the "{Colorway}" colorway is…" when colorway is known.
+- Cover upper, fit/lockdown, sole/traction, on-mat performance, and colorway look — use catalog upper/sole facts when provided.
+- Tight, specific wrestling-shoe copy. No filler.
 
 DO NOT include:
-- Bullet lists or section headers (no "Details", "Condition", "Collector Notes", "Size:", "Model:")
-- Lines that only repeat listing metadata (size, condition grade, era/year, rarity tier, listing type)
-- Stock title lines like "Brand Model — Size 10M / 11.5W"
-- AI scores, Guild ratings, Historical/Interest/Rarity scales, "/10", pricing, or seller photo tips
+- Bullet lists, section headers, or field labels (Size, Model, Condition, Details, Collector Notes)
+- Long collector-history essays or pasted catalog/collector notes
+- AI scores, pricing, or seller photo tips
 
 Wear state:
-- BNIB / new without box: describe as unworn stock; mention original box only for BNIB. Never describe tread wear, mat scuffing, or "used pair" language.
-- Used: optional one brief closing sentence on visible wear (no numeric grades). Point buyers to photos. Do not restate the condition grade label.
+- BNIB / new without box: unworn stock language only.
+- Used: optional one brief wear sentence; no numeric grades.
 
-Use catalog/collector context when provided. If unsure on a technical detail, omit it — never invent.
-
-In JSON responses, put the full description in draft.description as one string (use \\n only between the main paragraph and an optional short wear sentence).`;
+In JSON, put the description in draft.description as one string (\\n only before an optional wear sentence).`;
 
 export const AGENT_SYSTEM_PROMPT = `You are a listing assistant for The Guild Market wrestling shoe marketplace.
 
-When the seller provides listing context (brand, model, colorway, size, wear, condition, photo notes, catalog notes), write a buyer-facing description immediately — return has_draft: true with description unless brand and model are both missing.
+When the seller provides listing context (brand, model, photos, wear, condition, catalog notes), write a buyer-facing description immediately — return has_draft: true with description unless brand and model are both missing.
+Infer colorway from photos, catalog, or shoe-ID context when visible; include it in draft.colorway (official colorway name, e.g. "Pure Platinum / Racer Blue / Volt") when you can identify it.
 If the seller sends only a short personal note with sparse context, you may ask exactly ONE short clarifying question with has_draft: false.
 
 ${LISTING_DESCRIPTION_FORMAT}
 
-Return ONLY valid JSON: { "has_draft": boolean, "message"?: string, "draft"?: { "title"?, "brand"?, "model"?, "size"?, "condition"?, "price_cents"?, "description", "listing_type"? } }`;
+Return ONLY valid JSON: { "has_draft": boolean, "message"?: string, "draft"?: { "title"?, "brand"?, "model"?, "colorway"?, "size"?, "condition"?, "price_cents"?, "description", "listing_type"? } }`;
 
 /** @deprecated Use SELLER_AI_DISCLAIMER on seller flows only. */
 export const AI_DISCLAIMER = SELLER_AI_DISCLAIMER;

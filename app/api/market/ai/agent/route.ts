@@ -32,6 +32,8 @@ function formatAgentListingContext(
   extras?: {
     collector_notes?: string | null;
     shoe_era?: string | null;
+    upper_material?: string | null;
+    sole_description?: string | null;
   }
 ): string {
   const wearState = listing.wear_state as 'bnib' | 'new_no_box' | 'used';
@@ -52,6 +54,12 @@ function formatAgentListingContext(
     `Listing type: ${listing.listing_type}`,
     extras?.collector_notes?.trim()
       ? `Catalog / collector notes: ${extras.collector_notes.trim()}`
+      : null,
+    extras?.upper_material?.trim()
+      ? `Upper / materials (catalog): ${extras.upper_material.trim()}`
+      : null,
+    extras?.sole_description?.trim()
+      ? `Sole (catalog): ${extras.sole_description.trim()}`
       : null,
     !isUnworn && ai?.condition_summary
       ? `Condition notes (private): ${ai.condition_summary}`
@@ -118,11 +126,12 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    const catalogEnrich = await fetchCatalogListingEnrichment(
-      admin,
-      listing.brand as string,
-      listing.model as string
-    );
+  const catalogEnrich = await fetchCatalogListingEnrichment(
+    admin,
+    listing.brand as string,
+    listing.model as string,
+    listing.colorway as string | null
+  );
 
     const collectorNotes = catalogEnrich?.collector_notes?.trim() || null;
 
@@ -137,6 +146,8 @@ export async function POST(req: NextRequest) {
         shoe_era: catalogEnrich?.model_year
           ? String(catalogEnrich.model_year)
           : (shoeRow?.identified_era as string | null) ?? null,
+        upper_material: catalogEnrich?.upper_material ?? null,
+        sole_description: catalogEnrich?.sole_description ?? null,
       }
     );
   }

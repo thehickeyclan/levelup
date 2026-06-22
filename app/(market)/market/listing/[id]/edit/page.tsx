@@ -192,7 +192,7 @@ export default function EditListingPage() {
         });
         setPurchaseNotes(collectionPurchaseNotesFromListing(l));
         const loadedSizes = (data.sizes as { size_us: number; quantity: number }[] | undefined) ?? [];
-        if (loadedSizes.length) {
+        if (supportsMultiSizeInventory(wear) && loadedSizes.length) {
           setSizeInventory(
             loadedSizes.map((row) => ({
               size_us: String(row.size_us),
@@ -200,6 +200,8 @@ export default function EditListingPage() {
             }))
           );
         } else if (supportsMultiSizeInventory(wear)) {
+          setSizeInventory([emptySizeInventoryRow(String(l.size ?? '10'))]);
+        } else {
           setSizeInventory([emptySizeInventoryRow(String(l.size ?? '10'))]);
         }
         if (String(l.description ?? '').trim()) {
@@ -327,11 +329,26 @@ export default function EditListingPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Description failed');
       if (descriptionEditedDuringAgentRef.current) return;
-      if (data.has_draft && data.draft?.description) {
-        const clean = sanitizeBuyerListingDescription(data.draft.description);
-        setForm((f) => ({ ...f, description: clean }));
-        setDescriptionTouched(false);
-        descriptionTouchedRef.current = false;
+      if (data.has_draft && (data.draft?.description || data.draft?.colorway)) {
+        const clean = data.draft?.description
+          ? sanitizeBuyerListingDescription(data.draft.description)
+          : '';
+        const draftColorway = data.draft?.colorway?.trim() || '';
+        setForm((f) => ({
+          ...f,
+          ...(clean ? { description: clean } : {}),
+          ...(draftColorway && !f.colorway.trim()
+            ? {
+                colorway: draftColorway,
+                color_family:
+                  inferColorFamilyFromColorway(draftColorway) || f.color_family,
+              }
+            : {}),
+        }));
+        if (clean) {
+          setDescriptionTouched(false);
+          descriptionTouchedRef.current = false;
+        }
         setAgentInput('');
       } else if (data.message) {
         setAgentReply(data.message);
@@ -501,7 +518,7 @@ export default function EditListingPage() {
         descriptionTouchedRef.current,
         descriptionInput()
       );
-      const patchPromise = fetch(`/api/market/listings/${listingId}`, {
+      const res = await fetch(`/api/market/listings/${listingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -510,25 +527,20 @@ export default function EditListingPage() {
           status: status === 'draft' ? 'active' : status,
         }),
       });
-      const sizesPromise = supportsMultiSizeInventory(form.wear_state)
-        ? fetch(`/api/market/listings/${listingId}/sizes`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sizes: sizeInventory.map((row) => ({
-                size_us: row.size_us,
-                quantity: row.quantity,
-              })),
-            }),
-          })
-        : null;
-
-      const res = await patchPromise;
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
 
-      if (sizesPromise) {
-        const sizesRes = await sizesPromise;
+      if (supportsMultiSizeInventory(form.wear_state)) {
+        const sizesRes = await fetch(`/api/market/listings/${listingId}/sizes`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sizes: sizeInventory.map((row) => ({
+              size_us: row.size_us,
+              quantity: row.quantity,
+            })),
+          }),
+        });
         const sizesData = await sizesRes.json();
         if (!sizesRes.ok) throw new Error(sizesData.error || 'Failed to save sizes');
       }

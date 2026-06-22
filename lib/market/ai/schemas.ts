@@ -85,6 +85,7 @@ export const AgentDraftSchema = z.object({
   title: z.string().optional(),
   brand: z.string().optional(),
   model: z.string().optional(),
+  colorway: z.string().optional(),
   size: z.number().optional(),
   condition: z.enum(['new', 'like_new', 'good', 'fair']).optional(),
   price_cents: z.number().optional(),

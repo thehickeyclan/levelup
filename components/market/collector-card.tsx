@@ -17,15 +17,15 @@ function PreviewCollage({ urls }: { urls: string[] }) {
 
   if (urls.length === 1) {
     return (
-      <img src={urls[0]} alt="" className="w-full h-full object-cover" />
+      <img src={urls[0]} alt="" className="w-full h-full object-contain p-2" />
     );
   }
 
   return (
     <div className="grid grid-cols-2 grid-rows-2 w-full h-full gap-0.5 bg-muted">
       {urls.slice(0, 4).map((url, i) => (
-        <div key={`${url}-${i}`} className="relative overflow-hidden bg-muted">
-          <img src={url} alt="" className="w-full h-full object-cover" />
+        <div key={`${url}-${i}`} className="relative overflow-hidden bg-muted flex items-center justify-center p-0.5">
+          <img src={url} alt="" className="w-full h-full object-contain" />
         </div>
       ))}
       {urls.length < 4
@@ -58,7 +58,7 @@ export function CollectorCard({
       href={href}
       className="bg-card rounded-xl overflow-hidden border border-border hover:border-accent/40 transition-colors flex flex-col group"
     >
-      <div className="aspect-[4/3] relative overflow-hidden bg-muted">
+      <div className="aspect-[4/5] sm:aspect-square relative overflow-hidden bg-muted">
         <PreviewCollage urls={collector.preview_image_urls} />
         <span className="absolute top-2 left-2 rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide bg-background/90 border border-border text-muted-foreground backdrop-blur-sm">
           Collection

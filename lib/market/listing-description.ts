@@ -19,21 +19,15 @@ export type ListingDescriptionInput = {
 
 /** Buyer-facing listing copy — no AI scores or internal pricing notes. */
 export function buildListingDescription(input: ListingDescriptionInput): string {
-  const { brand, model, colorway, wearState, condition, analysis } = input;
+  const { brand, model, colorway, wearState, condition } = input;
   const name = [brand, model].filter(Boolean).join(' ').trim();
   const cw = colorway?.trim();
-  const catalogLine = analysis?.summary?.trim();
-
   const wearClosing =
     wearState === 'bnib'
       ? 'Unworn with original box. See photos.'
       : wearState === 'new_no_box'
         ? 'Unworn deadstock without box. See photos.'
         : `${listingConditionDisplay(wearState, condition)}. See photos for exact wear.`;
-
-  if (catalogLine) {
-    return `${catalogLine}\n\n${wearClosing}`;
-  }
 
   const opener = cw
     ? `The ${name} in the "${cw}" colorway.`
@@ -67,6 +61,8 @@ export type ListingAgentPromptInput = {
   rarity?: string | null;
   weightClass?: string | null;
   collectorNotes?: string | null;
+  upperMaterial?: string | null;
+  soleDescription?: string | null;
   conditionAnalysis?: {
     summary?: string;
     listing_tip?: string;
@@ -77,8 +73,8 @@ export type ListingAgentPromptInput = {
 /** User message for the listing agent when auto-writing description from known fields. */
 export function buildListingAgentPrompt(input: ListingAgentPromptInput): string {
   const lines = [
-    'Write a single flowing buyer-facing paragraph for this wrestling shoe (see format rules).',
-    'Return has_draft: true with the full description in draft.description.',
+    'Write one abbreviated buyer-facing paragraph for this wrestling shoe (see format rules).',
+    'Return has_draft: true with draft.description and draft.colorway when you can identify the colorway from context or photos.',
     'Do not repeat size, condition grade, or bullet field lists — those appear elsewhere on the listing.',
     '',
     LISTING_DESCRIPTION_FORMAT,
@@ -86,15 +82,19 @@ export function buildListingAgentPrompt(input: ListingAgentPromptInput): string 
     '--- Context for writing (do not paste as a field list in the description) ---',
     `Brand: ${input.brand || 'unknown'}`,
     `Model: ${input.model || 'unknown'}`,
-    input.colorway?.trim() ? `Colorway: ${input.colorway.trim()}` : null,
+    input.colorway?.trim() ? `Colorway: ${input.colorway.trim()}` : 'Colorway: unknown — infer from photos/catalog if possible',
     input.modelYear ? `Model year / era: ${input.modelYear}` : null,
     input.weightClass?.trim() ? `Weight class: ${input.weightClass.trim()}` : null,
     input.rarity ? `Rarity tier: ${input.rarity}` : null,
+    input.upperMaterial?.trim() ? `Upper / materials: ${input.upperMaterial.trim()}` : null,
+    input.soleDescription?.trim() ? `Sole: ${input.soleDescription.trim()}` : null,
     `Size on listing: ${input.size} US (do not put size in the description)`,
     `Wear state: ${input.wearState}${input.wearState === 'bnib' ? ' (brand new in box — unworn)' : input.wearState === 'new_no_box' ? ' (unworn, no box)' : ''}`,
     `Condition grade on listing: ${input.condition} (do not restate as a label — used pairs may add one brief wear sentence)`,
     input.listingType ? `Listing type: ${input.listingType}` : null,
-    input.collectorNotes?.trim() ? `Catalog / collector notes: ${input.collectorNotes.trim()}` : null,
+    input.collectorNotes?.trim()
+      ? `Catalog / collector notes (context only — do not paste into description): ${input.collectorNotes.trim()}`
+      : null,
   ].filter(Boolean) as string[];
 
   if (input.conditionAnalysis && input.wearState === 'used') {

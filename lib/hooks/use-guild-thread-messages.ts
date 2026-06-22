@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenant } from '@/components/theme-provider';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import { safeRealtimeSubscribe } from '@/lib/supabase/realtime-safe';
 import type { GuildMessageRow } from '@/lib/guild-messaging';
 
 export function useGuildThreadMessages(threadId: string, currentUserId: string) {
@@ -48,11 +48,8 @@ export function useGuildThreadMessages(threadId: string, currentUserId: string) 
   useEffect(() => {
     if (!threadId) return;
 
-    let channel: RealtimeChannel;
-
-    channel = supabase
-      .channel(`guild_thread_${threadId}`)
-      .on(
+    const channel = safeRealtimeSubscribe(supabase, `guild_thread_${threadId}`, (ch) =>
+      ch.on(
         'postgres_changes',
         {
           event: 'INSERT',
@@ -90,10 +87,10 @@ export function useGuildThreadMessages(threadId: string, currentUserId: string) 
           void markRead();
         }
       )
-      .subscribe();
+    );
 
     return () => {
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [threadId, supabase, currentUserId, markRead]);
 

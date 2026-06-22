@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenant } from '@/components/theme-provider';
+import { safeRealtimeSubscribe } from '@/lib/supabase/realtime-safe';
 
 export interface ActionItem {
   id: string;
@@ -47,9 +48,8 @@ export function useActionItems(workspaceId: string) {
 
     fetchItems();
 
-    const channel = supabase
-      .channel(`workspace_actions:${workspaceId}`)
-      .on(
+    const channel = safeRealtimeSubscribe(supabase, `workspace_actions:${workspaceId}`, (ch) =>
+      ch.on(
         'postgres_changes',
         {
           event: '*',
@@ -59,11 +59,11 @@ export function useActionItems(workspaceId: string) {
         },
         () => fetchItems()
       )
-      .subscribe();
+    );
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [workspaceId, supabase]);
 

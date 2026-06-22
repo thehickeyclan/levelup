@@ -24,7 +24,10 @@ const TYPE_OPTIONS = [
   { id: 'collectors', label: 'Collection' },
 ] as const;
 
-const BRAND_OPTIONS = ['All', ...BROWSE_BRANDS, 'Other'] as const;
+const BRAND_OPTIONS = (browseBrands?: string[]) => {
+  const brands = browseBrands?.length ? browseBrands : [...BROWSE_BRANDS];
+  return ['All', ...brands, 'Other'] as const;
+};
 
 const PRICE_OPTIONS = [
   { id: 'all', label: 'All', min: undefined as number | undefined, max: undefined as number | undefined },
@@ -165,6 +168,7 @@ export type MarketFiltersProps = {
   condition: BrowseConditionFilter;
   minPrice: string;
   maxPrice: string;
+  browseBrands?: string[];
   setParam: (key: string, value: string) => void;
   setPriceRange: (min?: number, max?: number) => void;
   clearAllFilters: () => void;
@@ -178,6 +182,7 @@ export function MarketFilters({
   condition,
   minPrice,
   maxPrice,
+  browseBrands,
   setParam,
   setPriceRange,
   clearAllFilters,
@@ -190,7 +195,7 @@ export function MarketFilters({
       active ? 'bg-accent text-accent-foreground' : 'border border-border text-muted-foreground'
     );
 
-  const brandOptions: FilterOption[] = BRAND_OPTIONS.map((b) => ({
+  const brandOptions: FilterOption[] = BRAND_OPTIONS(browseBrands).map((b) => ({
     id: b === 'All' ? 'all' : b,
     label: b,
   }));

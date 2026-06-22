@@ -152,6 +152,17 @@ export function MarketAdminClient({
               </tr>
             </thead>
             <tbody>
+              {orders.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="p-8 text-center text-sm text-muted-foreground">
+                    No orders yet. This tab tracks purchases — use{' '}
+                    <Link href="/market" className="text-accent hover:underline">
+                      Browse marketplace
+                    </Link>{' '}
+                    to see listings and collections.
+                  </td>
+                </tr>
+              ) : null}
               {orders.map((o) => (
                 <tr key={o.id} className="border-b border-border/60">
                   <td className="p-2 font-mono text-xs">{o.order_ref}</td>

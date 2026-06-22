@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -182,9 +183,30 @@ export default async function AdminMarketPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold font-serif text-foreground">Guild Market</h1>
-        <p className="text-muted-foreground mt-1">Orders, trades, offers, and AI usage</p>
+      <div className="mb-8 space-y-4">
+        <div>
+          <h1 className="text-3xl font-bold font-serif text-foreground">Guild Market ops</h1>
+          <p className="text-muted-foreground mt-1">Orders, trades, offers, and AI usage — not the public browse feed.</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            To browse listings or add collection pairs, use the member marketplace. Listings are saved under whoever is signed in.
+          </p>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <Link
+              href="/market"
+              className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent/90"
+            >
+              Browse marketplace
+            </Link>
+            <Link
+              href="/market/listing/new?type=collection"
+              className="inline-flex items-center rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:border-accent/40"
+            >
+              Add collection pair
+            </Link>
+          </div>
+        </div>
       </div>
       <MarketAdminClient
         orders={orders}

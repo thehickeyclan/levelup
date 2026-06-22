@@ -6102,7 +6102,10 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
               Products
             </Link>
             <Link href="/admin/market" className="block px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Market
+              Market ops
+            </Link>
+            <Link href="/market" className="block px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Guild Market browse
             </Link>
             <Link href="/admin/discount-codes" className="block px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
               Discount Codes

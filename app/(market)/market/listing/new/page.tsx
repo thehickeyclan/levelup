@@ -34,6 +34,7 @@ import {
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { identifyListingShoe } from '@/lib/market/identify-listing-shoe';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
+import { MarketBrandSelect } from '@/components/market/market-brand-select';
 import { ListingRarityField } from '@/components/market/listing-rarity-field';
 import { normalizeMarketRarity, type MarketRarity } from '@/lib/market/rarity';
 import type { PriceComp } from '@/lib/market/ai/schemas';
@@ -191,6 +192,7 @@ export default function NewListingPage() {
     emptyCollectionPurchaseNotes()
   );
   const [isAdmin, setIsAdmin] = useState(false);
+  const [brandOptions, setBrandOptions] = useState<string[]>([...MARKET_BRANDS]);
   const [sizeInventory, setSizeInventory] = useState<SizeInventoryRow[]>([
     emptySizeInventoryRow('10'),
   ]);
@@ -228,18 +230,31 @@ export default function NewListingPage() {
     sellerPrefillDone.current = true;
     void (async () => {
       try {
-        const res = await fetch('/api/market/seller-shoe-hints');
-        const data = await res.json();
-        if (res.ok) setIsAdmin(Boolean(data.isAdmin));
-        if (!res.ok || !data.dominantListing) return;
-        const d = data.dominantListing as {
+        const [hintsRes, brandsRes] = await Promise.all([
+          fetch('/api/market/seller-shoe-hints'),
+          fetch('/api/market/brands'),
+        ]);
+        const hintsData = await hintsRes.json();
+        const brandsData = await brandsRes.json();
+        if (hintsRes.ok) setIsAdmin(Boolean(hintsData.isAdmin));
+        if (brandsRes.ok && Array.isArray(brandsData.sellerBrands)) {
+          setBrandOptions(brandsData.sellerBrands as string[]);
+        }
+        if (!hintsRes.ok || !hintsData.dominantListing) return;
+        const d = hintsData.dominantListing as {
           brand: string;
           model: string;
           model_year: number | null;
         };
+        const sellerBrands = (brandsRes.ok && Array.isArray(brandsData.sellerBrands)
+          ? (brandsData.sellerBrands as string[])
+          : [...MARKET_BRANDS]) as string[];
+        const resolvedBrand =
+          sellerBrands.find((b) => b.toLowerCase() === d.brand.trim().toLowerCase()) ??
+          normalizeMarketBrand(d.brand);
         setForm((f) => ({
           ...f,
-          brand: normalizeMarketBrand(d.brand),
+          brand: resolvedBrand,
           model: f.model.trim() ? f.model : d.model,
           model_year: f.model_year || (d.model_year ? String(d.model_year) : ''),
         }));
@@ -1231,18 +1246,17 @@ export default function NewListingPage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Brand</Label>
-            <select
+            <MarketBrandSelect
               className="w-full mt-1 rounded-lg border bg-background px-3 py-2.5 text-sm h-11 border-input"
               value={form.brand}
-              onChange={(e) => {
+              brands={brandOptions}
+              isAdmin={isAdmin}
+              onBrandAdded={(_brand, brands) => setBrandOptions(brands)}
+              onChange={(brand) => {
                 lastCatalogEnrichKey.current = null;
-                setForm({ ...form, brand: e.target.value, rarity: '' });
+                setForm({ ...form, brand, rarity: '' });
               }}
-            >
-              {MARKET_BRANDS.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
+            />
           </div>
           <div>
             <Label className="text-xs">Model</Label>

@@ -16,6 +16,7 @@ import {
 } from '@/lib/market/listing-mode-guards';
 import { stripSellerPrivateListingFields } from '@/lib/market/listing-private-fields';
 import { normalizeMarketRarity } from '@/lib/market/rarity';
+import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { fetchListingSizes } from '@/lib/market/listing-sizes';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -184,6 +185,11 @@ export async function PATCH(
     if (prev && next !== prev) {
       delete updates.rarity;
     }
+  }
+
+  if (typeof updates.brand === 'string') {
+    const catalog = await fetchMarketBrandCatalog(admin, tenant.slug);
+    updates.brand = resolveListingBrand(updates.brand, catalog);
   }
 
   if (updates.status === 'active') {

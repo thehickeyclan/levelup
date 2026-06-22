@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
-import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
+import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { isMissingColumnError, withoutColorFamily, withoutColumn, isMissingPurchasePrivateListingColumnError, withoutPurchasePrivateListingFields, hasPurchasePrivateListingFields } from '@/lib/market/listing-column-fallback';
 import { normalizeMarketRarity } from '@/lib/market/rarity';
 
@@ -59,7 +60,9 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ listings, brands: [...MARKET_BRANDS] });
+  const catalog = await fetchMarketBrandCatalog(ctx.supabase, ctx.tenant.slug);
+
+  return NextResponse.json({ listings, brands: catalog.sellerBrands });
 }
 
 export async function POST(req: NextRequest) {
@@ -132,7 +135,10 @@ export async function POST(req: NextRequest) {
         : null,
   };
 
-  row.brand = normalizeMarketBrand(row.brand);
+  row.brand = resolveListingBrand(
+    row.brand,
+    await fetchMarketBrandCatalog(createAdminClient(tenant.slug), tenant.slug)
+  );
 
   let insertRow: Record<string, unknown> = { ...row };
   let { data, error } = await supabase.from('market_listings').insert(insertRow).select('id').single();

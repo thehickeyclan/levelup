@@ -31,6 +31,7 @@ import {
 import { shoeIdClientEnabled } from '@/lib/market/shoe-id/feature-flag';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
+import { MarketBrandSelect } from '@/components/market/market-brand-select';
 import { ListingRarityField } from '@/components/market/listing-rarity-field';
 import { normalizeMarketRarity, type MarketRarity } from '@/lib/market/rarity';
 import {
@@ -89,6 +90,7 @@ export default function EditListingPage() {
   const [modeBlockedReason, setModeBlockedReason] = useState<string | null>(null);
   const [activeTradeId, setActiveTradeId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [brandOptions, setBrandOptions] = useState<string[]>([...MARKET_BRANDS]);
   const [sizeInventory, setSizeInventory] = useState<SizeInventoryRow[]>([
     emptySizeInventoryRow('10'),
   ]);
@@ -116,8 +118,15 @@ export default function EditListingPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch(`/api/market/listings/${listingId}`);
+        const [res, brandsRes] = await Promise.all([
+          fetch(`/api/market/listings/${listingId}`),
+          fetch('/api/market/brands'),
+        ]);
         const data = await res.json();
+        const brandsData = await brandsRes.json();
+        if (brandsRes.ok && Array.isArray(brandsData.sellerBrands)) {
+          setBrandOptions(brandsData.sellerBrands as string[]);
+        }
         if (!res.ok) throw new Error(data.error || 'Failed to load listing');
         if (!data.viewer?.isSeller) {
           setLoadError('You can only edit your own listings.');
@@ -145,8 +154,15 @@ export default function EditListingPage() {
         setImages(imgs);
 
         const wear = (l.wear_state as MarketWearState) || 'used';
+        const sellerBrands = (brandsRes.ok && Array.isArray(brandsData.sellerBrands)
+          ? (brandsData.sellerBrands as string[])
+          : [...MARKET_BRANDS]) as string[];
+        const listingBrand = String(l.brand ?? 'Adidas');
+        const resolvedBrand =
+          sellerBrands.find((b) => b.toLowerCase() === listingBrand.trim().toLowerCase()) ??
+          listingBrand;
         setForm({
-          brand: normalizeMarketBrand(String(l.brand ?? 'Adidas')),
+          brand: resolvedBrand,
           model: String(l.model ?? ''),
           colorway: String(l.colorway ?? ''),
           color_family: String(l.color_family ?? ''),
@@ -535,23 +551,20 @@ export default function EditListingPage() {
       <div className="grid gap-4">
         <div>
           <Label>Brand</Label>
-          <select
+          <MarketBrandSelect
             className={cn(
               'w-full mt-1 rounded-md border bg-background px-3 py-2',
               shoeIdUserOverride ? 'border-amber-500/50' : 'border-input'
             )}
             value={form.brand}
-            onChange={(e) => {
+            brands={brandOptions}
+            isAdmin={isAdmin}
+            onBrandAdded={(_brand, brands) => setBrandOptions(brands)}
+            onChange={(brand) => {
               lockShoeIdentity();
-              setForm({ ...form, brand: e.target.value, rarity: '' });
+              setForm({ ...form, brand, rarity: '' });
             }}
-          >
-            {MARKET_BRANDS.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div>
           <Label>Model</Label>

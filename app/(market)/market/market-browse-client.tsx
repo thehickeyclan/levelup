@@ -22,11 +22,13 @@ export function MarketBrowseClient({
   initialListings,
   collectionListings = [],
   collectors = [],
+  browseBrands = [],
   pendingOffers = 0,
 }: {
   initialListings: MarketBrowseListing[];
   collectionListings?: MarketBrowseListing[];
   collectors?: MarketCollectorBrowse[];
+  browseBrands?: string[];
   pendingOffers?: number;
 }) {
   const router = useRouter();
@@ -177,6 +179,7 @@ export function MarketBrowseClient({
         condition={condition}
         minPrice={minPrice}
         maxPrice={maxPrice}
+        browseBrands={browseBrands}
         setParam={setParam}
         setPriceRange={setPriceRange}
         clearAllFilters={clearAllFilters}

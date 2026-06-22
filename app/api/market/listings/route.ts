@@ -5,6 +5,7 @@ import { primaryListingImageUrl } from '@/lib/market/listing-images';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { isMissingColumnError, withoutColorFamily, withoutColumn, isMissingPurchasePrivateListingColumnError, withoutPurchasePrivateListingFields, hasPurchasePrivateListingFields } from '@/lib/market/listing-column-fallback';
 import { normalizeMarketRarity } from '@/lib/market/rarity';
+import { normalizeListingAcceptsOffers } from '@/lib/market/accepts-offers';
 
 export async function GET(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
     price_cents?: number;
     shipping_cents?: number;
     open_to_trade?: boolean;
+    accepts_offers?: boolean;
     open_to_boot?: boolean;
     description?: string;
     weight_class?: string;
@@ -96,22 +98,26 @@ export async function POST(req: NextRequest) {
 
   const isDraft = body.draft === true || !body.brand;
 
+  const listingType = (body.listing_type || 'sell') as string;
+  const priceCents =
+    listingType === 'vault' || listingType === 'collection' || listingType === 'trade'
+      ? null
+      : body.price_cents ?? null;
+
   const row = {
     tenant_slug: tenant.slug,
     seller_id: user!.id,
-    listing_type: (body.listing_type || 'sell') as string,
+    listing_type: listingType,
     status: isDraft ? 'draft' : 'active',
     title: body.title?.trim() || 'Wrestling sneakers',
     brand: body.brand?.trim() || 'Other',
     model: body.model?.trim() || '',
     size: body.size ?? 10,
     condition: body.condition || 'good',
-    price_cents:
-      body.listing_type === 'vault' || body.listing_type === 'collection' || body.listing_type === 'trade'
-        ? null
-        : body.price_cents ?? null,
-    shipping_cents: body.listing_type === 'collection' ? 0 : body.shipping_cents ?? 800,
+    price_cents: priceCents,
+    shipping_cents: listingType === 'collection' ? 0 : body.shipping_cents ?? 800,
     open_to_trade: body.open_to_trade ?? false,
+    accepts_offers: normalizeListingAcceptsOffers(listingType, priceCents, body.accepts_offers),
     open_to_boot: body.open_to_boot ?? false,
     description: body.description?.trim() || null,
     weight_class: body.weight_class || null,
@@ -153,6 +159,8 @@ export async function POST(req: NextRequest) {
       hasPurchasePrivateListingFields(insertRow)
     ) {
       insertRow = withoutPurchasePrivateListingFields(insertRow);
+    } else if (isMissingColumnError(msg, 'accepts_offers') && 'accepts_offers' in insertRow) {
+      insertRow = withoutColumn(insertRow, 'accepts_offers');
     } else {
       break;
     }

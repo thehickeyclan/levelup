@@ -18,6 +18,16 @@ export type MessageThreadProps = {
   readOnly?: boolean;
 };
 
+function formatMessageTime(createdAt: string): string {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '';
+  try {
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch {
+    return '';
+  }
+}
+
 export function MessageThread({
   threadId,
   currentUserId,
@@ -104,7 +114,7 @@ export function MessageThread({
                     {m.body}
                   </div>
                   <p className={cn('text-[10px] text-muted-foreground px-1', own && 'text-right')}>
-                    {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
+                    {formatMessageTime(m.created_at)}
                   </p>
                 </div>
               </div>

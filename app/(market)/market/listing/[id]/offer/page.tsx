@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { findThreadIdByContext } from '@/lib/guild-messaging';
+import { listingAllowsCashOffer, listingAllowsTradeOffer } from '@/lib/market/accepts-offers';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
 import { OfferFormClient, type OfferListingSummary } from './offer-form-client';
@@ -19,6 +20,10 @@ type ListingRow = {
   model_year: number | null;
   status: string;
   seller_id: string;
+  listing_type: string;
+  price_cents: number | null;
+  open_to_trade: boolean;
+  accepts_offers: boolean;
   market_listing_images: {
     public_url: string;
     clean_public_url?: string | null;
@@ -38,6 +43,8 @@ function toSummary(row: ListingRow): OfferListingSummary {
     modelYear: row.model_year,
     conditionLabel: listingConditionDisplay(wearState, row.condition),
     imageUrl: primaryListingImageUrl(row.market_listing_images),
+    listingType: row.listing_type,
+    priceCents: row.price_cents,
   };
 }
 
@@ -67,6 +74,7 @@ export default async function ListingOfferPage({
     .from('market_listings')
     .select(`
       id, title, brand, model, size, condition, wear_state, model_year, status, seller_id, listing_type,
+      price_cents, open_to_trade, accepts_offers,
       market_listing_images(public_url, clean_public_url, use_clean, display_order)
     `)
     .eq('id', listingId)
@@ -78,6 +86,17 @@ export default async function ListingOfferPage({
     listing.seller_id === user.id ||
     listing.listing_type === 'collection'
   ) {
+    redirect(`/market/listing/${listingId}`);
+  }
+
+  const listingRow = listing as ListingRow;
+  const allowsCash = listingAllowsCashOffer(listingRow);
+  const allowsTrade = listingAllowsTradeOffer(listingRow);
+
+  if (defaultTrade && !allowsTrade) {
+    redirect(`/market/listing/${listingId}`);
+  }
+  if (!defaultTrade && !allowsCash) {
     redirect(`/market/listing/${listingId}`);
   }
 
@@ -116,7 +135,7 @@ export default async function ListingOfferPage({
   return (
     <OfferFormClient
       listingId={listingId}
-      listing={toSummary(listing as ListingRow)}
+      listing={toSummary(listingRow)}
       myListings={myListings}
       defaultTrade={defaultTrade}
       currentUserId={user.id}

@@ -25,6 +25,7 @@ export type MarketBrowseListing = {
   price_cents: number | null;
   listing_type: 'sell' | 'trade' | 'vault' | 'collection';
   open_to_trade: boolean;
+  accepts_offers: boolean;
   ai_assisted: boolean;
   primary_image_url: string | null;
   seller_id: string;
@@ -48,6 +49,7 @@ type ListingRow = {
   price_cents: number | null;
   listing_type: string;
   open_to_trade: boolean;
+  accepts_offers?: boolean;
   seller_id: string;
   created_at: string;
   views_count: number;
@@ -66,14 +68,14 @@ export type BrowseListingQueryOptions = {
 
 const BROWSE_SELECT_WITH_RARITY = `
   id, title, brand, model, size, condition, wear_state, colorway, color_family, rarity, price_cents,
-  listing_type, open_to_trade, seller_id, created_at, views_count,
+  listing_type, open_to_trade, accepts_offers, seller_id, created_at, views_count,
   market_listing_images(${MARKET_LISTING_IMAGE_FIELDS}),
   market_ai_analysis(analyzed_at)
 `;
 
 const BROWSE_SELECT_WITH_COLOR_FAMILY = `
   id, title, brand, model, size, condition, wear_state, colorway, color_family, price_cents,
-  listing_type, open_to_trade, seller_id, created_at, views_count,
+  listing_type, open_to_trade, accepts_offers, seller_id, created_at, views_count,
   market_listing_images(${MARKET_LISTING_IMAGE_FIELDS}),
   market_ai_analysis(analyzed_at)
 `;
@@ -131,6 +133,10 @@ export async function fetchMarketBrowseListings(
     result = await runQuery(BROWSE_SELECT_LEGACY);
   }
 
+  if (result.error?.message?.includes('accepts_offers')) {
+    result = await runQuery(BROWSE_SELECT_LEGACY);
+  }
+
   const { data, error } = result;
 
   if (error) {
@@ -182,6 +188,7 @@ export async function fetchMarketBrowseListings(
       price_cents: row.price_cents,
       listing_type: row.listing_type as 'sell' | 'trade' | 'vault' | 'collection',
       open_to_trade: row.open_to_trade,
+      accepts_offers: Boolean(row.accepts_offers),
       ai_assisted: Boolean(aiRow?.analyzed_at),
       primary_image_url: primaryListingImageUrl(row.market_listing_images),
       seller_id: row.seller_id,

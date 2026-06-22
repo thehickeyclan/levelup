@@ -227,6 +227,7 @@ export default function NewListingPage() {
     condition: 'good',
     listing_type: initialListingType,
     open_to_trade: false,
+    accepts_offers: false,
     price_cents: '',
     shipping_cents: '10',
     description: '',
@@ -351,6 +352,7 @@ export default function NewListingPage() {
       ...f,
       listing_type: listingType,
       open_to_trade: listingType === 'sell' ? f.open_to_trade : false,
+      accepts_offers: listingType === 'sell' ? f.accepts_offers : false,
       price_cents: listingType === 'sell' ? f.price_cents : '',
       shipping_cents:
         listingType === 'collection' || listingType === 'vault' ? '0' : f.shipping_cents,
@@ -523,6 +525,7 @@ export default function NewListingPage() {
       condition: conditionForWearState(merged.wear_state, merged.condition),
       listing_type: merged.listing_type,
       open_to_trade: merged.listing_type === 'sell' ? merged.open_to_trade : false,
+      accepts_offers: merged.listing_type === 'sell' ? merged.accepts_offers : false,
       description: merged.description,
       rarity: merged.rarity || null,
       weight_class: merged.weight_class.trim() || null,
@@ -1549,15 +1552,42 @@ export default function NewListingPage() {
           ))}
         </div>
         {form.listing_type === 'sell' ? (
-          <label className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-3 cursor-pointer touch-manipulation">
-            <input
-              type="checkbox"
-              className="h-4 w-4 shrink-0 accent-[hsl(var(--accent))]"
-              checked={form.open_to_trade}
-              onChange={(e) => setForm((f) => ({ ...f, open_to_trade: e.target.checked }))}
-            />
-            <span className="text-sm text-foreground">Also open to trades</span>
-          </label>
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-3 cursor-pointer touch-manipulation">
+              <input
+                type="checkbox"
+                className="h-4 w-4 shrink-0 accent-[hsl(var(--accent))]"
+                checked={form.open_to_trade}
+                onChange={(e) => setForm((f) => ({ ...f, open_to_trade: e.target.checked }))}
+              />
+              <span className="text-sm text-foreground">Also open to trades</span>
+            </label>
+            <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-3">
+              <div>
+                <p className="text-sm text-foreground">Accept offers</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Buyers can submit a lower cash offer below your list price
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.accepts_offers}
+                onClick={() => setForm((f) => ({ ...f, accepts_offers: !f.accepts_offers }))}
+                className={cn(
+                  'relative w-11 h-6 rounded-full transition-colors shrink-0',
+                  form.accepts_offers ? 'bg-accent' : 'bg-muted'
+                )}
+              >
+                <span
+                  className={cn(
+                    'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                    form.accepts_offers ? 'translate-x-5' : 'translate-x-0.5'
+                  )}
+                />
+              </button>
+            </div>
+          </div>
         ) : null}
         {isCollection ? (
           <CollectionPurchaseNotesFields notes={purchaseNotes} onChange={setPurchaseNotes} />

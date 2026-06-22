@@ -115,6 +115,7 @@ export default function EditListingPage() {
     condition: 'good',
     listing_type: 'collection' as MarketListingType,
     open_to_trade: false,
+    accepts_offers: false,
     price_cents: '',
     shipping_cents: '10',
     description: '',
@@ -174,6 +175,7 @@ export default function EditListingPage() {
           condition: String(l.condition ?? 'good'),
           listing_type: (l.listing_type as MarketListingType) || 'collection',
           open_to_trade: Boolean(l.open_to_trade),
+          accepts_offers: Boolean(l.accepts_offers),
           price_cents:
             l.price_cents != null ? String(Math.round(Number(l.price_cents) / 100)) : '',
           shipping_cents:
@@ -254,6 +256,7 @@ export default function EditListingPage() {
       condition: conditionForWearState(form.wear_state, form.condition),
       listing_type: form.listing_type,
       open_to_trade: form.listing_type === 'sell' ? form.open_to_trade : false,
+      accepts_offers: form.listing_type === 'sell' ? form.accepts_offers : false,
       description: form.description,
       price_cents:
         form.listing_type === 'sell'
@@ -523,6 +526,7 @@ export default function EditListingPage() {
       ...f,
       listing_type: listingType,
       open_to_trade: listingType === 'sell' ? f.open_to_trade : false,
+      accepts_offers: listingType === 'sell' ? f.accepts_offers : false,
       price_cents: listingType === 'sell' ? f.price_cents : '',
       shipping_cents:
         listingType === 'collection' || listingType === 'vault' ? '0' : f.shipping_cents,
@@ -579,6 +583,7 @@ export default function EditListingPage() {
                   ? '0'
                   : f.shipping_cents,
             open_to_trade: patch.listing_type === 'sell' ? f.open_to_trade : false,
+            accepts_offers: patch.listing_type === 'sell' ? f.accepts_offers : false,
           }));
           setModeBlockedReason(null);
           setActiveTradeId(null);
@@ -848,20 +853,47 @@ export default function EditListingPage() {
       <CollectionPurchaseNotesFields notes={purchaseNotes} onChange={setPurchaseNotes} />
 
       {isPricedListing ? (
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Price ($)</Label>
-            <Input
-              value={form.price_cents}
-              onChange={(e) => setForm({ ...form, price_cents: e.target.value })}
-            />
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Price ($)</Label>
+              <Input
+                value={form.price_cents}
+                onChange={(e) => setForm({ ...form, price_cents: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Shipping ($)</Label>
+              <Input
+                value={form.shipping_cents}
+                onChange={(e) => setForm({ ...form, shipping_cents: e.target.value })}
+              />
+            </div>
           </div>
-          <div>
-            <Label>Shipping ($)</Label>
-            <Input
-              value={form.shipping_cents}
-              onChange={(e) => setForm({ ...form, shipping_cents: e.target.value })}
-            />
+          <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-3">
+            <div>
+              <p className="text-sm text-foreground">Accept offers</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Buyers can submit a lower cash offer below your list price
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.accepts_offers}
+              onClick={() => setForm((f) => ({ ...f, accepts_offers: !f.accepts_offers }))}
+              className={cn(
+                'relative w-11 h-6 rounded-full transition-colors shrink-0',
+                form.accepts_offers ? 'bg-accent' : 'bg-muted'
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                  form.accepts_offers ? 'translate-x-5' : 'translate-x-0.5'
+                )}
+              />
+            </button>
           </div>
         </div>
       ) : null}

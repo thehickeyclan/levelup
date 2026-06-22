@@ -4,6 +4,7 @@ import { requireMarketUser } from '@/lib/market/auth';
 import { createNotification } from '@/lib/notifications';
 import { notifyListingFollowers } from '@/lib/market/notify-listing-followers';
 import { marketOfferPostSchema } from '@/lib/market/offer-schemas';
+import { listingAllowsCashOffer, listingAllowsTradeOffer } from '@/lib/market/accepts-offers';
 import { findOrCreateThread } from '@/lib/guild-messaging';
 import { normalizePhone, sendSms } from '@/lib/twilio';
 
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
 
   const { data: listing } = await supabase
     .from('market_listings')
-    .select('id, seller_id, status, listing_type, title, brand, model, price_cents, locked_buyer_id')
+    .select('id, seller_id, status, listing_type, title, brand, model, price_cents, locked_buyer_id, accepts_offers, open_to_trade')
     .eq('id', listingId)
     .single();
 
@@ -125,6 +126,16 @@ export async function POST(req: NextRequest) {
   }
   if (listing.listing_type === 'collection') {
     return NextResponse.json({ error: 'This pair is not for sale' }, { status: 400 });
+  }
+
+  const cashOffer = offerType === 'cash' || offerType === 'cash_and_trade';
+  const tradeOffer = offerType === 'trade' || offerType === 'cash_and_trade';
+
+  if (cashOffer && !listingAllowsCashOffer(listing)) {
+    return NextResponse.json({ error: 'This listing does not accept cash offers' }, { status: 400 });
+  }
+  if (tradeOffer && !listingAllowsTradeOffer(listing)) {
+    return NextResponse.json({ error: 'This listing is not open to trades' }, { status: 400 });
   }
 
   if (offerType === 'trade' || offerType === 'cash_and_trade') {

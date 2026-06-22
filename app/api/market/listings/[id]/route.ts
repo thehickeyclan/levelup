@@ -19,6 +19,7 @@ import { normalizeMarketRarity } from '@/lib/market/rarity';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { fetchListingSizes } from '@/lib/market/listing-sizes';
 import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
+import { normalizeListingAcceptsOffers } from '@/lib/market/accepts-offers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function applyListingUpdate(
@@ -41,6 +42,10 @@ async function applyListingUpdate(
     }
     if (isMissingPurchasePrivateListingColumnError(msg) && hasPurchasePrivateListingFields(payload)) {
       payload = withoutPurchasePrivateListingFields(payload);
+      continue;
+    }
+    if (isMissingColumnError(msg, 'accepts_offers') && 'accepts_offers' in payload) {
+      payload = withoutColumn(payload, 'accepts_offers');
       continue;
     }
     return result;
@@ -159,7 +164,7 @@ export async function PATCH(
 
   const { data: existing } = await supabase
     .from('market_listings')
-    .select('seller_id, status, listing_type, title, brand, model, price_cents, wear_state, rarity')
+    .select('seller_id, status, listing_type, title, brand, model, price_cents, wear_state, rarity, accepts_offers')
     .eq('id', id)
     .single();
 
@@ -170,7 +175,7 @@ export async function PATCH(
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const allowed = [
     'title', 'brand', 'model', 'size', 'condition', 'price_cents', 'shipping_cents',
-    'listing_type', 'open_to_trade', 'open_to_boot', 'description', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family', 'rarity',
+    'listing_type', 'open_to_trade', 'open_to_boot', 'accepts_offers', 'description', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family', 'rarity',
     'purchase_source', 'purchase_price_cents', 'purchased_at',
   ];
   const updates: Record<string, unknown> = {};
@@ -189,6 +194,25 @@ export async function PATCH(
   if (typeof updates.brand === 'string') {
     const catalog = await fetchMarketBrandCatalog(admin, tenant.slug);
     updates.brand = resolveListingBrand(updates.brand, catalog);
+  }
+
+  const prevType = existing.listing_type as string;
+  const nextType = (updates.listing_type ?? prevType) as string;
+  const prevPrice = existing.price_cents as number | null | undefined;
+  const nextPrice = (updates.price_cents !== undefined ? updates.price_cents : prevPrice) as number | null;
+
+  if (
+    updates.accepts_offers !== undefined ||
+    nextType !== prevType ||
+    updates.price_cents !== undefined
+  ) {
+    updates.accepts_offers = normalizeListingAcceptsOffers(
+      nextType,
+      nextPrice,
+      updates.accepts_offers !== undefined
+        ? Boolean(updates.accepts_offers)
+        : Boolean(existing.accepts_offers)
+    );
   }
 
   if (updates.status === 'active') {
@@ -223,12 +247,8 @@ export async function PATCH(
     await admin.from('market_listing_sizes').delete().eq('listing_id', id);
   }
 
-  const prevType = existing.listing_type as string;
-  const nextType = (updates.listing_type ?? prevType) as string;
   const prevStatus = existing.status as string;
   const nextStatus = (updates.status ?? prevStatus) as string;
-  const prevPrice = existing.price_cents as number | null | undefined;
-  const nextPrice = (updates.price_cents ?? prevPrice) as number | null | undefined;
 
   const listingMeta = {
     id: data.id as string,

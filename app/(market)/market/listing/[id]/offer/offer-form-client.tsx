@@ -23,6 +23,8 @@ export type OfferListingSummary = {
   conditionLabel: string;
   modelYear?: number | null;
   imageUrl: string | null;
+  listingType?: string;
+  priceCents?: number | null;
 };
 
 const OFFER_MODES: { id: OfferMode; label: string }[] = [
@@ -180,6 +182,12 @@ export function OfferFormClient({
           </p>
         </div>
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        {listing.priceCents != null && listing.listingType === 'sell'
+          ? `Listed at $${(listing.priceCents / 100).toFixed(0)} — submit your offer below`
+          : 'No set price — the seller will review your offer'}
+      </p>
 
       <div>
         <p className="text-sm font-medium text-foreground/80 mb-2">Offer type</p>

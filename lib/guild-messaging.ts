@@ -56,7 +56,9 @@ export async function findOrCreateThread(
   else if (params.listingId) query = query.eq('listing_id', params.listingId);
   else throw new Error('Thread context id required');
 
-  const { data: existing } = await query.maybeSingle();
+  const { data: existingRows, error: existingError } = await query.limit(1);
+  if (existingError) throw new Error(existingError.message);
+  const existing = existingRows?.[0];
   if (existing?.id) {
     const merged = uniqueParticipants([
       ...((existing.participant_ids as string[]) ?? []),
@@ -166,7 +168,8 @@ export async function getThreadUnreadCount(
 
 export async function loadThreadMessages(
   supabase: SupabaseClient,
-  threadId: string
+  threadId: string,
+  options?: { nameClient?: SupabaseClient }
 ): Promise<GuildMessageRow[]> {
   const { data: rows } = await supabase
     .from('guild_messages')
@@ -177,9 +180,10 @@ export async function loadThreadMessages(
   const messages = rows ?? [];
   const senderIds = [...new Set(messages.map((m) => m.sender_id as string))];
   const nameMap = new Map<string, string>();
+  const nameLookup = options?.nameClient ?? supabase;
 
   if (senderIds.length) {
-    const { data: users } = await supabase
+    const { data: users } = await nameLookup
       .from('users')
       .select('id, first_name, last_name')
       .in('id', senderIds);

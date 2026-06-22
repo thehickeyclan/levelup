@@ -157,6 +157,7 @@ export default function ListingDetailPage() {
   const isCollection = listingType === 'collection';
   const isActive = l.status === 'active';
   const openToTrade = Boolean(l.open_to_trade);
+  const acceptsOffers = Boolean(l.accepts_offers);
   const aiAssisted = Boolean(l.ai_assisted);
   const wearState = (l.wear_state as 'bnib' | 'new_no_box' | 'used') || 'used';
   const conditionLabel = listingConditionDisplay(wearState, l.condition as string);
@@ -215,6 +216,12 @@ export default function ListingDetailPage() {
   const showOffersCtAs = isActive && isOffersListing && !isCollection;
   const showMakeOfferCta =
     isActive && !isOffersListing && !isTradeOnly && !isCollection && priceCents == null;
+  const showSellMakeOfferCta =
+    isActive &&
+    listingType === 'sell' &&
+    !isCollection &&
+    priceCents != null &&
+    acceptsOffers;
   const showBuyCta =
     isActive && !isOffersListing && !isTradeOnly && !isCollection && priceCents != null;
 
@@ -315,6 +322,15 @@ export default function ListingDetailPage() {
               </Link>
             </Button>
           )}
+          {showSellMakeOfferCta ? (
+            <Button
+              asChild
+              variant="outline"
+              className="w-full rounded-full border-border text-muted-foreground hover:text-foreground hover:border-border"
+            >
+              <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>
+            </Button>
+          ) : null}
           {openToTrade ? (
             <Button
               asChild
@@ -619,6 +635,7 @@ export default function ListingDetailPage() {
       {(showTradeOnlyCta ||
         showOffersCtAs ||
         showMakeOfferCta ||
+        showSellMakeOfferCta ||
         showBuyCta ||
         (isCollection && isActive && !isSeller)) ? (
         <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-3 bg-gradient-to-t from-background via-background/98 to-transparent">
@@ -645,6 +662,32 @@ export default function ListingDetailPage() {
             <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
               <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>
             </Button>
+          ) : showBuyCta ? (
+            <div className="space-y-2">
+              <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
+                <Link href={checkoutHref}>
+                  Buy now — ${(priceCents! / 100).toFixed(0)}
+                </Link>
+              </Button>
+              {showSellMakeOfferCta ? (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full min-h-[44px] rounded-full border-border text-muted-foreground"
+                >
+                  <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>
+                </Button>
+              ) : null}
+              {openToTrade ? (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full min-h-[44px] rounded-full border-border text-muted-foreground"
+                >
+                  <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
+                </Button>
+              ) : null}
+            </div>
           ) : (
             <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
               <Link href={`/market/listing/${id}/checkout`}>

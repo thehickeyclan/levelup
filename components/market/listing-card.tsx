@@ -137,16 +137,23 @@ export function MarketListingCard({ listing }: { listing: MarketBrowseListing })
         </div>
         <div className="mt-auto pt-1 space-y-1">
           <div className="flex items-center justify-between gap-2">
-            <p
-              className={cn(
-                listing.listing_type === 'vault'
-                  ? 'text-xs font-normal italic'
-                  : 'text-[13px] font-bold',
-                price.className
-              )}
-            >
-              {price.text}
-            </p>
+            <div className="min-w-0">
+              <p
+                className={cn(
+                  listing.listing_type === 'vault'
+                    ? 'text-xs font-normal italic'
+                    : 'text-[13px] font-bold',
+                  price.className
+                )}
+              >
+                {price.text}
+              </p>
+              {listing.listing_type === 'sell' &&
+              listing.price_cents != null &&
+              listing.accepts_offers ? (
+                <p className="text-[10px] text-muted-foreground mt-0.5">or make an offer</p>
+              ) : null}
+            </div>
             {cta ? (
               <span
                 className={cn(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { getThreadUnreadCount } from '@/lib/guild-messaging';
 
@@ -45,7 +46,8 @@ export async function GET(
   }
 
   const { loadThreadMessages } = await import('@/lib/guild-messaging');
-  const messages = await loadThreadMessages(supabase, threadId);
+  const admin = createAdminClient(tenant.slug);
+  const messages = await loadThreadMessages(supabase, threadId, { nameClient: admin });
   const unread = await getThreadUnreadCount(supabase, threadId, user.id);
 
   return NextResponse.json({ messages, unread });

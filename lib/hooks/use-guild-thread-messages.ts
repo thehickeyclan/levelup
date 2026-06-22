@@ -62,12 +62,21 @@ export function useGuildThreadMessages(threadId: string, currentUserId: string) 
         },
         async (payload) => {
           const row = payload.new as GuildMessageRow;
+          const createdAt =
+            typeof row.created_at === 'string' && row.created_at
+              ? row.created_at
+              : new Date().toISOString();
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
             return [
               ...prev,
               {
-                ...row,
+                id: row.id,
+                thread_id: row.thread_id,
+                sender_id: row.sender_id,
+                body: row.body,
+                read_by: row.read_by ?? [],
+                created_at: createdAt,
                 sender_name: row.sender_id === currentUserId ? 'You' : 'Member',
               },
             ];

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { findOrCreateThread, sendGuildMessage } from '@/lib/guild-messaging';
-import { createNotification } from '@/lib/notifications';
 
 export async function GET(
   _req: NextRequest,
@@ -29,7 +28,7 @@ export async function GET(
     return NextResponse.json({ thread_id: null, messages: [] });
   }
 
-  const messages = await loadThreadMessages(supabase, threadId);
+  const messages = await loadThreadMessages(supabase, threadId, { nameClient: admin });
   return NextResponse.json({
     thread_id: threadId,
     messages,
@@ -45,7 +44,6 @@ export async function POST(
   if (ctx.error) return ctx.error;
   const { supabase, tenant, user } = ctx;
   const { id: listingId } = await params;
-  const admin = createAdminClient(tenant.slug);
 
   const body = (await req.json().catch(() => ({}))) as { question?: string; body?: string };
   const text = (body.question ?? body.body ?? '').trim();
@@ -66,39 +64,40 @@ export async function POST(
     return NextResponse.json({ error: 'Use the thread to reply as seller' }, { status: 400 });
   }
 
-  const listingTitle =
-    [listing.brand, listing.model].filter(Boolean).join(' ') || (listing.title as string);
+  try {
+    const admin = createAdminClient(tenant.slug);
+    const listingTitle =
+      [listing.brand, listing.model].filter(Boolean).join(' ') || (listing.title as string);
 
-  const threadId = await findOrCreateThread(admin, {
-    threadType: 'listing_qa',
-    tenantSlug: tenant.slug,
-    participantIds: [listing.seller_id as string, user!.id],
-    isPublic: true,
-    listingId,
-  });
+    const threadId = await findOrCreateThread(admin, {
+      threadType: 'listing_qa',
+      tenantSlug: tenant.slug,
+      participantIds: [listing.seller_id as string, user!.id],
+      isPublic: true,
+      listingId,
+    });
 
-  const message = await sendGuildMessage(supabase, admin, {
-    threadId,
-    senderId: user!.id,
-    body: text,
-    link: `/market/listing/${listingId}`,
-    listingTitle,
-  });
+    const message = await sendGuildMessage(supabase, admin, {
+      threadId,
+      senderId: user!.id,
+      body: text,
+      link: `/market/listing/${listingId}`,
+      listingTitle,
+    });
 
-  const { data: asker } = await admin
-    .from('users')
-    .select('first_name')
-    .eq('id', user!.id)
-    .maybeSingle();
-  const askerName = asker?.first_name?.trim() || 'Someone';
-
-  await createNotification(admin, {
-    user_id: listing.seller_id as string,
-    type: 'market_listing_question',
-    title: 'New question on your listing',
-    body: `${askerName} asked: "${text.slice(0, 60)}${text.length > 60 ? '...' : ''}"`,
-    data: { listingId, thread_id: threadId, link: `/market/listing/${listingId}` },
-  });
-
-  return NextResponse.json({ thread_id: threadId, message });
+    return NextResponse.json({ thread_id: threadId, message });
+  } catch (e) {
+    console.error('listing qa POST:', e);
+    const msg = e instanceof Error ? e.message : 'Could not post question';
+    const isMissingTable =
+      /guild_threads|guild_messages|does not exist|schema cache/i.test(msg);
+    return NextResponse.json(
+      {
+        error: isMissingTable
+          ? 'Messaging is not set up yet. Ask the seller via Make an offer or contact support.'
+          : msg,
+      },
+      { status: isMissingTable ? 503 : 400 }
+    );
+  }
 }

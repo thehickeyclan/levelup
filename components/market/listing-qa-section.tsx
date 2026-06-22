@@ -66,6 +66,7 @@ export function ListingQaSection({
           showSenderName
           placeholder={isSeller ? 'Reply to buyers…' : 'Ask a question…'}
           maxHeight="280px"
+          scrollOnLoad={false}
         />
       ) : (
         <p className="text-xs text-muted-foreground">No questions yet.</p>

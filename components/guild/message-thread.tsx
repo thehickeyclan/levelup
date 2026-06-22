@@ -16,6 +16,8 @@ export type MessageThreadProps = {
   maxHeight?: string;
   showSenderName?: boolean;
   readOnly?: boolean;
+  /** Scroll the thread panel when messages load (default true). Disable on listing Q&A so the product page stays at the top. */
+  scrollOnLoad?: boolean;
 };
 
 function formatMessageTime(createdAt: string): string {
@@ -35,15 +37,26 @@ export function MessageThread({
   maxHeight = '320px',
   showSenderName = false,
   readOnly = false,
+  scrollOnLoad = true,
 }: MessageThreadProps) {
   const { messages, loading, error, refresh } = useGuildThreadMessages(threadId, currentUserId);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const hasLoadedMessagesRef = useRef(false);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    const el = listRef.current;
+    if (!el || loading) return;
+
+    const isFirstLoad = !hasLoadedMessagesRef.current;
+    if (isFirstLoad) {
+      hasLoadedMessagesRef.current = true;
+      if (!scrollOnLoad) return;
+    }
+
+    el.scrollTo({ top: el.scrollHeight, behavior: isFirstLoad ? 'auto' : 'smooth' });
+  }, [messages.length, loading, scrollOnLoad]);
 
   const send = async () => {
     const body = draft.trim();
@@ -76,6 +89,7 @@ export function MessageThread({
   return (
     <div className="rounded-xl border border-border overflow-hidden bg-card flex flex-col">
       <div
+        ref={listRef}
         className="overflow-y-auto p-3 space-y-3"
         style={{ maxHeight }}
       >
@@ -121,7 +135,6 @@ export function MessageThread({
             );
           })
         )}
-        <div ref={bottomRef} />
       </div>
 
       {!readOnly ? (

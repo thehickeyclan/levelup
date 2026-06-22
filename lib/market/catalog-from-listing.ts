@@ -60,7 +60,7 @@ function mergeColorwayProfiles(
 }
 
 function catalogSourceForListingType(listingType: string): string {
-  return listingType === 'collection' ? 'showcase' : 'community';
+  return listingType === 'collection' ? 'collection' : 'community';
 }
 
 async function linkLatestShoeIdResult(

@@ -632,7 +632,7 @@ CREATE POLICY "Sellers read followers on own listings"
     )
   );
 
--- 20260721000000 private purchase notes (closet tracking)
+-- 20260721000000 private purchase notes (collection tracking)
 ALTER TABLE public.market_listings
   ADD COLUMN IF NOT EXISTS purchase_source text,
   ADD COLUMN IF NOT EXISTS purchase_price_cents integer,

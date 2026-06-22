@@ -1,6 +1,6 @@
 /** Remove internal AI/catalog scores from text shown to buyers. */
-export function sanitizeBuyerListingDescription(description: string): string {
-  let text = description.trim();
+export function sanitizeBuyerListingDescription(description: string | null | undefined): string {
+  let text = String(description ?? '').trim();
   if (!text) return text;
 
   text = text.replace(/\n*Guild:\s*Historical[\s\S]*$/i, '').trim();

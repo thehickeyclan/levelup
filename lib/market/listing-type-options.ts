@@ -24,8 +24,8 @@ export const SELLER_LISTING_TYPE_OPTIONS: {
   },
   {
     value: 'collection',
-    label: 'Showcase',
-    hint: 'In your closet — not listed for sale',
+    label: 'Collection',
+    hint: 'In your collection — not listed for sale',
   },
 ];
 
@@ -50,7 +50,7 @@ export function sellerListingStatusBadge(
   if (status === 'active') {
     switch (listingType) {
       case 'collection':
-        return { label: 'Showcase', className: 'text-muted-foreground border-border' };
+        return { label: 'Collection', className: 'text-muted-foreground border-border' };
       case 'sell':
         return { label: 'For sale', className: 'text-emerald-400 border-emerald-500/40' };
       case 'vault':

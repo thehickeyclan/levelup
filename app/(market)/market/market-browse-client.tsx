@@ -157,7 +157,7 @@ export function MarketBrowseClient({
             <h1 className="text-2xl font-bold text-foreground tracking-tight">The Guild Market</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isCollectors
-                ? `${displayedCollectors.length} collector${displayedCollectors.length !== 1 ? 's' : ''} · ${totalCollectorPairs} pair${totalCollectorPairs !== 1 ? 's' : ''} showcased`
+                ? `${displayedCollectors.length} collector${displayedCollectors.length !== 1 ? 's' : ''} · ${totalCollectorPairs} pair${totalCollectorPairs !== 1 ? 's' : ''} in collections`
                 : `${initialListings.length} pair${initialListings.length !== 1 ? 's' : ''} for sale`}
               {!isCollectors &&
               initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length > 0
@@ -188,7 +188,7 @@ export function MarketBrowseClient({
       <div className="max-w-4xl mx-auto px-4 py-4">
         {isCollectors ? (
           <p className="text-xs text-muted-foreground mb-4">
-            Browse collector closets — sorted by rarest collections first. Tap a profile to see every pair.
+            Browse collections — sorted by rarest first. Tap a profile to see every pair.
           </p>
         ) : null}
         {isCollectors ? (
@@ -196,10 +196,10 @@ export function MarketBrowseClient({
             <div className="py-16 text-center">
               <p className="text-sm text-muted-foreground">
                 {collectors.length === 0
-                  ? 'No collection pairs yet. List a pair as Collection type to showcase it here.'
+                  ? 'No collection pairs yet. Add a pair as Collection type to appear here.'
                   : hasActiveFilters
                     ? 'No collectors match these filters.'
-                    : 'No collection pairs yet. List a pair as Collection type to showcase it here.'}
+                    : 'No collection pairs yet. Add a pair as Collection type to appear here.'}
               </p>
               <Button
                 asChild

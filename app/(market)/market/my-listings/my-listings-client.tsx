@@ -17,7 +17,7 @@ import type { MarketListingType } from '@/lib/market/listing-type-options';
 import { cn } from '@/lib/utils';
 
 function priceLabel(listing: MyListingRow): string {
-  if (listing.listing_type === 'collection') return 'In your closet';
+  if (listing.listing_type === 'collection') return 'In collection';
   if (listing.listing_type === 'vault') return 'Offers only';
   if (listing.listing_type === 'trade') return 'Trade only';
   if (listing.price_cents != null) return `$${(listing.price_cents / 100).toFixed(0)}`;
@@ -249,7 +249,7 @@ export function MyListingsClient({
           <div>
             <h1 className="text-2xl font-bold text-foreground">My pairs</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Everything in your closet — list for sale without removing a pair.
+              Everything in your collection — list for sale without removing a pair.
             </p>
           </div>
           <Button asChild size="sm" className="bg-accent text-accent-foreground rounded-full shrink-0">
@@ -262,7 +262,7 @@ export function MyListingsClient({
         ) : (
           <div className="space-y-6 pb-4">
             <Section
-              title="In your closet"
+              title="In your collection"
               description={`${groups.pairs.length} pair${groups.pairs.length !== 1 ? 's' : ''}`}
               listings={groups.pairs}
               onDeleted={removeListing}

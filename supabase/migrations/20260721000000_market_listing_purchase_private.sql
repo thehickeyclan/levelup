@@ -1,4 +1,4 @@
--- Private seller purchase notes (closet / collection tracking — not shown to buyers).
+-- Private seller purchase notes (collection tracking — not shown to buyers).
 
 ALTER TABLE public.market_listings
   ADD COLUMN IF NOT EXISTS purchase_source text,

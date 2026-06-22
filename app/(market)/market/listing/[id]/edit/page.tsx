@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BackLink } from '@/components/back-link';
 import { SELLER_AI_DISCLAIMER } from '@/lib/market/ai/prompts';
-import { buildListingAgentPrompt, buildListingDescription } from '@/lib/market/listing-description';
+import { buildListingAgentPrompt, resolveListingDescriptionForSave } from '@/lib/market/listing-description';
 import { sanitizeBuyerListingDescription } from '@/lib/market/sanitize-listing-description';
 import {
   WEAR_STATE_OPTIONS,
@@ -103,6 +103,9 @@ export default function EditListingPage() {
   const shoeIdUserLocked = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoUploadLock = useRef(false);
+  const descriptionTouchedRef = useRef(false);
+  const descriptionEditedDuringAgentRef = useRef(false);
+  const photosDirtyRef = useRef(false);
 
   const [form, setForm] = useState({
     brand: 'Adidas',
@@ -121,6 +124,10 @@ export default function EditListingPage() {
     description: '',
     rarity: '' as MarketRarity | '',
   });
+
+  useEffect(() => {
+    descriptionTouchedRef.current = descriptionTouched;
+  }, [descriptionTouched]);
 
   useEffect(() => {
     void (async () => {
@@ -197,6 +204,7 @@ export default function EditListingPage() {
         }
         if (String(l.description ?? '').trim()) {
           setDescriptionTouched(true);
+          descriptionTouchedRef.current = true;
         }
       } catch (err) {
         setLoadError(err instanceof Error ? err.message : 'Failed to load listing');
@@ -287,6 +295,7 @@ export default function EditListingPage() {
       setError('Add a model before generating a description.');
       return;
     }
+    descriptionEditedDuringAgentRef.current = false;
     setAgentLoading(true);
     setAgentReply(null);
     setError(null);
@@ -317,10 +326,12 @@ export default function EditListingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Description failed');
+      if (descriptionEditedDuringAgentRef.current) return;
       if (data.has_draft && data.draft?.description) {
         const clean = sanitizeBuyerListingDescription(data.draft.description);
         setForm((f) => ({ ...f, description: clean }));
         setDescriptionTouched(false);
+        descriptionTouchedRef.current = false;
         setAgentInput('');
       } else if (data.message) {
         setAgentReply(data.message);
@@ -375,6 +386,7 @@ export default function EditListingPage() {
       }
 
       const refreshed = await normalizeListingImagesForClient(listingId);
+      photosDirtyRef.current = false;
       setImages(refreshed);
 
       if (!refreshed.length && uploadErrors.length) {
@@ -403,6 +415,7 @@ export default function EditListingPage() {
 
   const removePhoto = async (imageId: string) => {
     setUploadError(null);
+    photosDirtyRef.current = true;
     try {
       const res = await fetch(`/api/market/listings/${listingId}/images/${imageId}`, {
         method: 'DELETE',
@@ -413,6 +426,11 @@ export default function EditListingPage() {
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Could not remove photo');
     }
+  };
+
+  const onImagesChange = (imgs: ListingImage[]) => {
+    photosDirtyRef.current = true;
+    setImages(imgs);
   };
 
   const runShoeId = async () => {
@@ -454,29 +472,36 @@ export default function EditListingPage() {
 
   const save = async () => {
     setError(null);
-    const expectedPhotoCount = images.length;
+    let expectedPhotoCount = images.length;
     if (status === 'active' && expectedPhotoCount === 0) {
       setError('Add at least one photo before saving.');
       return;
     }
     setSaving(true);
     try {
-      const savedImages = await normalizeListingImagesForClient(listingId);
-      setImages(savedImages);
-      if (status === 'active' && savedImages.length === 0) {
-        setError('Add at least one photo before saving.');
-        return;
-      }
-      if (expectedPhotoCount > 0 && savedImages.length < expectedPhotoCount) {
-        setError(
-          `Only ${savedImages.length} of ${expectedPhotoCount} photos saved. Re-add missing photos before saving.`
-        );
-        return;
+      if (photosDirtyRef.current) {
+        const savedImages = await normalizeListingImagesForClient(listingId);
+        photosDirtyRef.current = false;
+        setImages(savedImages);
+        expectedPhotoCount = savedImages.length;
+        if (status === 'active' && savedImages.length === 0) {
+          setError('Add at least one photo before saving.');
+          return;
+        }
+        if (images.length > 0 && savedImages.length < images.length) {
+          setError(
+            `Only ${savedImages.length} of ${images.length} photos saved. Re-add missing photos before saving.`
+          );
+          return;
+        }
       }
 
-      const description =
-        form.description.trim() || buildListingDescription(descriptionInput());
-      const res = await fetch(`/api/market/listings/${listingId}`, {
+      const description = resolveListingDescriptionForSave(
+        form.description,
+        descriptionTouchedRef.current,
+        descriptionInput()
+      );
+      const patchPromise = fetch(`/api/market/listings/${listingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -485,31 +510,35 @@ export default function EditListingPage() {
           status: status === 'draft' ? 'active' : status,
         }),
       });
+      const sizesPromise = supportsMultiSizeInventory(form.wear_state)
+        ? fetch(`/api/market/listings/${listingId}/sizes`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sizes: sizeInventory.map((row) => ({
+                size_us: row.size_us,
+                quantity: row.quantity,
+              })),
+            }),
+          })
+        : null;
+
+      const res = await patchPromise;
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
 
-      if (supportsMultiSizeInventory(form.wear_state)) {
-        const sizesRes = await fetch(`/api/market/listings/${listingId}/sizes`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sizes: sizeInventory.map((row) => ({
-              size_us: row.size_us,
-              quantity: row.quantity,
-            })),
-          }),
-        });
+      if (sizesPromise) {
+        const sizesRes = await sizesPromise;
         const sizesData = await sizesRes.json();
         if (!sizesRes.ok) throw new Error(sizesData.error || 'Failed to save sizes');
       }
 
       if (!form.rarity) {
-        const rarityRes = await fetch('/api/market/ai/rarity', {
+        void fetch('/api/market/ai/rarity', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ listingId, persist: true }),
         });
-        await rarityRes.json().catch(() => ({}));
       }
 
       router.replace(`/market/listing/${listingId}`);
@@ -717,7 +746,7 @@ export default function EditListingPage() {
           <ListingPhotoGrid
             listingId={listingId}
             images={images}
-            onImagesChange={setImages}
+            onImagesChange={onImagesChange}
             onUpdateImage={updateImage}
             onRemove={(imageId) => void removePhoto(imageId)}
           />
@@ -915,8 +944,10 @@ export default function EditListingPage() {
           className="w-full min-h-[140px] rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
           value={form.description}
           onChange={(e) => {
+            if (agentLoading) descriptionEditedDuringAgentRef.current = true;
             setDescriptionTouched(true);
-            setForm({ ...form, description: e.target.value });
+            descriptionTouchedRef.current = true;
+            setForm((f) => ({ ...f, description: e.target.value }));
           }}
           placeholder="What buyers see — condition, fit, story behind the pair."
         />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Eye, Flame, Heart, Send, ShoppingCart, Sparkles } from 'lucide-react';
@@ -30,7 +30,30 @@ import {
 } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
 
+function ListingDetailLoading() {
+  return (
+    <div className="px-4 py-8 max-w-4xl mx-auto bg-background min-h-screen">
+      <Link
+        href="/market"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+        Back
+      </Link>
+      <p className="mt-4 text-muted-foreground">Loading listing…</p>
+    </div>
+  );
+}
+
 export default function ListingDetailPage() {
+  return (
+    <Suspense fallback={<ListingDetailLoading />}>
+      <ListingDetailContent />
+    </Suspense>
+  );
+}
+
+function ListingDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
@@ -56,10 +79,18 @@ export default function ListingDetailPage() {
   const [followBusy, setFollowBusy] = useState(false);
   const [selectedSizeUs, setSelectedSizeUs] = useState<number | null>(null);
   const [inventorySizes, setInventorySizes] = useState<ListingSizeRow[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/market/listings/${id}`)
-      .then((r) => r.json())
+    setLoadError(null);
+    void fetch(`/api/market/listings/${id}`)
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok || !d.listing) {
+          throw new Error((d.error as string) || 'Listing not found');
+        }
+        return d;
+      })
       .then((d) => {
         setData(d);
         setFollowing(Boolean(d.following));
@@ -68,6 +99,10 @@ export default function ListingDetailPage() {
         setInventorySizes(sizes);
         const firstAvailable = sizes.find((row) => row.quantity > 0);
         setSelectedSizeUs(firstAvailable?.size_us ?? null);
+      })
+      .catch((err) => {
+        setData(null);
+        setLoadError(err instanceof Error ? err.message : 'Could not load listing');
       });
   }, [id]);
 
@@ -126,19 +161,26 @@ export default function ListingDetailPage() {
     }
   };
 
-  if (!data?.listing) {
+  if (loadError) {
     return (
-      <div className="px-4 py-8 max-w-4xl mx-auto bg-background min-h-screen">
+      <div className="px-4 py-8 max-w-4xl mx-auto bg-background min-h-screen space-y-4">
         <Link
-          href="/market"
+          href="/market/my-listings"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-          Back
+          My pairs
         </Link>
-        <p className="mt-4 text-muted-foreground">Loading…</p>
+        <p className="text-destructive">{loadError}</p>
+        <Button asChild variant="outline">
+          <Link href="/market/my-listings">Back to my pairs</Link>
+        </Button>
       </div>
     );
+  }
+
+  if (!data?.listing) {
+    return <ListingDetailLoading />;
   }
 
   const l = data.listing;
@@ -212,18 +254,29 @@ export default function ListingDetailPage() {
   const listingRarity = normalizeMarketRarity(l.rarity as string | null);
   const isOffersListing = listingType === 'vault';
   const isTradeOnly = listingType === 'trade';
-  const showTradeOnlyCta = isActive && isTradeOnly;
-  const showOffersCtAs = isActive && isOffersListing && !isCollection;
+  const showTradeOnlyCta = isActive && isTradeOnly && !isSeller;
+  const showOffersCtAs = isActive && isOffersListing && !isCollection && !isSeller;
   const showMakeOfferCta =
-    isActive && !isOffersListing && !isTradeOnly && !isCollection && priceCents == null;
+    isActive &&
+    !isSeller &&
+    !isOffersListing &&
+    !isTradeOnly &&
+    !isCollection &&
+    priceCents == null;
   const showSellMakeOfferCta =
     isActive &&
+    !isSeller &&
     listingType === 'sell' &&
     !isCollection &&
     priceCents != null &&
     acceptsOffers;
   const showBuyCta =
-    isActive && !isOffersListing && !isTradeOnly && !isCollection && priceCents != null;
+    isActive &&
+    !isSeller &&
+    !isOffersListing &&
+    !isTradeOnly &&
+    !isCollection &&
+    priceCents != null;
 
   const collectionBlock = (
     <div className="bg-card border border-border rounded-xl p-4 text-center">
@@ -424,7 +477,7 @@ export default function ListingDetailPage() {
                 >
                   {sellerCollectionHeading(sellerDisplayName)}
                 </Link>
-                <p className="text-xs text-muted-foreground">Showcase — not for sale</p>
+                <p className="text-xs text-muted-foreground">Collection — not for sale</p>
               </div>
             ) : null}
             <div>

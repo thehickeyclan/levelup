@@ -28,10 +28,15 @@ export function conditionForWearState(
   return 'good';
 }
 
-export function listingConditionDisplay(wearState: MarketWearState, condition: string): string {
+export function listingConditionDisplay(
+  wearState: MarketWearState,
+  condition: string | null | undefined
+): string {
   if (wearState === 'bnib') return 'BNIB';
   if (wearState === 'new_no_box') return 'New (no box)';
-  return condition.replace('_', ' ');
+  const c = condition?.trim();
+  if (!c) return 'Used';
+  return c.replace('_', ' ');
 }
 
 /** Browse filter buckets — aligned with listingConditionDisplay labels. */

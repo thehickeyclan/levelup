@@ -121,7 +121,7 @@ export function ListingTypeQuickActions({
     (currentType === 'collection'
       ? 'Ready to list this pair for sale?'
       : currentType === 'sell'
-        ? 'Still in your closet — change how buyers see this pair'
+        ? 'Still in your collection — change how buyers see this pair'
         : 'Change how this pair is listed');
 
   const blockedNote = modeBlockedReason ? (
@@ -151,14 +151,14 @@ export function ListingTypeQuickActions({
         <p className="text-xs text-muted-foreground">
           {currentType === 'collection' ? (
             <>
-              In your closet — tap <span className="text-foreground font-medium">For sale</span> or{' '}
+              In your collection — tap <span className="text-foreground font-medium">For sale</span> or{' '}
               <span className="text-foreground font-medium">Offers</span> when you&apos;re ready
             </>
           ) : (
             <>
               Listed as{' '}
               <span className="text-foreground font-medium">{sellerListingTypeLabel(currentType)}</span>
-              {' — tap Showcase to pull back from the market'}
+              {' — tap Collection to pull back from the market'}
             </>
           )}
         </p>
@@ -168,8 +168,8 @@ export function ListingTypeQuickActions({
             const shortLabel =
               type === 'collection'
                 ? currentType === 'collection'
-                  ? 'Showcase'
-                  : 'Back to showcase'
+                  ? 'Collection'
+                  : 'Back to collection'
                 : type === 'sell'
                   ? 'For sale'
                   : opt.label;

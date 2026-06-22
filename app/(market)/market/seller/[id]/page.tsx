@@ -209,7 +209,7 @@ export default function SellerProfilePage() {
         { id: 'all', label: 'All pairs', count: allPairs.length },
         { id: 'for_sale', label: 'For sale', count: inventory.forSale.length },
         { id: 'trading', label: 'Trading', count: inventory.trading.length },
-        { id: 'collection', label: 'Showcase', count: inventory.collection.length },
+        { id: 'collection', label: 'Collection', count: inventory.collection.length },
       ]
     : [
         { id: 'for_sale', label: 'For sale', count: inventory.forSale.length },
@@ -288,16 +288,16 @@ export default function SellerProfilePage() {
         {tab === 'all' ? (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              Your full closet — pairs stay here whether they&apos;re for sale or showcase only.
+              Your full collection — pairs stay here whether they&apos;re for sale or collection-only.
             </p>
             {collectionValuation ? (
               <div className="rounded-xl border border-border bg-card px-4 py-3">
-                <p className="text-sm text-muted-foreground">Estimated showcase value</p>
+                <p className="text-sm text-muted-foreground">Estimated collection value</p>
                 <p className="text-2xl font-bold text-accent mt-1">
                   ${(collectionValuation.total_cents / 100).toLocaleString()}
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Based on Guild Market comps · showcase pairs only
+                  Based on Guild Market comps · collection pairs only
                   {collectionValuation.pairs_with_estimates < collectionValuation.collection_count
                     ? ` · ${collectionValuation.pairs_with_estimates} of ${collectionValuation.collection_count} pairs estimated`
                     : ''}
@@ -312,7 +312,7 @@ export default function SellerProfilePage() {
         {tab === 'collection' ? (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              Showcase pairs — not for sale
+              Collection pairs — not for sale
               {inventory.collection.length > 0
                 ? ` · ${inventory.collection.length} pair${inventory.collection.length !== 1 ? 's' : ''}`
                 : ''}

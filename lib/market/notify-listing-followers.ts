@@ -53,7 +53,7 @@ function eventCopy(
     case 'collection_showcase':
       return {
         notificationTitle: 'Back in a collection',
-        body: `${title} is back in a collector showcase`,
+        body: `${title} is back in a collection`,
       };
     case 'sold':
       return {

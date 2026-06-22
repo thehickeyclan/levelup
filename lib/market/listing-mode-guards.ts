@@ -47,7 +47,7 @@ export async function getListingModeConstraints(
   } else if (lockedBuyerId) {
     blockedReason = 'This pair is reserved for a checkout or trade. Wait until that completes.';
   } else if (pendingOfferCount > 0) {
-    blockedReason = `Resolve ${pendingOfferCount} pending offer${pendingOfferCount !== 1 ? 's' : ''} before pulling back to showcase.`;
+    blockedReason = `Resolve ${pendingOfferCount} pending offer${pendingOfferCount !== 1 ? 's' : ''} before moving back to collection.`;
   }
 
   return {
@@ -88,7 +88,7 @@ export function deriveListingModeConstraints(params: {
   } else if (locked_buyer_id) {
     blockedReason = 'This pair is reserved for a checkout or trade. Wait until that completes.';
   } else if (pending_offer_count > 0) {
-    blockedReason = `Resolve ${pending_offer_count} pending offer${pending_offer_count !== 1 ? 's' : ''} before pulling back to showcase.`;
+    blockedReason = `Resolve ${pending_offer_count} pending offer${pending_offer_count !== 1 ? 's' : ''} before moving back to collection.`;
   }
 
   return {

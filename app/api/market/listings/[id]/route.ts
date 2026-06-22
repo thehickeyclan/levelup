@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createAdminClientIfAvailable } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { getSellerProfile } from '@/lib/market/seller';
 import { fetchMarketSellerStats } from '@/lib/market/seller-reputation';
@@ -53,16 +53,11 @@ async function applyListingUpdate(
   return await supabase.from('market_listings').update(payload).eq('id', id).select().single();
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const ctx = await requireMarketUser();
-  if (ctx.error) return ctx.error;
-  const { supabase, tenant, user, role } = ctx;
-  const { id } = await params;
-
-  const { data: listing, error } = await supabase
+async function fetchListingForDetail(
+  supabase: SupabaseClient,
+  id: string
+): Promise<Record<string, unknown> | null> {
+  const withAi = await supabase
     .from('market_listings')
     .select(`
       *,
@@ -72,84 +67,130 @@ export async function GET(
     .eq('id', id)
     .maybeSingle();
 
-  if (error || !listing) {
-    return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+  if (!withAi.error && withAi.data) {
+    return withAi.data as Record<string, unknown>;
   }
 
-  const isOwner = listing.seller_id === user!.id;
-  if (!isOwner && listing.status !== 'active' && listing.status !== 'sold' && listing.status !== 'traded') {
-    return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+  const withoutAi = await supabase
+    .from('market_listings')
+    .select(`
+      *,
+      market_listing_images(${MARKET_LISTING_IMAGE_FIELDS_WITH_ID})
+    `)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (!withoutAi.error && withoutAi.data) {
+    return withoutAi.data as Record<string, unknown>;
   }
 
-  const admin = createAdminClient(tenant.slug);
-  const seller = await getSellerProfile(tenant.slug, listing.seller_id as string);
-  const sellerStats = await fetchMarketSellerStats(supabase, listing.seller_id as string);
+  if (withAi.error) console.error('fetchListingForDetail:', withAi.error.message);
+  if (withoutAi.error) console.error('fetchListingForDetail fallback:', withoutAi.error.message);
+  return null;
+}
 
-  const { count: pendingOfferCount } = await supabase
-    .from('market_offers')
-    .select('id', { count: 'exact', head: true })
-    .eq('listing_id', id)
-    .eq('status', 'pending');
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const ctx = await requireMarketUser();
+    if (ctx.error) return ctx.error;
+    const { supabase, tenant, user, role } = ctx;
+    const { id } = await params;
 
-  let displayViews = listing.views_count ?? 0;
-  if (listing.status === 'active' && !isOwner && listing.listing_type !== 'collection') {
-    displayViews += 1;
-    await supabase
-      .from('market_listings')
-      .update({ views_count: displayViews })
-      .eq('id', id);
-  }
+    const listing = await fetchListingForDetail(supabase, id);
+    if (!listing) {
+      return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+    }
 
-  const aiAssisted = Boolean(
-    (listing.market_ai_analysis as { analyzed_at?: string } | null)?.analyzed_at
-  );
+    const isOwner = listing.seller_id === user!.id;
+    if (
+      !isOwner &&
+      listing.status !== 'active' &&
+      listing.status !== 'sold' &&
+      listing.status !== 'traded'
+    ) {
+      return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+    }
 
-  const { count: followerCount } = await supabase
-    .from('market_listing_follows')
-    .select('id', { count: 'exact', head: true })
-    .eq('listing_id', id);
+    const admin = createAdminClientIfAvailable(tenant.slug);
+    if (!admin) {
+      return NextResponse.json({ error: 'Listing service unavailable' }, { status: 503 });
+    }
 
-  let following = false;
-  if (!isOwner) {
-    const { data: followRow } = await supabase
-      .from('market_listing_follows')
-      .select('id')
+    const seller = await getSellerProfile(tenant.slug, listing.seller_id as string);
+    const sellerStats = await fetchMarketSellerStats(supabase, listing.seller_id as string);
+
+    const { count: pendingOfferCount } = await supabase
+      .from('market_offers')
+      .select('id', { count: 'exact', head: true })
       .eq('listing_id', id)
-      .eq('follower_id', user!.id)
-      .maybeSingle();
-    following = Boolean(followRow);
+      .eq('status', 'pending');
+
+    let displayViews = (listing.views_count as number) ?? 0;
+    if (listing.status === 'active' && !isOwner && listing.listing_type !== 'collection') {
+      displayViews += 1;
+      await supabase
+        .from('market_listings')
+        .update({ views_count: displayViews })
+        .eq('id', id);
+    }
+
+    const aiAssisted = Boolean(
+      (listing.market_ai_analysis as { analyzed_at?: string } | null)?.analyzed_at
+    );
+
+    const { count: followerCount } = await supabase
+      .from('market_listing_follows')
+      .select('id', { count: 'exact', head: true })
+      .eq('listing_id', id);
+
+    let following = false;
+    if (!isOwner) {
+      const { data: followRow } = await supabase
+        .from('market_listing_follows')
+        .select('id')
+        .eq('listing_id', id)
+        .eq('follower_id', user!.id)
+        .maybeSingle();
+      following = Boolean(followRow);
+    }
+
+    const modeConstraints = isOwner ? await getListingModeConstraints(admin, id) : null;
+
+    const sizes = await fetchListingSizes(supabase, id);
+
+    const publicListing = isOwner
+      ? { ...listing, views_count: displayViews, ai_assisted: aiAssisted }
+      : {
+          ...stripSellerPrivateListingFields(listing),
+          views_count: displayViews,
+          market_ai_analysis: undefined,
+          ai_assisted: aiAssisted,
+        };
+
+    return NextResponse.json({
+      listing: publicListing,
+      sizes,
+      seller: { ...seller, school: seller.school },
+      sellerStats,
+      pending_offer_count: pendingOfferCount ?? 0,
+      following,
+      follower_count: followerCount ?? 0,
+      viewer: {
+        id: user!.id,
+        isSeller: isOwner,
+        isAdmin: role === 'admin',
+        can_change_mode: modeConstraints?.can_change_mode ?? true,
+        mode_blocked_reason: modeConstraints?.blocked_reason ?? null,
+        active_trade_id: modeConstraints?.active_trade_id ?? null,
+      },
+    });
+  } catch (err) {
+    console.error('GET listing:', err);
+    return NextResponse.json({ error: 'Could not load listing' }, { status: 500 });
   }
-
-  const modeConstraints = isOwner ? await getListingModeConstraints(admin, id) : null;
-
-  const sizes = await fetchListingSizes(supabase, id);
-
-  const publicListing = isOwner
-    ? { ...listing, views_count: displayViews, ai_assisted: aiAssisted }
-    : {
-        ...stripSellerPrivateListingFields(listing as Record<string, unknown>),
-        views_count: displayViews,
-        market_ai_analysis: undefined,
-        ai_assisted: aiAssisted,
-      };
-
-  return NextResponse.json({
-    listing: publicListing,
-    sizes,
-    seller: { ...seller, school: seller.school },
-    sellerStats,
-    pending_offer_count: pendingOfferCount ?? 0,
-    following,
-    follower_count: followerCount ?? 0,
-    viewer: {
-      id: user!.id,
-      isSeller: isOwner,
-      isAdmin: role === 'admin',
-      can_change_mode: modeConstraints?.can_change_mode ?? true,
-      mode_blocked_reason: modeConstraints?.blocked_reason ?? null,
-      active_trade_id: modeConstraints?.active_trade_id ?? null,
-    },
-  });
 }
 
 export async function PATCH(
@@ -162,11 +203,24 @@ export async function PATCH(
   const admin = createAdminClient(tenant.slug);
   const { id } = await params;
 
-  const { data: existing } = await supabase
+  let existingResult = await supabase
     .from('market_listings')
     .select('seller_id, status, listing_type, title, brand, model, price_cents, wear_state, rarity, accepts_offers')
     .eq('id', id)
     .single();
+
+  if (
+    existingResult.error &&
+    isMissingColumnError(existingResult.error.message, 'accepts_offers')
+  ) {
+    existingResult = await supabase
+      .from('market_listings')
+      .select('seller_id, status, listing_type, title, brand, model, price_cents, wear_state, rarity')
+      .eq('id', id)
+      .single();
+  }
+
+  const existing = existingResult.data;
 
   if (!existing || existing.seller_id !== user!.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

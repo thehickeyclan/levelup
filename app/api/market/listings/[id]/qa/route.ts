@@ -20,20 +20,25 @@ export async function GET(
 
   if (!listing) return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
 
-  const admin = createAdminClient(tenant.slug);
-  const { findThreadIdByContext, loadThreadMessages } = await import('@/lib/guild-messaging');
+  try {
+    const admin = createAdminClient(tenant.slug);
+    const { findThreadIdByContext, loadThreadMessages } = await import('@/lib/guild-messaging');
 
-  const threadId = await findThreadIdByContext(admin, 'listing_qa', { listingId });
-  if (!threadId) {
+    const threadId = await findThreadIdByContext(admin, 'listing_qa', { listingId });
+    if (!threadId) {
+      return NextResponse.json({ thread_id: null, messages: [] });
+    }
+
+    const messages = await loadThreadMessages(supabase, threadId, { nameClient: admin });
+    return NextResponse.json({
+      thread_id: threadId,
+      messages,
+      seller_id: listing.seller_id,
+    });
+  } catch (e) {
+    console.error('listing qa GET:', e);
     return NextResponse.json({ thread_id: null, messages: [] });
   }
-
-  const messages = await loadThreadMessages(supabase, threadId, { nameClient: admin });
-  return NextResponse.json({
-    thread_id: threadId,
-    messages,
-    seller_id: listing.seller_id,
-  });
 }
 
 export async function POST(

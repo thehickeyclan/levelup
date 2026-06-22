@@ -53,6 +53,17 @@ export function buildListingDescription(input: ListingDescriptionInput): string 
   return lines.join('\n').trim();
 }
 
+/** Respect manual edits on save — only auto-fill when the seller never touched the field. */
+export function resolveListingDescriptionForSave(
+  description: string,
+  touched: boolean,
+  fallbackInput: ListingDescriptionInput
+): string {
+  const trimmed = description.trim();
+  if (touched) return trimmed;
+  return trimmed || buildListingDescription(fallbackInput);
+}
+
 export type ListingAgentPromptInput = {
   brand: string;
   model: string;

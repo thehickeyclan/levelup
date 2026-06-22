@@ -180,9 +180,7 @@ export async function POST(req: NextRequest) {
       ...response,
       draft: { ...response.draft, description: clean },
     };
-    if (listingId) {
-      await admin.from('market_listings').update({ description: clean }).eq('id', listingId);
-    }
+    // Description is applied in the client form and persisted on listing save/publish.
   }
 
   const tokens = claude.ok ? claude.result : { tokensIn: 0, tokensOut: 0 };

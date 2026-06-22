@@ -37,7 +37,7 @@ export function formatSellerDisplayName(
   return s ? `${base} · ${s}` : base;
 }
 
-/** Possessive heading for a seller's showcase tab, e.g. "Matt's Collection". */
+/** Possessive heading for a seller's collection tab, e.g. "Matt's Collection". */
 export function sellerCollectionHeading(displayName: string): string {
   const segment = displayName.split(' · ')[0]?.trim() || displayName.trim();
   const firstName = segment.split(/\s+/)[0] || segment;

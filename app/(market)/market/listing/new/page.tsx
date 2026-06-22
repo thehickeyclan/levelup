@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BackLink } from '@/components/back-link';
 import { SELLER_AI_DISCLAIMER } from '@/lib/market/ai/prompts';
-import { buildListingDescription, buildListingAgentPrompt } from '@/lib/market/listing-description';
+import { buildListingDescription, buildListingAgentPrompt, resolveListingDescriptionForSave } from '@/lib/market/listing-description';
 import { sanitizeBuyerListingDescription } from '@/lib/market/sanitize-listing-description';
 import {
   WEAR_STATE_OPTIONS,
@@ -214,6 +214,9 @@ export default function NewListingPage() {
   const descriptionAutoKey = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoUploadLock = useRef(false);
+  const descriptionTouchedRef = useRef(false);
+  const descriptionEditedDuringAgentRef = useRef(false);
+  const photosDirtyRef = useRef(false);
 
   const [form, setForm] = useState({
     title: '',
@@ -268,6 +271,10 @@ export default function NewListingPage() {
   ).current;
 
   const sellerPrefillDone = useRef(false);
+
+  useEffect(() => {
+    descriptionTouchedRef.current = descriptionTouched;
+  }, [descriptionTouched]);
 
   useEffect(() => {
     if (sellerPrefillDone.current) return;
@@ -392,6 +399,7 @@ export default function NewListingPage() {
   const removePhoto = async (imageId: string) => {
     if (!listingId) return;
     setUploadError(null);
+    photosDirtyRef.current = true;
     try {
       const res = await fetch(`/api/market/listings/${listingId}/images/${imageId}`, {
         method: 'DELETE',
@@ -414,6 +422,11 @@ export default function NewListingPage() {
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Could not remove photo');
     }
+  };
+
+  const onImagesChange = (imgs: ListingImage[]) => {
+    photosDirtyRef.current = true;
+    setImages(imgs);
   };
 
   const onPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -459,6 +472,7 @@ export default function NewListingPage() {
       }
 
       const mergedImages = await normalizeListingImagesForClient(id);
+      photosDirtyRef.current = false;
       setImages(mergedImages);
 
       if (!mergedImages.length) {
@@ -601,24 +615,30 @@ export default function NewListingPage() {
         null;
 
       if (opts?.silent && catalogNotes) {
-        const templateDesc = sanitizeBuyerListingDescription(
-          buildListingDescription({
-            brand: merged.brand,
-            model: merged.model,
-            colorway: merged.colorway.trim() || null,
-            modelYear: merged.model_year ? Number(merged.model_year) : null,
-            size: Number(merged.size) || 10,
-            wearState: merged.wear_state,
-            condition: conditionForWearState(merged.wear_state, merged.condition),
-            analysis: { summary: catalogNotes },
-          })
-        );
-        setForm((f) => ({ ...f, description: templateDesc }));
-        setDescriptionTouched(false);
-        setAiDescriptionDraft(true);
+        if (!descriptionTouchedRef.current) {
+          const templateDesc = sanitizeBuyerListingDescription(
+            buildListingDescription({
+              brand: merged.brand,
+              model: merged.model,
+              colorway: merged.colorway.trim() || null,
+              modelYear: merged.model_year ? Number(merged.model_year) : null,
+              size: Number(merged.size) || 10,
+              wearState: merged.wear_state,
+              condition: conditionForWearState(merged.wear_state, merged.condition),
+              analysis: { summary: catalogNotes },
+            })
+          );
+          setForm((f) => ({ ...f, description: templateDesc }));
+          setDescriptionTouched(false);
+          descriptionTouchedRef.current = false;
+          setAiDescriptionDraft(true);
+        }
         return;
       }
 
+      if (!opts?.silent) {
+        descriptionEditedDuringAgentRef.current = false;
+      }
       setAgentLoading(true);
       if (!opts?.silent) setAgentReply(null);
       setError(null);
@@ -642,10 +662,14 @@ export default function NewListingPage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Description failed');
 
+        if (descriptionEditedDuringAgentRef.current) return;
+        if (opts?.silent && descriptionTouchedRef.current) return;
+
         if (data.has_draft && data.draft?.description) {
           const clean = sanitizeBuyerListingDescription(data.draft.description);
           setForm((f) => ({ ...f, description: clean }));
           setDescriptionTouched(false);
+          descriptionTouchedRef.current = false;
           setAiDescriptionDraft(true);
           setAgentInput('');
           setAgentReply(null);
@@ -1050,21 +1074,27 @@ export default function NewListingPage() {
     }
     try {
       const id = await ensureDraft();
-      const savedImages = await normalizeListingImagesForClient(id);
-      setImages(savedImages);
-      if (savedImages.length === 0) {
-        setError('Photos did not save — add photos again before publishing.');
-        return;
-      }
-      if (savedImages.length < images.length) {
-        setError(
-          `Only ${savedImages.length} of ${images.length} photos saved. Add missing photos before publishing.`
-        );
-        return;
+      if (photosDirtyRef.current) {
+        const savedImages = await normalizeListingImagesForClient(id);
+        photosDirtyRef.current = false;
+        setImages(savedImages);
+        if (savedImages.length === 0) {
+          setError('Photos did not save — add photos again before publishing.');
+          return;
+        }
+        if (savedImages.length < images.length) {
+          setError(
+            `Only ${savedImages.length} of ${images.length} photos saved. Add missing photos before publishing.`
+          );
+          return;
+        }
       }
 
-      const description =
-        form.description.trim() || buildListingDescription(descriptionInput());
+      const description = resolveListingDescriptionForSave(
+        form.description,
+        descriptionTouchedRef.current,
+        descriptionInput()
+      );
       const priceNum =
         form.listing_type === 'sell'
           ? Math.round(Number(form.price_cents || 0) * 100)
@@ -1074,7 +1104,7 @@ export default function NewListingPage() {
           ? 0
           : Math.round(Number(form.shipping_cents || 0) * 100);
 
-      await fetch(`/api/market/listings/${id}`, {
+      const patchPromise = fetch(`/api/market/listings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1085,11 +1115,18 @@ export default function NewListingPage() {
           status: 'active',
         }),
       });
+      const sizesPromise = saveSizeInventory(id);
 
-      await saveSizeInventory(id);
+      const res = await patchPromise;
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Publish failed');
+      }
+
+      await sizesPromise;
 
       if (!form.rarity) {
-        await fetch('/api/market/ai/rarity', {
+        void fetch('/api/market/ai/rarity', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ listingId: id, persist: true }),
@@ -1113,7 +1150,7 @@ export default function NewListingPage() {
 
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">
-          {isCollection ? 'Add to your closet' : 'List a pair'}
+          {isCollection ? 'Add to your collection' : 'List a pair'}
         </h1>
         <p className="text-sm text-muted-foreground leading-snug">
           {isCollection
@@ -1196,7 +1233,7 @@ export default function NewListingPage() {
           <ListingPhotoGrid
             listingId={listingId}
             images={images}
-            onImagesChange={setImages}
+            onImagesChange={onImagesChange}
             onUpdateImage={updateImage}
             onRemove={(imageId) => void removePhoto(imageId)}
           />
@@ -1640,9 +1677,11 @@ export default function NewListingPage() {
             className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
             value={form.description}
             onChange={(e) => {
+              if (agentLoading) descriptionEditedDuringAgentRef.current = true;
               setDescriptionTouched(true);
+              descriptionTouchedRef.current = true;
               setAiDescriptionDraft(false);
-              setForm({ ...form, description: e.target.value });
+              setForm((f) => ({ ...f, description: e.target.value }));
             }}
             placeholder={
               form.model.trim()
@@ -1684,7 +1723,7 @@ export default function NewListingPage() {
         onClick={publish}
         disabled={uploading || analyzing || identifyingShoe}
       >
-        {isCollection ? 'Add to closet' : 'Publish listing'}
+        {isCollection ? 'Add to collection' : 'Publish listing'}
       </Button>
 
       <p className="text-xs text-muted-foreground">{SELLER_AI_DISCLAIMER}</p>

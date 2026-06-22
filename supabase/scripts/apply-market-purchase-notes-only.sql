@@ -1,4 +1,4 @@
--- Minimal patch: private purchase notes on closet pairs.
+-- Minimal patch: private purchase notes on collection pairs.
 -- Run in Supabase SQL Editor if you only need purchase_source / purchase_price_cents / purchased_at.
 -- Does NOT create the full Guild Market schema.
 

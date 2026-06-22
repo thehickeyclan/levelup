@@ -1001,12 +1001,21 @@ function CatalogForm({
   );
 }
 
+function isCommunityListingCatalogSource(source: string | null | undefined): boolean {
+  return source === 'community' || source === 'collection' || source === 'showcase';
+}
+
+function formatCatalogSourceLabel(source: string | null | undefined): string {
+  if (!source) return '—';
+  if (source === 'showcase') return 'collection';
+  return source;
+}
+
 export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogRow[] }) {
   const [tab, setTab] = useState<'train' | 'catalog' | 'stats'>('train');
   const [catalog, setCatalog] = useState(initialCatalog);
   const sortedCatalog = useMemo(() => {
-    const needsReview = (source: string | null) =>
-      source === 'showcase' || source === 'community';
+    const needsReview = (source: string | null) => isCommunityListingCatalogSource(source);
     return [...catalog].sort((a, b) => {
       if (a.verified !== b.verified) return a.verified ? 1 : -1;
       if (needsReview(a.source) !== needsReview(b.source)) {
@@ -1016,7 +1025,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
     });
   }, [catalog]);
   const pendingReviewCount = useMemo(
-    () => catalog.filter((row) => !row.verified && (row.source === 'showcase' || row.source === 'community')).length,
+    () => catalog.filter((row) => !row.verified && isCommunityListingCatalogSource(row.source)).length,
     [catalog]
   );
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -1498,7 +1507,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
           {pendingReviewCount > 0 ? (
             <p className="text-sm text-amber-400/90 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
               {pendingReviewCount} community listing{pendingReviewCount !== 1 ? 's' : ''} added
-              catalog data — review unverified entries first (source: showcase / community).
+              catalog data — review unverified entries first (source: collection / community).
             </p>
           ) : null}
           <div className="flex gap-2 flex-wrap">
@@ -1558,7 +1567,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                       'border-b border-[#1a1a1a]',
                       editingCatalogId === row.id && 'bg-[#1a1a1a]',
                       !row.verified &&
-                        (row.source === 'showcase' || row.source === 'community') &&
+                        isCommunityListingCatalogSource(row.source) &&
                         'bg-amber-500/5'
                     )}
                   >
@@ -1582,7 +1591,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                     <td className="p-2 text-[#888]">{row.reference_image_count || '—'}</td>
                     <td className="p-2 text-[#888]">{row.sale_comp_count || '—'}</td>
                     <td className="p-2">{row.verified ? '✓' : '—'}</td>
-                    <td className="p-2 text-[#888]">{row.source ?? '—'}</td>
+                    <td className="p-2 text-[#888]">{formatCatalogSourceLabel(row.source)}</td>
                     <td className="p-2">
                       <div className="flex items-center gap-2">
                         <button

@@ -27,8 +27,19 @@ export async function POST(
 
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
-  const orderRaw = formData.get('display_order');
-  const displayOrder = orderRaw != null ? Number(orderRaw) : 0;
+
+  const { data: orderRows } = await supabase
+    .from('market_listing_images')
+    .select('display_order')
+    .eq('listing_id', listingId)
+    .order('display_order', { ascending: false })
+    .limit(1);
+
+  const maxOrder =
+    orderRows?.length && orderRows[0]?.display_order != null
+      ? Number(orderRows[0].display_order)
+      : -1;
+  const displayOrder = maxOrder + 1;
 
   if (!file || !file.size) {
     return NextResponse.json({ error: 'No photo received — try again.' }, { status: 400 });

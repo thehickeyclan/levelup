@@ -10,6 +10,7 @@ import { MARKET_BRANDS } from '@/lib/market/brands';
 import { listingConditionDisplay, conditionForWearState } from '@/lib/market/wear-state';
 import type { OfferListingSummary } from '@/app/(market)/market/listing/[id]/offer/offer-form-client';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
+import { fetchListingImagesForClient } from '@/lib/market/listing-images';
 import { cn } from '@/lib/utils';
 
 const CONDITION_OPTIONS = [
@@ -111,30 +112,35 @@ export function QuickTradeListingSheet({
       }
 
       const id = await ensureDraft();
-      let order = images.length;
-      const uploaded: ListingImage[] = [];
+      const uploadErrors: string[] = [];
 
       for (let i = 0; i < files.length; i++) {
-        if (order >= MAX_PHOTOS) break;
+        if (images.length >= MAX_PHOTOS) break;
         const fd = new FormData();
         fd.append('file', files[i]);
-        fd.append('display_order', String(order));
         const res = await fetch(`/api/market/listings/${id}/images`, { method: 'POST', body: fd });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Upload failed');
-        if (data.image) {
-          uploaded.push(data.image as ListingImage);
-          order += 1;
+        if (!res.ok) {
+          uploadErrors.push(data.error || `Photo ${i + 1} failed`);
+          continue;
         }
       }
 
-      if (!uploaded.length) {
-        throw new Error('No photos uploaded — try again.');
-      }
-
-      setImages((prev) =>
-        [...prev, ...uploaded].sort((a, b) => a.display_order - b.display_order)
+      const refreshed = await fetchListingImagesForClient(id);
+      setImages(
+        refreshed.map((img) => ({
+          id: img.id!,
+          public_url: img.public_url,
+          display_order: img.display_order,
+        }))
       );
+
+      if (!refreshed.length) {
+        throw new Error(uploadErrors[0] || 'No photos uploaded — try again.');
+      }
+      if (uploadErrors.length) {
+        setUploadError(`${uploadErrors.length} photo(s) failed — ${uploadErrors[0]}.`);
+      }
       setAiCondition(null);
       setConditionOverridden(false);
       setCondition('');

@@ -25,6 +25,32 @@ export function sortListingImages<T extends { display_order: number }>(images: T
   return [...images].sort((a, b) => a.display_order - b.display_order);
 }
 
+/** Next display_order for a new photo — never trust client length (stale state after cover reorder). */
+export function nextListingPhotoDisplayOrder(images: { display_order: number }[]): number {
+  if (!images.length) return 0;
+  return Math.max(...images.map((i) => Number(i.display_order) || 0)) + 1;
+}
+
+export type ListingImageWithId = MarketListingImageRow & { id: string };
+
+/** Parse + sort images from a listing API row (edit/new refresh after upload). */
+export function listingImagesFromApiRow(
+  listing: Record<string, unknown> | null | undefined
+): ListingImageWithId[] {
+  const raw = (listing?.market_listing_images as MarketListingImageRow[] | undefined) ?? [];
+  return raw
+    .filter((img): img is ListingImageWithId => Boolean(img.id))
+    .sort((a, b) => a.display_order - b.display_order);
+}
+
+/** Reload images from API after upload — keeps UI in sync when client state drifts from DB. */
+export async function fetchListingImagesForClient(listingId: string): Promise<ListingImageWithId[]> {
+  const res = await fetch(`/api/market/listings/${listingId}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to load listing photos');
+  return listingImagesFromApiRow(data.listing as Record<string, unknown>);
+}
+
 /** Primary row — lowest display_order (first upload is 0). */
 export function primaryListingImage<T extends { display_order: number }>(
   images: T[] | null | undefined

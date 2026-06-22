@@ -45,7 +45,11 @@ import {
   ListingTypeQuickActions,
   type ListingTypePatch,
 } from '@/components/market/listing-type-quick-actions';
-import type { MarketListingImageRow } from '@/lib/market/listing-images';
+import {
+  fetchListingImagesForClient,
+  listingImagesFromApiRow,
+  type MarketListingImageRow,
+} from '@/lib/market/listing-images';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
 import { cn } from '@/lib/utils';
 import {
@@ -146,11 +150,7 @@ export default function EditListingPage() {
         );
         setActiveTradeId(data.viewer?.active_trade_id ?? null);
         setIsAdmin(Boolean(data.viewer?.isAdmin));
-        const imgs = (
-          (l.market_listing_images as MarketListingImageRow[] | undefined) ?? []
-        )
-          .filter((img) => img.id)
-          .sort((a, b) => a.display_order - b.display_order) as ListingImage[];
+        const imgs = listingImagesFromApiRow(l);
         setImages(imgs);
 
         const wear = (l.wear_state as MarketWearState) || 'used';
@@ -337,37 +337,50 @@ export default function EditListingPage() {
     try {
       setUploadProgress('Preparing photos…');
       const files = await prepareListingPhotos(rawFiles);
-      let order = images.length;
       const uploaded: ListingImage[] = [];
+      const uploadErrors: string[] = [];
 
       for (let i = 0; i < files.length; i++) {
-        if (order >= MAX_PHOTOS) {
+        if (images.length + uploaded.length >= MAX_PHOTOS) {
           setUploadError(`Maximum ${MAX_PHOTOS} photos per listing.`);
           break;
         }
         setUploadProgress(`Uploading ${i + 1} of ${files.length}…`);
         const fd = new FormData();
         fd.append('file', files[i]);
-        fd.append('display_order', String(order));
         const res = await fetch(`/api/market/listings/${listingId}/images`, {
           method: 'POST',
           body: fd,
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        if (!res.ok) {
+          uploadErrors.push(data.error || `Photo ${i + 1} failed to upload`);
+          continue;
+        }
         if (data.image) {
           uploaded.push(data.image as ListingImage);
-          order += 1;
         }
       }
 
-      if (uploaded.length) {
-        setImages((prev) =>
-          [...prev, ...uploaded].sort((a, b) => a.display_order - b.display_order)
+      const refreshed = await fetchListingImagesForClient(listingId);
+      setImages(refreshed);
+
+      if (!refreshed.length && uploadErrors.length) {
+        throw new Error(uploadErrors[0] || 'Upload failed');
+      }
+      if (uploadErrors.length) {
+        setUploadError(
+          `${uploadErrors.length} photo(s) failed — ${uploadErrors[0]}. Others were saved.`
         );
       }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
+      try {
+        const refreshed = await fetchListingImagesForClient(listingId);
+        setImages(refreshed);
+      } catch {
+        // Keep local state if refresh fails
+      }
     } finally {
       setUploading(false);
       setUploadProgress(null);
@@ -472,7 +485,7 @@ export default function EditListingPage() {
         await rarityRes.json().catch(() => ({}));
       }
 
-      router.push(`/market/listing/${listingId}`);
+      router.replace(`/market/listing/${listingId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {

@@ -38,8 +38,12 @@ import { MarketBrandSelect } from '@/components/market/market-brand-select';
 import { ListingRarityField } from '@/components/market/listing-rarity-field';
 import { normalizeMarketRarity, type MarketRarity } from '@/lib/market/rarity';
 import type { PriceComp } from '@/lib/market/ai/schemas';
-import type { MarketListingImageRow } from '@/lib/market/listing-images';
+import {
+  fetchListingImagesForClient,
+  type MarketListingImageRow,
+} from '@/lib/market/listing-images';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
+import { createListingDraftEnsurer } from '@/lib/market/ensure-listing-draft';
 import {
   CollectionPurchaseNotesFields,
   collectionPurchaseNotesToPayload,
@@ -228,6 +232,38 @@ export default function NewListingPage() {
     weight_class: '',
   });
 
+  const listingIdRef = useRef<string | null>(null);
+  listingIdRef.current = listingId;
+  const formRef = useRef(form);
+  formRef.current = form;
+
+  const ensureListingDraft = useRef(
+    createListingDraftEnsurer({
+      getListingId: () => listingIdRef.current,
+      setListingId: (id) => {
+        listingIdRef.current = id;
+        setListingId(id);
+      },
+      createDraft: async () => {
+        const f = formRef.current;
+        const res = await fetch('/api/market/listings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            draft: true,
+            listing_type: f.listing_type,
+            wear_state: f.wear_state,
+            brand: f.brand,
+            model: f.model.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to create draft');
+        return data.listingId as string;
+      },
+    })
+  ).current;
+
   const sellerPrefillDone = useRef(false);
 
   useEffect(() => {
@@ -341,23 +377,12 @@ export default function NewListingPage() {
     lastCatalogEnrichKey.current = null;
   };
 
-  const ensureDraft = async () => {
-    if (listingId) return listingId;
-    const res = await fetch('/api/market/listings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        draft: true,
-        listing_type: form.listing_type,
-        wear_state: form.wear_state,
-        brand: form.brand,
-        model: form.model.trim() || undefined,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to create draft');
-    setListingId(data.listingId);
-    return data.listingId as string;
+  const ensureDraft = () => ensureListingDraft();
+
+  const refreshImagesFromServer = async (id: string) => {
+    const refreshed = await fetchListingImagesForClient(id);
+    setImages(refreshed);
+    return refreshed;
   };
 
   const onPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -378,38 +403,43 @@ export default function NewListingPage() {
       }
 
       const id = await ensureDraft();
-      let order = images.length;
       const uploaded: ListingImage[] = [];
+      const uploadErrors: string[] = [];
 
       for (let i = 0; i < files.length; i++) {
-        if (order >= MAX_PHOTOS) {
+        if (images.length + uploaded.length >= MAX_PHOTOS) {
           setUploadError(`Maximum ${MAX_PHOTOS} photos per listing.`);
           break;
         }
         setUploadProgress(`Uploading ${i + 1} of ${files.length}…`);
         const fd = new FormData();
         fd.append('file', files[i]);
-        fd.append('display_order', String(order));
         const res = await fetch(`/api/market/listings/${id}/images`, { method: 'POST', body: fd });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        if (!res.ok) {
+          uploadErrors.push(data.error || `Photo ${i + 1} failed to upload`);
+          continue;
+        }
         if (data.image) {
           uploaded.push(data.image as ListingImage);
-          order += 1;
         }
       }
 
-      if (!uploaded.length) {
-        throw new Error('No photos uploaded — try again.');
+      const mergedImages = await refreshImagesFromServer(id);
+
+      if (!mergedImages.length) {
+        throw new Error(uploadErrors[0] || 'No photos uploaded — try again.');
       }
 
-      const mergedImages = [...images, ...uploaded].sort(
-        (a, b) => a.display_order - b.display_order
-      );
+      if (uploadErrors.length) {
+        setUploadError(
+          `${uploadErrors.length} photo(s) failed — ${uploadErrors[0]}. Others were saved.`
+        );
+      }
+
       const pipelineKey = `${mergedImages.map((i) => i.id).join(',')}|${form.wear_state}`;
       lastAutoKey.current = pipelineKey;
 
-      setImages(mergedImages);
       setAiCondition(null);
       setAiPrice(null);
       setConditionOverridden(false);
@@ -427,6 +457,13 @@ export default function NewListingPage() {
       const msg = err instanceof Error ? err.message : 'Upload failed';
       setUploadError(msg);
       setError(msg);
+      if (listingIdRef.current) {
+        try {
+          await refreshImagesFromServer(listingIdRef.current);
+        } catch {
+          // Keep partial local state if refresh fails
+        }
+      }
     } finally {
       setUploading(false);
       setUploadProgress(null);
@@ -1010,7 +1047,7 @@ export default function NewListingPage() {
         });
       }
 
-      router.push(`/market/listing/${id}`);
+      router.replace(`/market/listing/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Publish failed');
     }

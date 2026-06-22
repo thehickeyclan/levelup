@@ -129,7 +129,7 @@ export default function ListingDetailPage() {
   if (!data?.listing) {
     return (
       <div className="px-4 py-8 max-w-4xl mx-auto bg-background min-h-screen">
-        <BackLink fallbackHref="/market" label="Back" />
+        <BackLink fallbackHref="/market" label="Back" preferBrowserBack={false} />
         <p className="mt-4 text-muted-foreground">Loading…</p>
       </div>
     );
@@ -313,7 +313,7 @@ export default function ListingDetailPage() {
     <div className="min-h-screen pb-24 bg-background">
       <div className="px-4 pt-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3">
-          <BackLink fallbackHref="/market" label="Market" />
+          <BackLink fallbackHref="/market" label="Market" preferBrowserBack={false} />
           {canEdit ? (
             <Link
               href={`/market/listing/${id}/edit`}

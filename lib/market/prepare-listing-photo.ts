@@ -51,6 +51,11 @@ async function normalizeListingPhotoFile(file: File): Promise<File> {
   return file;
 }
 
+/** Sequential — parallel canvas work on iOS often drops photos 2+ from multi-select batches. */
 export async function prepareListingPhotos(files: File[]): Promise<File[]> {
-  return Promise.all(files.map((f) => prepareListingPhoto(f)));
+  const out: File[] = [];
+  for (const file of files) {
+    out.push(await prepareListingPhoto(file));
+  }
+  return out;
 }

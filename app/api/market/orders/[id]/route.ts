@@ -12,6 +12,7 @@ import {
 } from '@/lib/market/shipping';
 import { createNotification } from '@/lib/notifications';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
+import { recordCompletedGuildSale } from '@/lib/market/market-value';
 
 async function signedLabelUrl(admin: ReturnType<typeof createAdminClient>, storagePath: string | null) {
   if (!storagePath) return null;
@@ -155,6 +156,10 @@ export async function PATCH(
       data: { order_id: id },
     });
 
+    void recordCompletedGuildSale(admin, id).catch((err) => {
+      console.error('recordCompletedGuildSale:', err);
+    });
+
     const labelSignedUrl = await signedLabelUrl(admin, order.shipping_label_storage_path as string | null);
     const updated = { ...order, status: 'completed', delivered_at: now };
     const serialized = serializeOrder(updated, 'buyer', labelSignedUrl, threadId);
@@ -179,6 +184,10 @@ export async function PATCH(
       title: 'Buyer received your shipment',
       body: 'They can leave seller feedback. Payout processes per Guild Market policy.',
       data: { order_id: id },
+    });
+
+    void recordCompletedGuildSale(admin, id).catch((err) => {
+      console.error('recordCompletedGuildSale:', err);
     });
 
     const labelSignedUrl = await signedLabelUrl(

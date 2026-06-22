@@ -18,6 +18,7 @@ import { stripSellerPrivateListingFields } from '@/lib/market/listing-private-fi
 import { normalizeMarketRarity } from '@/lib/market/rarity';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { fetchListingSizes } from '@/lib/market/listing-sizes';
+import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function applyListingUpdate(
@@ -259,6 +260,12 @@ export async function PATCH(
       brand: data.brand as string,
       model: data.model as string,
       listing_type: nextType,
+    });
+  }
+
+  if (prevStatus !== 'active' && nextStatus === 'active') {
+    void feedListingToCatalog(admin, id).catch((err) => {
+      console.error('feedListingToCatalog:', err);
     });
   }
 

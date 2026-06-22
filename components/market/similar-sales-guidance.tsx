@@ -57,36 +57,44 @@ function CompSection({
 }
 
 export function SimilarSalesGuidance({ comps }: { comps: PriceComp[] }) {
-  const guildComps = comps.filter((c) => c.source === 'guild');
+  const soldComps = comps.filter((c) => c.source === 'guild');
+  const askingComps = comps.filter((c) => c.source === 'guild_asking');
   const catalogComps = comps.filter((c) => c.source === 'catalog');
 
-  if (!guildComps.length && !catalogComps.length) return null;
+  if (!soldComps.length && !askingComps.length && !catalogComps.length) return null;
 
   return (
     <div className="rounded-lg border border-border bg-muted px-3 py-3 space-y-3">
-      <p className="text-[11px] text-muted-foreground">Similar sales used as guidance</p>
+      <p className="text-[11px] text-muted-foreground">Guild Market pricing guidance</p>
       <CompSection
-        title="On Guild"
-        comps={guildComps}
-        empty="No completed sales for this model yet — yours could be the first comp."
+        title="Sold on Guild"
+        comps={soldComps}
+        empty="No completed sales for this model yet — yours could set the first market value."
       />
       <CompSection
-        title="Documented market"
+        title="Listed on Guild now"
+        comps={askingComps}
+        empty="No other sellers have this model listed right now."
+      />
+      <CompSection
+        title="Documented resale (Instagram, handbook)"
         comps={catalogComps}
-        empty="No documented sales in our catalog for this colorway/size yet."
+        empty="No documented resale comps for this model yet — admin IG sales feed this."
       />
     </div>
   );
 }
 
 export function priceGuidanceFooter(comps: PriceComp[]): string {
-  const guild = comps.filter((c) => c.source === 'guild').length;
+  const sold = comps.filter((c) => c.source === 'guild').length;
+  const asking = comps.filter((c) => c.source === 'guild_asking').length;
   const catalog = comps.filter((c) => c.source === 'catalog').length;
   const ebay = comps.filter((c) => c.source === 'ebay').length;
 
   const bits: string[] = [];
-  if (guild) bits.push(`${guild} Guild sale${guild !== 1 ? 's' : ''}`);
-  if (catalog) bits.push(`${catalog} documented sale${catalog !== 1 ? 's' : ''}`);
+  if (sold) bits.push(`${sold} Guild sale${sold !== 1 ? 's' : ''}`);
+  if (asking) bits.push(`${asking} active listing${asking !== 1 ? 's' : ''}`);
+  if (catalog) bits.push(`${catalog} documented resale comp${catalog !== 1 ? 's' : ''}`);
   if (ebay) bits.push('eBay listings');
 
   if (!bits.length) return 'Limited market data — treat as estimate.';

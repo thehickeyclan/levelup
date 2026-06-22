@@ -118,17 +118,13 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    const rawShoe = shoeRow?.raw_response as { collector_notes?: string } | null;
     const catalogEnrich = await fetchCatalogListingEnrichment(
       admin,
       listing.brand as string,
       listing.model as string
     );
 
-    const collectorNotes =
-      rawShoe?.collector_notes?.trim() ||
-      catalogEnrich?.collector_notes?.trim() ||
-      null;
+    const collectorNotes = catalogEnrich?.collector_notes?.trim() || null;
 
     listingContext = formatAgentListingContext(
       {
@@ -138,7 +134,9 @@ export async function POST(req: NextRequest) {
       aiRow,
       {
         collector_notes: collectorNotes,
-        shoe_era: (shoeRow?.identified_era as string | null) ?? null,
+        shoe_era: catalogEnrich?.model_year
+          ? String(catalogEnrich.model_year)
+          : (shoeRow?.identified_era as string | null) ?? null,
       }
     );
   }

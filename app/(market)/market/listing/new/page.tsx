@@ -28,9 +28,9 @@ import {
 } from '@/lib/market/color-family';
 import { SimilarSalesGuidance, priceGuidanceFooter } from '@/components/market/similar-sales-guidance';
 import {
-  enrichmentFromShoeIdResult,
   type ListingEnrichment,
 } from '@/lib/market/catalog-listing-enrich';
+import { shouldAutoConfirmIdentity } from '@/lib/market/catalog-from-listing';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { identifyListingShoe } from '@/lib/market/identify-listing-shoe';
 import { MARKET_BRANDS, normalizeMarketBrand } from '@/lib/market/brands';
@@ -173,6 +173,11 @@ export default function NewListingPage() {
   const [catalogEnriching, setCatalogEnriching] = useState(false);
   const [shoeIdResult, setShoeIdResult] = useState<ShoeIdResult | null>(null);
   const [shoeIdAutoApplied, setShoeIdAutoApplied] = useState(false);
+  /** User verified brand + model — unlock catalog lookup, condition, description. */
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
+  /** User manually edited brand/model — vision must not overwrite identity. */
+  const [shoeIdentityLocked, setShoeIdentityLocked] = useState(false);
+  const [catalogCollectorNotes, setCatalogCollectorNotes] = useState<string | null>(null);
   const [pricing, setPricing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -281,6 +286,28 @@ export default function NewListingPage() {
     setForm((f) => ({ ...f, ...patch }));
   }, []);
 
+  const confirmIdentity = useCallback(() => {
+    setIdentityConfirmed(true);
+    lastCatalogEnrichKey.current = null;
+    descriptionAutoKey.current = null;
+  }, []);
+
+  const handleIdentityFieldEdit = useCallback(() => {
+    setShoeIdentityLocked(true);
+    setIdentityConfirmed(true);
+    lastCatalogEnrichKey.current = null;
+    descriptionAutoKey.current = null;
+    setForm((f) => {
+      if (aiDescriptionDraft && !descriptionTouched && f.description.trim()) {
+        return { ...f, description: '' };
+      }
+      return f;
+    });
+    if (aiDescriptionDraft && !descriptionTouched) {
+      setAiDescriptionDraft(false);
+    }
+  }, [aiDescriptionDraft, descriptionTouched]);
+
   const setListingType = (listingType: MarketListingType) => {
     setForm((f) => ({
       ...f,
@@ -311,6 +338,7 @@ export default function NewListingPage() {
     setAiPrice(null);
     setConditionOverridden(false);
     lastAutoKey.current = null;
+    lastCatalogEnrichKey.current = null;
   };
 
   const ensureDraft = async () => {
@@ -387,11 +415,14 @@ export default function NewListingPage() {
       setConditionOverridden(false);
       setShoeIdResult(null);
       setShoeIdAutoApplied(false);
+      if (!shoeIdentityLocked) {
+        setIdentityConfirmed(false);
+      }
       setAiPipelineError(null);
       lastCatalogEnrichKey.current = null;
       descriptionAutoKey.current = null;
 
-      void runCondition(mergedImages);
+      void runShoeIdentification(mergedImages);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed';
       setUploadError(msg);
@@ -442,7 +473,11 @@ export default function NewListingPage() {
     analysis: null,
   });
 
-  const agentPromptInput = (sellerNote?: string, overrides?: Partial<typeof form>) => {
+  const agentPromptInput = (
+    sellerNote?: string,
+    overrides?: Partial<typeof form>,
+    collectorNotesOverride?: string | null
+  ) => {
     const merged = { ...form, ...overrides };
     return {
       brand: merged.brand,
@@ -455,14 +490,22 @@ export default function NewListingPage() {
       listingType: merged.listing_type,
       rarity: merged.rarity || null,
       weightClass: merged.weight_class || null,
-      collectorNotes: shoeIdResult?.collector_notes?.trim() || null,
+      collectorNotes:
+        collectorNotesOverride?.trim() ||
+        catalogCollectorNotes?.trim() ||
+        null,
       sellerNote,
       conditionAnalysis: aiCondition,
     };
   };
 
   const generateDescription = useCallback(
-    async (opts?: { sellerNote?: string; silent?: boolean; overrides?: Partial<typeof form> }) => {
+    async (opts?: {
+      sellerNote?: string;
+      silent?: boolean;
+      overrides?: Partial<typeof form>;
+      collectorNotes?: string | null;
+    }) => {
       const merged = { ...form, ...opts?.overrides };
       if (!merged.model.trim()) {
         if (!opts?.silent) {
@@ -479,6 +522,30 @@ export default function NewListingPage() {
         descriptionAutoKey.current = autoKey;
       }
 
+      const catalogNotes =
+        opts?.collectorNotes?.trim() ||
+        catalogCollectorNotes?.trim() ||
+        null;
+
+      if (opts?.silent && catalogNotes) {
+        const templateDesc = sanitizeBuyerListingDescription(
+          buildListingDescription({
+            brand: merged.brand,
+            model: merged.model,
+            colorway: merged.colorway.trim() || null,
+            modelYear: merged.model_year ? Number(merged.model_year) : null,
+            size: Number(merged.size) || 10,
+            wearState: merged.wear_state,
+            condition: conditionForWearState(merged.wear_state, merged.condition),
+            analysis: { summary: catalogNotes },
+          })
+        );
+        setForm((f) => ({ ...f, description: templateDesc }));
+        setDescriptionTouched(false);
+        setAiDescriptionDraft(true);
+        return;
+      }
+
       setAgentLoading(true);
       if (!opts?.silent) setAgentReply(null);
       setError(null);
@@ -492,7 +559,9 @@ export default function NewListingPage() {
             messages: [
               {
                 role: 'user',
-                content: buildListingAgentPrompt(agentPromptInput(opts?.sellerNote, opts?.overrides)),
+                content: buildListingAgentPrompt(
+                  agentPromptInput(opts?.sellerNote, opts?.overrides, opts?.collectorNotes)
+                ),
               },
             ],
           }),
@@ -606,11 +675,14 @@ export default function NewListingPage() {
   );
 
   const runCatalogEnrich = useCallback(
-    async (overrides?: Partial<typeof form>): Promise<Partial<typeof form>> => {
+    async (
+      overrides?: Partial<typeof form>,
+      opts?: { overwriteCatalogFields?: boolean }
+    ): Promise<{ patch: Partial<typeof form>; collectorNotes: string | null }> => {
       const merged = { ...form, ...overrides };
       const brand = merged.brand.trim();
       const model = merged.model.trim();
-      if (!brand || model.length < 2) return {};
+      if (!brand || model.length < 2) return { patch: {}, collectorNotes: null };
 
       try {
         const id = await ensureDraft();
@@ -628,19 +700,28 @@ export default function NewListingPage() {
         const data = await res.json();
         if (!res.ok) {
           setAiPipelineError(data.error || 'Could not look up shoe details');
-          return {};
+          setCatalogCollectorNotes(null);
+          return { patch: {}, collectorNotes: null };
         }
+
+        const collectorNotes =
+          typeof data.collector_notes === 'string' && data.collector_notes.trim()
+            ? data.collector_notes.trim()
+            : null;
+        setCatalogCollectorNotes(collectorNotes);
 
         const enrichment: ListingEnrichment = {
           model_year: data.model_year ?? undefined,
           weight_class: data.weight_class ?? undefined,
           rarity: data.rarity ? normalizeMarketRarity(data.rarity) ?? undefined : undefined,
         };
-        const patch = enrichmentToFormPatch(enrichment, merged, { fillEmptyOnly: true });
+        const patch = enrichmentToFormPatch(enrichment, merged, {
+          fillEmptyOnly: !opts?.overwriteCatalogFields,
+        });
         if (Object.keys(patch).length) mergeFormPatch(patch);
-        return patch;
+        return { patch, collectorNotes };
       } catch {
-        return {};
+        return { patch: {}, collectorNotes: null };
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -683,56 +764,70 @@ export default function NewListingPage() {
     [form, mergeFormPatch]
   );
 
-  const runCondition = useCallback(async (imageOverride?: ListingImage[]) => {
+  const runShoeIdentification = useCallback(async (imageOverride?: ListingImage[]) => {
+    if (pipelineRunning.current || shoeIdentityLocked) return;
+    const imageList = imageOverride ?? images;
+    if (!imageList.length) return;
+
+    pipelineRunning.current = true;
+    setIdentifyingShoe(true);
+    setAiPipelineError(null);
+    setError(null);
+    try {
+      const id = await ensureDraft();
+      const data = await identifyListingShoe({
+        listingId: id,
+        images: imageList.map((i) => i.public_url),
+        brandHint: form.brand.trim() || undefined,
+        modelHint: form.model.trim() || undefined,
+      });
+      const result = data.result as ShoeIdResult;
+      setShoeIdResult(result);
+      if (data.autoApplyRecommended !== false) {
+        const shoeOverrides = enrichmentToFormPatch(
+          { brand: result.brand, model: result.model },
+          form
+        );
+        if (Object.keys(shoeOverrides).length) mergeFormPatch(shoeOverrides);
+        setShoeIdAutoApplied(true);
+      }
+      if (shouldAutoConfirmIdentity({ catalogMatchId: data.catalogMatchId, result })) {
+        confirmIdentity();
+      }
+      setUploadError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Shoe identification failed';
+      setAiPipelineError(msg);
+      setError(msg);
+    } finally {
+      setIdentifyingShoe(false);
+      pipelineRunning.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.brand, form.model, images, listingId, mergeFormPatch, shoeIdentityLocked, confirmIdentity]);
+
+  const runMetadataPipeline = useCallback(async (opts?: { overwriteCatalogFields?: boolean }) => {
     if (pipelineRunning.current) return;
+    const brand = form.brand.trim();
+    const model = form.model.trim();
+    if (!brand || model.length < 2) return;
+
     pipelineRunning.current = true;
     setAnalyzing(true);
+    setCatalogEnriching(true);
     setAiPipelineError(null);
     setError(null);
     let overrides: Partial<typeof form> = {};
-    const imageList = imageOverride ?? images;
     const formBase = () => ({ ...form, ...overrides });
     try {
       const id = await ensureDraft();
+      const enrichKey = `${brand}|${model}|${form.wear_state}|${images.length}`;
 
-      if (imageList.length > 0) {
-        setIdentifyingShoe(true);
-        try {
-          const data = await identifyListingShoe({
-            listingId: id,
-            images: imageList.map((i) => i.public_url),
-            brandHint: form.brand.trim() || undefined,
-            modelHint: form.model.trim() || undefined,
-          });
-          const result = data.result as ShoeIdResult;
-          setShoeIdResult(result);
-          const colorFamily =
-            inferColorFamilyFromColorway(result.colorway?.trim() || '') || '';
-          const catalogExtra = data.catalogEnrichment as ListingEnrichment | null | undefined;
-          const enrichment = enrichmentFromShoeIdResult(result, colorFamily);
-          const mergedEnrichment: ListingEnrichment = {
-            ...enrichment,
-            model_year: enrichment.model_year ?? catalogExtra?.model_year ?? undefined,
-            weight_class: catalogExtra?.weight_class ?? enrichment.weight_class,
-            rarity: enrichment.rarity ?? catalogExtra?.rarity ?? undefined,
-          };
-          const shoeOverrides = enrichmentToFormPatch(mergedEnrichment, formBase());
-          overrides = { ...overrides, ...shoeOverrides };
-          mergeFormPatch(shoeOverrides);
-          setShoeIdAutoApplied(true);
-          setUploadError(null);
-          lastCatalogEnrichKey.current = `${formBase().brand.trim()}|${formBase().model.trim()}`;
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Shoe identification failed';
-          setAiPipelineError(msg);
-          setError(msg);
-        } finally {
-          setIdentifyingShoe(false);
-        }
-      }
-
-      const catalogPatch = await runCatalogEnrich(overrides);
+      const { patch: catalogPatch, collectorNotes } = await runCatalogEnrich(undefined, {
+        overwriteCatalogFields: opts?.overwriteCatalogFields ?? true,
+      });
       overrides = { ...overrides, ...catalogPatch };
+      lastCatalogEnrichKey.current = enrichKey;
 
       await fetch(`/api/market/listings/${id}`, {
         method: 'PATCH',
@@ -740,102 +835,69 @@ export default function NewListingPage() {
         body: JSON.stringify(draftPayload(overrides)),
       });
 
-      const conditionPatch = await runPhotoCondition(id, overrides);
-      overrides = { ...overrides, ...conditionPatch };
+      if (images.length > 0) {
+        const conditionPatch = await runPhotoCondition(id, overrides);
+        overrides = { ...overrides, ...conditionPatch };
+      }
 
       const listingType = formBase().listing_type;
-      if (listingType !== 'collection') {
+      if (listingType !== 'collection' && images.length > 0) {
         await runPrice(overrides);
       }
       await runRarity(id, overrides);
 
       const modelAfterId = formBase().model.trim();
-      if (!descriptionTouched && !form.description.trim() && modelAfterId) {
-        await generateDescription({ silent: true, overrides });
+      if (!descriptionTouched && modelAfterId) {
+        descriptionAutoKey.current = null;
+        await generateDescription({ silent: true, overrides, collectorNotes });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
       setAnalyzing(false);
+      setCatalogEnriching(false);
       pipelineRunning.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    form.wear_state,
-    form.listing_type,
-    form.model,
-    form.description,
+    form,
+    images.length,
     listingId,
-    images,
     runPrice,
     descriptionTouched,
     generateDescription,
     runRarity,
-    mergeFormPatch,
     runCatalogEnrich,
     runPhotoCondition,
   ]);
 
   useEffect(() => {
-    if (!imageKey || uploading || analyzing || identifyingShoe || pipelineRunning.current) return;
-    const key = `${imageKey}|${form.wear_state}`;
+    if (!imageKey || uploading || identifyingShoe || pipelineRunning.current) return;
+    if (shoeIdentityLocked) return;
+    const key = imageKey;
     if (lastAutoKey.current === key) return;
 
     const timer = setTimeout(() => {
       lastAutoKey.current = key;
-      void runCondition();
+      void runShoeIdentification();
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [imageKey, form.wear_state, uploading, analyzing, identifyingShoe, runCondition]);
+  }, [imageKey, uploading, identifyingShoe, runShoeIdentification, shoeIdentityLocked]);
 
   useEffect(() => {
+    if (!identityConfirmed) return;
     const brand = form.brand.trim();
     const model = form.model.trim();
-    if (!brand || model.length < 3) return;
+    if (!brand || model.length < 2) return;
     if (uploading || analyzing || identifyingShoe || pipelineRunning.current || catalogEnriching) return;
 
-    const key = `${brand}|${model}`;
+    const key = `${brand}|${model}|${form.wear_state}|${images.length}`;
     if (lastCatalogEnrichKey.current === key) return;
 
     if (catalogEnrichTimer.current) clearTimeout(catalogEnrichTimer.current);
     catalogEnrichTimer.current = setTimeout(() => {
-      lastCatalogEnrichKey.current = key;
-      void (async () => {
-        setCatalogEnriching(true);
-        try {
-          const patch = await runCatalogEnrich();
-          const id = listingId ?? await ensureDraft();
-          let overrides: Partial<typeof form> = { ...patch };
-
-          await fetch(`/api/market/listings/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(draftPayload(overrides)),
-          });
-
-          if (images.length > 0) {
-            const conditionPatch = await runPhotoCondition(id, overrides);
-            overrides = { ...overrides, ...conditionPatch };
-            if (overrides.condition) {
-              await fetch(`/api/market/listings/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(draftPayload(overrides)),
-              });
-            }
-          }
-
-          await runRarity(id, overrides);
-
-          const listingType = overrides.listing_type ?? form.listing_type;
-          if (listingType !== 'collection' && images.length > 0) {
-            await runPrice(overrides);
-          }
-        } finally {
-          setCatalogEnriching(false);
-        }
-      })();
+      void runMetadataPipeline({ overwriteCatalogFields: true });
     }, 900);
 
     return () => {
@@ -843,21 +905,16 @@ export default function NewListingPage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    identityConfirmed,
     form.brand,
     form.model,
+    form.wear_state,
+    images.length,
     uploading,
     analyzing,
     identifyingShoe,
     catalogEnriching,
-    descriptionTouched,
-    form.description,
-    runCatalogEnrich,
-    runRarity,
-    generateDescription,
-    runPhotoCondition,
-    runPrice,
-    images.length,
-    listingId,
+    runMetadataPipeline,
   ]);
 
   const applyAiGrade = () => {
@@ -1039,7 +1096,10 @@ export default function NewListingPage() {
             <p className="text-sm text-destructive">{aiPipelineError}</p>
             <button
               type="button"
-              onClick={() => void runCondition()}
+              onClick={() => {
+                if (identityConfirmed) void runMetadataPipeline({ overwriteCatalogFields: true });
+                else void runShoeIdentification();
+              }}
               className="text-xs text-accent hover:text-accent/80"
             >
               Retry AI analysis
@@ -1062,7 +1122,7 @@ export default function NewListingPage() {
             externalResult={shoeIdResult}
             externalLoading={identifyingShoe}
             autoApplied={shoeIdAutoApplied}
-            userLocked={false}
+            userLocked={shoeIdentityLocked}
             formBrand={form.brand}
             formModel={form.model}
             onAccept={(payload, opts) => {
@@ -1075,34 +1135,46 @@ export default function NewListingPage() {
               const shoeOverrides = enrichmentToFormPatch(enrichment, form, opts);
               mergeFormPatch(shoeOverrides);
               if (!opts?.colorwayOnly) {
+                confirmIdentity();
                 setShoeIdAutoApplied(true);
-                lastCatalogEnrichKey.current = `${shoeOverrides.brand?.trim() ?? form.brand}|${shoeOverrides.model?.trim() ?? form.model}`;
-              }
-              if (form.listing_type !== 'collection') {
-                void runPrice(shoeOverrides);
-              } else if (listingId) {
-                void runRarity(listingId, shoeOverrides);
               }
             }}
           />
         ) : null}
 
+        {shoeIdResult && !identityConfirmed && !identifyingShoe ? (
+          <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 space-y-2">
+            <p className="text-sm text-foreground">
+              AI suggested <span className="font-medium">{form.brand} {form.model}</span>.
+              Fix brand or model if wrong, then continue.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              className="w-full bg-accent text-accent-foreground"
+              onClick={() => confirmIdentity()}
+            >
+              Looks correct — fill in details
+            </Button>
+          </div>
+        ) : null}
+
+        {identityConfirmed && (catalogEnriching || analyzing) ? (
+          <p className="text-xs text-muted-foreground px-1">
+            Pulling catalog details, condition, and description…
+          </p>
+        ) : null}
+
         {images.length > 0 && identifyingShoe ? (
-          <AiSpinner label="AI recognizing brand, model, and colorway…" />
+          <AiSpinner label="AI recognizing brand and model…" />
         ) : null}
 
         {images.length > 0 && analyzing && !identifyingShoe ? (
-          <AiSpinner label="AI grading condition, rarity, and writing description…" />
+          <AiSpinner label="AI grading condition and writing description…" />
         ) : null}
 
         {catalogEnriching && !analyzing && !identifyingShoe ? (
-          <AiSpinner
-            label={
-              images.length > 0
-                ? 'AI looking up details, grading condition, and writing description…'
-                : 'AI looking up shoe details…'
-            }
-          />
+          <AiSpinner label="Looking up catalog details, rarity, and description…" />
         ) : null}
 
         {aiCondition && !analyzing ? (
@@ -1171,7 +1243,7 @@ export default function NewListingPage() {
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-1.5 text-sm font-medium">
               <Sparkles className="h-4 w-4 text-accent" />
-              <span>Market price range</span>
+              <span>Guild Market value</span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center text-sm">
               <div className="rounded-lg border border-border px-2 py-3">
@@ -1253,8 +1325,8 @@ export default function NewListingPage() {
               isAdmin={isAdmin}
               onBrandAdded={(_brand, brands) => setBrandOptions(brands)}
               onChange={(brand) => {
-                lastCatalogEnrichKey.current = null;
-                setForm({ ...form, brand, rarity: '' });
+                handleIdentityFieldEdit();
+                setForm((f) => ({ ...f, brand, rarity: '' }));
               }}
             />
           </div>
@@ -1264,9 +1336,8 @@ export default function NewListingPage() {
               className="mt-1 h-11"
               value={form.model}
               onChange={(e) => {
-                lastCatalogEnrichKey.current = null;
-                descriptionAutoKey.current = null;
-                setForm({ ...form, model: e.target.value, rarity: '' });
+                handleIdentityFieldEdit();
+                setForm((f) => ({ ...f, model: e.target.value, rarity: '' }));
               }}
               placeholder="JB Elite III"
             />

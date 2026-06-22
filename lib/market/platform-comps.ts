@@ -72,8 +72,8 @@ export async function fetchGuildPlatformComps(
   const { data: similarListings } = await admin
     .from('market_listings')
     .select('id')
-    .eq('brand', brand)
-    .ilike('model', `%${model}%`);
+    .ilike('brand', brand.trim())
+    .ilike('model', `%${model.trim()}%`);
 
   const similarIds = (similarListings ?? []).map((l) => l.id);
   if (!similarIds.length) return [];

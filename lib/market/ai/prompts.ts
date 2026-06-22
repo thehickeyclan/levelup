@@ -36,7 +36,7 @@ Reference bands for USED major brands (Asics/Nike/Adidas) when comps are sparse:
 - wrestle 6–7 (good practice wear): often $70–$115
 - wrestle 3–4: often $35–$65
 Discontinued models (e.g. 2016 Asics JB Elite III) often sit in the upper half of those bands. BNIB highest; new without box below BNIB.
-Return ONLY valid JSON: suggested_low_cents, suggested_mid_cents, suggested_high_cents, confidence (high|medium|low), confidence_note, comps (array of {source: guild|catalog|ebay, price_cents, label, date?}), market_note.`;
+Return ONLY valid JSON: suggested_low_cents, suggested_mid_cents, suggested_high_cents, confidence (high|medium|low), confidence_note, comps (array of {source: guild|guild_asking|catalog|ebay, price_cents, label, date?}), market_note.`;
 
 /** Shown on seller create/edit flow only — AI tools are private. */
 export const SELLER_AI_DISCLAIMER =

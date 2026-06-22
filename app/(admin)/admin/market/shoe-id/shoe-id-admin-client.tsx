@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Loader2, Sparkles, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -826,8 +826,10 @@ function CatalogForm({
           </button>
         </div>
         <p className="text-[10px] text-[#666]">
-          Real pairs that sold at a known price — include size and colorway when you have them (a size 7
-          Cherry Freek is not the same comp as a 10.5).
+          Real pairs that sold at a known price — Instagram resale comps belong here (source: Instagram
+          @seller). Sellers see these as documented resale guidance when they list the same model.
+          Include size and colorway when you have them (a size 7 Cherry Freek is not the same comp as a
+          10.5).
           {showSaleCompsHint ? ' Training photos link to the first sale when you save.' : ''}
         </p>
         {form.saleComps.map((comp, index) => (
@@ -1002,6 +1004,21 @@ function CatalogForm({
 export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogRow[] }) {
   const [tab, setTab] = useState<'train' | 'catalog' | 'stats'>('train');
   const [catalog, setCatalog] = useState(initialCatalog);
+  const sortedCatalog = useMemo(() => {
+    const needsReview = (source: string | null) =>
+      source === 'showcase' || source === 'community';
+    return [...catalog].sort((a, b) => {
+      if (a.verified !== b.verified) return a.verified ? 1 : -1;
+      if (needsReview(a.source) !== needsReview(b.source)) {
+        return needsReview(a.source) ? -1 : 1;
+      }
+      return a.brand.localeCompare(b.brand) || a.model.localeCompare(b.model);
+    });
+  }, [catalog]);
+  const pendingReviewCount = useMemo(
+    () => catalog.filter((row) => !row.verified && (row.source === 'showcase' || row.source === 'community')).length,
+    [catalog]
+  );
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
@@ -1478,6 +1495,12 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
 
       {tab === 'catalog' ? (
         <div className="space-y-4">
+          {pendingReviewCount > 0 ? (
+            <p className="text-sm text-amber-400/90 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+              {pendingReviewCount} community listing{pendingReviewCount !== 1 ? 's' : ''} added
+              catalog data — review unverified entries first (source: showcase / community).
+            </p>
+          ) : null}
           <div className="flex gap-2 flex-wrap">
             <label className="cursor-pointer">
               <span className="inline-flex items-center rounded-md border border-[#333] px-3 py-1.5 text-sm">
@@ -1528,12 +1551,15 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                 </tr>
               </thead>
               <tbody>
-                {catalog.map((row) => (
+                {sortedCatalog.map((row) => (
                   <tr
                     key={row.id}
                     className={cn(
                       'border-b border-[#1a1a1a]',
-                      editingCatalogId === row.id && 'bg-[#1a1a1a]'
+                      editingCatalogId === row.id && 'bg-[#1a1a1a]',
+                      !row.verified &&
+                        (row.source === 'showcase' || row.source === 'community') &&
+                        'bg-amber-500/5'
                     )}
                   >
                     <td className="p-2">{row.brand}</td>
@@ -1580,7 +1606,7 @@ export function ShoeIdAdminClient({ initialCatalog }: { initialCatalog: CatalogR
                 ))}
               </tbody>
             </table>
-            {catalog.length === 0 ? (
+            {sortedCatalog.length === 0 ? (
               <p className="p-4 text-sm text-[#666] text-center">No catalog entries yet.</p>
             ) : null}
           </div>

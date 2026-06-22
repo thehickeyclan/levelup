@@ -9,10 +9,12 @@ import { wearStateLabel } from '@/lib/market/wear-state';
 import { applyUsedWrestlePriceFloor, applySizeAndCatalogPricing } from '@/lib/market/price-heuristics';
 import { buildCatalogPricingContext } from '@/lib/market/catalog-pricing';
 import {
-  catalogSaleCompsToPriceComps,
-  fetchGuildPlatformComps,
   formatGuildCompSummary,
 } from '@/lib/market/platform-comps';
+import {
+  fetchMarketValueData,
+  priceAnalysisFromMarketValue,
+} from '@/lib/market/market-value';
 
 export async function GET(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -117,9 +119,63 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const guildComps = await fetchGuildPlatformComps(admin, brand, model, size);
-  const catalogContext = await buildCatalogPricingContext(admin, brand, model, colorway, size);
-  const catalogComps = catalogSaleCompsToPriceComps(catalogContext.relevantSaleComps);
+  const {
+    soldComps: guildComps,
+    askingComps,
+    documentedComps: catalogComps,
+    marketValue,
+    colorwayProfile,
+  } = await fetchMarketValueData(admin, {
+    brand,
+    model,
+    size,
+    colorway,
+    excludeListingId: listingId,
+  });
+
+  const compSummaryBase = [
+    `Guild completed sales (${guildComps.length}): ${formatGuildCompSummary(guildComps)}.`,
+    askingComps.length
+      ? `Guild active listings (${askingComps.length}): ${askingComps.map((c) => `$${Math.round(c.price_cents / 100)} (${c.label})`).join(', ')}.`
+      : 'Guild active listings: none for this model right now.',
+    catalogComps.length
+      ? `Documented resale sales (${catalogComps.length}, Instagram/handbook): ${catalogComps.map((c) => `$${Math.round(c.price_cents / 100)} (${c.label})`).join(', ')}.`
+      : 'Documented resale sales: none for this colorway/size in admin catalog yet.',
+  ].join(' ');
+
+  if (marketValue) {
+    const guidanceComps = [...guildComps, ...askingComps, ...catalogComps];
+    let finalPrice = priceAnalysisFromMarketValue(marketValue, guidanceComps);
+    finalPrice = applySizeAndCatalogPricing(finalPrice, {
+      sizeUs: size,
+      colorwayProfile,
+    });
+    finalPrice = applyUsedWrestlePriceFloor(finalPrice, {
+      wearState,
+      wrestleScore: aiRow?.condition_score != null ? Number(aiRow.condition_score) : null,
+      hasComps: guidanceComps.length > 0,
+      brand,
+    });
+    finalPrice = {
+      ...finalPrice,
+      comps: guidanceComps.slice(0, 15),
+    };
+
+    await admin.from('market_ai_analysis').upsert({
+      listing_id: listingId,
+      price_suggested_low_cents: finalPrice.suggested_low_cents,
+      price_suggested_mid_cents: finalPrice.suggested_mid_cents,
+      price_suggested_high_cents: finalPrice.suggested_high_cents,
+      price_confidence: finalPrice.confidence,
+      price_confidence_note: finalPrice.confidence_note,
+      price_comps: finalPrice.comps,
+      price_market_note: finalPrice.market_note,
+      model_used: 'guild_market_value',
+      analyzed_at: new Date().toISOString(),
+    }, { onConflict: 'listing_id' });
+
+    return NextResponse.json({ price: finalPrice, remaining: usage.remaining });
+  }
 
   const ebayQuery = [brand, model, modelYear ? String(modelYear) : ''].filter(Boolean).join(' ');
   let ebayComps: { source: 'ebay'; price_cents: number; label: string }[] = [];
@@ -134,14 +190,9 @@ export async function POST(req: NextRequest) {
     /* ignore */
   }
 
-  const guidanceComps = [...guildComps, ...catalogComps];
+  const guidanceComps = [...guildComps, ...askingComps, ...catalogComps];
   const allComps = [...guidanceComps, ...ebayComps];
-  const compSummary = [
-    `Guild platform sales (${guildComps.length}): ${formatGuildCompSummary(guildComps)}.`,
-    catalogComps.length
-      ? `Documented catalog sales (${catalogComps.length}): ${catalogComps.map((c) => `$${Math.round(c.price_cents / 100)} (${c.label})`).join(', ')}.`
-      : 'Documented catalog sales: none for this colorway/size.',
-  ].join(' ');
+  const compSummary = compSummaryBase;
 
   const aiBits: string[] = [];
   if (aiRow?.condition_score != null) {
@@ -172,7 +223,7 @@ export async function POST(req: NextRequest) {
           ? 'Pricing instruction: weight wrestle-ready score heavily; appearance is secondary for Guild buyers.'
           : '',
         description ? `Description: ${description.slice(0, 400)}` : 'No description.',
-        ...catalogContext.promptLines,
+        ...(await buildCatalogPricingContext(admin, brand, model, colorway, size)).promptLines,
         compSummary,
         `eBay comps: ${ebayComps.length}.`,
       ].join('\n'),
@@ -214,7 +265,7 @@ export async function POST(req: NextRequest) {
 
   finalPrice = applySizeAndCatalogPricing(finalPrice, {
     sizeUs: size,
-    colorwayProfile: catalogContext.colorwayProfile,
+    colorwayProfile,
   });
 
   finalPrice = applyUsedWrestlePriceFloor(finalPrice, {

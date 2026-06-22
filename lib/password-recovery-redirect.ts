@@ -7,18 +7,16 @@
  * the Supabase recovery email template uses TokenHash (see supabase/scripts/).
  */
 export function getPasswordRecoveryRedirectTo(): string {
-  const next = encodeURIComponent('/reset-password');
-
   if (typeof window !== 'undefined') {
-    return `${window.location.origin}/auth/confirm?next=${next}`;
+    return `${window.location.origin}/auth/confirm`;
   }
 
   const explicit =
     typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL
       ? process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, '')
       : '';
-  if (explicit) return `${explicit}/auth/confirm?next=${next}`;
-  return `/auth/confirm?next=${next}`;
+  if (explicit) return `${explicit}/auth/confirm`;
+  return '/auth/confirm';
 }
 
 export const PASSWORD_RESET_ERROR_MESSAGES: Record<string, string> = {

@@ -4,14 +4,14 @@ Isabella (and others) hit "invalid link" loops when the recovery email uses PKCE
 
 ## 1. Redirect URLs (Supabase → Authentication → URL Configuration)
 
-Add every production origin you use:
+Add every production origin you use (wildcards cover query strings):
 
-- `https://www.wrestlingguild.com/auth/confirm`
-- `https://www.wrestlingguild.com/reset-password`
-- `https://wrestlingguild.com/auth/confirm` (if apex is used)
-- `https://wrestlingguild.com/reset-password`
-- `http://localhost:3000/auth/confirm` (local dev)
-- `http://localhost:3000/reset-password`
+- `https://www.wrestlingguild.com/auth/confirm**`
+- `https://www.wrestlingguild.com/reset-password**`
+- `https://wrestlingguild.com/auth/confirm**` (if apex is used)
+- `https://wrestlingguild.com/reset-password**`
+- `http://localhost:3000/auth/confirm**` (local dev)
+- `http://localhost:3000/reset-password**`
 
 ## 2. Recovery email template (Supabase → Authentication → Email Templates → Reset password)
 

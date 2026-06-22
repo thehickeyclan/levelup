@@ -4,11 +4,48 @@ import { createClient } from '@/lib/supabase/server';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 
 /**
+ * Supabase recovery often lands with tokens in the URL **hash** (#access_token=…).
+ * Hashes never reach the server — only the browser sees them. Forward to /reset-password
+ * so the client can call setSession (see reset-password/page.tsx).
+ */
+function forwardHashToResetPassword(req: NextRequest): NextResponse {
+  const target = new URL('/reset-password', req.url);
+  const next = req.nextUrl.searchParams.get('next')?.trim();
+  if (next?.startsWith('/') && !next.startsWith('//')) {
+    target.searchParams.set('next', next);
+  }
+  const qs = target.searchParams.toString();
+  const path = qs ? `${target.pathname}?${qs}` : target.pathname;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Redirecting…</title>
+  <script>
+    window.location.replace(${JSON.stringify(path)} + window.location.hash);
+  </script>
+</head>
+<body>
+  <p>Redirecting…</p>
+  <p><a href="${path}">Continue</a></p>
+</body>
+</html>`;
+  return new NextResponse(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+/**
  * Password recovery / email confirm landing.
  *
  * Handles:
  * - token_hash + type=recovery (works in any browser — set Supabase recovery email template)
  * - PKCE code (works when the same browser requested the reset)
+ * - hash tokens (default Supabase email → forward to /reset-password client handler)
  */
 export async function GET(req: NextRequest) {
   const hostname = resolveHostnameFromHeaders(req.headers);
@@ -56,5 +93,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL(safeNext, req.url));
   }
 
-  return fail('missing_token');
+  // Default Supabase recovery email puts session tokens in the hash, not query params.
+  return forwardHashToResetPassword(req);
 }

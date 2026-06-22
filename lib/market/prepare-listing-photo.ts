@@ -51,11 +51,42 @@ async function normalizeListingPhotoFile(file: File): Promise<File> {
   return file;
 }
 
-/** Sequential — parallel canvas work on iOS often drops photos 2+ from multi-select batches. */
-export async function prepareListingPhotos(files: File[]): Promise<File[]> {
+export type PrepareListingPhotosResult = {
+  files: File[];
+  prepareErrors: string[];
+};
+
+/** Drop duplicate picker entries (some mobile galleries repeat the same file). */
+export function dedupeListingPhotoFiles(files: File[]): File[] {
+  const seen = new Set<string>();
   const out: File[] = [];
   for (const file of files) {
-    out.push(await prepareListingPhoto(file));
+    const key = `${file.name}|${file.size}|${file.lastModified}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(file);
   }
   return out;
+}
+
+/** Sequential — parallel canvas work on iOS often drops photos 2+ from multi-select batches. */
+export async function prepareListingPhotos(files: File[]): Promise<PrepareListingPhotosResult> {
+  const unique = dedupeListingPhotoFiles(files);
+  const out: File[] = [];
+  const prepareErrors: string[] = [];
+
+  for (let i = 0; i < unique.length; i++) {
+    try {
+      out.push(await prepareListingPhoto(unique[i]));
+      if (i < unique.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    } catch (err) {
+      prepareErrors.push(
+        `Photo ${i + 1}: ${err instanceof Error ? err.message : 'could not process'}`
+      );
+    }
+  }
+
+  return { files: out, prepareErrors };
 }

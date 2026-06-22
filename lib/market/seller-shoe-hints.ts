@@ -88,21 +88,12 @@ export function formatSellerShoeHintsForPrompt(hints: SellerShoeHint[]): string 
     return `- ${h.brand} ${h.model}${yr}${cw}`;
   });
 
-  const dominant = dominantSellerListing(hints);
-  const lockNote =
-    dominant && (hints.filter((h) => h.brand.toLowerCase() === dominant.brand.toLowerCase()).length >= 2)
-      ? `
-STRONG PRIOR: This seller has listed ${dominant.brand} ${dominant.model} multiple times. Unless the photos
-clearly show a different brand (different logo, sole, or construction), treat this as another colorway of
-${dominant.brand} ${dominant.model}. Do NOT swap to RUDIS, Adidas, or another brand because of a bird logo
-or similar graphic — Cronin uses bird imagery; trust seller history and sole/panel construction.
-`
-      : '';
-
   return `
-SELLER LISTING HISTORY (same person uploading now — strong prior, not ground truth):
-They have listed these pairs before. If the photos look like the same model line, prefer matching
-brand/model from this history over a generic guess (e.g. do not swap Cronin for RUDIS when history is Cronin).
+SELLER LISTING HISTORY (weak background only — current photos are ground truth):
+This seller has listed these pairs before. Use history only when the photos clearly match that
+brand/model (logo, sole tread, panel construction). If photos show a different brand or model,
+trust the photos — do NOT default to history. Bird logos appear on RUDIS, Cronin, and others;
+identify from sole tread and panel shape, not mascot alone.
 ${lines.join('\n')}
-${lockNote}`;
+`;
 }

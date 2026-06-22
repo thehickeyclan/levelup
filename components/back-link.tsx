@@ -36,7 +36,7 @@ export function BackLink({ fallbackHref, label, className, hideIcon, preferBrows
           router.back();
           return;
         }
-        router.push(fallbackHref);
+        router.replace(fallbackHref);
       }}
       className={cn(
         'inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground text-left',

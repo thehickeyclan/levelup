@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { reorderListingImagesForPrimary } from '@/lib/market/listing-images';
+import { normalizeListingImageOrders } from '@/lib/market/normalize-listing-image-orders';
 
 export async function POST(
   _req: NextRequest,
@@ -48,7 +49,15 @@ export async function POST(
     }
   }
 
+  await normalizeListingImageOrders(admin, listingId);
+
+  const { data: normalized } = await admin
+    .from('market_listing_images')
+    .select('id, display_order')
+    .eq('listing_id', listingId)
+    .order('display_order', { ascending: true });
+
   return NextResponse.json({
-    images: reordered.map((r) => ({ id: r.id, display_order: r.display_order })),
+    images: (normalized ?? reordered).map((r) => ({ id: r.id, display_order: r.display_order })),
   });
 }

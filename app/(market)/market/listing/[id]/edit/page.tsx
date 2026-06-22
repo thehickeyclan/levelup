@@ -47,6 +47,7 @@ import {
 } from '@/components/market/listing-type-quick-actions';
 import {
   fetchListingImagesForClient,
+  normalizeListingImagesForClient,
   listingImagesFromApiRow,
   type MarketListingImageRow,
 } from '@/lib/market/listing-images';
@@ -101,6 +102,7 @@ export default function EditListingPage() {
 
   const shoeIdUserLocked = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoUploadLock = useRef(false);
 
   const [form, setForm] = useState({
     brand: 'Adidas',
@@ -332,16 +334,23 @@ export default function EditListingPage() {
   const onPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files ?? []);
     if (!rawFiles.length) return;
+    if (photoUploadLock.current) return;
+    photoUploadLock.current = true;
     setUploadError(null);
     setUploading(true);
     try {
       setUploadProgress('Preparing photos…');
-      const files = await prepareListingPhotos(rawFiles);
-      const uploaded: ListingImage[] = [];
-      const uploadErrors: string[] = [];
+      const { files, prepareErrors } = await prepareListingPhotos(rawFiles);
+
+      if (!files.length) {
+        throw new Error(prepareErrors[0] || 'Could not read these photos — try again or use JPEG/PNG.');
+      }
+
+      let serverCount = (await fetchListingImagesForClient(listingId)).length;
+      const uploadErrors: string[] = [...prepareErrors];
 
       for (let i = 0; i < files.length; i++) {
-        if (images.length + uploaded.length >= MAX_PHOTOS) {
+        if (serverCount >= MAX_PHOTOS) {
           setUploadError(`Maximum ${MAX_PHOTOS} photos per listing.`);
           break;
         }
@@ -358,11 +367,11 @@ export default function EditListingPage() {
           continue;
         }
         if (data.image) {
-          uploaded.push(data.image as ListingImage);
+          serverCount += 1;
         }
       }
 
-      const refreshed = await fetchListingImagesForClient(listingId);
+      const refreshed = await normalizeListingImagesForClient(listingId);
       setImages(refreshed);
 
       if (!refreshed.length && uploadErrors.length) {
@@ -384,6 +393,7 @@ export default function EditListingPage() {
     } finally {
       setUploading(false);
       setUploadProgress(null);
+      photoUploadLock.current = false;
       e.target.value = '';
     }
   };
@@ -396,7 +406,7 @@ export default function EditListingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not remove photo');
-      setImages((prev) => prev.filter((img) => img.id !== imageId));
+      await fetchListingImagesForClient(listingId).then(setImages);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Could not remove photo');
     }
@@ -441,12 +451,26 @@ export default function EditListingPage() {
 
   const save = async () => {
     setError(null);
-    if (status === 'active' && images.length === 0) {
+    const expectedPhotoCount = images.length;
+    if (status === 'active' && expectedPhotoCount === 0) {
       setError('Add at least one photo before saving.');
       return;
     }
     setSaving(true);
     try {
+      const savedImages = await normalizeListingImagesForClient(listingId);
+      setImages(savedImages);
+      if (status === 'active' && savedImages.length === 0) {
+        setError('Add at least one photo before saving.');
+        return;
+      }
+      if (expectedPhotoCount > 0 && savedImages.length < expectedPhotoCount) {
+        setError(
+          `Only ${savedImages.length} of ${expectedPhotoCount} photos saved. Re-add missing photos before saving.`
+        );
+        return;
+      }
+
       const description =
         form.description.trim() || buildListingDescription(descriptionInput());
       const res = await fetch(`/api/market/listings/${listingId}`, {
@@ -587,7 +611,7 @@ export default function EditListingPage() {
               lockShoeIdentity();
               setForm({ ...form, model: e.target.value, rarity: '' });
             }}
-            placeholder="Cronin 1"
+            placeholder="Inflict 3"
           />
         </div>
         <ListingRarityField

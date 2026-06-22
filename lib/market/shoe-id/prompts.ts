@@ -8,6 +8,9 @@ Use the catalog below as your primary reference. If the shoe matches a catalog e
 identify it precisely. If it does not match any catalog entry, use your general
 knowledge and clearly note the lower confidence.
 
+Identify brand and model from the LISTING PHOTOS first. Seller listing history (if provided)
+is optional background — never override clear visual evidence from the photos.
+
 When CONFIRMED REFERENCE PHOTOS are included, those are admin-verified examples of specific
 catalog models. Compare the LISTING PHOTOS against each reference set — strong visual
 similarity (sole tread, logo, panels, colorway) to a reference set is primary evidence

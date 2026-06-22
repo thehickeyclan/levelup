@@ -12,7 +12,6 @@ import { ShoeIdResultSchema } from '@/lib/market/shoe-id/schemas';
 import { shoeIdServerEnabled } from '@/lib/market/shoe-id/feature-flag';
 import { normalizeMarketBrand } from '@/lib/market/brands';
 import {
-  dominantSellerBrand,
   dominantSellerListing,
   fetchSellerShoeHints,
   formatSellerShoeHintsForPrompt,
@@ -70,16 +69,10 @@ export async function POST(req: NextRequest) {
   const sellerHints = await fetchSellerShoeHints(supabase, user!.id);
   const sellerContext = formatSellerShoeHintsForPrompt(sellerHints);
   const dominantListing = dominantSellerListing(sellerHints);
-  const brandHint =
-    body.brandHint?.trim() ||
-    dominantSellerBrand(sellerHints) ||
-    undefined;
-  const modelHint =
-    body.modelHint?.trim() ||
-    (dominantListing && brandHint &&
-    dominantListing.brand.toLowerCase() === brandHint.toLowerCase()
-      ? dominantListing.model
-      : undefined);
+
+  /** Only user-typed brand/model bias catalog + reference photos — never seller history. */
+  const brandHint = body.brandHint?.trim() || undefined;
+  const modelHint = body.modelHint?.trim() || undefined;
 
   const catalogContext = await getCatalogContext(supabase, brandHint);
   const catalogEntries = await fetchCatalogEntries(supabase, brandHint);
@@ -177,7 +170,7 @@ export async function POST(req: NextRequest) {
     catalogMatchId,
     catalogEnrichment,
     remaining: usage.remaining,
-    sellerDominantBrand: brandHint ?? null,
+    sellerDominantBrand: dominantListing?.brand ?? null,
     sellerDominantListing: dominantListing,
     autoApplyRecommended:
       !brandHint ||

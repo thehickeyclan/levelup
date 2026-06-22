@@ -40,6 +40,7 @@ import { normalizeMarketRarity, type MarketRarity } from '@/lib/market/rarity';
 import type { PriceComp } from '@/lib/market/ai/schemas';
 import {
   fetchListingImagesForClient,
+  normalizeListingImagesForClient,
   type MarketListingImageRow,
 } from '@/lib/market/listing-images';
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
@@ -212,6 +213,7 @@ export default function NewListingPage() {
   const lastCatalogEnrichKey = useRef<string | null>(null);
   const descriptionAutoKey = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoUploadLock = useRef(false);
 
   const [form, setForm] = useState({
     title: '',
@@ -385,29 +387,58 @@ export default function NewListingPage() {
     return refreshed;
   };
 
+  const removePhoto = async (imageId: string) => {
+    if (!listingId) return;
+    setUploadError(null);
+    try {
+      const res = await fetch(`/api/market/listings/${listingId}/images/${imageId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not remove photo');
+      const refreshed = await refreshImagesFromServer(listingId);
+      if (!refreshed.length) {
+        setShoeIdResult(null);
+        setShoeIdAutoApplied(false);
+        setAiCondition(null);
+        setAiPrice(null);
+        lastAutoKey.current = null;
+        lastCatalogEnrichKey.current = null;
+        descriptionAutoKey.current = null;
+        if (!shoeIdentityLocked) {
+          setIdentityConfirmed(false);
+        }
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Could not remove photo');
+    }
+  };
+
   const onPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files ?? []);
     if (!rawFiles.length) return;
+    if (photoUploadLock.current) return;
+    photoUploadLock.current = true;
     setError(null);
     setUploadError(null);
     setUploading(true);
     try {
-      let files: File[];
-      try {
-        setUploadProgress('Preparing photos…');
-        files = await prepareListingPhotos(rawFiles);
-      } catch {
+      setUploadProgress('Preparing photos…');
+      const { files, prepareErrors } = await prepareListingPhotos(rawFiles);
+
+      if (!files.length) {
         throw new Error(
-          'Could not read these photos. If they are iPhone HEIC, try Settings → Camera → Formats → Most Compatible.'
+          prepareErrors[0] ||
+            'Could not read these photos. If they are iPhone HEIC, try Settings → Camera → Formats → Most Compatible.'
         );
       }
 
       const id = await ensureDraft();
-      const uploaded: ListingImage[] = [];
-      const uploadErrors: string[] = [];
+      let serverCount = (await fetchListingImagesForClient(id)).length;
+      const uploadErrors: string[] = [...prepareErrors];
 
       for (let i = 0; i < files.length; i++) {
-        if (images.length + uploaded.length >= MAX_PHOTOS) {
+        if (serverCount >= MAX_PHOTOS) {
           setUploadError(`Maximum ${MAX_PHOTOS} photos per listing.`);
           break;
         }
@@ -421,11 +452,12 @@ export default function NewListingPage() {
           continue;
         }
         if (data.image) {
-          uploaded.push(data.image as ListingImage);
+          serverCount += 1;
         }
       }
 
-      const mergedImages = await refreshImagesFromServer(id);
+      const mergedImages = await normalizeListingImagesForClient(id);
+      setImages(mergedImages);
 
       if (!mergedImages.length) {
         throw new Error(uploadErrors[0] || 'No photos uploaded — try again.');
@@ -467,6 +499,7 @@ export default function NewListingPage() {
     } finally {
       setUploading(false);
       setUploadProgress(null);
+      photoUploadLock.current = false;
       e.target.value = '';
     }
   };
@@ -1014,6 +1047,19 @@ export default function NewListingPage() {
     }
     try {
       const id = await ensureDraft();
+      const savedImages = await normalizeListingImagesForClient(id);
+      setImages(savedImages);
+      if (savedImages.length === 0) {
+        setError('Photos did not save — add photos again before publishing.');
+        return;
+      }
+      if (savedImages.length < images.length) {
+        setError(
+          `Only ${savedImages.length} of ${images.length} photos saved. Add missing photos before publishing.`
+        );
+        return;
+      }
+
       const description =
         form.description.trim() || buildListingDescription(descriptionInput());
       const priceNum =
@@ -1149,6 +1195,7 @@ export default function NewListingPage() {
             images={images}
             onImagesChange={setImages}
             onUpdateImage={updateImage}
+            onRemove={(imageId) => void removePhoto(imageId)}
           />
         ) : null}
 

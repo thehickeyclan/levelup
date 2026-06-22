@@ -67,8 +67,9 @@ export function ListingPhotoGrid({
               <button
                 type="button"
                 onClick={() => void onRemove(img.id)}
-                className="absolute top-1 right-1 rounded-full bg-background/90 border border-border p-1 text-muted-foreground hover:text-destructive"
+                className="absolute top-1 right-1 rounded-full bg-background/95 border border-border p-1.5 text-muted-foreground hover:text-destructive hover:border-destructive/40 shadow-sm"
                 aria-label="Remove photo"
+                title="Remove photo"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>

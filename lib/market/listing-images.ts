@@ -45,10 +45,23 @@ export function listingImagesFromApiRow(
 
 /** Reload images from API after upload — keeps UI in sync when client state drifts from DB. */
 export async function fetchListingImagesForClient(listingId: string): Promise<ListingImageWithId[]> {
-  const res = await fetch(`/api/market/listings/${listingId}`);
+  const res = await fetch(`/api/market/listings/${listingId}/images`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to load listing photos');
-  return listingImagesFromApiRow(data.listing as Record<string, unknown>);
+  const images = (data.images as ListingImageWithId[] | undefined) ?? [];
+  return images.sort((a, b) => a.display_order - b.display_order);
+}
+
+export async function normalizeListingImagesForClient(
+  listingId: string
+): Promise<ListingImageWithId[]> {
+  const res = await fetch(`/api/market/listings/${listingId}/images/normalize`, {
+    method: 'POST',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to sync listing photos');
+  const images = (data.images as ListingImageWithId[] | undefined) ?? [];
+  return images.sort((a, b) => a.display_order - b.display_order);
 }
 
 /** Primary row — lowest display_order (first upload is 0). */

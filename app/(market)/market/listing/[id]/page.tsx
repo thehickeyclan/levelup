@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Eye, Flame, Heart, Send, ShoppingCart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Eye, Flame, Heart, Send, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { BackLink } from '@/components/back-link';
 import { ListingSellerCard } from '@/components/market/listing-seller-card';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import { sanitizeBuyerListingDescription } from '@/lib/market/sanitize-listing-description';
@@ -129,7 +128,13 @@ export default function ListingDetailPage() {
   if (!data?.listing) {
     return (
       <div className="px-4 py-8 max-w-4xl mx-auto bg-background min-h-screen">
-        <BackLink fallbackHref="/market" label="Back" preferBrowserBack={false} />
+        <Link
+          href="/market"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+          Back
+        </Link>
         <p className="mt-4 text-muted-foreground">Loading…</p>
       </div>
     );
@@ -313,10 +318,17 @@ export default function ListingDetailPage() {
     <div className="min-h-screen pb-24 bg-background">
       <div className="px-4 pt-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3">
-          <BackLink fallbackHref="/market" label="Market" preferBrowserBack={false} />
+          <Link
+            href="/market"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+            Market
+          </Link>
           {canEdit ? (
             <Link
               href={`/market/listing/${id}/edit`}
+              replace
               className="text-sm font-medium text-accent hover:text-accent/80 shrink-0"
             >
               Edit listing

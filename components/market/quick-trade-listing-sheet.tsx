@@ -104,18 +104,18 @@ export function QuickTradeListingSheet({
     setCreateError(null);
     setUploading(true);
     try {
-      let files: File[];
-      try {
-        files = await prepareListingPhotos(rawFiles);
-      } catch {
-        throw new Error('Could not read these photos — try again or use JPEG/PNG.');
+      const { files, prepareErrors } = await prepareListingPhotos(rawFiles);
+
+      if (!files.length) {
+        throw new Error(prepareErrors[0] || 'Could not read these photos — try again or use JPEG/PNG.');
       }
 
       const id = await ensureDraft();
-      const uploadErrors: string[] = [];
+      let serverCount = (await fetchListingImagesForClient(id)).length;
+      const uploadErrors: string[] = [...prepareErrors];
 
       for (let i = 0; i < files.length; i++) {
-        if (images.length >= MAX_PHOTOS) break;
+        if (serverCount >= MAX_PHOTOS) break;
         const fd = new FormData();
         fd.append('file', files[i]);
         const res = await fetch(`/api/market/listings/${id}/images`, { method: 'POST', body: fd });
@@ -123,6 +123,9 @@ export function QuickTradeListingSheet({
         if (!res.ok) {
           uploadErrors.push(data.error || `Photo ${i + 1} failed`);
           continue;
+        }
+        if (data.image) {
+          serverCount += 1;
         }
       }
 

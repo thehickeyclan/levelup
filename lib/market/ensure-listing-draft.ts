@@ -17,13 +17,11 @@ export function createListingDraftEnsurer(options: {
       inflight = options.createDraft().then((id) => {
         options.setListingId(id);
         return id;
+      }).finally(() => {
+        inflight = null;
       });
     }
 
-    try {
-      return await inflight;
-    } finally {
-      inflight = null;
-    }
+    return inflight;
   };
 }

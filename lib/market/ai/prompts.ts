@@ -42,37 +42,31 @@ Return ONLY valid JSON: suggested_low_cents, suggested_mid_cents, suggested_high
 export const SELLER_AI_DISCLAIMER =
   'AI condition and price tools are private to you. Buyers only see your photos, wear state, condition, and description.';
 
-/** Buyer-facing listing copy structure (used by agent + listing agent user prompt). */
-export const LISTING_DESCRIPTION_FORMAT = `Write a rich, buyer-facing listing description for wrestling shoes collectors and parents.
+/** Buyer-facing listing copy — one flowing paragraph; fields live elsewhere on the listing. */
+export const LISTING_DESCRIPTION_FORMAT = `Write a single rich paragraph describing this wrestling shoe for buyers (parents and wrestlers).
 
-Structure (use blank lines between sections; section headers on their own line):
+Target style (match this voice and structure — do not copy unless it is the same shoe):
+"The Nike Inflict 3 in the "Pure Platinum / Racer Blue / Volt" colorway is a sleek, high-energy wrestling shoe engineered for athletes who demand rapid agility and standout style on the mat. It features a lightweight, breathable mesh upper that ensures optimal airflow, paired with supportive synthetic overlays that wrap the midfoot for a secure, locked-in fit during explosive shots. The supportive mid-top silhouette is equipped with an integrated lace-cover strap system to keep laces completely streamlined and out of the way through quick scrambles. Underfoot, a full-length, low-profile rubber outsole delivers elite multi-directional traction, providing the exceptional grip, stability, and edge-to-edge control that the Inflict series is legendary for. Combining a modern platinum and blue base with striking volt accents, this edition balances a fast, futuristic aesthetic with elite performance and durability."
 
-1) Title line: Brand Model – Colorway (no "Size" on this line)
-2) Size line: Size X US
+Format rules:
+- ONE cohesive paragraph (~80–140 words). Used pairs may add ONE short second sentence at the end about wear (max ~25 words).
+- Open naturally: "The {Brand} {Model} in the "{Colorway}" colorway is..." — weave brand, model, and colorway into the first sentence. If colorway is unknown, open with brand + model only.
+- Focus on what buyers care about: upper materials, fit/lockdown, silhouette, sole/traction, lace system, on-mat performance, and how the colorway looks — specific to the model when catalog or your knowledge supports it.
+- Write like an informed wrestling gear reviewer. No generic filler ("great shoe for wrestlers").
 
-3) 2–3 short paragraphs: model history and why it matters, this colorway/materials, performance/legacy significance. Write like an informed collector — specific, not generic.
+DO NOT include:
+- Bullet lists or section headers (no "Details", "Condition", "Collector Notes", "Size:", "Model:")
+- Lines that only repeat listing metadata (size, condition grade, era/year, rarity tier, listing type)
+- Stock title lines like "Brand Model — Size 10M / 11.5W"
+- AI scores, Guild ratings, Historical/Interest/Rarity scales, "/10", pricing, or seller photo tips
 
-4) "Details" section with bullet lines:
-- Model:
-- Colorway:
-- Size:
-- Era / year: (if known)
-- Upper / materials: (if known from catalog or photos)
-- Sole: (if known)
-- Other notable details (laces, box, etc.)
+Wear state:
+- BNIB / new without box: describe as unworn stock; mention original box only for BNIB. Never describe tread wear, mat scuffing, or "used pair" language.
+- Used: optional one brief closing sentence on visible wear (no numeric grades). Point buyers to photos. Do not restate the condition grade label.
 
-5) "Condition" section — MUST match wear state:
-   - BNIB: unworn, original box, tags/lacing as factory, no mat wear. Mention box condition if visible. Do NOT describe tread wear, scuffing, fading, or "used pair" language.
-   - New (no box): unworn deadstock, no box. Do NOT describe mat wear or used-shoe wear patterns.
-   - Used: honest bullet lines from photo analysis (no numeric scores, no "/10")
+Use catalog/collector context when provided. If unsure on a technical detail, omit it — never invent.
 
-6) "Collector Notes" section: 1 short paragraph on rarity, demand, or why collectors want this model/colorway/size. For BNIB/new, focus on deadstock/BNIB market — never describe as a "used pair" or practice shoe.
-
-Rules:
-- Never include AI labels, wrestle scores, Guild ratings, Historical/Interest/Rarity/Cultural scales, or "/10".
-- Never include seller-only tips like "lead with the sole photo" or pricing advice.
-- Use catalog/collector context when provided; if unsure on a fact, omit it rather than invent.
-- In JSON responses, put the full description in draft.description as one string with \\n for line breaks (no literal newlines inside the JSON string).`;
+In JSON responses, put the full description in draft.description as one string (use \\n only between the main paragraph and an optional short wear sentence).`;
 
 export const AGENT_SYSTEM_PROMPT = `You are a listing assistant for The Guild Market wrestling shoe marketplace.
 

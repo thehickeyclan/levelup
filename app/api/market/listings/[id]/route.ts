@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient, createAdminClientIfAvailable } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
-import { getSellerProfile } from '@/lib/market/seller';
+import { getSellerProfile, sellerFallbackDisplayName } from '@/lib/market/seller';
 import { fetchMarketSellerStats } from '@/lib/market/seller-reputation';
 import { notifySellerDropFollowers } from '@/lib/market/notify-seller-drop';
 import {
@@ -57,35 +57,28 @@ async function fetchListingForDetail(
   supabase: SupabaseClient,
   id: string
 ): Promise<Record<string, unknown> | null> {
-  const withAi = await supabase
-    .from('market_listings')
-    .select(`
-      *,
-      market_listing_images(${MARKET_LISTING_IMAGE_FIELDS_WITH_ID}),
-      market_ai_analysis(*)
-    `)
-    .eq('id', id)
-    .maybeSingle();
+  const attempts: { images: string | null; ai: boolean }[] = [
+    { images: MARKET_LISTING_IMAGE_FIELDS_WITH_ID, ai: true },
+    { images: MARKET_LISTING_IMAGE_FIELDS_WITH_ID, ai: false },
+    { images: 'id, public_url, display_order', ai: false },
+    { images: null, ai: false },
+  ];
 
-  if (!withAi.error && withAi.data) {
-    return withAi.data as Record<string, unknown>;
+  for (const attempt of attempts) {
+    const embeds: string[] = [];
+    if (attempt.images) embeds.push(`market_listing_images(${attempt.images})`);
+    if (attempt.ai) embeds.push('market_ai_analysis(*)');
+    const select = embeds.length ? `*, ${embeds.join(', ')}` : '*';
+
+    const result = await supabase.from('market_listings').select(select).eq('id', id).maybeSingle();
+    if (!result.error && result.data) {
+      return result.data as unknown as Record<string, unknown>;
+    }
+    if (result.error) {
+      console.error('fetchListingForDetail:', select, result.error.message);
+    }
   }
 
-  const withoutAi = await supabase
-    .from('market_listings')
-    .select(`
-      *,
-      market_listing_images(${MARKET_LISTING_IMAGE_FIELDS_WITH_ID})
-    `)
-    .eq('id', id)
-    .maybeSingle();
-
-  if (!withoutAi.error && withoutAi.data) {
-    return withoutAi.data as Record<string, unknown>;
-  }
-
-  if (withAi.error) console.error('fetchListingForDetail:', withAi.error.message);
-  if (withoutAi.error) console.error('fetchListingForDetail fallback:', withoutAi.error.message);
   return null;
 }
 
@@ -114,13 +107,21 @@ export async function GET(
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
     }
 
-    const admin = createAdminClientIfAvailable(tenant.slug);
-    if (!admin) {
-      return NextResponse.json({ error: 'Listing service unavailable' }, { status: 503 });
+    const sellerId = listing.seller_id as string;
+    let seller;
+    try {
+      seller = await getSellerProfile(tenant.slug, sellerId);
+    } catch (profileErr) {
+      console.error('getSellerProfile:', profileErr);
+      seller = {
+        id: sellerId,
+        displayName: sellerFallbackDisplayName(sellerId),
+        role: 'unknown',
+        school: null,
+        photoUrl: null,
+      };
     }
-
-    const seller = await getSellerProfile(tenant.slug, listing.seller_id as string);
-    const sellerStats = await fetchMarketSellerStats(supabase, listing.seller_id as string);
+    const sellerStats = await fetchMarketSellerStats(supabase, sellerId);
 
     const { count: pendingOfferCount } = await supabase
       .from('market_offers')
@@ -157,7 +158,17 @@ export async function GET(
       following = Boolean(followRow);
     }
 
-    const modeConstraints = isOwner ? await getListingModeConstraints(admin, id) : null;
+    let modeConstraints = null;
+    if (isOwner) {
+      try {
+        const admin = createAdminClientIfAvailable(tenant.slug);
+        if (admin) {
+          modeConstraints = await getListingModeConstraints(admin, id);
+        }
+      } catch (modeErr) {
+        console.error('getListingModeConstraints:', modeErr);
+      }
+    }
 
     const sizes = await fetchListingSizes(supabase, id);
 

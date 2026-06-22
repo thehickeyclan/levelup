@@ -1,6 +1,5 @@
 import type { MarketWearState } from '@/lib/market/wear-state';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
-import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
 import { LISTING_DESCRIPTION_FORMAT } from '@/lib/market/ai/prompts';
 
 export type ListingDescriptionInput = {
@@ -20,37 +19,28 @@ export type ListingDescriptionInput = {
 
 /** Buyer-facing listing copy — no AI scores or internal pricing notes. */
 export function buildListingDescription(input: ListingDescriptionInput): string {
-  const { brand, model, colorway, modelYear, size, wearState, condition, analysis } = input;
-  const titleParts = [brand, model].filter(Boolean).join(' ');
-  const yearBit = modelYear ? ` (${modelYear})` : '';
-  const colorBit = colorway?.trim() ? ` — ${colorway.trim()}` : '';
-  const conditionLabel = listingConditionDisplay(wearState, condition);
+  const { brand, model, colorway, wearState, condition, analysis } = input;
+  const name = [brand, model].filter(Boolean).join(' ').trim();
+  const cw = colorway?.trim();
+  const catalogLine = analysis?.summary?.trim();
 
-  const lines: string[] = [
-    `${titleParts}${yearBit}${colorBit} — ${formatMarketShoeSizeDual(size)}.`,
-    '',
-    `${conditionLabel}.`,
-  ];
+  const wearClosing =
+    wearState === 'bnib'
+      ? 'Unworn with original box. See photos.'
+      : wearState === 'new_no_box'
+        ? 'Unworn deadstock without box. See photos.'
+        : `${listingConditionDisplay(wearState, condition)}. See photos for exact wear.`;
 
-  const summary = analysis?.summary?.trim();
-  if (summary) {
-    lines.push('', summary);
+  if (catalogLine) {
+    return `${catalogLine}\n\n${wearClosing}`;
   }
 
-  const cosmetic = analysis?.cosmetic_summary?.trim();
-  if (cosmetic && cosmetic !== summary) {
-    lines.push('', cosmetic);
-  }
-
-  if (wearState === 'bnib') {
-    lines.push('', 'Unworn with original box. See photos.');
-  } else if (wearState === 'new_no_box') {
-    lines.push('', 'Unworn deadstock without box. See photos.');
-  } else {
-    lines.push('', 'See photos for exact wear.');
-  }
-
-  return lines.join('\n').trim();
+  const opener = cw
+    ? `The ${name} in the "${cw}" colorway.`
+    : name
+      ? `The ${name}.`
+      : 'Wrestling shoes.';
+  return `${opener} ${wearClosing}`;
 }
 
 /** Respect manual edits on save — only auto-fill when the seller never touched the field. */
@@ -87,29 +77,30 @@ export type ListingAgentPromptInput = {
 /** User message for the listing agent when auto-writing description from known fields. */
 export function buildListingAgentPrompt(input: ListingAgentPromptInput): string {
   const lines = [
-    'Write a buyer-facing listing description for these wrestling shoes.',
+    'Write a single flowing buyer-facing paragraph for this wrestling shoe (see format rules).',
     'Return has_draft: true with the full description in draft.description.',
+    'Do not repeat size, condition grade, or bullet field lists — those appear elsewhere on the listing.',
     '',
     LISTING_DESCRIPTION_FORMAT,
     '',
-    '--- Listing facts ---',
+    '--- Context for writing (do not paste as a field list in the description) ---',
     `Brand: ${input.brand || 'unknown'}`,
     `Model: ${input.model || 'unknown'}`,
     input.colorway?.trim() ? `Colorway: ${input.colorway.trim()}` : null,
     input.modelYear ? `Model year / era: ${input.modelYear}` : null,
-    input.weightClass?.trim() ? `Weight: ${input.weightClass.trim()}` : null,
+    input.weightClass?.trim() ? `Weight class: ${input.weightClass.trim()}` : null,
     input.rarity ? `Rarity tier: ${input.rarity}` : null,
-    `Size: ${input.size} US`,
+    `Size on listing: ${input.size} US (do not put size in the description)`,
     `Wear state: ${input.wearState}${input.wearState === 'bnib' ? ' (brand new in box — unworn)' : input.wearState === 'new_no_box' ? ' (unworn, no box)' : ''}`,
-    `Condition grade: ${input.condition}`,
+    `Condition grade on listing: ${input.condition} (do not restate as a label — used pairs may add one brief wear sentence)`,
     input.listingType ? `Listing type: ${input.listingType}` : null,
     input.collectorNotes?.trim() ? `Catalog / collector notes: ${input.collectorNotes.trim()}` : null,
   ].filter(Boolean) as string[];
 
   if (input.conditionAnalysis && input.wearState === 'used') {
-    lines.push('', '--- Photo condition analysis (private — translate to Condition bullets, no scores) ---');
+    lines.push('', '--- Photo notes (optional one-sentence wear closing only — no scores) ---');
     const a = input.conditionAnalysis;
-    if (a.listing_tip?.trim()) lines.push(`Seller photo tip (do NOT quote): ${a.listing_tip.trim()}`);
+    if (a.listing_tip?.trim()) lines.push(`Photo tip (do NOT quote): ${a.listing_tip.trim()}`);
     for (const part of ['sole', 'upper', 'midsole', 'laces'] as const) {
       const note = a.breakdown?.[part]?.note?.trim();
       if (note) lines.push(`${part}: ${note}`);
@@ -119,12 +110,12 @@ export function buildListingAgentPrompt(input: ListingAgentPromptInput): string 
       '',
       '--- Wear state rules ---',
       input.wearState === 'bnib'
-        ? 'This is BNIB. Condition section must confirm unworn + original box. Never describe tread wear, mat scuffing, fading from use, or "used pairs". Collector Notes must not reference used-market scarcity.'
-        : 'This is unworn without box. Condition section must confirm unworn deadstock. Never describe mat wear or used-shoe condition.'
+        ? 'BNIB — paragraph must describe unworn stock + box. No tread wear or used-shoe language.'
+        : 'Unworn without box — paragraph must describe unworn deadstock. No mat wear language.'
     );
     const a = input.conditionAnalysis;
     if (a?.summary?.trim()) {
-      lines.push(`Photo verification note (use only if BNIB/unworn aligned): ${a.summary.trim()}`);
+      lines.push(`Photo verification (BNIB/unworn only): ${a.summary.trim()}`);
     }
   }
 

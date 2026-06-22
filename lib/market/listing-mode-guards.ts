@@ -22,12 +22,14 @@ export async function getListingModeConstraints(
 
   const lockedBuyerId = (listing?.locked_buyer_id as string | null) ?? null;
 
-  const { data: activeTrade } = await admin
+  const { data: activeTrades } = await admin
     .from('market_trades')
     .select('id')
     .in('status', [...ACTIVE_TRADE_STATUSES])
     .or(`initiator_listing_id.eq.${listingId},receiver_listing_id.eq.${listingId}`)
-    .maybeSingle();
+    .limit(1);
+
+  const activeTrade = activeTrades?.[0] ?? null;
 
   const inActiveTrade = Boolean(activeTrade);
   const activeTradeId = (activeTrade?.id as string) ?? null;

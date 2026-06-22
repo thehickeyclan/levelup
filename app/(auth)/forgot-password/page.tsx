@@ -87,6 +87,11 @@ export default function ForgotPasswordPage() {
                 If an account exists for that email, we sent a reset link. Check your inbox and spam
                 folder.
               </p>
+              <p className="text-sm text-muted-foreground rounded-lg border border-border bg-muted/40 px-3 py-2.5 leading-relaxed">
+                Open the link in the <span className="font-medium text-foreground">same browser</span>{' '}
+                you used here. If you requested this in Safari, open the email in Mail/Safari — not
+                Gmail&apos;s in-app browser (they don&apos;t share login cookies).
+              </p>
               <Button variant="outline" className="w-full" asChild>
                 <Link href="/login">Back to sign in</Link>
               </Button>

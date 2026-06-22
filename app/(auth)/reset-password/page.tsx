@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { createClient } from '@/lib/supabase/client';
 import { useTenant } from '@/components/theme-provider';
+import { PASSWORD_RESET_ERROR_MESSAGES } from '@/lib/password-recovery-redirect';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,16 @@ const schema = z
 
 type ResetValues = z.infer<typeof schema>;
 
+function parseRecoveryHash(): { access_token: string; refresh_token: string } | null {
+  if (typeof window === 'undefined' || !window.location.hash) return null;
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  if (params.get('type') !== 'recovery') return null;
+  const access_token = params.get('access_token');
+  const refresh_token = params.get('refresh_token');
+  if (!access_token || !refresh_token) return null;
+  return { access_token, refresh_token };
+}
+
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,62 +61,99 @@ function ResetPasswordForm() {
   useEffect(() => {
     let cancelled = false;
     const client = createClient(tenant.slug);
+
+    const finishOk = () => {
+      if (cancelled) return;
+      if (typeof window !== 'undefined') {
+        const clean = window.location.pathname;
+        window.history.replaceState(null, '', clean);
+      }
+      setSessionOk(true);
+      setReady(true);
+    };
+
+    const finishErr = (message: string) => {
+      if (cancelled) return;
+      setInitError(message);
+      setReady(true);
+    };
+
+    const errorKey = searchParams.get('error');
+    if (errorKey) {
+      finishErr(
+        PASSWORD_RESET_ERROR_MESSAGES[errorKey] ??
+          PASSWORD_RESET_ERROR_MESSAGES.invalid_link ??
+          'This reset link is invalid or expired.'
+      );
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session?.user) {
+        finishOk();
+      }
+    });
+
     async function init() {
-      const code = searchParams.get('code');
       try {
+        const code = searchParams.get('code');
         if (code) {
           const { data: exchanged, error: exchangeErr } =
             await client.auth.exchangeCodeForSession(code);
           if (exchangeErr) {
-            if (!cancelled) {
-              setInitError(
-                exchangeErr.message?.includes('code verifier')
-                  ? 'This link must open on the same site address where you requested the reset (for example www vs non-www must match), in the same browser, and links expire after use. Request a new link from Forgot password.'
-                  : exchangeErr.message || 'Invalid or expired link'
-              );
-            }
-            if (!cancelled) setReady(true);
+            finishErr(
+              exchangeErr.message?.includes('code verifier') ||
+                /pkce/i.test(exchangeErr.message)
+                ? PASSWORD_RESET_ERROR_MESSAGES.pkce_browser
+                : exchangeErr.message || PASSWORD_RESET_ERROR_MESSAGES.exchange_failed
+            );
             return;
           }
           if (exchanged?.session?.user) {
-            if (typeof window !== 'undefined') {
-              window.history.replaceState(null, '', '/reset-password');
-            }
-            if (!cancelled) {
-              setSessionOk(true);
-              setReady(true);
-            }
+            finishOk();
             return;
           }
         }
-        // Hash-based recovery or session already present — give detectSessionInUrl a tick
-        await new Promise((r) => setTimeout(r, 0));
-        const {
-          data: { session },
-        } = await client.auth.getSession();
-        if (!cancelled) {
-          if (session?.user) {
-            if (typeof window !== 'undefined' && window.location.search) {
-              window.history.replaceState(null, '', '/reset-password');
-            }
-            setSessionOk(true);
-          } else {
-            setInitError(
-              'This reset link is invalid or expired. Request a new one from the sign-in page.'
-            );
+
+        const hashTokens = parseRecoveryHash();
+        if (hashTokens) {
+          const { data, error: hashErr } = await client.auth.setSession(hashTokens);
+          if (hashErr) {
+            finishErr(hashErr.message || PASSWORD_RESET_ERROR_MESSAGES.invalid_link);
+            return;
           }
-          setReady(true);
+          if (data.session?.user) {
+            finishOk();
+            return;
+          }
         }
+
+        for (const delayMs of [0, 150, 400, 900]) {
+          if (cancelled) return;
+          if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+          const {
+            data: { session },
+          } = await client.auth.getSession();
+          if (session?.user) {
+            finishOk();
+            return;
+          }
+        }
+
+        finishErr(PASSWORD_RESET_ERROR_MESSAGES.invalid_link);
       } catch {
-        if (!cancelled) {
-          setInitError('Could not verify reset link.');
-          setReady(true);
-        }
+        finishErr('Could not verify reset link.');
       }
     }
-    init();
+
+    void init();
+
     return () => {
       cancelled = true;
+      authListener.subscription.unsubscribe();
     };
   }, [tenant.slug, searchParams]);
 
@@ -143,13 +191,13 @@ function ResetPasswordForm() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-foreground font-serif">Link invalid</CardTitle>
-            <CardDescription>{initError}</CardDescription>
+            <CardDescription className="text-sm leading-relaxed">{initError}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <Button className="w-full" asChild>
               <Link href="/forgot-password">Request a new reset link</Link>
             </Button>
-            <div className="mt-4 text-center text-sm">
+            <div className="text-center text-sm">
               <Link href="/login" className="text-accent hover:underline">
                 Back to sign in
               </Link>
@@ -165,16 +213,14 @@ function ResetPasswordForm() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-foreground font-serif">Choose a new password</CardTitle>
-          <CardDescription>
-            Enter a new password for your Guild account.
-          </CardDescription>
+          <CardDescription>Enter a new password for your Guild account.</CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
+          {error ? (
             <div className="mb-4 p-3 bg-destructive/10 border border-destructive rounded-md">
               <p className="text-sm text-destructive">{error}</p>
             </div>
-          )}
+          ) : null}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField

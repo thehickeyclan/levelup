@@ -41,7 +41,8 @@ function pathnameAllowsMissingUserPhone(pathname: string): boolean {
   if (
     pathname.startsWith('/signup') ||
     pathname.startsWith('/forgot-password') ||
-    pathname.startsWith('/reset-password')
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/auth/confirm')
   )
     return true;
   if (pathname === ACCOUNT || pathname.startsWith(`${ACCOUNT}/`)) return true;

@@ -40,6 +40,7 @@ function showLoggedOutMobileHeaderLinks(pathname: string): boolean {
     pathname.startsWith('/signup') ||
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/auth/confirm') ||
     pathname.startsWith('/invite-parent')
   ) {
     return false;

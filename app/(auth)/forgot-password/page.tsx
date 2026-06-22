@@ -27,6 +27,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
 
   const form = useForm<ForgotPasswordValues>({
     resolver: zodResolver(schema),
@@ -42,7 +43,11 @@ export default function ForgotPasswordPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: values.email.trim() }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string;
+        dev_reset_url?: string;
+      };
 
       if (!res.ok) {
         setError(
@@ -52,6 +57,7 @@ export default function ForgotPasswordPage() {
         return;
       }
 
+      setDevResetUrl(data.dev_reset_url ?? null);
       setSent(true);
     } catch {
       setError('Something went wrong. Please try again.');
@@ -72,14 +78,34 @@ export default function ForgotPasswordPage() {
         <CardContent>
           {sent ? (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                If an account exists for that email, we sent a reset link. Check your inbox and spam
-                folder.
-              </p>
-              <p className="text-sm text-muted-foreground rounded-lg border border-border bg-muted/40 px-3 py-2.5 leading-relaxed">
-                Open the link in any browser (Chrome, Safari, etc.). The link works from your email
-                app — you do not need to use the same browser you used here.
-              </p>
+              {devResetUrl ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Local dev mode — email is not configured. Use this one-time link to reset your
+                    password:
+                  </p>
+                  <a
+                    href={devResetUrl}
+                    className="block text-sm text-accent underline break-all rounded-lg border border-border bg-muted/40 px-3 py-2.5"
+                  >
+                    {devResetUrl}
+                  </a>
+                  <p className="text-xs text-muted-foreground">
+                    Open the link once. For production, set RESEND_API_KEY and EMAIL_FROM in env.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    If an account exists for that email, we sent a reset link. Check your inbox and
+                    spam folder.
+                  </p>
+                  <p className="text-sm text-muted-foreground rounded-lg border border-border bg-muted/40 px-3 py-2.5 leading-relaxed">
+                    Open the link in any browser (Chrome, Safari, etc.). The link works from your
+                    email app — you do not need to use the same browser you used here.
+                  </p>
+                </>
+              )}
               <Button variant="outline" className="w-full" asChild>
                 <Link href="/login">Back to sign in</Link>
               </Button>

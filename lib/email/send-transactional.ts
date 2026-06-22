@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { resendFromAddress } from '@/lib/email/resend-from';
 
 let resendSingleton: Resend | null | undefined;
 
@@ -31,7 +32,7 @@ export async function sendTransactionalEmail(opts: {
     return { ok: false, skipped: true };
   }
 
-  const from = process.env.EMAIL_FROM?.trim() || 'The Guild <onboarding@resend.dev>';
+  const from = resendFromAddress();
   const toList = Array.isArray(opts.to) ? opts.to : [opts.to];
 
   try {

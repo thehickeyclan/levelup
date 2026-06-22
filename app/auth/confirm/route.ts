@@ -75,6 +75,12 @@ export async function GET(req: NextRequest) {
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({ token_hash, type });
     if (error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        return NextResponse.redirect(new URL(safeNext, req.url));
+      }
       console.error('auth/confirm verifyOtp:', error.message);
       return fail('verify_failed');
     }

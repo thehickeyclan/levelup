@@ -79,6 +79,8 @@ export default function EditListingPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [identitySaving, setIdentitySaving] = useState(false);
+  const [identitySavedFlash, setIdentitySavedFlash] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [identifyingShoe, setIdentifyingShoe] = useState(false);
@@ -122,6 +124,7 @@ export default function EditListingPage() {
     price_cents: '',
     shipping_cents: '10',
     description: '',
+    collector_notes: '',
     rarity: '' as MarketRarity | '',
   });
 
@@ -188,6 +191,7 @@ export default function EditListingPage() {
           shipping_cents:
             l.shipping_cents != null ? String(Math.round(Number(l.shipping_cents) / 100)) : '10',
           description: String(l.description ?? ''),
+          collector_notes: String(l.collector_notes ?? ''),
           rarity: normalizeMarketRarity(l.rarity as string | null) ?? '',
         });
         setPurchaseNotes(collectionPurchaseNotesFromListing(l));
@@ -268,6 +272,7 @@ export default function EditListingPage() {
       open_to_trade: form.listing_type === 'sell' ? form.open_to_trade : false,
       accepts_offers: form.listing_type === 'sell' ? form.accepts_offers : false,
       description: form.description,
+      collector_notes: form.collector_notes.trim() || null,
       price_cents:
         form.listing_type === 'sell'
           ? Math.round(Number(form.price_cents || 0) * 100)
@@ -291,6 +296,71 @@ export default function EditListingPage() {
     condition: conditionForWearState(form.wear_state, form.condition),
     analysis: null,
   });
+
+  const saveShoeIdentity = async () => {
+    if (!form.model.trim()) {
+      setError('Add a model before saving.');
+      return;
+    }
+    setIdentitySaving(true);
+    setIdentitySavedFlash(false);
+    setError(null);
+    try {
+      const colorway = form.colorway.trim();
+      const identityPatch = {
+        title: `${form.brand} ${form.model}`.trim(),
+        brand: form.brand,
+        model: form.model.trim(),
+        colorway: colorway || null,
+        color_family: resolveColorFamily(form.color_family, colorway),
+      };
+      const res = await fetch(`/api/market/listings/${listingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(identityPatch),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Save failed');
+      }
+      setForm((f) => ({
+        ...f,
+        brand: identityPatch.brand,
+        model: identityPatch.model,
+        colorway: identityPatch.colorway ?? '',
+        color_family: identityPatch.color_family ?? '',
+      }));
+
+      const lookupRes = await fetch('/api/market/catalog/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brand: identityPatch.brand,
+          model: identityPatch.model,
+          colorway: identityPatch.colorway,
+          listingId,
+          persist: true,
+        }),
+      });
+      const lookupData = await lookupRes.json();
+      if (lookupRes.ok) {
+        const notes =
+          typeof lookupData.collector_notes === 'string' && lookupData.collector_notes.trim()
+            ? lookupData.collector_notes.trim()
+            : null;
+        if (notes) {
+          setForm((f) => (f.collector_notes.trim() ? f : { ...f, collector_notes: notes }));
+        }
+      }
+
+      setIdentitySavedFlash(true);
+      window.setTimeout(() => setIdentitySavedFlash(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setIdentitySaving(false);
+    }
+  };
 
   const generateDescription = async (sellerNote?: string) => {
     if (!form.model.trim()) {
@@ -319,6 +389,9 @@ export default function EditListingPage() {
                 wearState: form.wear_state,
                 condition: conditionForWearState(form.wear_state, form.condition),
                 listingType: form.listing_type,
+                rarity: form.rarity || null,
+                weightClass: null,
+                collectorNotes: form.collector_notes.trim() || null,
                 sellerNote,
                 conditionAnalysis: null,
               }),
@@ -660,11 +733,6 @@ export default function EditListingPage() {
             placeholder="Inflict 3"
           />
         </div>
-        <ListingRarityField
-          rarity={form.rarity}
-          isAdmin={isAdmin}
-          onChange={(rarity) => setForm((f) => ({ ...f, rarity }))}
-        />
         <div>
           <Label>Colorway (optional)</Label>
           <Input
@@ -677,9 +745,39 @@ export default function EditListingPage() {
                 return inferred ? { ...f, color_family: inferred } : f;
               });
             }}
-            placeholder="Blue bird, Black/Gold"
+            placeholder="Marsteller, David Taylor…"
           />
         </div>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-lg shrink-0"
+            disabled={identitySaving || !form.model.trim()}
+            onClick={() => void saveShoeIdentity()}
+          >
+            {identitySaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Saving…
+              </>
+            ) : (
+              'Save shoe details'
+            )}
+          </Button>
+          {identitySavedFlash ? (
+            <span className="text-xs text-accent font-medium">Saved — AI will use these fields</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Save brand, model, and colorway before Generate with AI
+            </span>
+          )}
+        </div>
+        <ListingRarityField
+          rarity={form.rarity}
+          isAdmin={isAdmin}
+          onChange={(rarity) => setForm((f) => ({ ...f, rarity }))}
+        />
         <div>
           <Label>Color</Label>
           <select
@@ -994,6 +1092,19 @@ export default function EditListingPage() {
             This is what buyers see on your listing.
           </p>
         )}
+      </div>
+
+      <div>
+        <Label>Collector notes (optional)</Label>
+        <p className="text-xs text-muted-foreground mt-0.5 mb-1">
+          Release history, PE story, or catalog context — shown to buyers below the description.
+        </p>
+        <textarea
+          className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
+          value={form.collector_notes}
+          onChange={(e) => setForm((f) => ({ ...f, collector_notes: e.target.value }))}
+          placeholder="e.g. David Taylor PE — limited run for Penn State wrestlers…"
+        />
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

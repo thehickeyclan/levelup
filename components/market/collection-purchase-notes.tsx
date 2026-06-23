@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -70,51 +72,76 @@ export function CollectionPurchaseNotesFields({
   onChange: (notes: CollectionPurchaseNotes) => void;
   className?: string;
 }) {
+  const hasContent = Boolean(
+    notes.purchase_source.trim() ||
+      notes.purchase_price_dollars.trim() ||
+      notes.purchased_at.trim()
+  );
+  const [expanded, setExpanded] = useState(hasContent);
+
+  useEffect(() => {
+    if (hasContent) setExpanded(true);
+  }, [hasContent]);
+
   return (
-    <div className={cn('space-y-3 rounded-xl border border-border bg-muted/20 p-4', className)}>
-      <div>
-        <p className="text-sm font-medium text-foreground">Your purchase notes</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Track where you got this pair, what you paid, and when — only you can see this.
-        </p>
-      </div>
-      <div className="space-y-3">
-        <div>
-          <Label className="text-xs">Where you bought it</Label>
-          <Input
-            value={notes.purchase_source}
-            onChange={(e) => onChange({ ...notes, purchase_source: e.target.value })}
-            placeholder="Retail store, teammate, eBay…"
-            className="mt-1"
-          />
+    <div className={cn('rounded-xl border border-border bg-muted/20', className)}>
+      <button
+        type="button"
+        onClick={() => setExpanded((open) => !open)}
+        className="flex w-full items-start justify-between gap-3 p-4 text-left touch-manipulation"
+        aria-expanded={expanded}
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">Your purchase notes</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {expanded
+              ? 'Where you got this pair, what you paid, and when — only you can see this.'
+              : 'Optional — track source, price, and date (private to you).'}
+          </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <span className="shrink-0 text-muted-foreground mt-0.5">
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </span>
+      </button>
+      {expanded ? (
+        <div className="space-y-3 px-4 pb-4 border-t border-border/60">
           <div>
-            <Label className="text-xs">What you paid ($)</Label>
+            <Label className="text-xs">Where you bought it</Label>
             <Input
-              value={notes.purchase_price_dollars}
-              onChange={(e) =>
-                onChange({
-                  ...notes,
-                  purchase_price_dollars: e.target.value.replace(/[^\d.]/g, ''),
-                })
-              }
-              placeholder="e.g. 120"
-              inputMode="decimal"
+              value={notes.purchase_source}
+              onChange={(e) => onChange({ ...notes, purchase_source: e.target.value })}
+              placeholder="Retail store, teammate, eBay…"
               className="mt-1"
             />
           </div>
-          <div>
-            <Label className="text-xs">When you bought it</Label>
-            <Input
-              type="date"
-              value={notes.purchased_at}
-              onChange={(e) => onChange({ ...notes, purchased_at: e.target.value })}
-              className="mt-1"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">What you paid ($)</Label>
+              <Input
+                value={notes.purchase_price_dollars}
+                onChange={(e) =>
+                  onChange({
+                    ...notes,
+                    purchase_price_dollars: e.target.value.replace(/[^\d.]/g, ''),
+                  })
+                }
+                placeholder="e.g. 120"
+                inputMode="decimal"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">When you bought it</Label>
+              <Input
+                type="date"
+                value={notes.purchased_at}
+                onChange={(e) => onChange({ ...notes, purchased_at: e.target.value })}
+                className="mt-1"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

@@ -48,6 +48,10 @@ async function applyListingUpdate(
       payload = withoutColumn(payload, 'accepts_offers');
       continue;
     }
+    if (isMissingColumnError(msg, 'collector_notes') && 'collector_notes' in payload) {
+      payload = withoutColumn(payload, 'collector_notes');
+      continue;
+    }
     return result;
   }
   return await supabase.from('market_listings').update(payload).eq('id', id).select().single();
@@ -243,12 +247,16 @@ export async function PATCH(
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const allowed = [
     'title', 'brand', 'model', 'size', 'condition', 'price_cents', 'shipping_cents',
-    'listing_type', 'open_to_trade', 'open_to_boot', 'accepts_offers', 'description', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family', 'rarity',
+    'listing_type', 'open_to_trade', 'open_to_boot', 'accepts_offers', 'description', 'collector_notes', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family', 'rarity',
     'purchase_source', 'purchase_price_cents', 'purchased_at',
   ];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (body[key] !== undefined) updates[key] = body[key];
+  }
+
+  if (typeof updates.collector_notes === 'string') {
+    updates.collector_notes = updates.collector_notes.trim() || null;
   }
 
   if ('rarity' in updates && role !== 'admin') {

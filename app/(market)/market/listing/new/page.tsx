@@ -135,6 +135,20 @@ function enrichmentToFormPatch(
   return patch;
 }
 
+function visionDisagreesWithForm(
+  result: ShoeIdResult,
+  current: { brand: string; model: string }
+): boolean {
+  const visionBrand = normalizeMarketBrand(result.brand);
+  const formBrand = normalizeMarketBrand(current.brand);
+  const visionModel = result.model.trim().toLowerCase();
+  const formModel = current.model.trim().toLowerCase();
+  return Boolean(
+    (formBrand && visionBrand !== formBrand) ||
+      (formModel && visionModel !== formModel)
+  );
+}
+
 function gradeDisplay(grade: string) {
   return grade.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -187,6 +201,8 @@ export default function NewListingPage() {
   const [catalogUpperMaterial, setCatalogUpperMaterial] = useState<string | null>(null);
   const [catalogSoleDescription, setCatalogSoleDescription] = useState<string | null>(null);
   const [pricing, setPricing] = useState(false);
+  const [identitySaving, setIdentitySaving] = useState(false);
+  const [identitySavedFlash, setIdentitySavedFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [aiPipelineError, setAiPipelineError] = useState<string | null>(null);
@@ -237,6 +253,7 @@ export default function NewListingPage() {
     price_cents: '',
     shipping_cents: '10',
     description: '',
+    collector_notes: '',
     rarity: '' as MarketRarity | '',
     weight_class: '',
   });
@@ -309,7 +326,7 @@ export default function NewListingPage() {
         setForm((f) => ({
           ...f,
           brand: resolvedBrand,
-          model: f.model.trim() ? f.model : d.model,
+          // Model left blank — seller's last listing must not block photo identification.
           model_year: f.model_year || (d.model_year ? String(d.model_year) : ''),
         }));
       } catch {
@@ -544,6 +561,7 @@ export default function NewListingPage() {
       open_to_trade: merged.listing_type === 'sell' ? merged.open_to_trade : false,
       accepts_offers: merged.listing_type === 'sell' ? merged.accepts_offers : false,
       description: merged.description,
+      collector_notes: merged.collector_notes.trim() || null,
       rarity: merged.rarity || null,
       weight_class: merged.weight_class.trim() || null,
       ...(merged.listing_type === 'collection'
@@ -581,6 +599,7 @@ export default function NewListingPage() {
       rarity: merged.rarity || null,
       weightClass: merged.weight_class || null,
       collectorNotes:
+        merged.collector_notes?.trim() ||
         collectorNotesOverride?.trim() ||
         catalogCollectorNotes?.trim() ||
         null,
@@ -606,7 +625,7 @@ export default function NewListingPage() {
         return;
       }
 
-      const autoKey = `${listingId ?? 'draft'}|${merged.model.trim()}|${merged.brand.trim()}`;
+      const autoKey = `${listingId ?? 'draft'}|${merged.brand.trim()}|${merged.model.trim()}|${merged.colorway.trim()}`;
       if (opts?.silent && descriptionAutoKey.current === autoKey) {
         return;
       }
@@ -694,6 +713,66 @@ export default function NewListingPage() {
       body: JSON.stringify(draftPayload()),
     });
     return id;
+  };
+
+  const prefillCollectorNotesFromCatalog = useCallback((notes: string | null | undefined) => {
+    const trimmed = notes?.trim();
+    if (!trimmed) return;
+    setForm((f) => (f.collector_notes.trim() ? f : { ...f, collector_notes: trimmed }));
+  }, []);
+
+  const saveShoeIdentity = async () => {
+    if (!form.model.trim()) {
+      setError('Add a model before saving.');
+      return;
+    }
+    setIdentitySaving(true);
+    setIdentitySavedFlash(false);
+    setError(null);
+    try {
+      const colorway = form.colorway.trim();
+      const color_family = resolveColorFamily(form.color_family, colorway);
+      const identityPatch = {
+        brand: form.brand,
+        model: form.model.trim(),
+        colorway: colorway,
+        color_family: color_family ?? '',
+        title: `${form.brand} ${form.model}`.trim(),
+      };
+      const id = await ensureDraft();
+      const res = await fetch(`/api/market/listings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brand: identityPatch.brand,
+          model: identityPatch.model,
+          colorway: colorway || null,
+          color_family: color_family,
+          title: identityPatch.title,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Save failed');
+      }
+      mergeFormPatch(identityPatch);
+      confirmIdentity();
+      lastCatalogEnrichKey.current = null;
+      descriptionAutoKey.current = null;
+      setCatalogEnriching(true);
+      const { patch, collectorNotes } = await runCatalogEnrich(identityPatch, {
+        overwriteCatalogFields: false,
+      });
+      if (Object.keys(patch).length) mergeFormPatch(patch);
+      prefillCollectorNotesFromCatalog(collectorNotes);
+      setIdentitySavedFlash(true);
+      window.setTimeout(() => setIdentitySavedFlash(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setIdentitySaving(false);
+      setCatalogEnriching(false);
+    }
   };
 
   const runPrice = useCallback(async (overrides?: Partial<typeof form>) => {
@@ -874,6 +953,28 @@ export default function NewListingPage() {
     [form, mergeFormPatch]
   );
 
+  const applyShoeIdToForm = useCallback(
+    (result: ShoeIdResult, catalogEnrichment?: ListingEnrichment | null) => {
+      const enrichment: ListingEnrichment = {
+        ...enrichmentFromShoeIdResult(result),
+        ...(catalogEnrichment ?? {}),
+      };
+      const patch = enrichmentToFormPatch(enrichment, formRef.current, {
+        fillEmptyOnly: false,
+        colorwayOnly: shoeIdentityLocked,
+      });
+      if (Object.keys(patch).length) mergeFormPatch(patch);
+      setShoeIdAutoApplied(true);
+      lastCatalogEnrichKey.current = null;
+      descriptionAutoKey.current = null;
+      if (aiDescriptionDraft && !descriptionTouchedRef.current) {
+        setForm((f) => ({ ...f, description: '' }));
+        setAiDescriptionDraft(false);
+      }
+    },
+    [mergeFormPatch, shoeIdentityLocked, aiDescriptionDraft]
+  );
+
   const runShoeIdentification = useCallback(async (imageOverride?: ListingImage[]) => {
     if (pipelineRunning.current || shoeIdentityLocked) return;
     const imageList = imageOverride ?? images;
@@ -888,8 +989,8 @@ export default function NewListingPage() {
       const data = await identifyListingShoe({
         listingId: id,
         images: imageList.map((i) => i.public_url),
-        brandHint: form.brand.trim() || undefined,
-        modelHint: form.model.trim() || undefined,
+        brandHint: shoeIdentityLocked ? form.brand.trim() || undefined : undefined,
+        modelHint: shoeIdentityLocked ? form.model.trim() || undefined : undefined,
       });
       const result = data.result as ShoeIdResult;
       setShoeIdResult(result);
@@ -898,9 +999,21 @@ export default function NewListingPage() {
           ...enrichmentFromShoeIdResult(result),
           ...(data.catalogEnrichment ?? {}),
         };
-        const shoeOverrides = enrichmentToFormPatch(enrichment, form, { fillEmptyOnly: true });
+        const disagree = visionDisagreesWithForm(result, form);
+        const shoeOverrides = enrichmentToFormPatch(enrichment, form, {
+          fillEmptyOnly: shoeIdentityLocked ? true : !disagree,
+          colorwayOnly: shoeIdentityLocked,
+        });
         if (Object.keys(shoeOverrides).length) mergeFormPatch(shoeOverrides);
         setShoeIdAutoApplied(true);
+        if (disagree && !shoeIdentityLocked) {
+          lastCatalogEnrichKey.current = null;
+          descriptionAutoKey.current = null;
+          if (aiDescriptionDraft && !descriptionTouchedRef.current) {
+            setForm((f) => ({ ...f, description: '' }));
+            setAiDescriptionDraft(false);
+          }
+        }
       }
       if (shouldAutoConfirmIdentity({ catalogMatchId: data.catalogMatchId, result })) {
         confirmIdentity();
@@ -938,6 +1051,7 @@ export default function NewListingPage() {
         overwriteCatalogFields: opts?.overwriteCatalogFields ?? true,
       });
       overrides = { ...overrides, ...catalogPatch };
+      prefillCollectorNotesFromCatalog(collectorNotes);
       lastCatalogEnrichKey.current = enrichKey;
 
       await fetch(`/api/market/listings/${id}`, {
@@ -1279,17 +1393,39 @@ export default function NewListingPage() {
 
         {shoeIdResult && !identityConfirmed && !identifyingShoe ? (
           <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 space-y-2">
-            <p className="text-sm text-foreground">
-              AI suggested <span className="font-medium">{form.brand} {form.model}</span>.
-              Fix brand or model if wrong, then continue.
-            </p>
+            {visionDisagreesWithForm(shoeIdResult, form) ? (
+              <p className="text-sm text-foreground">
+                Photos look like{' '}
+                <span className="font-medium">
+                  {shoeIdResult.brand} {shoeIdResult.model}
+                </span>
+                , but the form still says{' '}
+                <span className="font-medium">
+                  {form.brand} {form.model}
+                </span>
+                . Update from your photos before generating a description.
+              </p>
+            ) : (
+              <p className="text-sm text-foreground">
+                AI suggested{' '}
+                <span className="font-medium">
+                  {shoeIdResult.brand} {shoeIdResult.model}
+                </span>
+                . Fix brand or model if wrong, then continue.
+              </p>
+            )}
             <Button
               type="button"
               size="sm"
               className="w-full bg-accent text-accent-foreground"
-              onClick={() => confirmIdentity()}
+              onClick={() => {
+                applyShoeIdToForm(shoeIdResult);
+                confirmIdentity();
+              }}
             >
-              Looks correct — fill in details
+              {visionDisagreesWithForm(shoeIdResult, form)
+                ? `Use ${shoeIdResult.brand} ${shoeIdResult.model} from photos`
+                : 'Looks correct — fill in details'}
             </Button>
           </div>
         ) : null}
@@ -1479,6 +1615,49 @@ export default function NewListingPage() {
           </div>
         </div>
 
+        <div>
+          <Label className="text-xs">Colorway (optional)</Label>
+          <Input
+            className="mt-1 h-11"
+            value={form.colorway}
+            onChange={(e) => setForm({ ...form, colorway: e.target.value })}
+            onBlur={() => {
+              setForm((f) => {
+                if (f.color_family) return f;
+                const inferred = inferColorFamilyFromColorway(f.colorway.trim());
+                return inferred ? { ...f, color_family: inferred } : f;
+              });
+            }}
+            placeholder="Marsteller, David Taylor, Cherry…"
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-lg shrink-0"
+            disabled={identitySaving || !form.model.trim()}
+            onClick={() => void saveShoeIdentity()}
+          >
+            {identitySaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Saving…
+              </>
+            ) : (
+              'Save shoe details'
+            )}
+          </Button>
+          {identitySavedFlash ? (
+            <span className="text-xs text-accent font-medium">Saved — AI will use these fields</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Save brand, model, and colorway before Generate with AI
+            </span>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           {isBnibInventory ? (
             <div className="col-span-2">
@@ -1556,24 +1735,6 @@ export default function NewListingPage() {
           assessing={analyzing || identifyingShoe || catalogEnriching}
           onChange={(rarity) => setForm((f) => ({ ...f, rarity }))}
         />
-
-        <div>
-          <Label className="text-xs">Colorway (optional)</Label>
-          <Input
-            className="mt-1 h-11"
-            value={form.colorway}
-            onChange={(e) => setForm({ ...form, colorway: e.target.value })}
-            onBlur={() => {
-              setForm((f) => {
-                if (f.color_family) return f;
-                const inferred = inferColorFamilyFromColorway(f.colorway.trim());
-                return inferred ? { ...f, color_family: inferred } : f;
-              });
-              if (!isCollection && images.length > 0 && !pricing) void runPrice();
-            }}
-            placeholder="Cherry, Black/Gold…"
-          />
-        </div>
       </section>
 
       {/* —— 3. How to list —— */}
@@ -1724,6 +1885,19 @@ export default function NewListingPage() {
               + Note for AI
             </button>
           )}
+        </div>
+
+        <div>
+          <Label className="text-xs">Collector notes (optional)</Label>
+          <p className="text-[11px] text-muted-foreground mt-0.5 mb-1">
+            Release history, PE story, or catalog context — shown to buyers below the description.
+          </p>
+          <textarea
+            className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={form.collector_notes}
+            onChange={(e) => setForm((f) => ({ ...f, collector_notes: e.target.value }))}
+            placeholder="e.g. David Taylor PE — limited run for Penn State wrestlers…"
+          />
         </div>
       </section>
 

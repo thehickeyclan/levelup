@@ -680,6 +680,17 @@ export default function ListingDetailClient() {
               </div>
             ) : null}
 
+            {l.collector_notes ? (
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  Collector notes
+                </p>
+                <p className="text-sm whitespace-pre-line text-foreground/80 leading-relaxed">
+                  {String(l.collector_notes)}
+                </p>
+              </div>
+            ) : null}
+
             {sellerId ? (
               <ListingQaSection
                 listingId={id}

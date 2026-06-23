@@ -11,11 +11,13 @@ import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 
 /** High-confidence vision + catalog match → skip manual identity confirm. */
 export const AUTO_CONFIRM_CATALOG_CONFIDENCE = 0.8;
+export const AUTO_CONFIRM_VISION_CONFIDENCE = 0.85;
 
 export function shouldAutoConfirmIdentity(input: {
   catalogMatchId: string | null;
   result: ShoeIdResult;
 }): boolean {
+  if (input.result.confidence >= AUTO_CONFIRM_VISION_CONFIDENCE) return true;
   return Boolean(
     input.catalogMatchId &&
       input.result.catalog_matched &&

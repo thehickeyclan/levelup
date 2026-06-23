@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
     purchase_source?: string | null;
     purchase_price_cents?: number | null;
     purchased_at?: string | null;
+    collector_notes?: string | null;
   };
 
   const isDraft = body.draft === true || !body.brand;
@@ -120,6 +121,8 @@ export async function POST(req: NextRequest) {
     accepts_offers: normalizeListingAcceptsOffers(listingType, priceCents, body.accepts_offers),
     open_to_boot: body.open_to_boot ?? false,
     description: body.description?.trim() || null,
+    collector_notes:
+      typeof body.collector_notes === 'string' ? body.collector_notes.trim() || null : null,
     weight_class: body.weight_class || null,
     model_year: body.model_year ?? null,
     wear_state: body.wear_state === 'bnib' || body.wear_state === 'new_no_box' ? body.wear_state : 'used',
@@ -161,6 +164,8 @@ export async function POST(req: NextRequest) {
       insertRow = withoutPurchasePrivateListingFields(insertRow);
     } else if (isMissingColumnError(msg, 'accepts_offers') && 'accepts_offers' in insertRow) {
       insertRow = withoutColumn(insertRow, 'accepts_offers');
+    } else if (isMissingColumnError(msg, 'collector_notes') && 'collector_notes' in insertRow) {
+      insertRow = withoutColumn(insertRow, 'collector_notes');
     } else {
       break;
     }

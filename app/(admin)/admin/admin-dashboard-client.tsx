@@ -6627,7 +6627,7 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
 
       {/* Session Roster Modal */}
       <Dialog open={!!rosterSessionId} onOpenChange={(open) => !open && setRosterSessionId(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -6700,96 +6700,131 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
             ) : rosterData.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No participants registered</p>
             ) : (
-              <div className="space-y-3">
-                {rosterData.map((p, idx) => (
-                  <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <div className="font-medium text-muted-foreground w-6">{idx + 1}.</div>
-                    {p.photoUrl ? (
-                      <img src={p.photoUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center text-sm font-medium">
-                        {p.wrestlerName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium flex items-center gap-2">
-                        {p.wrestlerName}
-                        {p.isDropIn && (
-                          <Badge variant="outline" className="text-xs border-amber-600 text-amber-400">Drop-in</Badge>
-                        )}
-                      </div>
-                      {p.parentEmail && (
-                        <div className="text-sm text-muted-foreground truncate">{p.parentEmail}</div>
+              <div className="space-y-2">
+                {rosterData.map((p, idx) => {
+                  const sess = sessions.find((s) => s.id === rosterSessionId);
+                  const listPrice = Number(sess?.price_per_participant ?? 0);
+                  const displayAmount = p.paid
+                    ? Number(p.amountPaid) || listPrice
+                    : Number(p.amountPaid) > 0
+                      ? Number(p.amountPaid)
+                      : listPrice;
+                  return (
+                  <div
+                    key={p.id}
+                    className="rounded-lg border border-border/60 bg-muted/50 p-3 space-y-2.5"
+                  >
+                    <div className="grid grid-cols-[1.25rem_2.5rem_1fr_auto] gap-x-3 gap-y-1 items-start">
+                      <span className="text-sm font-medium text-muted-foreground pt-2 tabular-nums">
+                        {idx + 1}.
+                      </span>
+                      {p.photoUrl ? (
+                        <img
+                          src={p.photoUrl}
+                          alt=""
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center text-sm font-medium">
+                          {p.wrestlerName
+                            .split(' ')
+                            .map((n) => n[0])
+                            .join('')
+                            .slice(0, 2)}
+                        </div>
                       )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        <div className="font-medium tabular-nums">${Number(p.amountPaid || 0).toFixed(2)}</div>
-                        {p.paid ? (
-                          <Badge variant="outline" className="text-xs border-emerald-600 bg-emerald-600/20 text-emerald-400">Paid</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs border-amber-600 bg-amber-600/20 text-amber-400">Unpaid</Badge>
+                      <div className="min-w-0 pt-1">
+                        <p className="font-medium leading-snug break-words">{p.wrestlerName}</p>
+                        {p.parentEmail && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{p.parentEmail}</p>
+                        )}
+                        {p.isDropIn && (
+                          <Badge variant="outline" className="text-xs border-amber-600 text-amber-400 mt-1">
+                            Drop-in
+                          </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                        {!p.paid && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs text-emerald-400 hover:text-emerald-300"
-                            onClick={() => {
-                              setMarkPaidParticipant({
-                                id: p.id,
-                                wrestlerName: p.wrestlerName,
-                                amountPaid: p.amountPaid,
-                              });
-                              const sess = sessions.find((s) => s.id === rosterSessionId);
-                              const suggested =
-                                p.amountPaid > 0
-                                  ? p.amountPaid
-                                  : sess?.price_per_participant ?? 0;
-                              setMarkPaidAmount(suggested > 0 ? String(suggested) : '');
-                              setMarkPaidMethod('cash');
-                            }}
+                      <div className="flex flex-col items-end gap-1.5 pt-1 pl-2 min-w-[5.5rem]">
+                        <div className="font-semibold tabular-nums text-sm whitespace-nowrap">
+                          ${displayAmount.toFixed(2)}
+                          {!p.paid && listPrice > 0 && Number(p.amountPaid) <= 0 ? (
+                            <span className="block text-[10px] font-normal text-muted-foreground">due</span>
+                          ) : null}
+                        </div>
+                        {p.paid ? (
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-emerald-600 bg-emerald-600/20 text-emerald-400"
                           >
-                            Mark paid
-                          </Button>
+                            Paid
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-amber-600 bg-amber-600/20 text-amber-400"
+                          >
+                            Unpaid
+                          </Badge>
                         )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1 pl-[calc(1.25rem+2.5rem+0.75rem)]">
+                      {!p.paid && (
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          className="text-xs text-red-400 hover:text-red-300"
-                          disabled={deletingParticipantId === p.id}
-                          onClick={() => handleRemoveRosterParticipant(p.id, p.wrestlerName, p)}
-                        >
-                          {deletingParticipantId === p.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            'Remove'
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs text-blue-400 hover:text-blue-300"
+                          className="h-8 text-xs text-emerald-400 border-emerald-600/40 hover:bg-emerald-600/10 hover:text-emerald-300"
                           onClick={() => {
-                            setTransferTargetSearch('');
-                            setTransferTargetSessionId('');
-                            setTransferringParticipant({
+                            setMarkPaidParticipant({
                               id: p.id,
                               wrestlerName: p.wrestlerName,
                               amountPaid: p.amountPaid,
-                              paid: p.paid,
-                              hasStripePayment: p.hasStripePayment,
                             });
+                            const sess = sessions.find((s) => s.id === rosterSessionId);
+                            const suggested =
+                              p.amountPaid > 0 ? p.amountPaid : sess?.price_per_participant ?? 0;
+                            setMarkPaidAmount(suggested > 0 ? String(suggested) : '');
+                            setMarkPaidMethod('cash');
                           }}
                         >
-                          Transfer
+                          Mark paid
                         </Button>
-                      </div>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs text-red-400 border-red-600/30 hover:bg-red-600/10 hover:text-red-300"
+                        disabled={deletingParticipantId === p.id}
+                        onClick={() => handleRemoveRosterParticipant(p.id, p.wrestlerName, p)}
+                      >
+                        {deletingParticipantId === p.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          'Remove'
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs text-blue-400 border-blue-600/30 hover:bg-blue-600/10 hover:text-blue-300"
+                        onClick={() => {
+                          setTransferTargetSearch('');
+                          setTransferTargetSessionId('');
+                          setTransferringParticipant({
+                            id: p.id,
+                            wrestlerName: p.wrestlerName,
+                            amountPaid: p.amountPaid,
+                            paid: p.paid,
+                            hasStripePayment: p.hasStripePayment,
+                          });
+                        }}
+                      >
+                        Transfer
+                      </Button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             

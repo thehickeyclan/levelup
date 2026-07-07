@@ -42,7 +42,8 @@ export const RAW_CAMP_INVOICE = {
   facilityAddress: 'UNC & NC State wrestling facilities (per session)',
   paymentTerms: 'Payment due upon receipt.',
   paymentInstructions:
-    'Contact info@WrestlingGuild.com or call 631.662.5409 to pay by credit card. Include invoice number on all payments.',
+    'Pay online with the link below, or contact info@WrestlingGuild.com / 631.662.5409. Include invoice number WG-2026-TEAM-0710.',
+  stripePaymentUrl: 'https://buy.stripe.com/6oUfZj2nQ8N1asv7IDgEg09',
 } as const;
 
 export type RawCampInvoiceLine = {

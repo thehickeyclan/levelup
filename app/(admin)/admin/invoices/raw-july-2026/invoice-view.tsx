@@ -239,6 +239,28 @@ export function RawJuly2026InvoiceView({
             <p className="font-semibold">{RAW_CAMP_INVOICE.paymentTerms}</p>
             <p className="text-muted-foreground mt-1">{RAW_CAMP_INVOICE.paymentInstructions}</p>
           </div>
+          <div className="rounded-lg border border-[#B89D60]/40 bg-[#B89D60]/10 px-4 py-3 space-y-2">
+            <p className="font-semibold text-foreground">Pay online — {money(totalUsd)}</p>
+            <p className="text-sm break-all">
+              <a
+                href={RAW_CAMP_INVOICE.stripePaymentUrl}
+                className="text-[#B89D60] underline print:text-foreground print:no-underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {RAW_CAMP_INVOICE.stripePaymentUrl}
+              </a>
+            </p>
+            <Button
+              type="button"
+              className="bg-[#B89D60] hover:bg-[#9A8550] text-black print:hidden"
+              asChild
+            >
+              <a href={RAW_CAMP_INVOICE.stripePaymentUrl} target="_blank" rel="noreferrer">
+                Open payment link
+              </a>
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground">
             Reference invoice {RAW_CAMP_INVOICE.number} on payment. Sessions remain marked unpaid in
             The Guild until payment is recorded.

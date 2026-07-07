@@ -9,9 +9,11 @@ import Image from 'next/image';
 export function HomeHeroLogo({
   src,
   alt = 'The Guild — gold G lettermark with wrestlers',
+  className,
 }: {
   src: string;
   alt?: string;
+  className?: string;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -29,7 +31,10 @@ export function HomeHeroLogo({
       alt={alt}
       width={480}
       height={480}
-      className="object-contain w-full max-w-[320px] sm:max-w-[400px] lg:max-w-[480px] h-auto"
+      className={
+        className ??
+        'object-contain w-full max-w-[320px] sm:max-w-[400px] lg:max-w-[480px] h-auto'
+      }
       priority
       onError={() => setFailed(true)}
     />

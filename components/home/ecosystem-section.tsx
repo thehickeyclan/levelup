@@ -29,7 +29,7 @@ export function EcosystemSection() {
           One ecosystem
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-center text-sm text-white/60">
-          Connecting Division I programs to the wrestling community.
+          Youth and HS wrestlers meet elite coaches locally — backed by Division I experience.
         </p>
 
         <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">

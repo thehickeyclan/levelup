@@ -17,7 +17,7 @@ import { fetchHomeReviews, fetchHomeReviewStats } from '@/lib/home/fetch-home-re
 export const metadata = {
   title: 'The Wrestling Guild | Division I Wrestling in Your Community',
   description:
-    'NCAA athletes and elite coaches from programs you know — training kids where you live. Browse coaches, read parent reviews, and book sessions across North Carolina.',
+    'The Wrestling Guild connects youth and high school wrestlers with elite coaches in your community. Browse coaches, read parent reviews, and book sessions across North Carolina.',
 };
 
 export default async function HomePage({
@@ -58,7 +58,11 @@ export default async function HomePage({
 
   return (
     <main className="min-h-screen bg-black pb-14 md:pb-0">
-      <HomeHero coaches={stripCoaches} />
+      <HomeHero
+        coaches={stripCoaches}
+        logoSrc={tenant?.logo}
+        logoAlt={tenant?.productName}
+      />
       <MeetCoachesSection coaches={featuredCoaches} />
       <EcosystemSection />
       <ParentReviewsCarousel reviews={homeReviews} stats={reviewStats} />

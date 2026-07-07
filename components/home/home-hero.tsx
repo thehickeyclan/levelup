@@ -2,21 +2,36 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ProfileImage } from '@/components/profile-image';
 import { SchoolLogo } from '@/components/school-logo';
+import { HomeHeroLogo } from '@/app/home-hero-logo';
 import type { FeaturedCoachStrip } from '@/lib/home/fetch-featured-coaches';
 
 type Props = {
   coaches: FeaturedCoachStrip[];
+  logoSrc?: string;
+  logoAlt?: string;
 };
 
-export function HomeHero({ coaches }: Props) {
+export function HomeHero({ coaches, logoSrc, logoAlt }: Props) {
   return (
     <section className="relative flex min-h-[65svh] flex-col items-center justify-center bg-black px-6 py-10 sm:py-12">
+      {logoSrc && (
+        <div className="mb-6 sm:mb-8">
+          <HomeHeroLogo
+            src={logoSrc}
+            alt={logoAlt ?? 'The Wrestling Guild'}
+            className="h-auto w-full max-w-[min(90vw,360px)] object-contain sm:max-w-[400px]"
+          />
+        </div>
+      )}
+
       <h1 className="mb-3 max-w-3xl text-center font-serif text-3xl font-black uppercase tracking-wide text-accent sm:text-4xl md:text-5xl">
-        Division I wrestling,
-        <br className="sm:hidden" /> in your community.
+        Connecting youth & high school wrestlers
+        <br className="hidden sm:block" />
+        <span className="sm:ml-2">to elite coaches in your community.</span>
       </h1>
       <p className="mb-8 max-w-xl text-center text-sm text-white/70 sm:text-base">
-        NCAA athletes and elite coaches from programs you know — training kids where you live.
+        NCAA and Division I backgrounds from programs you know — private sessions, partner
+        training, and small groups where you live.
       </p>
 
       <div className="flex w-full max-w-sm flex-col gap-3 sm:max-w-md">

@@ -27,19 +27,19 @@ export function rawCampSchoolUnitPriceUsd(raw: number | null | undefined): numbe
 }
 
 export const RAW_CAMP_INVOICE = {
-  number: 'WG-2026-RAW-0710',
-  title: 'Team training — RAW West (Jul 10–12, 2026)',
+  number: 'WG-2026-TEAM-0710',
+  title: 'Team training — Jul 10–12, 2026',
   billFromName: 'The Wrestling Guild',
   billFromWebsite: 'www.wrestlingguild.com',
   billFromEmail: 'info@WrestlingGuild.com',
   billFromPhone: '631.662.5409',
   billToName: 'Alan Aponte',
-  billToOrg: 'Raleigh Area Wrestling (RAW)',
-  billToNote: 'School billing — team training weekend',
+  billToOrg: 'School team billing',
+  billToNote: 'Six athletes · weekend small-group sessions',
   scheduleNote:
-    'Sat Jul 11: Liam 10 AM + 4 PM, Cason 10 AM, Ethan Oakley 4 PM',
-  facilityName: 'RAW West',
-  facilityAddress: '2790 W Mountain St, Kernersville, NC 27284',
+    'Fri–Sun Jul 10–12 · Liam, Cason, Ethan, Derek, and Nick coach sessions',
+  facilityName: 'Guild coach facilities',
+  facilityAddress: 'UNC & NC State wrestling facilities (per session)',
   paymentTerms: 'Payment due upon receipt.',
   paymentInstructions:
     'Contact info@WrestlingGuild.com or call 631.662.5409 to pay by credit card. Include invoice number on all payments.',

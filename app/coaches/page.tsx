@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getTenantByDomain, getTenantConfig } from '@/config/tenants';
 import { CoachesLanding } from '@/components/coaches/coaches-landing';
+import { CoachesStickyCtaWrapper } from '@/components/coaches/coaches-sticky-cta-wrapper';
 import {
   buildCoachesEarningsExamples,
   buildCoachesEarningsScenarios,
@@ -46,7 +47,7 @@ export default async function CoachesPage() {
   const practiceVideoSrc = resolveCoachesPracticeVideoSrc();
 
   return (
-    <main className="min-h-screen bg-black">
+    <main className="min-h-screen bg-black pb-16 md:pb-0">
       <CoachesLanding
         coaches={coaches}
         bySchool={bySchool}
@@ -59,6 +60,7 @@ export default async function CoachesPage() {
         coachSharePercent={coachSharePercent}
         practiceVideoSrc={practiceVideoSrc}
       />
+      <CoachesStickyCtaWrapper />
     </main>
   );
 }

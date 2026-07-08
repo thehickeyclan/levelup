@@ -22,19 +22,26 @@ export function StickyMobileBar() {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50 flex h-14 border-t border-accent/30 bg-black/95 backdrop-blur-sm md:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-3 border-t border-accent/30 bg-black/95 backdrop-blur-sm md:hidden"
       role="navigation"
       aria-label="Quick actions"
     >
-      <Button variant="premium" asChild className="h-full flex-1 rounded-none">
-        <Link href="/training?tab=coaches">Browse Coaches</Link>
+      <Button variant="premium" asChild className="h-14 rounded-none text-xs sm:text-sm">
+        <Link href="/training?tab=coaches">Browse</Link>
       </Button>
       <Button
         variant="outline"
         asChild
-        className="h-full flex-1 rounded-none border-0 border-l border-accent/30 text-accent hover:bg-accent/10"
+        className="h-14 rounded-none border-0 border-x border-accent/30 text-accent hover:bg-accent/10 text-xs sm:text-sm"
       >
-        <Link href="/signup">Sign Up Free</Link>
+        <Link href="/coaches">For Coaches</Link>
+      </Button>
+      <Button
+        variant="outline"
+        asChild
+        className="h-14 rounded-none border-0 text-accent hover:bg-accent/10 text-xs sm:text-sm"
+      >
+        <Link href="/signup">Sign Up</Link>
       </Button>
     </div>
   );

@@ -29,6 +29,8 @@ import { BrandLogo } from '@/components/brand-logo';
 import { CartDropdown } from '@/components/cart-dropdown';
 import { createClient } from '@/lib/supabase/client';
 import { CoachHeaderMobile } from '@/components/coach-header-mobile';
+import { PublicHeaderMobile } from '@/components/public-header-mobile';
+import { isMarketingRoute } from '@/lib/marketing-routes';
 import { IN_APP_MESSAGING_ENABLED } from '@/lib/in-app-messaging';
 
 type Coach = { id: string; first_name: string; last_name: string; school: string | null };
@@ -121,6 +123,7 @@ export function Header() {
   };
 
   const isAdmin = userRole === 'admin';
+  const onMarketingPage = isMarketingRoute(pathname);
 
   const handleSignOut = async () => {
     await signOut();
@@ -151,6 +154,22 @@ export function Header() {
               {effectiveRole === 'coach' && (
                 <div className="md:hidden">
                   <CoachHeaderMobile onSignOut={handleSignOut} />
+                </div>
+              )}
+              {(effectiveRole === 'parent' ||
+                effectiveRole === 'admin' ||
+                effectiveRole === 'youth_wrestler') && (
+                <div className="md:hidden">
+                  {onMarketingPage ? (
+                    <PublicHeaderMobile variant="logged-in" />
+                  ) : (
+                    <Link
+                      href="/coaches"
+                      className="inline-flex min-h-[44px] items-center rounded-md border border-accent/50 px-3 text-xs font-semibold text-accent hover:bg-accent/10 transition-colors whitespace-nowrap"
+                    >
+                      For Coaches
+                    </Link>
+                  )}
                 </div>
               )}
             {/* Post-login: nav aligned to profile (athlete = coach, parent, youth_wrestler, admin) */}
@@ -453,34 +472,16 @@ export function Header() {
 
             {showLoggedOutMobileHeaderLinks(pathname) && (
               <nav
-                className="md:hidden flex flex-wrap items-center justify-end gap-x-2 gap-y-1 flex-1 min-w-0"
+                className="md:hidden flex items-center justify-end gap-2 shrink-0"
                 aria-label="Log in, sign up, and coach application"
               >
                 <Link
-                  href="/login"
-                  className="text-white/90 hover:text-accent font-medium transition-colors whitespace-nowrap text-[11px] min-[400px]:text-xs"
-                >
-                  Log in
-                </Link>
-                <span className="text-white/30 select-none" aria-hidden>
-                  ·
-                </span>
-                <Link
-                  href="/signup"
-                  className="text-accent hover:text-accent-light font-semibold transition-colors whitespace-nowrap text-[11px] min-[400px]:text-xs"
-                >
-                  Sign up
-                </Link>
-                <span className="text-white/30 select-none" aria-hidden>
-                  ·
-                </span>
-                <Link
                   href="/coaches"
-                  className="text-white/90 hover:text-accent font-medium transition-colors whitespace-nowrap text-[11px] min-[400px]:text-xs"
-                  title="Apply as a coach"
+                  className="inline-flex min-h-[44px] items-center rounded-md border border-accent/50 px-3 text-xs font-semibold text-accent hover:bg-accent/10 transition-colors whitespace-nowrap"
                 >
-                  Apply as coach
+                  For Coaches
                 </Link>
+                <PublicHeaderMobile variant="public" />
               </nav>
             )}
             </>

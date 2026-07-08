@@ -71,7 +71,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Who can apply to coach?',
-    a: 'We review every application — The Guild is curated, not open enrollment. Current and former NCAA, NAIA, and JUCO wrestlers; national and state placers; and proven club or high school coaches are welcome. Coaches in any location can apply. Once approved, you set your own rates and schedule where you train.',
+    a: 'We review every application — The Guild is curated, not open enrollment. Current and former NCAA, NAIA, and JUCO wrestlers and proven club or high school coaches are welcome. Coaches in any location can apply. Once approved, you set your own rates and schedule where you train.',
   },
   {
     q: 'Can I set my own prices?',
@@ -511,7 +511,6 @@ export function CoachesLanding({
           <ul className="mt-8 space-y-3 text-white/85">
             {[
               'Current and former NCAA, NAIA, and JUCO wrestlers',
-              'National and state placers with proven coaching experience',
               'Club and high school coaches with elite credentials',
               'Coaches in any location — train where you already coach',
             ].map((item) => (

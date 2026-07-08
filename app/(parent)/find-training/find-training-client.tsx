@@ -289,9 +289,9 @@ export function FindTrainingClient({
       .filter(Boolean) as string[];
     const parentBookedCount = parentWrestlerIds.filter((id) => bookedWrestlerIds.includes(id)).length;
     const allParentWrestlersBooked = parentWrestlerIds.length > 0 && parentBookedCount >= parentWrestlerIds.length;
-    const someParentWrestlersBooked = parentBookedCount > 0;
-    
-    // Determine spot display color per spec
+
+    // Dim card only when the session is actually closed — not when this parent is already registered.
+    const isSessionClosed = openSlots === 0 || isInviteOnly;
     const getSpotColor = () => {
       if (openSlots === 0) return 'text-zinc-500'; // Full - grey
       if (isPrivate && openSlots > 0) return 'text-emerald-400'; // Private available - green
@@ -308,8 +308,19 @@ export function FindTrainingClient({
       return `${current}/${max} · ${openSlots} spot${openSlots !== 1 ? 's' : ''} left`;
     };
     
-    // Session is not bookable if full OR invite-only (without access) OR all wrestlers already booked
-    const isNotBookable = openSlots === 0 || isInviteOnly || allParentWrestlersBooked;
+    const registeredStatus = (
+      <div className="flex flex-col items-end gap-1">
+        <span className="text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 px-3 py-2.5 min-h-[44px] rounded flex items-center gap-1.5">
+          <Check className="h-3 w-3" aria-hidden />
+          Registered
+        </span>
+        {openSlots > 0 && (
+          <span className="text-[10px] text-zinc-500 tabular-nums">
+            {openSlots} spot{openSlots !== 1 ? 's' : ''} still open
+          </span>
+        )}
+      </div>
+    );
 
     const copySessionLink = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -345,7 +356,7 @@ export function FindTrainingClient({
     return (
       <div className={cn(
         "bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-4 transition-all",
-        isNotBookable ? "opacity-60" : "hover:border-zinc-700"
+        isSessionClosed ? "opacity-60" : "hover:border-zinc-700"
       )}>
         {/* Mobile: Stack layout, Desktop: Row layout */}
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -541,18 +552,15 @@ export function FindTrainingClient({
             {price != null && price > 0 && (
               <span className="text-lg font-bold text-foreground">${price}</span>
             )}
-            {/* Button States per spec:
-                - All parent's wrestlers booked: "Booked" (grey, disabled)
+            {/* Button States:
+                - All parent's wrestlers registered: "Registered" (session may still have open spots)
                 - Invite-only without access: Lock icon, no action
-                - Full: "Full" badge, no action  
+                - Full: "Full" badge, no action
                 - In Cart: Navigate to cart
-                - Open/Has invite: Add to Cart
+                - Open: Add to Cart
             */}
             {allParentWrestlersBooked ? (
-              <span className="text-xs text-zinc-500 bg-zinc-800 px-3 py-2.5 min-h-[44px] rounded flex items-center gap-1.5">
-                <Check className="h-3 w-3" />
-                Booked
-              </span>
+              registeredStatus
             ) : openSlots > 0 ? (
               isInviteOnly ? (
                 <span className="text-xs text-zinc-500 bg-zinc-800 px-3 py-2.5 min-h-[44px] rounded flex items-center gap-1.5">
@@ -619,10 +627,17 @@ export function FindTrainingClient({
             {(() => {
               if (allParentWrestlersBooked) {
                 return (
-                  <span className="w-full text-xs text-zinc-500 bg-zinc-800 px-3 py-2.5 min-h-[44px] rounded flex items-center justify-center gap-1.5">
-                    <Check className="h-3 w-3" />
-                    Booked
-                  </span>
+                  <div className="w-full flex flex-col items-center gap-1">
+                    <span className="w-full text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 px-3 py-2.5 min-h-[44px] rounded flex items-center justify-center gap-1.5">
+                      <Check className="h-3 w-3" aria-hidden />
+                      Registered
+                    </span>
+                    {openSlots > 0 && (
+                      <span className="text-[10px] text-zinc-500 tabular-nums">
+                        {openSlots} spot{openSlots !== 1 ? 's' : ''} still open
+                      </span>
+                    )}
+                  </div>
                 );
               }
               if (openSlots <= 0) {

@@ -4,6 +4,7 @@ import { getTenantByDomain, getTenantConfig } from '@/config/tenants';
 import { CoachesLanding } from '@/components/coaches/coaches-landing';
 import {
   buildCoachesEarningsExamples,
+  buildCoachesEarningsScenarios,
   fetchCoachesLandingData,
 } from '@/lib/coaches-landing';
 import { fetchHomeReviews } from '@/lib/home/fetch-home-reviews';
@@ -14,9 +15,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata = {
-  title: 'Coach with The Guild | We Handle the Business',
+  title: 'Coach with The Guild | You Coach, We Handle the Rest',
   description:
-    'Apply to coach on The Wrestling Guild. We review every application — NCAA wrestlers, former college athletes, and elite club coaches welcome, any location. Keep ~80% of session fees.',
+    'Apply to coach on The Wrestling Guild. Set your rates, open your schedule, and let parents book online. NCAA wrestlers and elite club coaches welcome — any location.',
 };
 
 export default async function CoachesPage() {
@@ -29,16 +30,17 @@ export default async function CoachesPage() {
   }
 
   const config = getTenantConfig(tenant.slug);
-  const [{ coaches, bySchool, stats, heroCoachIds }, reviews] = await Promise.all([
+  const [{ coaches, bySchool, stats, recentActivity }, reviews] = await Promise.all([
     fetchCoachesLandingData(tenant.slug),
     fetchHomeReviews(tenant.slug, 3),
   ]);
 
-  const heroCoaches = heroCoachIds
-    .map((id) => coaches.find((c) => c.id === id))
-    .filter((c): c is NonNullable<typeof c> => !!c);
+  const featuredCoaches = [...coaches]
+    .sort((a, b) => b.sessionCount - a.sessionCount)
+    .slice(0, 8);
 
   const earningsExamples = buildCoachesEarningsExamples(config.pricing);
+  const earningsScenarios = buildCoachesEarningsScenarios(config.pricing);
   const coachSharePercent = coachRevenueSharePercentDisplay(null);
 
   return (
@@ -47,8 +49,10 @@ export default async function CoachesPage() {
         coaches={coaches}
         bySchool={bySchool}
         stats={stats}
-        heroCoaches={heroCoaches}
+        recentActivity={recentActivity}
+        featuredCoaches={featuredCoaches}
         earningsExamples={earningsExamples}
+        earningsScenarios={earningsScenarios}
         reviews={reviews}
         coachSharePercent={coachSharePercent}
       />

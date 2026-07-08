@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { formatBookingDollarsStat, formatCountStat } from './coaches-landing';
+import {
+  buildCoachesEarningsScenarios,
+  formatBookingDollarsStat,
+  formatCountStat,
+} from './coaches-landing';
+
+describe('buildCoachesEarningsScenarios', () => {
+  it('computes monthly scenarios from tenant pricing', () => {
+    const rows = buildCoachesEarningsScenarios({ oneOnOne: 60, groupRate: 30 });
+    expect(rows).toHaveLength(4);
+    expect(rows[0].label).toBe('2 privates/week');
+    expect(rows[0].monthlyApprox).toBeGreaterThan(0);
+    expect(rows[2].label).toContain('6 athletes');
+  });
+});
 
 describe('formatBookingDollarsStat', () => {
   it('rounds down to whole thousands with k+', () => {

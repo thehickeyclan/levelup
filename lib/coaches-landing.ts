@@ -31,6 +31,18 @@ export type CoachesLandingStats = {
   sessionCount: number;
 };
 
+/** Completed-session activity in the last 30 days. */
+export type CoachesRecentActivity = {
+  privateCount: number;
+  groupCount: number;
+  athletesTrained: number;
+};
+
+export type CoachesEarningsScenario = {
+  label: string;
+  monthlyApprox: number;
+};
+
 /** Round down for marketing display — always under-promise. */
 export function formatBookingDollarsStat(dollars: number): string {
   if (dollars >= 1000) {
@@ -84,14 +96,43 @@ function schoolSortOrder(label: string): number {
   return SCHOOL_SORT[label] ?? 99;
 }
 
+const GROUP_SIZE = 6;
+const WEEKS_PER_MONTH = 4;
+
+export function buildCoachesEarningsScenarios(pricing: {
+  oneOnOne: number;
+  groupRate: number;
+}): CoachesEarningsScenario[] {
+  const privatePayout = coachPayoutFromParentPrice(pricing.oneOnOne);
+  const groupSessionPayout = coachPayoutFromParentPrice(pricing.groupRate * GROUP_SIZE);
+
+  return [
+    {
+      label: '2 privates/week',
+      monthlyApprox: Math.round(privatePayout * 2 * WEEKS_PER_MONTH),
+    },
+    {
+      label: '4 privates/week',
+      monthlyApprox: Math.round(privatePayout * 4 * WEEKS_PER_MONTH),
+    },
+    {
+      label: `1 small group/week (${GROUP_SIZE} athletes)`,
+      monthlyApprox: Math.round(groupSessionPayout * WEEKS_PER_MONTH),
+    },
+    {
+      label: '2 small groups/week',
+      monthlyApprox: Math.round(groupSessionPayout * 2 * WEEKS_PER_MONTH),
+    },
+  ];
+}
+
 export function buildCoachesEarningsExamples(pricing: {
   oneOnOne: number;
   twoAthlete: number;
   groupRate: number;
 }): CoachesEarningsExample[] {
   const partnerPerAthlete = pricing.twoAthlete / 2;
-  const groupSize = 6;
-  const groupTotal = pricing.groupRate * groupSize;
+  const groupTotal = pricing.groupRate * GROUP_SIZE;
 
   return [
     {
@@ -108,22 +149,30 @@ export function buildCoachesEarningsExamples(pricing: {
     },
     {
       title: 'Small Group',
-      subtitle: `${groupSize} athletes · $${pricing.groupRate} each`,
+      subtitle: `${GROUP_SIZE} athletes · $${pricing.groupRate} each`,
       parentTotal: groupTotal,
       coachKeeps: coachPayoutFromParentPrice(groupTotal),
     },
   ];
 }
 
+function recentActivityCutoff(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return d.toISOString();
+}
+
 export async function fetchCoachesLandingData(tenantSlug: string): Promise<{
   coaches: CoachesLandingCoach[];
   bySchool: CoachesBySchool[];
   stats: CoachesLandingStats;
+  recentActivity: CoachesRecentActivity;
   heroCoachIds: string[];
 }> {
   const admin = createAdminClient(tenantSlug);
+  const activitySince = recentActivityCutoff();
 
-  const [coachesRes, sessionsRes, participantsRes] = await Promise.all([
+  const [coachesRes, sessionsRes, participantsRes, recentSessionsRes] = await Promise.all([
     admin
       .from('athletes')
       .select(
@@ -137,6 +186,11 @@ export async function fetchCoachesLandingData(tenantSlug: string): Promise<{
       .select('id', { count: 'exact', head: true })
       .eq('status', 'completed'),
     admin.from('session_participants').select('amount_paid').gt('amount_paid', 0).limit(10000),
+    admin
+      .from('sessions')
+      .select('id, session_type, session_participants(youth_wrestler_id)')
+      .eq('status', 'completed')
+      .gte('scheduled_datetime', activitySince),
   ]);
 
   const rows = coachesRes.data ?? [];
@@ -188,6 +242,23 @@ export async function fetchCoachesLandingData(tenantSlug: string): Promise<{
     bookingCount += 1;
   }
 
+  let privateCount = 0;
+  let groupCount = 0;
+  const athleteIds = new Set<string>();
+  for (const raw of recentSessionsRes.data ?? []) {
+    const s = raw as {
+      session_type?: string | null;
+      session_participants?: { youth_wrestler_id?: string | null }[] | null;
+    };
+    const type = s.session_type ?? '';
+    if (type === '1-on-1') privateCount += 1;
+    if (type === 'group') groupCount += 1;
+    for (const p of s.session_participants ?? []) {
+      const wid = p.youth_wrestler_id;
+      if (wid) athleteIds.add(wid);
+    }
+  }
+
   return {
     coaches,
     bySchool,
@@ -196,6 +267,11 @@ export async function fetchCoachesLandingData(tenantSlug: string): Promise<{
       bookingDollars,
       bookingCount,
       sessionCount: sessionsRes.count ?? 0,
+    },
+    recentActivity: {
+      privateCount,
+      groupCount,
+      athletesTrained: athleteIds.size,
     },
     heroCoachIds,
   };

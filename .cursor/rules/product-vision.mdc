@@ -14,6 +14,7 @@ Before proposing or implementing **substantial feature work**, read `docs/VISION
 3. **Anti-goals** — especially no gimmick chatbot; no parent-only features off the flywheel.
 4. **Current state (July 2026)** — honest gap vs aspirational; don’t assume weekly coach habit exists yet.
 5. **Schema rule** — sport-agnostic field names (`sport_type`, not `wrestling_level`) even when UI is wrestling-specific.
+6. **AI review checklist** (AI features only) — removes a manual step; surfaces without coach initiation; one-tap override/dismiss; uses real Guild data.
 
 ## Priority
 

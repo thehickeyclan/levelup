@@ -130,6 +130,13 @@ Guild replaces every tool coaches currently use — and **automates the admin** 
 - Intelligence appears as **suggestions, defaults, and automation** — coach approves and can override.
 - If a feature could be manual or AI-assisted, **design for AI-assisted**.
 
+**AI review checklist** — before shipping any AI feature, all four must be **yes**:
+
+- Does it **remove a step** the coach currently does manually?
+- Does the coach **see it without being asked** to initiate it?
+- Can the coach **override or dismiss** it in one tap?
+- Does it use **real Guild data**, not generic suggestions?
+
 **Near-term intelligence (wrestling beachhead):**
 
 - recommend pricing and rate-card defaults
@@ -322,7 +329,7 @@ Every employee should know these.
 - **Product:** Prioritize backlog against **Current state** gaps, **Now**, and pillar #1 (Intelligent Coach Platform).
 - **Engineering:** Prefer scalable models; ship wrestling-specific UI freely; **never ship manual-only coach workflows** when AI-assisted design is feasible in the same sprint.
 - **Design:** Filter through design philosophy; AI stays invisible until useful.
-- **Cursor / AI sessions:** Read this file at the start of substantial feature work. Check the **four questions**, **Do this, not that**, **anti-goals**, and the **schema rule** before writing code.
+- **Cursor / AI sessions:** Read this file at the start of substantial feature work. Check the **four questions**, **Do this, not that**, **anti-goals**, and the **schema rule** before writing code. For AI features, run the **AI review checklist** before shipping.
 
 When this doc conflicts with a one-off request, **update this doc** or explicitly label the request as a temporary exception.
 

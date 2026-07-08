@@ -1,8 +1,10 @@
 # The Guild — Product Vision
 
-**Constitution for product and engineering decisions.**
+**v1.0 — Company constitution for product and engineering decisions.**
 
 Read this before proposing or building features. When in doubt, choose the path that helps **wrestling coaches run their business on Guild today** and **scales to every independent coach in every sport tomorrow** — without redesigning the platform.
+
+Future changes to this document should be **deliberate and infrequent**. Roadmaps and implementation docs evolve around it.
 
 ---
 
@@ -97,6 +99,16 @@ Optimize for long-term network effects over short-term convenience when the trad
 
 ---
 
+## Persistent identity
+
+Guild becomes more valuable over time because of **identity**.
+
+Every athlete, parent, and coach should have a persistent Guild identity that **grows in value** through coaching, reviews, transactions, community participation, and reputation.
+
+That identity ties together the **Intelligent Coach Platform**, **Community**, and **Guild Market** — one person, one trust graph, compounding across every interaction.
+
+---
+
 ## Core platform pillars (priority order)
 
 ### 1. Intelligent Coach Platform
@@ -181,6 +193,8 @@ Related docs: `docs/COMMUNITY_VISION.md`, `docs/WORKSPACE_AND_COLLABORATION.md`,
 - **Long term:** Sport-agnostic product categories; wrestling is the first catalog, not the only data model.
 
 **Target capabilities (phased):** fixed price, offers, local pickup, shipping, seller ratings, saved searches — auctions only after liquidity is proven.
+
+**Marketplace trust:** Guild Market succeeds because coaching relationships create trusted commerce. Verified coaches, athletes, and families make buying and selling safer than anonymous marketplaces.
 
 Market is **live and valuable** but **lower priority than the Intelligent Coach Platform and community depth** for engineering attention.
 
@@ -329,10 +343,20 @@ Every employee should know these.
 - **Product:** Prioritize backlog against **Current state** gaps, **Now**, and pillar #1 (Intelligent Coach Platform).
 - **Engineering:** Prefer scalable models; ship wrestling-specific UI freely; **never ship manual-only coach workflows** when AI-assisted design is feasible in the same sprint.
 - **Design:** Filter through design philosophy; AI stays invisible until useful.
-- **Cursor / AI sessions:** Read this file at the start of substantial feature work. Check the **four questions**, **Do this, not that**, **anti-goals**, and the **schema rule** before writing code. For AI features, run the **AI review checklist** before shipping.
+- **Cursor / AI sessions:** Read this file at the start of substantial feature work. Check the **four questions**, **Do this, not that**, **anti-goals**, and the **schema rule** before writing code. For AI features, run the **AI review checklist** before shipping. For growth, acquisition, or campaigns, read **`docs/GROWTH.md`**.
+
+Related: **`docs/GROWTH.md`** — how Guild grows (coach earnings, activation, geographic expansion).
 
 When this doc conflicts with a one-off request, **update this doc** or explicitly label the request as a temporary exception.
 
 ---
 
-*Last updated: July 2026*
+## Document governance
+
+**Version:** v1.0 (July 2026)
+
+This document should be **reviewed annually**. Vision and principles change rarely; **Current state** and near-term priorities should evolve as the platform matures.
+
+Implementation roadmaps, sprint plans, and feature specs live **outside** this file and update continuously.
+
+Companion: **`docs/GROWTH.md`** — how we build the network (acquisition, activation, density, demand).

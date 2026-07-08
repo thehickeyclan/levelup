@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Product vision filter
 
-Before proposing or implementing **substantial feature work**, read `docs/VISION.md`.
+Before proposing or implementing **substantial feature work**, read `docs/VISION.md`. For growth, outreach, or campaigns, also read `docs/GROWTH.md`.
 
 ## Required checks
 

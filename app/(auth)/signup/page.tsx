@@ -79,10 +79,10 @@ export default function SignupPage() {
     }
   }, [refFromUrl]);
 
-  // If role=coach, redirect to coach application
+  // Coach recruitment funnel: landing page before application
   useEffect(() => {
     if (roleParam === 'coach') {
-      router.replace('/signup/coach');
+      router.replace('/coaches');
     }
   }, [roleParam, router]);
 
@@ -342,7 +342,7 @@ export default function SignupPage() {
             </p>
             <p className="text-muted-foreground">
               Want to coach?{' '}
-              <Link href="/signup/coach" className="text-accent hover:underline">
+              <Link href="/coaches" className="text-accent hover:underline">
                 Apply as a coach
               </Link>
             </p>

@@ -429,7 +429,7 @@ export function Header() {
                 Browse Coaches
               </Link>
               <Link
-                href="/signup?role=coach"
+                href="/coaches"
                 className="text-white hover:text-accent transition-colors font-medium"
               >
                 For Coaches

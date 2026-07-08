@@ -43,7 +43,7 @@ export default function RoleSelectionPage() {
 
         {/* Coach Card */}
         <button
-          onClick={() => router.push('/signup?role=coach')}
+          onClick={() => router.push('/coaches')}
           className="text-left"
         >
           <Card className="h-full cursor-pointer transition-all hover:border-accent hover:shadow-lg group">

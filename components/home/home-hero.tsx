@@ -47,6 +47,12 @@ export function HomeHero({ coaches, logoSrc, logoAlt }: Props) {
           <Link href="/signup">Sign Up Free</Link>
         </Button>
       </div>
+      <p className="mt-5 text-center text-sm text-white/55">
+        Division I wrestler or elite coach?{' '}
+        <Link href="/coaches" className="font-semibold text-accent hover:underline">
+          Apply to coach →
+        </Link>
+      </p>
 
       {coaches.length > 0 && (
         <div className="mt-8 w-full max-w-4xl">

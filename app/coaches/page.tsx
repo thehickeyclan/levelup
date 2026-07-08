@@ -12,7 +12,7 @@ import { coachRevenueSharePercentDisplay } from '@/lib/pricing';
 export const metadata = {
   title: 'Coach with The Guild | We Handle the Business',
   description:
-    'NCAA wrestlers and elite coaches: set your rates, open your calendar, and get paid when parents book online. Keep ~80% of session fees. Apply to coach on The Wrestling Guild.',
+    'Apply to coach on The Wrestling Guild. We review every application — NCAA wrestlers, former college athletes, and elite club coaches welcome, any location. Keep ~80% of session fees.',
 };
 
 export default async function CoachesPage() {

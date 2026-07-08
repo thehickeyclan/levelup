@@ -24,6 +24,10 @@ import {
 
 const FAQ_ITEMS = [
   {
+    q: 'Who can apply to coach?',
+    a: 'We review every application — The Guild is curated, not open enrollment. Current and former NCAA, NAIA, and JUCO wrestlers; national and state placers; and proven club or high school coaches are welcome. Coaches in any location can apply. Once approved, you set your own rates and schedule where you train.',
+  },
+  {
     q: 'Can I set my own prices?',
     a: 'Yes. You build your rate card — private, partner, and small-group pricing, session length, and what you offer. Recommended rates are shown when you onboard.',
   },
@@ -125,7 +129,7 @@ export function CoachesLanding({
       ? 'Hundreds of Sessions Booked'
       : stats.sessionCount >= 50
         ? `${stats.sessionCount}+ Sessions Booked`
-        : 'Sessions Booked Across NC';
+        : 'Sessions Booked on The Guild';
 
   return (
     <div className="bg-black text-white">
@@ -163,7 +167,8 @@ export function CoachesLanding({
           </h1>
           <p className="mt-5 max-w-2xl text-base text-white/75 sm:text-lg">
             Build your coaching business without managing schedules, payments, or endless texts.
-            Set your own rates, open your availability, and coach on your terms.
+            Apply to join — we review every coach. Once approved, set your rates, open your
+            calendar, and coach on your terms, anywhere you train.
           </p>
           <div className="mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
             <Button size="lg" variant="premium" asChild className="min-h-[48px] w-full sm:w-auto">
@@ -194,7 +199,7 @@ export function CoachesLanding({
               <SchoolLogo school="NC State" size="lg" />
               <SchoolLogo school="App State" size="lg" />
             </div>
-            <p className="text-sm text-white/60">DI programs across NC</p>
+            <p className="text-sm text-white/60">NCAA &amp; elite programs · coaches nationwide</p>
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold text-white md:text-base">{sessionLabel}</p>
@@ -219,8 +224,43 @@ export function CoachesLanding({
         </div>
       </section>
 
+      {/* Who can coach */}
+      <section id="who-can-coach" className="border-b border-accent/20 px-6 py-14 md:py-16">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="text-center font-serif text-2xl font-black uppercase tracking-wide text-accent md:text-3xl">
+            Who can coach?
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-white/70 sm:text-base">
+            We review every application. The Guild is curated — not open enrollment — so parents
+            know every coach on the platform is vetted.
+          </p>
+          <ul className="mt-8 space-y-3 text-white/85">
+            {[
+              'Current and former NCAA, NAIA, and JUCO wrestlers',
+              'National and state placers with proven coaching experience',
+              'Club and high school coaches with elite credentials',
+              'Coaches in any location — train where you already coach',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <Check className="mt-0.5 h-5 w-5 shrink-0 text-accent" aria-hidden />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-8 text-center text-sm text-white/60">
+            Approved coaches set their own rates, open their calendar, and start booking. Most
+            applications are reviewed within 24–48 hours.
+          </p>
+          <p className="mt-4 text-center text-sm">
+            <Link href="/requirements" className="text-accent hover:underline">
+              See full requirements →
+            </Link>
+          </p>
+        </div>
+      </section>
+
       {/* Pain → solution */}
-      <section className="border-b border-accent/20 px-6 py-14 md:py-16">
+      <section className="border-b border-accent/20 bg-zinc-950/50 px-6 py-14 md:py-16">
         <div className="mx-auto max-w-4xl">
           <h2 className="text-center font-serif text-2xl font-black uppercase tracking-wide text-accent md:text-3xl">
             Built for coaches who already coach
@@ -351,8 +391,8 @@ export function CoachesLanding({
             Who&apos;s already here
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-white/65">
-            {coaches.length} coaches on The Guild — NCAA athletes and elite coaches parents already
-            book across North Carolina.
+            {coaches.length} approved coaches on The Guild — NCAA athletes and elite club coaches
+            parents already book. We&apos;re growing nationwide, starting in North Carolina.
           </p>
 
           <div className="mt-12 space-y-14">

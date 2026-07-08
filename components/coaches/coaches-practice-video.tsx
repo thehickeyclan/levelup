@@ -19,10 +19,10 @@ export function CoachesPracticeVideo({ videoSrc }: Props) {
         <h2 className="mt-2 text-center font-serif text-xl font-black uppercase tracking-wide text-white md:text-2xl">
           Parents book. You coach.
         </h2>
-        <div className="relative mt-8 overflow-hidden rounded-xl border border-accent/25 bg-zinc-950">
+        <div className="relative mx-auto mt-8 max-w-2xl overflow-hidden rounded-xl border border-accent/25 bg-zinc-950 md:max-w-3xl">
           {videoSrc ? (
             <video
-              className="aspect-video w-full object-cover"
+              className="aspect-[3/4] w-full object-cover object-[center_55%] sm:aspect-video sm:object-center"
               autoPlay
               muted
               loop
@@ -32,13 +32,13 @@ export function CoachesPracticeVideo({ videoSrc }: Props) {
               <source src={videoSrc} type="video/mp4" />
             </video>
           ) : (
-            <div className="relative aspect-video w-full">
+            <div className="relative aspect-[3/4] w-full">
               <Image
                 src={POSTER_SRC}
                 alt="Guild coach working with athletes on the mat"
                 fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 1024px"
+                className="object-cover object-center"
+                sizes="(max-width: 768px) 100vw, 768px"
               />
             </div>
           )}

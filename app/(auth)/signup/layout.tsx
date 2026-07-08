@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const tenant = getTenantByDomain(host);
   const productName = tenant?.productName ?? 'The Guild';
   const baseUrl = resolveSiteBaseUrl(host);
-  const logoPath = tenant?.logo ?? '/logos/guild-bronze.jpg';
+  const logoPath = tenant?.logo ?? '/logos/guild-mark.png';
 
   const title = `Join ${productName}`;
   const description = `A friend invited you to train with NCAA wrestlers and elite coaches. Create your account and book technique sessions in your community.`;

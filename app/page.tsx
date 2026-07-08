@@ -60,7 +60,7 @@ export default async function HomePage({
     <main className="min-h-screen bg-black pb-14 md:pb-0">
       <HomeHero
         coaches={stripCoaches}
-        logoSrc={tenant?.logo}
+        logoSrc={tenant?.heroLogo ?? tenant?.logo}
         logoAlt={tenant?.productName}
       />
       <MeetCoachesSection coaches={featuredCoaches} />

@@ -33,14 +33,24 @@ import {
 
 const PRACTICE_PHOTOS = [
   {
+    src: '/coaches/practice/guild-shirts-huddle.png',
+    alt: 'Coaches in Guild apparel at practice',
+    label: 'Guild apparel',
+  },
+  {
+    src: '/coaches/practice/guild-shirts-team.png',
+    alt: 'Guild coaches in a Division I wrestling room',
+    label: 'DI wrestling rooms',
+  },
+  {
     src: '/coaches/practice/guild-coaching.png',
     alt: 'Guild coach demonstrating technique on the mat',
-    label: 'Guild sessions',
+    label: 'On the mat',
   },
   {
     src: '/coaches/practice/unc-coaching.png',
     alt: 'One-on-one coaching in a Division I wrestling room',
-    label: 'Division I rooms',
+    label: 'Private lessons',
   },
   {
     src: '/coaches/practice/ncstate-huddle.png',
@@ -256,28 +266,44 @@ export function CoachesLanding({
 
       {/* Founding Coach — scarcity first */}
       <section className="border-b border-accent/20 bg-accent/10 px-6 py-10 md:py-12">
-        <div className="mx-auto max-w-3xl text-center">
-          <Badge className="border-accent/40 bg-black/40 text-accent">Founding Coach</Badge>
-          <h2 className="mt-4 font-serif text-2xl font-black uppercase tracking-wide text-white md:text-3xl">
-            Become a Founding Coach
-          </h2>
-          <p className="mt-3 text-sm text-white/75 sm:text-base">
-            Limited to coaches approved before{' '}
-            <strong className="text-white">September 1, 2026</strong>
-          </p>
-          <ul className="mx-auto mt-6 inline-flex flex-col items-start gap-2.5 text-left text-sm text-white/85 sm:text-base">
-            {[
-              'Featured placement at launch',
-              'Locked-in platform fee',
-              'Founding Coach badge on your profile',
-              'Exclusive Guild apparel',
-            ].map((item) => (
-              <li key={item} className="flex items-center gap-2.5">
-                <Check className="h-4 w-4 shrink-0 text-accent" aria-hidden />
-                {item}
-              </li>
-            ))}
-          </ul>
+        <div className="mx-auto grid max-w-5xl items-center gap-10 md:grid-cols-2 md:gap-12">
+          <div className="text-center md:text-left">
+            <Badge className="border-accent/40 bg-black/40 text-accent">Founding Coach</Badge>
+            <h2 className="mt-4 font-serif text-2xl font-black uppercase tracking-wide text-white md:text-3xl">
+              Become a Founding Coach
+            </h2>
+            <p className="mt-3 text-sm text-white/75 sm:text-base">
+              Limited to coaches approved before{' '}
+              <strong className="text-white">September 1, 2026</strong>
+            </p>
+            <ul className="mx-auto mt-6 inline-flex flex-col items-start gap-2.5 text-left text-sm text-white/85 sm:text-base md:mx-0">
+              {[
+                'Featured placement at launch',
+                'Locked-in platform fee',
+                'Founding Coach badge on your profile',
+                'Exclusive Guild apparel',
+              ].map((item) => (
+                <li key={item} className="flex items-center gap-2.5">
+                  <Check className="h-4 w-4 shrink-0 text-accent" aria-hidden />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <figure className="overflow-hidden rounded-xl border border-accent/30 bg-black/40">
+            <div className="relative aspect-[5/4] w-full">
+              <Image
+                src="/coaches/practice/guild-shirts-huddle.png"
+                alt="Guild coaches in branded apparel at practice"
+                fill
+                className="object-cover object-center"
+                sizes="(max-width: 768px) 100vw, 480px"
+              />
+            </div>
+            <figcaption className="px-4 py-3 text-center text-xs text-white/55">
+              Founding Coaches get exclusive Guild apparel — technical mastery, real results.
+            </figcaption>
+          </figure>
         </div>
       </section>
 
@@ -530,7 +556,7 @@ export function CoachesLanding({
             </ul>
           </div>
 
-          <div className="mt-12 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+          <div className="mt-12 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
             {PRACTICE_PHOTOS.map((photo) => (
               <figure
                 key={photo.src}

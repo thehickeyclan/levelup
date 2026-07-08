@@ -39,7 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const description =
     'Book NCAA and elite coaches for youth wrestling — beginners through high school. Private sessions on their calendar, or join open groups and partner spots.';
   const baseUrl = resolveSiteBaseUrl(host);
-  const logoPath = tenant?.logo ?? '/logos/guild-bronze.jpg';
+  const logoPath = tenant?.logo ?? '/logos/guild-mark.png';
 
   return {
     metadataBase: new URL(baseUrl),

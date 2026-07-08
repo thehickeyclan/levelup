@@ -6,9 +6,10 @@ Place image files here so the header and homepage display correctly.
 
 | File | Use |
 |------|-----|
-| **guild-g.png** | Header (top left) and homepage hero (gold G lettermark with wrestlers). Recommended: square PNG, transparent or dark background, ~200–400px. |
+| **guild-mark.png** (or `.svg`) | Header, link previews, compact UI — the G mark without wrestlers |
+| **guild-logo-hero.png** (or `.svg`) | Homepage hero only — full lockup with wrestlers in the G |
 
-If this file is missing, the app will show a text fallback (“The Guild” in the header, a “G” in the hero) so the layout does not break.
+Legacy files `guild-g.png` and `guild-bronze.jpg` may remain as backups.
 
 ## Optional
 

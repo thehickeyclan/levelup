@@ -14,8 +14,10 @@ export interface TenantConfig {
     textSecondary: string;
   };
 
-  /** Main brand logo (header + homepage hero). Place file in public/logos/ e.g. guild-g.png */
+  /** Compact mark — header, favicons, link previews, small UI */
   logo: string;
+  /** Full hero lockup (e.g. wrestlers in the G) — homepage hero only */
+  heroLogo: string;
   stateOrgLogo: string;
   favicon: string;
   tagline: string;
@@ -77,8 +79,9 @@ export const tenants: Record<string, TenantConfig> = {
       textSecondary: "#6B7280",
     },
 
-    logo: "/logos/guild-bronze.jpg",
-    stateOrgLogo: "/logos/guild-bronze.jpg",
+    logo: "/logos/guild-mark.png",
+    heroLogo: "/logos/guild-logo-hero.png",
+    stateOrgLogo: "/logos/guild-mark.png",
     favicon: "/favicons/guild.ico",
     tagline: "Mastery. Technique. Access the Elite.",
     secondaryTagline: "Elite wrestling technique instruction",

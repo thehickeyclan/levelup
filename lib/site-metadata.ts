@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-const DEFAULT_LOGO_PATH = '/logos/guild-bronze.jpg';
+const DEFAULT_LOGO_PATH = '/logos/guild-mark.png';
 
 /** Canonical site origin for absolute OG URLs (metadataBase, share links). */
 export function resolveSiteBaseUrl(host: string): string {

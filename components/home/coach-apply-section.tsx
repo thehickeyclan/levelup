@@ -17,7 +17,7 @@ export function CoachApplySection() {
           asChild
           className="w-full max-w-[280px] border-accent/60 text-accent hover:bg-accent/10"
         >
-          <Link href="/signup/coach">Apply to Join The Guild</Link>
+          <Link href="/coaches">Apply to Join The Guild</Link>
         </Button>
       </div>
     </section>

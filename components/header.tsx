@@ -475,7 +475,7 @@ export function Header() {
                   ·
                 </span>
                 <Link
-                  href="/signup/coach"
+                  href="/coaches"
                   className="text-white/90 hover:text-accent font-medium transition-colors whitespace-nowrap text-[11px] min-[400px]:text-xs"
                   title="Apply as a coach"
                 >

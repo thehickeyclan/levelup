@@ -31,7 +31,7 @@ export default function RequirementsPage() {
             </li>
           </ul>
           <p>
-            <Link href="/signup" className="text-accent hover:underline">
+            <Link href="/coaches" className="text-accent hover:underline">
               Apply to Join The Guild →
             </Link>
           </p>

@@ -11,7 +11,7 @@ export function Footer() {
 
   /** Logged-in coaches were hitting /earnings (marketing) instead of payouts. */
   const wrestlerCoachesEarningsHref =
-    !loading && !!user && effectiveRole === 'coach' ? '/coach-earnings' : '/earnings';
+    !loading && !!user && effectiveRole === 'coach' ? '/coach-earnings' : '/coaches';
   const wrestlerCoachesEarningsLabel =
     !loading && !!user && effectiveRole === 'coach' ? 'Your payouts' : 'Earnings';
 
@@ -77,7 +77,7 @@ export function Footer() {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
-                  href="/signup"
+                  href="/coaches"
                   className="block py-2.5 text-white/80 hover:text-accent transition-colors min-h-[44px] flex items-center"
                 >
                   Join The Guild

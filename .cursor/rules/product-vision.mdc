@@ -1,0 +1,22 @@
+---
+description: Read product vision before feature work; filter requests against north star
+alwaysApply: true
+---
+
+# Product vision filter
+
+Before proposing or implementing **substantial feature work**, read `docs/VISION.md`.
+
+## Required checks
+
+1. **Four questions** — at least one must be yes, or do not build.
+2. **Do this, not that** — AI-assisted with override (not manual-first); unified coach home (not new tabs); parent features must feed coach retention.
+3. **Anti-goals** — especially no gimmick chatbot; no parent-only features off the flywheel.
+4. **Current state (July 2026)** — honest gap vs aspirational; don’t assume weekly coach habit exists yet.
+5. **Schema rule** — sport-agnostic field names (`sport_type`, not `wrestling_level`) even when UI is wrestling-specific.
+
+## Priority
+
+Pillar #1 **Intelligent Coach Platform** > community > Guild Market. Coach OS intelligence > market listing AI.
+
+When a request conflicts with `docs/VISION.md`, update the doc or label the work an explicit exception.

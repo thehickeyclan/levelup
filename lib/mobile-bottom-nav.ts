@@ -71,7 +71,7 @@ export function useMobileBottomNavVisible(): boolean {
   }
   if (
     adminViewingAsCoach ||
-    (effectiveRole === 'coach' && (isCoachRoute(pathname) || pathname === '/'))
+    (effectiveRole === 'coach' && isCoachRoute(pathname))
   ) {
     return true;
   }

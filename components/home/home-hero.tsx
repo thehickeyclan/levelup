@@ -8,26 +8,36 @@ import type { FeaturedCoachStrip } from '@/lib/home/fetch-featured-coaches';
 type Props = {
   coaches: FeaturedCoachStrip[];
   logoSrc?: string;
+  /** Compact G mark — mobile hero (full lockup is too tall on small screens). */
+  compactLogoSrc?: string;
   logoAlt?: string;
 };
 
-export function HomeHero({ coaches, logoSrc, logoAlt }: Props) {
+export function HomeHero({ coaches, logoSrc, compactLogoSrc, logoAlt }: Props) {
   return (
-    <section className="relative flex min-h-[65svh] flex-col items-center justify-center bg-black px-6 py-10 sm:py-12">
+    <section className="relative flex flex-col items-center justify-center bg-black px-6 py-8 sm:min-h-[65svh] sm:py-12">
       {logoSrc && (
-        <div className="mb-6 sm:mb-8">
-          <HomeHeroLogo
-            src={logoSrc}
-            alt={logoAlt ?? 'The Wrestling Guild'}
-            className="h-auto w-full max-w-[min(90vw,360px)] object-contain sm:max-w-[400px]"
-          />
-        </div>
+        <>
+          <div className="mb-4 sm:hidden">
+            <HomeHeroLogo
+              src={compactLogoSrc ?? logoSrc}
+              alt={logoAlt ?? 'The Wrestling Guild'}
+              className="h-auto w-full max-w-[160px] object-contain mx-auto"
+            />
+          </div>
+          <div className="mb-5 hidden sm:block sm:mb-8">
+            <HomeHeroLogo
+              src={logoSrc}
+              alt={logoAlt ?? 'The Wrestling Guild'}
+              className="h-auto w-full max-w-[min(90vw,360px)] object-contain sm:max-w-[400px]"
+            />
+          </div>
+        </>
       )}
 
-      <h1 className="mb-3 max-w-3xl text-center font-serif text-3xl font-black uppercase tracking-wide text-accent sm:text-4xl md:text-5xl">
-        Connecting youth & high school wrestlers
-        <br className="hidden sm:block" />
-        <span className="sm:ml-2">to elite coaches in your community.</span>
+      <h1 className="mb-3 max-w-3xl text-center font-serif text-2xl font-black uppercase leading-snug tracking-wide text-accent sm:text-4xl md:text-5xl">
+        <span className="block">Connecting youth & high school wrestlers</span>
+        <span className="block">to elite coaches in your community.</span>
       </h1>
       <p className="mb-8 max-w-xl text-center text-sm text-white/70 sm:text-base">
         NCAA and Division I backgrounds from programs you know — private sessions, partner

@@ -1,5 +1,7 @@
 import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
+import { createClient } from '@/lib/supabase/server';
 import { HomeHero } from '@/components/home/home-hero';
 import { MeetCoachesSection } from '@/components/home/meet-coaches-section';
 import { EcosystemSection } from '@/components/home/ecosystem-section';
@@ -44,6 +46,17 @@ export default async function HomePage({
   };
 
   if (tenant) {
+    const supabase = await createClient(tenant.slug);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
+      if (userData?.role === 'coach') {
+        redirect('/athlete-dashboard');
+      }
+    }
+
     const [strip, cards, reviews, stats] = await Promise.all([
       fetchFeaturedCoachesForHome(tenant.slug),
       fetchFeaturedCoachesWithReviews(tenant.slug),
@@ -61,6 +74,7 @@ export default async function HomePage({
       <HomeHero
         coaches={stripCoaches}
         logoSrc={tenant?.heroLogo ?? tenant?.logo}
+        compactLogoSrc={tenant?.logo}
         logoAlt={tenant?.productName}
       />
       <MeetCoachesSection coaches={featuredCoaches} />

@@ -74,10 +74,9 @@ export function ParentBottomNavWrapper({ children }: { children: React.ReactNode
   const adminViewingAsYouth = userRole === 'admin' && viewAsRole === 'youth_wrestler';
   
   const showParentNav = adminViewingAsParent || (effectiveRole === 'parent' && isParentRoute(pathname));
-  // Include `/` so coaches see bottom nav on the marketing home (desktop header links are md+ only).
   const showCoachNav =
     adminViewingAsCoach ||
-    (effectiveRole === 'coach' && (isCoachRoute(pathname) || pathname === '/'));
+    (effectiveRole === 'coach' && isCoachRoute(pathname));
   const showYouthNav = adminViewingAsYouth || (effectiveRole === 'youth_wrestler' && isYouthWrestlerRoute(pathname));
   const showAdminNav = effectiveRole === 'admin' && !viewAsRole && isAdminRoute(pathname);
   const showNav = showParentNav || showCoachNav || showYouthNav || showAdminNav;

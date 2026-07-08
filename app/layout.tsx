@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { Playfair_Display } from 'next/font/google';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
+import { resolveSiteBaseUrl, siteShareImageMetadata } from '@/lib/site-metadata';
 import { Analytics } from '@vercel/analytics/next';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/lib/auth/auth-provider';
@@ -31,14 +32,19 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = resolveHostnameFromHeaders(headersList);
   const tenant = getTenantByDomain(host);
   const appleTitle = tenant?.productName ?? 'The Guild';
+  const productName = tenant?.productName ?? 'The Guild';
   const title = tenant
     ? `${tenant.productName} | Youth Wrestling — All Levels`
     : 'The Guild | Youth Wrestling — All Levels';
+  const description =
+    'Book NCAA and elite coaches for youth wrestling — beginners through high school. Private sessions on their calendar, or join open groups and partner spots.';
+  const baseUrl = resolveSiteBaseUrl(host);
+  const logoPath = tenant?.logo ?? '/logos/guild-bronze.jpg';
 
   return {
+    metadataBase: new URL(baseUrl),
     title,
-    description:
-      'Book NCAA and elite coaches for youth wrestling — beginners through high school. Private sessions on their calendar, or join open groups and partner spots.',
+    description,
     keywords:
       'the guild wrestling, wrestling lessons, NCAA wrestlers, elite coaches, elite technique, private lessons',
     icons: {
@@ -54,6 +60,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: appleTitle,
     },
     manifest: '/manifest.json',
+    ...siteShareImageMetadata(productName, logoPath),
   };
 }
 

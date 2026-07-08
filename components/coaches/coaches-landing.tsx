@@ -13,6 +13,10 @@ import type {
   CoachesLandingStats,
 } from '@/lib/coaches-landing';
 import {
+  formatBookingDollarsStat,
+  formatCountStat,
+} from '@/lib/coaches-landing';
+import {
   Calendar,
   Check,
   ChevronDown,
@@ -124,12 +128,9 @@ export function CoachesLanding({
   reviews,
   coachSharePercent,
 }: Props) {
-  const sessionLabel =
-    stats.sessionCount >= 100
-      ? 'Hundreds of Sessions Booked'
-      : stats.sessionCount >= 50
-        ? `${stats.sessionCount}+ Sessions Booked`
-        : 'Sessions Booked on The Guild';
+  const bookingDollarsLabel = formatBookingDollarsStat(stats.bookingDollars);
+  const bookingCountLabel = formatCountStat(stats.bookingCount);
+  const sessionCountLabel = formatCountStat(stats.sessionCount);
 
   return (
     <div className="bg-black text-white">
@@ -186,30 +187,37 @@ export function CoachesLanding({
         </div>
       </section>
 
-      {/* Social proof strip */}
+      {/* Social proof strip — live booking volume from Supabase */}
       <section className="border-b border-accent/20 bg-zinc-950 px-6 py-8">
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
+        <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-6">
           <div className="text-center">
-            <p className="font-serif text-3xl font-black text-accent md:text-4xl">{stats.coachCount}+</p>
-            <p className="mt-1 text-sm text-white/60">Elite Coaches</p>
-          </div>
-          <div className="flex flex-col items-center justify-center gap-2 text-center">
-            <div className="flex items-center gap-2">
-              <SchoolLogo school="UNC" size="lg" />
-              <SchoolLogo school="NC State" size="lg" />
-              <SchoolLogo school="App State" size="lg" />
-            </div>
-            <p className="text-sm text-white/60">NCAA &amp; elite programs · coaches nationwide</p>
+            <p className="font-serif text-3xl font-black text-accent md:text-4xl">
+              {bookingDollarsLabel}
+            </p>
+            <p className="mt-1 text-sm text-white/60">in parent bookings</p>
           </div>
           <div className="text-center">
-            <p className="text-sm font-semibold text-white md:text-base">{sessionLabel}</p>
-            <p className="mt-1 text-sm text-white/60">Private · Partner · Small Groups</p>
+            <p className="font-serif text-3xl font-black text-accent md:text-4xl">
+              {bookingCountLabel}
+            </p>
+            <p className="mt-1 text-sm text-white/60">athlete signups</p>
           </div>
           <div className="text-center">
-            <p className="font-serif text-3xl font-black text-accent md:text-4xl">{coachSharePercent}%</p>
-            <p className="mt-1 text-sm text-white/60">Coach share of session fees</p>
+            <p className="font-serif text-3xl font-black text-accent md:text-4xl">
+              {sessionCountLabel}
+            </p>
+            <p className="mt-1 text-sm text-white/60">sessions completed</p>
           </div>
         </div>
+        <p className="mx-auto mt-6 max-w-xl text-center text-sm text-white/50">
+          Private · Partner · Small Groups
+          {stats.coachCount > 0 ? (
+            <>
+              {' '}
+              · {stats.coachCount} approved coaches · {coachSharePercent}% coach share
+            </>
+          ) : null}
+        </p>
       </section>
 
       {/* Founding coach */}

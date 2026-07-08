@@ -23,8 +23,38 @@ export type CoachesBySchool = {
 
 export type CoachesLandingStats = {
   coachCount: number;
+  /** Gross parent spend (sum of session_participants.amount_paid). */
+  bookingDollars: number;
+  /** Paid athlete signups (session_participants with amount_paid > 0). */
+  bookingCount: number;
+  /** Completed coach sessions. */
   sessionCount: number;
 };
+
+/** Round down for marketing display — always under-promise. */
+export function formatBookingDollarsStat(dollars: number): string {
+  if (dollars >= 1000) {
+    return `$${Math.floor(dollars / 1000)}k+`;
+  }
+  if (dollars > 0) {
+    return `$${Math.floor(dollars)}+`;
+  }
+  return '$0';
+}
+
+/** Round counts down to a clean floor (e.g. 304 → 300+). */
+export function formatCountStat(count: number): string {
+  if (count >= 100) {
+    return `${Math.floor(count / 10) * 10}+`;
+  }
+  if (count >= 50) {
+    return `${Math.floor(count / 10) * 10}+`;
+  }
+  if (count > 0) {
+    return `${count}+`;
+  }
+  return '0';
+}
 
 export type CoachesEarningsExample = {
   title: string;
@@ -93,7 +123,7 @@ export async function fetchCoachesLandingData(tenantSlug: string): Promise<{
 }> {
   const admin = createAdminClient(tenantSlug);
 
-  const [coachesRes, sessionsRes] = await Promise.all([
+  const [coachesRes, sessionsRes, participantsRes] = await Promise.all([
     admin
       .from('athletes')
       .select(
@@ -106,6 +136,7 @@ export async function fetchCoachesLandingData(tenantSlug: string): Promise<{
       .from('sessions')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'completed'),
+    admin.from('session_participants').select('amount_paid').gt('amount_paid', 0).limit(10000),
   ]);
 
   const rows = coachesRes.data ?? [];
@@ -148,11 +179,22 @@ export async function fetchCoachesLandingData(tenantSlug: string): Promise<{
 
   const heroCoachIds = coaches.slice(0, 5).map((c) => c.id);
 
+  let bookingDollars = 0;
+  let bookingCount = 0;
+  for (const row of participantsRes.data ?? []) {
+    const amt = Number((row as { amount_paid?: number | null }).amount_paid ?? 0);
+    if (!Number.isFinite(amt) || amt <= 0) continue;
+    bookingDollars += amt;
+    bookingCount += 1;
+  }
+
   return {
     coaches,
     bySchool,
     stats: {
       coachCount: coaches.length,
+      bookingDollars,
+      bookingCount,
       sessionCount: sessionsRes.count ?? 0,
     },
     heroCoachIds,

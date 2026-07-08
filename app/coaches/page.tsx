@@ -9,6 +9,10 @@ import {
 import { fetchHomeReviews } from '@/lib/home/fetch-home-reviews';
 import { coachRevenueSharePercentDisplay } from '@/lib/pricing';
 
+/** Live booking stats — always fetch fresh so marketing numbers stay current. */
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata = {
   title: 'Coach with The Guild | We Handle the Business',
   description:

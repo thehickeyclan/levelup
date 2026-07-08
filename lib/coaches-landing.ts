@@ -1,5 +1,15 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { coachPayoutFromParentPrice } from '@/lib/pricing';
+import fs from 'fs';
+import path from 'path';
+
+export const COACHES_PRACTICE_VIDEO_PUBLIC_PATH = '/coaches/guild-practice.mp4';
+
+/** Only return video URL when the file exists in `public/` — avoids 404 until it is added. */
+export function resolveCoachesPracticeVideoSrc(): string | null {
+  const filePath = path.join(process.cwd(), 'public/coaches/guild-practice.mp4');
+  return fs.existsSync(filePath) ? COACHES_PRACTICE_VIDEO_PUBLIC_PATH : null;
+}
 
 export type CoachesLandingCoach = {
   id: string;

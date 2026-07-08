@@ -6,6 +6,7 @@ import {
   buildCoachesEarningsExamples,
   buildCoachesEarningsScenarios,
   fetchCoachesLandingData,
+  resolveCoachesPracticeVideoSrc,
 } from '@/lib/coaches-landing';
 import { fetchHomeReviews } from '@/lib/home/fetch-home-reviews';
 import { coachRevenueSharePercentDisplay } from '@/lib/pricing';
@@ -42,6 +43,7 @@ export default async function CoachesPage() {
   const earningsExamples = buildCoachesEarningsExamples(config.pricing);
   const earningsScenarios = buildCoachesEarningsScenarios(config.pricing);
   const coachSharePercent = coachRevenueSharePercentDisplay(null);
+  const practiceVideoSrc = resolveCoachesPracticeVideoSrc();
 
   return (
     <main className="min-h-screen bg-black">
@@ -55,6 +57,7 @@ export default async function CoachesPage() {
         earningsScenarios={earningsScenarios}
         reviews={reviews}
         coachSharePercent={coachSharePercent}
+        practiceVideoSrc={practiceVideoSrc}
       />
     </main>
   );

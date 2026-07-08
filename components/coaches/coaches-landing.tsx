@@ -95,6 +95,7 @@ type Props = {
   earningsScenarios: CoachesEarningsScenario[];
   reviews: HomeReview[];
   coachSharePercent: number;
+  practiceVideoSrc: string | null;
 };
 
 function FeaturedCoachCard({ coach }: { coach: CoachesLandingCoach }) {
@@ -195,6 +196,7 @@ export function CoachesLanding({
   earningsScenarios,
   reviews,
   coachSharePercent,
+  practiceVideoSrc,
 }: Props) {
   const bookingDollarsLabel = formatBookingDollarsStat(stats.bookingDollars);
   const bookingCountLabel = formatCountStat(stats.bookingCount);
@@ -206,19 +208,19 @@ export function CoachesLanding({
 
   return (
     <div className="bg-black text-white">
-      {/* Hero — real Guild practice photography */}
-      <section className="relative overflow-hidden border-b border-accent/20">
+      {/* Hero — wide practice banner (landscape) */}
+      <section className="relative min-h-[420px] overflow-hidden border-b border-accent/20 sm:min-h-[480px] md:min-h-[520px]">
         <div className="absolute inset-0">
           <Image
-            src="/coaches/practice/guild-coaching.png"
+            src="/coaches/hero-banner.png"
             alt=""
             fill
-            className="object-cover object-center"
+            className="object-cover object-[center_35%]"
             sizes="100vw"
             priority
           />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/85 to-black" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/95" />
 
         <div className="relative mx-auto flex max-w-4xl flex-col items-center px-6 py-16 text-center sm:py-20 md:py-24">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-accent">
@@ -279,7 +281,7 @@ export function CoachesLanding({
         </div>
       </section>
 
-      <CoachesPracticeVideo />
+      <CoachesPracticeVideo videoSrc={practiceVideoSrc} />
 
       {/* Live social proof */}
       <section className="border-b border-accent/20 bg-zinc-950 px-6 py-8">

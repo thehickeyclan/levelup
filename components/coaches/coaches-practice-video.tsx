@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import Image from 'next/image';
 
-/** Drop `public/coaches/guild-practice.mp4` to enable autoplay loop. */
-const VIDEO_SRC = '/coaches/guild-practice.mp4';
 const POSTER_SRC = '/coaches/practice/guild-coaching.png';
 
-export function CoachesPracticeVideo() {
-  const [videoFailed, setVideoFailed] = useState(false);
+type Props = {
+  /** Set when `public/coaches/guild-practice.mp4` exists — avoids 404 until the file is added. */
+  videoSrc: string | null;
+};
 
+export function CoachesPracticeVideo({ videoSrc }: Props) {
   return (
     <section className="border-b border-accent/20 bg-black px-6 py-10 md:py-12">
       <div className="mx-auto max-w-5xl">
@@ -20,7 +20,7 @@ export function CoachesPracticeVideo() {
           Parents book. You coach.
         </h2>
         <div className="relative mt-8 overflow-hidden rounded-xl border border-accent/25 bg-zinc-950">
-          {!videoFailed ? (
+          {videoSrc ? (
             <video
               className="aspect-video w-full object-cover"
               autoPlay
@@ -28,9 +28,8 @@ export function CoachesPracticeVideo() {
               loop
               playsInline
               poster={POSTER_SRC}
-              onError={() => setVideoFailed(true)}
             >
-              <source src={VIDEO_SRC} type="video/mp4" />
+              <source src={videoSrc} type="video/mp4" />
             </video>
           ) : (
             <div className="relative aspect-video w-full">
@@ -40,7 +39,6 @@ export function CoachesPracticeVideo() {
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 1024px"
-                priority={false}
               />
             </div>
           )}

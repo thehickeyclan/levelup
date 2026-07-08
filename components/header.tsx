@@ -472,16 +472,27 @@ export function Header() {
 
             {showLoggedOutMobileHeaderLinks(pathname) && (
               <nav
-                className="md:hidden flex items-center justify-end gap-2 shrink-0"
+                className="md:hidden flex items-center justify-end gap-1 min-[400px]:gap-2 shrink-0"
                 aria-label="Log in, sign up, and coach application"
               >
                 <Link
-                  href="/coaches"
-                  className="inline-flex min-h-[44px] items-center rounded-md border border-accent/50 px-3 text-xs font-semibold text-accent hover:bg-accent/10 transition-colors whitespace-nowrap"
+                  href="/login"
+                  className="inline-flex min-h-[44px] items-center px-2 text-[11px] min-[400px]:text-xs font-medium text-white/90 hover:text-accent transition-colors whitespace-nowrap"
                 >
-                  For Coaches
+                  Log in
                 </Link>
-                <PublicHeaderMobile variant="public" />
+                <Link
+                  href="/signup"
+                  className="inline-flex min-h-[44px] items-center px-2 text-[11px] min-[400px]:text-xs font-semibold text-accent hover:text-accent-light transition-colors whitespace-nowrap"
+                >
+                  Sign up
+                </Link>
+                <Link
+                  href="/coaches"
+                  className="inline-flex min-h-[44px] items-center rounded-md border border-accent/50 px-2.5 min-[400px]:px-3 text-[11px] min-[400px]:text-xs font-semibold text-accent hover:bg-accent/10 transition-colors whitespace-nowrap"
+                >
+                  Coaches
+                </Link>
               </nav>
             )}
             </>

@@ -57,24 +57,11 @@ export function PublicHeaderMobile({ variant = 'public' }: Props) {
             <Link href="/how-it-works" className={linkClass} onClick={close}>
               How It Works
             </Link>
-            {variant === 'public' ? (
-              <>
-                <Link href="/login" className={linkClass} onClick={close}>
-                  Log in
-                </Link>
-                <Link
-                  href="/signup"
-                  className={`${linkClass} text-accent font-semibold`}
-                  onClick={close}
-                >
-                  Book Training — Sign up
-                </Link>
-              </>
-            ) : (
+            {variant === 'logged-in' ? (
               <Link href="/signup/coach" className={`${linkClass} text-accent font-semibold`} onClick={close}>
                 Apply to Coach
               </Link>
-            )}
+            ) : null}
           </nav>
         </DialogContent>
       </Dialog>

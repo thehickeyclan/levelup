@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Check, Plus, X, Share2, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
+import { Check, Plus, X, Share2, ChevronDown, ChevronUp, MapPin, ExternalLink } from 'lucide-react';
 import { formatEST } from '@/lib/format-date';
 import type { CoachCreateSessionType } from '@/lib/coach-session-pricing';
 import { COACH_SESSION_FALLBACK_USD } from '@/lib/coach-session-pricing';
@@ -21,7 +21,7 @@ import {
   CoachNewLocationDialog,
   type CoachLocationOption,
 } from '@/components/coach-new-location-dialog';
-import { SessionShareGraphicPanel } from '@/components/coach/session-share-graphic-panel';
+import { SessionShareGraphicPanel, ShareGraphicScopePicker, type ShareGraphicScope } from '@/components/coach/session-share-graphic-panel';
 import type { ShareGraphicThemeId } from '@/lib/session-share-graphic/themes';
 
 type Facility = CoachLocationOption;
@@ -45,6 +45,7 @@ type InitialPrefill = {
 export function CoachCreateSessionForm({
   coachId,
   coachName,
+  scheduleUrl,
   facilities: initialFacilities,
   defaultFacilityId = '',
   recommendedPrices,
@@ -53,6 +54,8 @@ export function CoachCreateSessionForm({
 }: {
   coachId: string;
   coachName: string;
+  /** Public page listing all upcoming sessions — stable share destination. */
+  scheduleUrl: string;
   facilities: Facility[];
   /** Coach profile primary facility — pre-selected when in list */
   defaultFacilityId?: string;
@@ -94,6 +97,9 @@ export function CoachCreateSessionForm({
     pricePerParticipant: number;
   }>>([]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [copiedScheduleUrl, setCopiedScheduleUrl] = useState(false);
+  const [graphicScope, setGraphicScope] = useState<ShareGraphicScope>('single-session');
+  const [graphicSessionId, setGraphicSessionId] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
@@ -225,6 +231,8 @@ export function CoachCreateSessionForm({
       
       if (createdSessions.length > 0) {
         setResults(createdSessions);
+        setGraphicSessionId(createdSessions[0]?.sessionId ?? null);
+        setGraphicScope(createdSessions.length === 1 ? 'single-session' : 'all-sessions');
       }
     } catch {
       setError('Something went wrong');
@@ -294,31 +302,128 @@ export function CoachCreateSessionForm({
                       )}
                     </Button>
                   </div>
-                  {result.sessionId ? (
-                    <SessionShareGraphicPanel
-                      sessionId={result.sessionId}
-                      defaultTheme={defaultShareTheme}
-                      shareCaption={`Join my session — ${formatEST(new Date(result.scheduledDatetime), 'EEE, MMM d · h:mm a')}. ${result.shareUrl}`}
-                      className="rounded-lg border border-border bg-muted/20 p-3 space-y-3"
-                    />
-                  ) : null}
+                  <p className="text-[11px] text-muted-foreground pt-0.5">
+                    This session only. Parents can also see{' '}
+                    <Link href={`/coach/${coachId}`} className="text-accent underline font-medium">
+                      all your sessions
+                    </Link>
+                    .
+                  </p>
                 </div>
               ))}
             </div>
 
+            <div className="rounded-lg border border-accent/25 bg-muted/20 p-3 space-y-2">
+              <p className="text-sm font-medium">All sessions page</p>
+              <p className="text-xs text-muted-foreground">
+                One link for everything on your schedule — bio, weekly posts, and the Instagram graphic QR.
+              </p>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={scheduleUrl} className="font-mono text-xs h-9 flex-1" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5 shrink-0"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(scheduleUrl);
+                    setCopiedScheduleUrl(true);
+                    window.setTimeout(() => setCopiedScheduleUrl(false), 2000);
+                  }}
+                >
+                  {copiedScheduleUrl ? (
+                    <>
+                      <Check className="h-4 w-4 text-emerald-500" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-4 w-4" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+                <Button type="button" variant="secondary" size="sm" className="h-9 shrink-0" asChild>
+                  <Link href={`/coach/${coachId}`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+              <div>
+                <p className="text-sm font-medium">Post to social?</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Promote this session only, or share every time on your schedule.
+                </p>
+              </div>
+              <ShareGraphicScopePicker scope={graphicScope} onScopeChange={setGraphicScope} />
+              {graphicScope === 'single-session' && results.length > 1 ? (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Which session?</Label>
+                  <Select
+                    value={graphicSessionId ?? undefined}
+                    onValueChange={setGraphicSessionId}
+                  >
+                    <SelectTrigger className="min-h-[44px]">
+                      <SelectValue placeholder="Choose a session" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {results.map((result) => (
+                        <SelectItem key={result.sessionId} value={result.sessionId}>
+                          {formatEST(new Date(result.scheduledDatetime), 'EEE, MMM d · h:mm a')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+              <SessionShareGraphicPanel
+                coachId={coachId}
+                scope={graphicScope}
+                sessionId={
+                  graphicScope === 'single-session'
+                    ? graphicSessionId ?? results[0]?.sessionId
+                    : undefined
+                }
+                defaultTheme={defaultShareTheme}
+                scheduleUrl={scheduleUrl}
+                shareCaption={
+                  graphicScope === 'single-session'
+                    ? (() => {
+                        const picked =
+                          results.find((r) => r.sessionId === (graphicSessionId ?? results[0]?.sessionId)) ??
+                          results[0];
+                        if (!picked) return '';
+                        return `Join my session ${formatEST(new Date(picked.scheduledDatetime), 'EEE, MMM d · h:mm a')}: ${picked.shareUrl}`;
+                      })()
+                    : `All my upcoming sessions with ${coachName}: ${scheduleUrl}`
+                }
+                className="border-0 p-0 shadow-none bg-transparent"
+              />
+            </div>
+
             <p className="text-xs text-muted-foreground">
-              Share these links with parents via text or social. They can sign up directly.
+              Share the session link for one time, or the all-sessions page when you want families to browse everything.
             </p>
 
             <div className="flex flex-wrap gap-2 pt-2">
               <Button asChild variant="default" size="sm">
-                <Link href="/coach-sessions">View My Sessions</Link>
+                <Link href="/athlete-dashboard">Back to schedule</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/coach/${coachId}`} target="_blank" rel="noopener noreferrer">
+                  Open all sessions page
+                </Link>
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={() => {
                   setResults([]);
+                  setGraphicSessionId(null);
+                  setGraphicScope('single-session');
                   setDateTimes([{ date: '', time: '' }]);
                 }}
               >

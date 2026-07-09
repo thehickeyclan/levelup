@@ -13,6 +13,8 @@ import { SessionTypeBadge } from '@/components/session-type-badge';
 import { SchoolLogo } from '@/components/school-logo';
 import { formatEST } from '@/lib/format-date';
 import { getEffectiveFilledCount } from '@/lib/sessions';
+import { coachPublicScheduleUrl } from '@/lib/coach-public-schedule-url';
+import { CoachShareSessionsHub } from '@/components/coach/coach-share-sessions-hub';
 import { Calendar, MapPin, Users, ChevronRight, Lock, Share2, UserCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 
@@ -185,7 +187,8 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
     (host.startsWith('localhost') ? `http://${host}` : `https://${host}`);
-  const shareUrl = `${baseUrl}/coach/${id}`;
+  const shareUrl = coachPublicScheduleUrl(baseUrl, id);
+  const isOwnSchedule = Boolean(authUser && authUser.id === id && bookingRole === 'coach');
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl pb-16">
@@ -237,6 +240,18 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
           {shareUrl}
         </code>
       </div>
+
+      {isOwnSchedule ? (
+        <div className="mb-6">
+          <CoachShareSessionsHub
+            coachId={id}
+            coachDisplayName={coachName}
+            coachSchool={athleteRow.school}
+            scheduleUrl={shareUrl}
+            hasUpcomingSessions={sessions.length > 0}
+          />
+        </div>
+      ) : null}
 
       <div className="flex items-center gap-2 mb-4">
         <Calendar className="h-5 w-5 text-accent" />

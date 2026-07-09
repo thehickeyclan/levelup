@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RequestFacilityBlock } from '@/components/request-facility-block';
-import { Check, Copy, DollarSign, Globe, Lock, Share2 } from 'lucide-react';
+import { Check, Copy, DollarSign, Globe, Lock, QrCode, Share2 } from 'lucide-react';
 import { BackLink } from '@/components/back-link';
 import Link from 'next/link';
 import { IN_APP_MESSAGING_ENABLED } from '@/lib/in-app-messaging';
@@ -371,6 +371,12 @@ export default function ProfilePage() {
                   <Button type="button" variant="secondary" size="sm" asChild>
                     <Link href={`/coach/${coachPublicId}`} target="_blank" rel="noopener noreferrer">
                       Open
+                    </Link>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <Link href={`/qr/coach/${coachPublicId}`} target="_blank" rel="noopener noreferrer">
+                      <QrCode className="h-4 w-4 mr-1" />
+                      QR
                     </Link>
                   </Button>
                 </div>

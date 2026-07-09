@@ -18,6 +18,9 @@ import { getSessionTypeDisplay } from '@/lib/session-type-display';
 import type { CoachSession } from './coach-schedule-card';
 import { splitCoachSessionsByToday } from '@/lib/coach-schedule-split';
 import { CoachScheduleSessionCard } from './coach-schedule-session-card';
+import {
+  CoachShareSessionsHub,
+} from '@/components/coach/coach-share-sessions-hub';
 
 export type JoinRequestItem = {
   id: string;
@@ -39,6 +42,8 @@ export type JoinRequestItem = {
 export type ScheduleTab = 'upcoming' | 'past' | 'requests';
 
 type Props = {
+  coachId: string;
+  scheduleUrl: string;
   upcomingSessions: CoachSession[];
   pastSessions: CoachSession[];
   pendingJoinRequests: JoinRequestItem[];
@@ -100,6 +105,8 @@ function CoachPastSessionRow({ session }: { session: CoachSession }) {
 }
 
 export function CoachScheduleClient({
+  coachId,
+  scheduleUrl,
   upcomingSessions,
   pastSessions,
   pendingJoinRequests,
@@ -123,6 +130,8 @@ export function CoachScheduleClient({
   const now = new Date();
   const { today, upcoming } = splitCoachSessionsByToday(upcomingSessions, now);
   const pendingCount = pendingJoinRequests.length;
+
+  const shareSessionCount = upcomingSessions.length;
 
   const goTab = (id: ScheduleTab) => {
     setTab(id);
@@ -168,6 +177,14 @@ export function CoachScheduleClient({
         upcomingSessionCount={upcomingSessionCount}
       />
 
+      <CoachShareSessionsHub
+        coachId={coachId}
+        coachDisplayName={coachDisplayName}
+        coachSchool={coachSchool}
+        scheduleUrl={scheduleUrl}
+        hasUpcomingSessions={shareSessionCount > 0}
+      />
+
       <Tabs value={tab} onValueChange={(v) => goTab(v as ScheduleTab)} className="w-full">
         <TabsList className="w-full grid grid-cols-3 h-10 p-0.5 rounded-lg bg-zinc-900/60 border border-border/60">
           <TabsTrigger
@@ -206,6 +223,7 @@ export function CoachScheduleClient({
                   <CoachScheduleSessionCard
                     key={session.id}
                     session={session}
+                    coachId={coachId}
                     coachDisplayName={coachDisplayName}
                     coachSchool={coachSchool}
                     emphasis="today"
@@ -244,6 +262,7 @@ export function CoachScheduleClient({
                   <CoachScheduleSessionCard
                     key={session.id}
                     session={session}
+                    coachId={coachId}
                     coachDisplayName={coachDisplayName}
                     coachSchool={coachSchool}
                   />

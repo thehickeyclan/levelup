@@ -9,6 +9,7 @@ import {
   summarizeCoachEarningsFromPastSessions,
 } from '@/lib/coach-earnings-summary-server';
 import { fetchCoachActivationPanelData } from '@/lib/coach-activation-server';
+import { coachPublicScheduleUrl } from '@/lib/coach-public-schedule-url';
 import { CoachScheduleClient, type JoinRequestItem, type ScheduleTab } from './coach-schedule-client';
 import type { CoachSession } from './coach-schedule-card';
 
@@ -192,9 +193,17 @@ export default async function CoachHomePage({
     nowIso
   );
 
+  const scheduleUrl = coachPublicScheduleUrl(
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+      (host.startsWith('localhost') ? `http://${host}` : `https://${host}`),
+    coachId
+  );
+
   return (
     <div className="container mx-auto px-4 py-4 pb-24 md:py-8 max-w-lg md:max-w-full">
       <CoachScheduleClient
+        coachId={coachId}
+        scheduleUrl={scheduleUrl}
         upcomingSessions={(upcomingSessions ?? []) as CoachSession[]}
         pastSessions={(pastSessions ?? []) as CoachSession[]}
         pendingJoinRequests={requestsWithSession as JoinRequestItem[]}

@@ -8,6 +8,7 @@ import { CoachCreateSessionForm } from './coach-create-session-form';
 import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
 import { getCoachFacilitiesForEdit } from '@/lib/coach-facilities';
 import { resolveShareGraphicTheme } from '@/lib/session-share-graphic/themes';
+import { coachPublicScheduleUrl } from '@/lib/coach-public-schedule-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,11 @@ export default async function CoachCreateSessionPage({
 
   const recommendedPrices = await getRecommendedPricesForCoach(admin, coachId);
   const defaultShareTheme = resolveShareGraphicTheme(athlete.school);
+  const scheduleUrl = coachPublicScheduleUrl(
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+      (host.startsWith('localhost') ? `http://${host}` : `https://${host}`),
+    coachId
+  );
 
   const typeRaw = sp.type?.trim().toLowerCase();
   const initialType =
@@ -89,6 +95,7 @@ export default async function CoachCreateSessionPage({
       <CoachCreateSessionForm
         coachId={coachId}
         coachName={coachName}
+        scheduleUrl={scheduleUrl}
         facilities={facilities.map((f) => ({ ...f, school: f.school ?? '' }))}
         defaultFacilityId={(athlete as { facility_id?: string | null }).facility_id ?? ''}
         recommendedPrices={recommendedPrices}

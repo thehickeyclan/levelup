@@ -1,3 +1,4 @@
+import QRCode from 'qrcode';
 import sharp, { type OverlayOptions } from 'sharp';
 import { formatEST } from '@/lib/format-date';
 import { getSessionTypeDisplay } from '@/lib/session-type-display';
@@ -7,11 +8,18 @@ import {
 } from './themes';
 import { shareGraphicBackgroundPath } from './themes-server';
 import {
+  buildCoachShareTextOverlaySvg,
   buildLeftScrimSvg,
   buildTextOverlaySvg,
   truncateUpper,
+  type CoachShareGraphicContent,
   type SessionShareGraphicContent,
 } from './build-overlay-svg';
+import type { ShareGraphicSessionSlot } from './share-graphic-session-slots';
+import {
+  formatShareGraphicBookingLine,
+  shareGraphicBookingUrl,
+} from './share-graphic-session-slots';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildCoachPhotoOverlay } from './build-coach-photo-overlay';
 import { rasterizeShareOverlaySvg } from './rasterize-overlay-svg';
@@ -19,6 +27,29 @@ import { fetchCoachImageBuffer } from './fetch-coach-image-buffer';
 
 export const SHARE_GRAPHIC_WIDTH = 1080;
 export const SHARE_GRAPHIC_HEIGHT = 1440;
+
+export type BuildCoachSessionsShareGraphicInput = {
+  themeId: ShareGraphicThemeId;
+  coachId: string;
+  appOrigin: string;
+  firstName: string;
+  lastName: string;
+  schoolLabel: string;
+  dateDayLabel: string;
+  dateRestLabel: string;
+  facilityLine: string;
+  sessionSlots: ShareGraphicSessionSlot[];
+  overflowCount: number;
+  coachPhotoUrl: string | null;
+  coachPhotoCutoutUrl?: string | null;
+  photoFocusX?: number;
+  photoFocusY?: number;
+  sharePhotoScale?: number;
+  sharePhotoOffsetX?: number;
+  sharePhotoOffsetY?: number;
+  photoAdmin?: SupabaseClient;
+  coachAthleteId?: string | null;
+};
 
 export type BuildSessionShareGraphicInput = {
   themeId: ShareGraphicThemeId;
@@ -41,6 +72,9 @@ export type BuildSessionShareGraphicInput = {
   /** Supabase admin — loads coach photos from storage (reliable on Vercel serverless). */
   photoAdmin?: SupabaseClient;
   coachAthleteId?: string | null;
+  appOrigin?: string;
+  /** Session signup URL — QR target for single-session graphics. */
+  bookingUrl?: string | null;
 };
 
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
@@ -116,6 +150,10 @@ function buildContent(input: BuildSessionShareGraphicInput): SessionShareGraphic
       ? `${schoolShort} ${facilityShort}`
       : facilityShort;
 
+  const bookingLine = input.appOrigin
+    ? formatShareGraphicBookingLine(input.appOrigin, input.coachAthleteId ?? '')
+    : undefined;
+
   return {
     firstName: truncateUpper(input.firstName, 14),
     lastName: truncateUpper(input.lastName, 16),
@@ -132,33 +170,87 @@ function buildContent(input: BuildSessionShareGraphicInput): SessionShareGraphic
     footerCenterValue: schoolShort,
     footerRightTitle: schoolShort,
     footerRightValue: truncateUpper(facilityFooter, 22),
+    bookingLine,
+    bookingSubline: bookingLine ? 'THIS SESSION' : undefined,
   };
 }
 
-export async function buildSessionShareGraphic(input: BuildSessionShareGraphicInput): Promise<Buffer> {
-  const theme = getShareGraphicTheme(input.themeId);
-  const bgPath = shareGraphicBackgroundPath(input.themeId);
+const SHARE_GRAPHIC_QR_SIZE = 168;
+const SHARE_GRAPHIC_QR_MARGIN = 44;
+
+async function buildBookingQrOverlay(bookingUrl: string): Promise<OverlayOptions | null> {
+  try {
+    const qrBuffer = await QRCode.toBuffer(bookingUrl, {
+      width: SHARE_GRAPHIC_QR_SIZE,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#0a0a0a', light: '#ffffff' },
+      type: 'png',
+    });
+    const pad = 10;
+    const frameSize = SHARE_GRAPHIC_QR_SIZE + pad * 2;
+    const framed = await sharp(qrBuffer)
+      .extend({
+        top: pad,
+        bottom: pad,
+        left: pad,
+        right: pad,
+        background: '#ffffff',
+      })
+      .png()
+      .toBuffer();
+
+    return {
+      input: framed,
+      top: SHARE_GRAPHIC_HEIGHT - frameSize - SHARE_GRAPHIC_QR_MARGIN,
+      left: SHARE_GRAPHIC_WIDTH - frameSize - SHARE_GRAPHIC_QR_MARGIN,
+    };
+  } catch (err) {
+    console.warn('[buildShareGraphic] QR overlay failed:', err);
+    return null;
+  }
+}
+
+async function compositeShareGraphicLayers(
+  themeId: ShareGraphicThemeId,
+  photoInput: Pick<
+    BuildSessionShareGraphicInput,
+    | 'coachPhotoUrl'
+    | 'coachPhotoCutoutUrl'
+    | 'photoFocusX'
+    | 'photoFocusY'
+    | 'sharePhotoScale'
+    | 'sharePhotoOffsetX'
+    | 'sharePhotoOffsetY'
+    | 'photoAdmin'
+    | 'coachAthleteId'
+  >,
+  textSvg: string,
+  opts?: { bookingUrl?: string | null }
+): Promise<Buffer> {
+  const theme = getShareGraphicTheme(themeId);
+  const bgPath = shareGraphicBackgroundPath(themeId);
   const bgBuffer = bgPath
     ? await sharp(bgPath).resize(SHARE_GRAPHIC_WIDTH, SHARE_GRAPHIC_HEIGHT, { fit: 'cover' }).png().toBuffer()
-    : await generateFallbackBackground(input.themeId);
+    : await generateFallbackBackground(themeId);
 
   const overlays: OverlayOptions[] = [];
 
   const loadPhoto = async (url: string) => {
-    if (input.photoAdmin) {
-      return fetchCoachImageBuffer(input.photoAdmin, url, input.coachAthleteId);
+    if (photoInput.photoAdmin) {
+      return fetchCoachImageBuffer(photoInput.photoAdmin, url, photoInput.coachAthleteId);
     }
     return fetchImageBuffer(url);
   };
 
   const photoOverlay = await buildCoachPhotoOverlay({
-    cutoutUrl: input.coachPhotoCutoutUrl ?? null,
-    photoUrl: input.coachPhotoUrl,
-    photoFocusX: input.photoFocusX ?? 50,
-    photoFocusY: input.photoFocusY ?? 15,
-    sharePhotoScale: input.sharePhotoScale,
-    sharePhotoOffsetX: input.sharePhotoOffsetX,
-    sharePhotoOffsetY: input.sharePhotoOffsetY,
+    cutoutUrl: photoInput.coachPhotoCutoutUrl ?? null,
+    photoUrl: photoInput.coachPhotoUrl,
+    photoFocusX: photoInput.photoFocusX ?? 50,
+    photoFocusY: photoInput.photoFocusY ?? 15,
+    sharePhotoScale: photoInput.sharePhotoScale,
+    sharePhotoOffsetX: photoInput.sharePhotoOffsetX,
+    sharePhotoOffsetY: photoInput.sharePhotoOffsetY,
     fetchImage: loadPhoto,
   }).catch((err) => {
     console.warn('[buildSessionShareGraphic] coach photo overlay failed:', err);
@@ -172,15 +264,56 @@ export async function buildSessionShareGraphic(input: BuildSessionShareGraphicIn
     left: 0,
   });
 
-  const content = buildContent(input);
-  const textOverlayPng = rasterizeShareOverlaySvg(
-    buildTextOverlaySvg(SHARE_GRAPHIC_WIDTH, SHARE_GRAPHIC_HEIGHT, theme, content)
-  );
+  const textOverlayPng = rasterizeShareOverlaySvg(textSvg);
   overlays.push({
     input: textOverlayPng,
     top: 0,
     left: 0,
   });
 
+  if (opts?.bookingUrl) {
+    const qrOverlay = await buildBookingQrOverlay(opts.bookingUrl);
+    if (qrOverlay) overlays.push(qrOverlay);
+  }
+
   return sharp(bgBuffer).composite(overlays).png().toBuffer();
+}
+
+function buildCoachSessionsContent(input: BuildCoachSessionsShareGraphicInput): CoachShareGraphicContent {
+  const schoolShort = truncateUpper(input.schoolLabel, 18);
+  return {
+    firstName: truncateUpper(input.firstName, 14),
+    lastName: truncateUpper(input.lastName, 16),
+    schoolLabel: schoolShort,
+    dateDayLabel: truncateUpper(input.dateDayLabel, 24),
+    dateRestLabel: truncateUpper(input.dateRestLabel, 42),
+    facilityLine: truncateUpper(input.facilityLine, 42),
+    bookingLine: formatShareGraphicBookingLine(input.appOrigin, input.coachId),
+    sessionSlots: input.sessionSlots,
+    overflowCount: input.overflowCount,
+  };
+}
+
+export async function buildCoachSessionsShareGraphic(
+  input: BuildCoachSessionsShareGraphicInput
+): Promise<Buffer> {
+  const theme = getShareGraphicTheme(input.themeId);
+  const content = buildCoachSessionsContent(input);
+  const textSvg = buildCoachShareTextOverlaySvg(
+    SHARE_GRAPHIC_WIDTH,
+    SHARE_GRAPHIC_HEIGHT,
+    theme,
+    content
+  );
+  const bookingUrl = shareGraphicBookingUrl(input.appOrigin, input.coachId);
+  return compositeShareGraphicLayers(input.themeId, input, textSvg, { bookingUrl });
+}
+
+export async function buildSessionShareGraphic(input: BuildSessionShareGraphicInput): Promise<Buffer> {
+  const theme = getShareGraphicTheme(input.themeId);
+  const content = buildContent(input);
+  const textSvg = buildTextOverlaySvg(SHARE_GRAPHIC_WIDTH, SHARE_GRAPHIC_HEIGHT, theme, content);
+  return compositeShareGraphicLayers(input.themeId, input, textSvg, {
+    bookingUrl: input.bookingUrl ?? null,
+  });
 }

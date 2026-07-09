@@ -37,6 +37,7 @@ import { formatEST } from '@/lib/format-date';
 import { CoachTextGroupDialog } from '@/components/coach-text-group-dialog';
 import { SessionShareGraphicPanel } from '@/components/coach/session-share-graphic-panel';
 import { resolveShareGraphicTheme } from '@/lib/session-share-graphic/themes';
+import { coachPublicScheduleUrl } from '@/lib/coach-public-schedule-url';
 import { cn } from '@/lib/utils';
 
 type Contact = {
@@ -58,6 +59,7 @@ type Contact = {
 
 type Props = {
   sessionId: string;
+  coachId: string;
   session: CoachSessionShareInput;
   coachDisplayName: string;
   coachSchool?: string | null;
@@ -81,6 +83,7 @@ function menuBtn(className?: string) {
 
 export function CoachSessionTileActions({
   sessionId,
+  coachId,
   session,
   coachDisplayName,
   coachSchool,
@@ -391,18 +394,21 @@ export function CoachSessionTileActions({
           <DialogHeader>
             <DialogTitle>Instagram graphic</DialogTitle>
             <DialogDescription>
-              {formatEST(dt, 'EEE, MMM d · h:mm a')} · {facility}
+              All upcoming sessions — includes {formatEST(dt, 'EEE, MMM d · h:mm a')} and every other
+              scheduled time.
             </DialogDescription>
           </DialogHeader>
           <SessionShareGraphicPanel
-            sessionId={sessionId}
+            coachId={coachId}
             defaultTheme={resolveShareGraphicTheme(coachSchool)}
-            shareCaption={buildCoachSessionShareMessage({
-              coachName: coachDisplayName,
-              session,
-              facility,
-              url: coachSessionShareUrl(typeof window !== 'undefined' ? window.location.origin : '', session),
-            })}
+            scheduleUrl={coachPublicScheduleUrl(
+              typeof window !== 'undefined' ? window.location.origin : '',
+              coachId
+            )}
+            shareCaption={`All my upcoming sessions with ${coachDisplayName}: ${coachPublicScheduleUrl(
+              typeof window !== 'undefined' ? window.location.origin : '',
+              coachId
+            )}`}
             className="border-0 p-0 shadow-none"
           />
         </DialogContent>

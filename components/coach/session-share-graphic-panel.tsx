@@ -16,34 +16,53 @@ import {
   SHARE_GRAPHIC_THEME_IDS,
   type ShareGraphicThemeId,
 } from '@/lib/session-share-graphic/themes';
+import { cn } from '@/lib/utils';
+
+export type ShareGraphicScope = 'all-sessions' | 'single-session';
 
 type Props = {
-  sessionId: string;
+  coachId: string;
+  /** Defaults to all-sessions when omitted. */
+  scope?: ShareGraphicScope;
+  /** Required when scope is single-session. */
+  sessionId?: string;
   defaultTheme: ShareGraphicThemeId;
   shareCaption?: string;
+  scheduleUrl?: string;
   className?: string;
 };
 
 export function SessionShareGraphicPanel({
+  coachId,
+  scope = 'all-sessions',
   sessionId,
   defaultTheme,
   shareCaption,
+  scheduleUrl,
   className,
 }: Props) {
   const [theme, setTheme] = useState<ShareGraphicThemeId>(defaultTheme);
   const [loading, setLoading] = useState<'download' | 'share' | null>(null);
   const [imgError, setImgError] = useState(false);
 
-  const imageUrl = useMemo(
-    () => `/api/sessions/${sessionId}/share-image?theme=${theme}&t=${theme}`,
-    [sessionId, theme]
-  );
+  const isSingle = scope === 'single-session';
+
+  const imageUrl = useMemo(() => {
+    if (isSingle && sessionId) {
+      return `/api/sessions/${sessionId}/share-image?theme=${theme}&t=${theme}`;
+    }
+    return `/api/coaches/${coachId}/share-image?theme=${theme}&t=${theme}`;
+  }, [coachId, sessionId, theme, isSingle]);
 
   const fetchBlob = useCallback(async () => {
     const res = await fetch(imageUrl);
     if (!res.ok) throw new Error('Could not generate graphic');
     return res.blob();
   }, [imageUrl]);
+
+  const downloadName = isSingle
+    ? `guild-session-${sessionId?.slice(0, 8) ?? 'one'}.png`
+    : `guild-sessions-${coachId.slice(0, 8)}.png`;
 
   const handleDownload = async () => {
     setLoading('download');
@@ -52,7 +71,7 @@ export function SessionShareGraphicPanel({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `guild-session-${sessionId.slice(0, 8)}.png`;
+      a.download = downloadName;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -66,11 +85,11 @@ export function SessionShareGraphicPanel({
     setLoading('share');
     try {
       const blob = await fetchBlob();
-      const file = new File([blob], `guild-session.png`, { type: 'image/png' });
+      const file = new File([blob], downloadName, { type: 'image/png' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'Guild session',
+          title: isSingle ? 'Guild session' : 'Guild sessions',
           text: shareCaption,
         });
       } else {
@@ -85,6 +104,12 @@ export function SessionShareGraphicPanel({
     }
   };
 
+  if (isSingle && !sessionId) {
+    return (
+      <p className="text-sm text-muted-foreground">Pick a session to preview its graphic.</p>
+    );
+  }
+
   return (
     <div className={className ?? 'rounded-xl border border-accent/30 bg-card p-4 space-y-4'}>
       <div className="flex items-start gap-2">
@@ -92,7 +117,24 @@ export function SessionShareGraphicPanel({
         <div>
           <p className="font-semibold text-foreground">Instagram graphic</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Download or share — post to feed or story with your booking link in bio or caption.
+            {isSingle ? (
+              <>
+                This session only — time, spots, and how to book (domain + QR to this session&apos;s
+                signup link).
+              </>
+            ) : (
+              <>
+                Every upcoming session — times, spots, and how to book (domain + QR to your schedule
+                page).
+              </>
+            )}
+            {scheduleUrl && !isSingle ? (
+              <>
+                {' '}
+                Caption can include your all-sessions link (
+                <span className="break-all">{scheduleUrl}</span>).
+              </>
+            ) : null}
           </p>
         </div>
       </div>
@@ -118,7 +160,7 @@ export function SessionShareGraphicPanel({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={imageUrl}
-            alt="Session share preview"
+            alt={isSingle ? 'Session share preview' : 'All sessions share preview'}
             className="w-full h-auto block"
             onError={() => setImgError(true)}
           />
@@ -151,6 +193,46 @@ export function SessionShareGraphicPanel({
           Download
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Toggle for choosing all-sessions vs single-session graphic. */
+export function ShareGraphicScopePicker({
+  scope,
+  onScopeChange,
+  className,
+}: {
+  scope: ShareGraphicScope;
+  onScopeChange: (scope: ShareGraphicScope) => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn('grid grid-cols-2 gap-2', className)}>
+      <Button
+        type="button"
+        variant={scope === 'single-session' ? 'default' : 'outline'}
+        className={cn(
+          'min-h-[44px] text-left justify-start px-3 h-auto py-2.5 flex-col items-start gap-0.5',
+          scope === 'single-session' && 'bg-accent text-black hover:bg-accent-hover'
+        )}
+        onClick={() => onScopeChange('single-session')}
+      >
+        <span className="font-semibold text-sm">Just this session</span>
+        <span className="text-[11px] opacity-80 font-normal">One time slot for Instagram</span>
+      </Button>
+      <Button
+        type="button"
+        variant={scope === 'all-sessions' ? 'default' : 'outline'}
+        className={cn(
+          'min-h-[44px] text-left justify-start px-3 h-auto py-2.5 flex-col items-start gap-0.5',
+          scope === 'all-sessions' && 'bg-accent text-black hover:bg-accent-hover'
+        )}
+        onClick={() => onScopeChange('all-sessions')}
+      >
+        <span className="font-semibold text-sm">All my sessions</span>
+        <span className="text-[11px] opacity-80 font-normal">Weekly roundup post</span>
+      </Button>
     </div>
   );
 }

@@ -37,6 +37,7 @@ function participantsFromSession(s: CoachSession) {
 
 type Props = {
   session: CoachSession;
+  coachId: string;
   coachDisplayName: string;
   coachSchool?: string | null;
   emphasis?: 'today' | 'default';
@@ -44,6 +45,7 @@ type Props = {
 
 export function CoachScheduleSessionCard({
   session,
+  coachId,
   coachDisplayName,
   coachSchool,
   emphasis = 'default',
@@ -159,6 +161,7 @@ export function CoachScheduleSessionCard({
           </div>
           <CoachSessionTileActions
             sessionId={session.id}
+            coachId={coachId}
             session={{
               id: session.id,
               join_policy: session.join_policy,

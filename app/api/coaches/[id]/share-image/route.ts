@@ -3,9 +3,8 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
-import { buildSessionShareGraphic } from '@/lib/session-share-graphic/build-session-share-graphic';
-import { fetchSessionShareGraphicInput } from '@/lib/session-share-graphic/fetch-session-share-graphic-input';
-import { coachSessionShareUrl } from '@/lib/coach-session-share';
+import { buildCoachSessionsShareGraphic } from '@/lib/session-share-graphic/build-session-share-graphic';
+import { fetchCoachSessionsShareGraphicInput } from '@/lib/session-share-graphic/fetch-coach-sessions-share-input';
 import { ensureCoachPhotoCutout, getRemoveBgApiKey } from '@/lib/coach-photo-cutout';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: sessionId } = await params;
+    const { id: coachId } = await params;
     const headersList = await headers();
     const host = resolveHostnameFromHeaders(headersList) || '';
     const tenant = getTenantByDomain(host);
@@ -39,19 +38,14 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const admin = createAdminClient(tenant.slug);
-    const { data: session } = await admin
-      .from('sessions')
-      .select('id, athlete_id, join_policy, partner_invite_code')
-      .eq('id', sessionId)
-      .maybeSingle();
-
-    if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    if (isCoach && coachId !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    if (isCoach && session.athlete_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const admin = createAdminClient(tenant.slug);
+    const { data: athlete } = await admin.from('athletes').select('id').eq('id', coachId).maybeSingle();
+    if (!athlete) {
+      return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
     }
 
     const themeParam = req.nextUrl.searchParams.get('theme');
@@ -59,35 +53,27 @@ export async function GET(
       process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
       (host.startsWith('localhost') ? `http://${host}` : `https://${host}`);
 
-    const payload = await fetchSessionShareGraphicInput(admin, sessionId, {
+    const payload = await fetchCoachSessionsShareGraphicInput(admin, coachId, {
       themeOverride: themeParam,
       appOrigin,
     });
     if (!payload) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
     }
 
     let cutoutUrl = payload.input.coachPhotoCutoutUrl ?? null;
-    if (payload.input.coachPhotoUrl && session.athlete_id && getRemoveBgApiKey()) {
+    if (payload.input.coachPhotoUrl && getRemoveBgApiKey()) {
       cutoutUrl =
         (await ensureCoachPhotoCutout(
           admin,
-          session.athlete_id as string,
+          coachId,
           payload.input.coachPhotoUrl,
           cutoutUrl
         )) ?? cutoutUrl;
     }
 
-    const bookingUrl = coachSessionShareUrl(appOrigin, {
-      id: sessionId,
-      join_policy: session.join_policy,
-      partner_invite_code: session.partner_invite_code,
-    });
-
-    const png = await buildSessionShareGraphic({
+    const png = await buildCoachSessionsShareGraphic({
       ...payload.input,
-      appOrigin,
-      bookingUrl,
       coachPhotoCutoutUrl: cutoutUrl,
       photoAdmin: admin,
     });
@@ -97,12 +83,12 @@ export async function GET(
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'private, max-age=300',
-        'Content-Disposition': `inline; filename="guild-session-${sessionId.slice(0, 8)}.png"`,
+        'Content-Disposition': `inline; filename="guild-coach-${coachId.slice(0, 8)}.png"`,
       },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    console.error('[sessions share-image GET]', message, e);
+    console.error('[coaches share-image GET]', message, e);
     return NextResponse.json({ error: 'Failed to generate image', detail: message }, { status: 500 });
   }
 }

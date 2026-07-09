@@ -49,8 +49,10 @@ export function buildCoachSessionShareMessage(opts: {
   session: CoachSessionShareInput;
   facility?: string;
   url: string;
+  /** Coach schedule page — all upcoming sessions (bio / weekly posts). */
+  scheduleUrl?: string;
 }): string {
-  const { coachName, session, facility, url } = opts;
+  const { coachName, session, facility, url, scheduleUrl } = opts;
   const typeLabel = getSessionTypeDisplay(session.session_type, session.session_mode).label;
   const dt = session.scheduled_datetime ? new Date(session.scheduled_datetime) : null;
   const when =
@@ -58,5 +60,8 @@ export function buildCoachSessionShareMessage(opts: {
       ? `${formatEST(dt, 'EEE, MMM d')} at ${formatEST(dt, 'h:mm a')}`
       : 'upcoming';
   const loc = facility?.trim() && facility !== '—' ? ` at ${facility.trim()}` : '';
-  return `Join my ${typeLabel} session with ${coachName} — ${when}${loc}. Sign up: ${url}`;
+  const scheduleTail = scheduleUrl?.trim()
+    ? ` More times: ${scheduleUrl.trim()}`
+    : '';
+  return `Join my ${typeLabel} session with ${coachName} — ${when}${loc}. Sign up: ${url}${scheduleTail}`;
 }

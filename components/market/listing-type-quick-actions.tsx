@@ -30,8 +30,6 @@ function patchForType(type: MarketListingType, priceDollars?: string): ListingTy
         open_to_trade: false,
       };
     }
-    case 'vault':
-      return { listing_type: 'vault', price_cents: null, open_to_trade: false };
     case 'trade':
       return { listing_type: 'trade', price_cents: null, open_to_trade: false };
     case 'collection':
@@ -151,8 +149,7 @@ export function ListingTypeQuickActions({
         <p className="text-xs text-muted-foreground">
           {currentType === 'collection' ? (
             <>
-              In your collection — tap <span className="text-foreground font-medium">For sale</span> or{' '}
-              <span className="text-foreground font-medium">Offers</span> when you&apos;re ready
+              In your collection — tap <span className="text-foreground font-medium">For sale</span> when you&apos;re ready
             </>
           ) : (
             <>
@@ -163,7 +160,7 @@ export function ListingTypeQuickActions({
           )}
         </p>
         <div className="flex flex-wrap gap-1.5">
-          {(['sell', 'vault', 'trade', 'collection'] as const).map((type) => {
+          {(['sell', 'trade', 'collection'] as const).map((type) => {
             const opt = SELLER_LISTING_TYPE_OPTIONS.find((o) => o.value === type)!;
             const shortLabel =
               type === 'collection'

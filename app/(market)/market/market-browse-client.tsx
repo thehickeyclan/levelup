@@ -17,7 +17,7 @@ import {
   type MarketCollectorBrowse,
 } from '@/lib/market/collector-browse';
 
-type TypeFilter = 'all' | 'buy' | 'trade' | 'vault' | 'collectors';
+type TypeFilter = 'all' | 'buy' | 'trade' | 'collectors';
 
 function sortListingsByNewest(listings: MarketBrowseListing[]): MarketBrowseListing[] {
   return [...listings].sort(
@@ -28,15 +28,13 @@ function sortListingsByNewest(listings: MarketBrowseListing[]): MarketBrowseList
 function summarizeListingTypes(listings: MarketBrowseListing[]) {
   let sell = 0;
   let trade = 0;
-  let vault = 0;
   let collection = 0;
   for (const l of listings) {
     if (l.listing_type === 'sell') sell += 1;
     else if (l.listing_type === 'trade') trade += 1;
-    else if (l.listing_type === 'vault') vault += 1;
-    else if (l.listing_type === 'collection') collection += 1;
+    else if (l.listing_type === 'collection' || l.listing_type === 'vault') collection += 1;
   }
-  return { sell, trade, vault, collection, total: listings.length };
+  return { sell, trade, collection, total: listings.length };
 }
 
 export function MarketBrowseClient({
@@ -55,7 +53,8 @@ export function MarketBrowseClient({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const type = (searchParams.get('type') || 'all') as TypeFilter;
+  const rawType = searchParams.get('type') || 'all';
+  const type = (rawType === 'vault' ? 'collectors' : rawType) as TypeFilter;
   const brand = searchParams.get('brand') || 'all';
   const color = searchParams.get('color') || 'all';
   const size = searchParams.get('size') || '';
@@ -155,7 +154,6 @@ export function MarketBrowseClient({
       if (!isCollectors) {
         if (type === 'buy' && l.listing_type !== 'sell') return false;
         if (type === 'trade' && l.listing_type !== 'trade') return false;
-        if (type === 'vault' && l.listing_type !== 'vault') return false;
       }
       if (brand !== 'all' && l.brand !== brand) return false;
       if (color !== 'all' && !matchesBrowseColorFilter(color, l.browse_colors)) return false;
@@ -196,10 +194,6 @@ export function MarketBrowseClient({
                     }${
                       listingTypeCounts.trade
                         ? ` · ${listingTypeCounts.trade} for trade`
-                        : ''
-                    }${
-                      listingTypeCounts.vault
-                        ? ` · ${listingTypeCounts.vault} offers only`
                         : ''
                     }`
                   : `${initialListings.filter((l) => l.listing_type === 'sell').length} pair${

@@ -17,8 +17,9 @@ import type { MarketListingType } from '@/lib/market/listing-type-options';
 import { cn } from '@/lib/utils';
 
 function priceLabel(listing: MyListingRow): string {
-  if (listing.listing_type === 'collection') return 'In collection';
-  if (listing.listing_type === 'vault') return 'Offers only';
+  if (listing.listing_type === 'collection' || listing.listing_type === 'vault') {
+    return 'In collection';
+  }
   if (listing.listing_type === 'trade') return 'Trade only';
   if (listing.price_cents != null) return `$${(listing.price_cents / 100).toFixed(0)}`;
   return 'Make offer';

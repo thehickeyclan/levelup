@@ -22,12 +22,12 @@ function listingTitle(listing: DropListing): string {
   );
 }
 
-function dropStatusLabel(listingType: string): string {
-  return listingType === 'vault' ? 'accepting offers' : 'for sale';
+function dropStatusLabel(_listingType: string): string {
+  return 'for sale';
 }
 
 /**
- * Notify followers when a collection listing moves to vault or sell.
+ * Notify followers when a collection listing moves to for sale.
  * In-app for all followers; SMS up to 50 with phone and SMS not opted out.
  */
 export async function notifySellerDropFollowers(

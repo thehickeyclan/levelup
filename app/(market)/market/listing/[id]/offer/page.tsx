@@ -83,8 +83,7 @@ export default async function ListingOfferPage({
   if (
     !listing ||
     listing.status !== 'active' ||
-    listing.seller_id === user.id ||
-    listing.listing_type === 'collection'
+    listing.seller_id === user.id
   ) {
     redirect(`/market/listing/${listingId}`);
   }
@@ -109,6 +108,7 @@ export default async function ListingOfferPage({
     .eq('seller_id', user.id)
     .eq('status', 'active')
     .neq('listing_type', 'collection')
+    .neq('listing_type', 'vault')
     .neq('id', listingId)
     .order('created_at', { ascending: false })
     .limit(50);

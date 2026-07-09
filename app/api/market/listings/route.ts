@@ -5,7 +5,7 @@ import { primaryListingImageUrl } from '@/lib/market/listing-images';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { isMissingColumnError, withoutColorFamily, withoutColumn, isMissingPurchasePrivateListingColumnError, withoutPurchasePrivateListingFields, hasPurchasePrivateListingFields } from '@/lib/market/listing-column-fallback';
 import { normalizeMarketRarity } from '@/lib/market/rarity';
-import { normalizeListingAcceptsOffers } from '@/lib/market/accepts-offers';
+import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
 
 export async function GET(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -99,11 +99,9 @@ export async function POST(req: NextRequest) {
 
   const isDraft = body.draft === true || !body.brand;
 
-  const listingType = (body.listing_type || 'sell') as string;
+  const listingType = normalizeListingTypeForWrite((body.listing_type || 'sell') as string);
   const priceCents =
-    listingType === 'vault' || listingType === 'collection' || listingType === 'trade'
-      ? null
-      : body.price_cents ?? null;
+    listingType === 'collection' || listingType === 'trade' ? null : body.price_cents ?? null;
 
   const row = {
     tenant_slug: tenant.slug,

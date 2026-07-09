@@ -1,6 +1,9 @@
-/** Seller-facing labels — DB values: sell | trade | vault | collection. */
+/** Seller-facing labels — DB values: sell | trade | collection (vault is legacy). */
 
-export type MarketListingType = 'sell' | 'trade' | 'vault' | 'collection';
+export type MarketListingType = 'sell' | 'trade' | 'collection';
+
+/** @deprecated Legacy rows only — new writes use collection. */
+export type LegacyMarketListingType = MarketListingType | 'vault';
 
 export const SELLER_LISTING_TYPE_OPTIONS: {
   value: MarketListingType;
@@ -18,18 +21,14 @@ export const SELLER_LISTING_TYPE_OPTIONS: {
     hint: 'Swap for another pair — no cash',
   },
   {
-    value: 'vault',
-    label: 'Offers',
-    hint: 'No set price — see what people offer',
-  },
-  {
     value: 'collection',
     label: 'Collection',
-    hint: 'In your collection — not listed for sale',
+    hint: 'In your collection — not for sale, offers welcome',
   },
 ];
 
 export function sellerListingTypeLabel(type: string): string {
+  if (type === 'vault') return 'Collection';
   return SELLER_LISTING_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
 }
 
@@ -50,11 +49,10 @@ export function sellerListingStatusBadge(
   if (status === 'active') {
     switch (listingType) {
       case 'collection':
+      case 'vault':
         return { label: 'Collection', className: 'text-muted-foreground border-border' };
       case 'sell':
         return { label: 'For sale', className: 'text-emerald-400 border-emerald-500/40' };
-      case 'vault':
-        return { label: 'Offers', className: 'text-accent border-accent/40' };
       case 'trade':
         return { label: 'Trade', className: 'text-sky-400 border-sky-500/40' };
     }

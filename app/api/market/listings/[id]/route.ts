@@ -19,7 +19,7 @@ import { normalizeMarketRarity } from '@/lib/market/rarity';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { fetchListingSizes, supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
-import { normalizeListingAcceptsOffers } from '@/lib/market/accepts-offers';
+import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function applyListingUpdate(
@@ -272,8 +272,12 @@ export async function PATCH(
     updates.brand = resolveListingBrand(updates.brand, catalog);
   }
 
-  const prevType = existing.listing_type as string;
-  const nextType = (updates.listing_type ?? prevType) as string;
+  if (typeof updates.listing_type === 'string') {
+    updates.listing_type = normalizeListingTypeForWrite(updates.listing_type);
+  }
+
+  const prevType = normalizeListingTypeForWrite(existing.listing_type as string);
+  const nextType = normalizeListingTypeForWrite((updates.listing_type ?? prevType) as string);
   const prevPrice = existing.price_cents as number | null | undefined;
   const nextPrice = (updates.price_cents !== undefined ? updates.price_cents : prevPrice) as number | null;
 
@@ -344,8 +348,7 @@ export async function PATCH(
 
   if (
     prevType === 'collection' &&
-    updates.listing_type &&
-    (updates.listing_type === 'vault' || updates.listing_type === 'sell') &&
+    updates.listing_type === 'sell' &&
     data
   ) {
     void notifySellerDropFollowers(tenant.slug, existing.seller_id as string, {

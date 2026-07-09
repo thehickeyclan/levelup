@@ -177,12 +177,11 @@ export default function NewListingPage() {
   const searchParams = useSearchParams();
   const typeParam = searchParams.get('type');
   const initialListingType: MarketListingType =
-    typeParam === 'collection' ||
-    typeParam === 'vault' ||
-    typeParam === 'trade' ||
-    typeParam === 'sell'
-      ? typeParam
-      : 'sell';
+    typeParam === 'vault' || typeParam === 'collection'
+      ? 'collection'
+      : typeParam === 'trade' || typeParam === 'sell'
+        ? typeParam
+        : 'sell';
 
   const [listingId, setListingId] = useState<string | null>(null);
   const [images, setImages] = useState<ListingImage[]>([]);
@@ -249,7 +248,7 @@ export default function NewListingPage() {
     condition: 'good',
     listing_type: initialListingType,
     open_to_trade: false,
-    accepts_offers: false,
+    accepts_offers: initialListingType === 'collection',
     price_cents: '',
     shipping_cents: '10',
     description: '',
@@ -379,10 +378,10 @@ export default function NewListingPage() {
       ...f,
       listing_type: listingType,
       open_to_trade: listingType === 'sell' ? f.open_to_trade : false,
-      accepts_offers: listingType === 'sell' ? f.accepts_offers : false,
+      accepts_offers:
+        listingType === 'collection' ? true : listingType === 'sell' ? f.accepts_offers : false,
       price_cents: listingType === 'sell' ? f.price_cents : '',
-      shipping_cents:
-        listingType === 'collection' || listingType === 'vault' ? '0' : f.shipping_cents,
+      shipping_cents: listingType === 'collection' ? '0' : f.shipping_cents,
     }));
     if (listingType === 'collection') {
       setAiPrice(null);
@@ -559,7 +558,12 @@ export default function NewListingPage() {
       condition: conditionForWearState(merged.wear_state, merged.condition),
       listing_type: merged.listing_type,
       open_to_trade: merged.listing_type === 'sell' ? merged.open_to_trade : false,
-      accepts_offers: merged.listing_type === 'sell' ? merged.accepts_offers : false,
+      accepts_offers:
+        merged.listing_type === 'collection'
+          ? merged.accepts_offers !== false
+          : merged.listing_type === 'sell'
+            ? merged.accepts_offers
+            : false,
       description: merged.description,
       collector_notes: merged.collector_notes.trim() || null,
       rarity: merged.rarity || null,
@@ -1799,7 +1803,34 @@ export default function NewListingPage() {
           </div>
         ) : null}
         {isCollection ? (
-          <CollectionPurchaseNotesFields notes={purchaseNotes} onChange={setPurchaseNotes} />
+          <>
+            <CollectionPurchaseNotesFields notes={purchaseNotes} onChange={setPurchaseNotes} />
+            <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-3">
+              <div>
+                <p className="text-sm text-foreground">Accept offers</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Let buyers make unsolicited offers on pairs in your collection
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.accepts_offers}
+                onClick={() => setForm((f) => ({ ...f, accepts_offers: !f.accepts_offers }))}
+                className={cn(
+                  'relative w-11 h-6 rounded-full transition-colors shrink-0',
+                  form.accepts_offers ? 'bg-accent' : 'bg-muted'
+                )}
+              >
+                <span
+                  className={cn(
+                    'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                    form.accepts_offers ? 'translate-x-5' : 'translate-x-0.5'
+                  )}
+                />
+              </button>
+            </div>
+          </>
         ) : null}
       </section>
 

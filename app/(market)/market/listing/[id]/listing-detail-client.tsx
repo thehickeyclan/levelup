@@ -19,6 +19,7 @@ import { formatListingColorLabel } from '@/lib/market/color-family';
 import { RarityBadge } from '@/components/market/rarity-badge';
 import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-actions';
 import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
+import { collectionAcceptsOffers, isCollectionListingType } from '@/lib/market/accepts-offers';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
 import { SellerPurchaseNotesCard } from '@/components/market/collection-purchase-notes';
@@ -197,11 +198,20 @@ export default function ListingDetailClient() {
     : null;
   const priceCents = l.price_cents as number | null;
   const shippingCents = (l.shipping_cents as number) ?? 0;
-  const listingType = (l.listing_type as MarketListingType) || 'sell';
-  const isCollection = listingType === 'collection';
+  const rawListingType = (l.listing_type as string) || 'sell';
+  const listingType = (
+    rawListingType === 'vault' ? 'collection' : rawListingType
+  ) as MarketListingType;
+  const isCollection = isCollectionListingType(rawListingType);
   const isActive = l.status === 'active';
   const openToTrade = Boolean(l.open_to_trade);
-  const acceptsOffers = Boolean(l.accepts_offers);
+  const sellAcceptsOffers = Boolean(l.accepts_offers);
+  const collectionOffersOpen =
+    isCollection &&
+    collectionAcceptsOffers({
+      listing_type: rawListingType,
+      accepts_offers: l.accepts_offers as boolean | null,
+    });
   const aiAssisted = Boolean(l.ai_assisted);
   const wearState = (l.wear_state as 'bnib' | 'new_no_box' | 'used') || 'used';
   const conditionLabel = listingConditionDisplay(wearState, l.condition as string);
@@ -254,14 +264,13 @@ export default function ListingDetailClient() {
 
   const displayTitle = (l.model as string)?.trim() || (l.title as string);
   const listingRarity = normalizeMarketRarity(l.rarity as string | null);
-  const isOffersListing = listingType === 'vault';
   const isTradeOnly = listingType === 'trade';
   const showTradeOnlyCta = isActive && isTradeOnly && !isSeller;
-  const showOffersCtAs = isActive && isOffersListing && !isCollection && !isSeller;
+  const showCollectionOfferCta = isActive && !isSeller && collectionOffersOpen;
   const showMakeOfferCta =
     isActive &&
     !isSeller &&
-    !isOffersListing &&
+    !collectionOffersOpen &&
     !isTradeOnly &&
     !isCollection &&
     priceCents == null;
@@ -271,21 +280,41 @@ export default function ListingDetailClient() {
     listingType === 'sell' &&
     !isCollection &&
     priceCents != null &&
-    acceptsOffers;
+    sellAcceptsOffers;
   const showBuyCta =
     isActive &&
     !isSeller &&
-    !isOffersListing &&
+    !collectionOffersOpen &&
     !isTradeOnly &&
     !isCollection &&
     priceCents != null;
 
-  const collectionBlock = (
+  const collectionShowcaseBlock = (
     <div className="bg-card border border-border rounded-xl p-4 text-center">
       <p className="text-muted-foreground text-sm mb-1">Not for sale</p>
       <p className="text-muted-foreground text-xs">
         Tap the heart to follow this pair — get updates if it goes up for sale, gets an offer, or sells.
       </p>
+    </div>
+  );
+
+  const collectionOfferBlock = (
+    <div className="space-y-2">
+      <div className="rounded-xl border border-border border-l-4 border-l-accent bg-card px-4 py-3">
+        <p className="text-accent text-xs font-medium mb-0.5">In a collection — offers welcome</p>
+        <p className="text-muted-foreground text-xs">
+          Not listed for sale, but the right offer might change that.
+        </p>
+      </div>
+      <Button
+        asChild
+        className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full text-base hover:bg-accent/90"
+      >
+        <Link href={`/market/listing/${id}/offer`} className="flex items-center justify-center gap-2">
+          <Send className="h-4 w-4" />
+          Make an offer
+        </Link>
+      </Button>
     </div>
   );
 
@@ -310,26 +339,6 @@ export default function ListingDetailClient() {
               <Send className="h-4 w-4" />
               Offer a trade
             </Link>
-          </Button>
-        </div>
-      ) : null}
-      {showOffersCtAs ? (
-        <div className="space-y-2">
-          <Button
-            asChild
-            className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full text-base hover:bg-accent/90"
-          >
-            <Link href={`/market/listing/${id}/offer`} className="flex items-center justify-center gap-2">
-              <Send className="h-4 w-4" />
-              Make an offer
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="w-full rounded-full border-border text-muted-foreground hover:text-foreground hover:border-border"
-          >
-            <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
           </Button>
         </div>
       ) : null}
@@ -483,7 +492,9 @@ export default function ListingDetailClient() {
                 >
                   {sellerCollectionHeading(sellerDisplayName)}
                 </Link>
-                <p className="text-xs text-muted-foreground">Collection — not for sale</p>
+                <p className="text-xs text-muted-foreground">
+                  Collection — {collectionOffersOpen ? 'offers welcome' : 'not for sale'}
+                </p>
               </div>
             ) : null}
             <div>
@@ -556,7 +567,7 @@ export default function ListingDetailClient() {
               </p>
             ) : null}
 
-            {offerCount > 0 && !isCollection ? (
+            {offerCount > 0 && (!isCollection || collectionOffersOpen) ? (
               <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3">
                 <span className="text-sm text-muted-foreground">Already interested</span>
                 <span className="flex items-center gap-1.5 text-sm font-medium text-accent">
@@ -566,16 +577,16 @@ export default function ListingDetailClient() {
               </div>
             ) : null}
 
-            {isOffersListing && !isCollection ? (
+            {collectionOffersOpen ? (
               <div className="rounded-xl border border-border border-l-4 border-l-accent bg-card px-4 py-3">
-                <p className="text-accent text-xs font-medium mb-0.5">Offers only — no set price</p>
+                <p className="text-accent text-xs font-medium mb-0.5">In a collection — offers welcome</p>
                 <p className="text-muted-foreground text-xs">
-                  Owner isn&apos;t actively selling — but the right offer changes that.
+                  Not listed for sale, but the right offer might change that.
                 </p>
               </div>
             ) : null}
 
-            {!isCollection && !isOffersListing && askingValue != null ? (
+            {!isCollection && priceCents != null ? (
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-card border border-border rounded-xl p-3 text-center">
                   <p className="text-lg font-bold text-accent">{askingValue}</p>
@@ -592,15 +603,15 @@ export default function ListingDetailClient() {
               </div>
             ) : null}
 
-            {isOffersListing && !isCollection ? (
+            {isCollection && collectionOffersOpen ? (
               <div className="grid grid-cols-2 gap-2">
-                <div className="bg-card border border-border rounded-xl p-3 text-center">
-                  <p className="text-lg font-bold text-foreground">{viewsCount}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Views</p>
-                </div>
                 <div className="bg-card border border-border rounded-xl p-3 text-center">
                   <p className="text-lg font-bold text-foreground">{offerCount}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">Offers</p>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-foreground">{followerCount}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Following</p>
                 </div>
               </div>
             ) : null}
@@ -649,18 +660,18 @@ export default function ListingDetailClient() {
             {isSeller ? <SellerPurchaseNotesCard listing={l} /> : null}
 
             {isCollection && isActive && !isSeller ? (
-              <div className="hidden md:block">{collectionBlock}</div>
+              <div className="hidden md:block">
+                {collectionOffersOpen ? collectionOfferBlock : collectionShowcaseBlock}
+              </div>
             ) : null}
 
-            {!isOffersListing && !isCollection && priceCents != null && shippingCents > 0 ? (
+            {!isCollection && priceCents != null && shippingCents > 0 ? (
               <p className="text-sm text-muted-foreground">
                 + ${(shippingCents / 100).toFixed(2)} shipping
               </p>
             ) : null}
 
-            <div className="hidden md:block pt-1">
-              {!isCollection ? ctaBlock : null}
-            </div>
+            <div className="hidden md:block pt-1">{!isCollection ? ctaBlock : null}</div>
 
             <ListingSellerCard
               sellerId={sellerId}
@@ -703,31 +714,22 @@ export default function ListingDetailClient() {
       </div>
 
       {(showTradeOnlyCta ||
-        showOffersCtAs ||
+        showCollectionOfferCta ||
         showMakeOfferCta ||
         showSellMakeOfferCta ||
         showBuyCta ||
-        (isCollection && isActive && !isSeller)) ? (
+        (isCollection && isActive && !isSeller && !collectionOffersOpen)) ? (
         <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-3 bg-gradient-to-t from-background via-background/98 to-transparent">
-          {isCollection && isActive ? (
-            collectionBlock
+          {isCollection && isActive && !collectionOffersOpen ? (
+            collectionShowcaseBlock
+          ) : showCollectionOfferCta ? (
+            <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
+              <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>
+            </Button>
           ) : showTradeOnlyCta ? (
             <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
               <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
             </Button>
-          ) : showOffersCtAs ? (
-            <div className="space-y-2">
-              <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
-                <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="w-full min-h-[44px] rounded-full border-border text-muted-foreground"
-              >
-                <Link href={`/market/listing/${id}/offer?trade=1`}>Offer a trade</Link>
-              </Button>
-            </div>
           ) : showMakeOfferCta ? (
             <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
               <Link href={`/market/listing/${id}/offer`}>Make an offer</Link>

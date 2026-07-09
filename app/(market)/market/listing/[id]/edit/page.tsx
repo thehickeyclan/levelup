@@ -174,6 +174,7 @@ export default function EditListingPage() {
         const resolvedBrand =
           sellerBrands.find((b) => b.toLowerCase() === listingBrand.trim().toLowerCase()) ??
           listingBrand;
+        const rawType = String(l.listing_type ?? 'collection');
         setForm({
           brand: resolvedBrand,
           model: String(l.model ?? ''),
@@ -183,9 +184,10 @@ export default function EditListingPage() {
           size: String(l.size ?? '10'),
           wear_state: wear,
           condition: String(l.condition ?? 'good'),
-          listing_type: (l.listing_type as MarketListingType) || 'collection',
+          listing_type: rawType === 'vault' ? 'collection' : ((rawType as MarketListingType) || 'collection'),
           open_to_trade: Boolean(l.open_to_trade),
-          accepts_offers: Boolean(l.accepts_offers),
+          accepts_offers:
+            rawType === 'vault' || rawType === 'collection' ? l.accepts_offers !== false : Boolean(l.accepts_offers),
           price_cents:
             l.price_cents != null ? String(Math.round(Number(l.price_cents) / 100)) : '',
           shipping_cents:
@@ -270,7 +272,12 @@ export default function EditListingPage() {
       condition: conditionForWearState(form.wear_state, form.condition),
       listing_type: form.listing_type,
       open_to_trade: form.listing_type === 'sell' ? form.open_to_trade : false,
-      accepts_offers: form.listing_type === 'sell' ? form.accepts_offers : false,
+      accepts_offers:
+        form.listing_type === 'collection'
+          ? form.accepts_offers !== false
+          : form.listing_type === 'sell'
+            ? form.accepts_offers
+            : false,
       description: form.description,
       collector_notes: form.collector_notes.trim() || null,
       price_cents:
@@ -278,7 +285,7 @@ export default function EditListingPage() {
           ? Math.round(Number(form.price_cents || 0) * 100)
           : null,
       shipping_cents:
-        form.listing_type === 'collection' || form.listing_type === 'vault'
+        form.listing_type === 'collection'
           ? 0
           : Math.round(Number(form.shipping_cents || 0) * 100),
       rarity: form.rarity || null,
@@ -640,10 +647,10 @@ export default function EditListingPage() {
       ...f,
       listing_type: listingType,
       open_to_trade: listingType === 'sell' ? f.open_to_trade : false,
-      accepts_offers: listingType === 'sell' ? f.accepts_offers : false,
+      accepts_offers:
+        listingType === 'collection' ? true : listingType === 'sell' ? f.accepts_offers : false,
       price_cents: listingType === 'sell' ? f.price_cents : '',
-      shipping_cents:
-        listingType === 'collection' || listingType === 'vault' ? '0' : f.shipping_cents,
+      shipping_cents: listingType === 'collection' ? '0' : f.shipping_cents,
     }));
   };
 
@@ -693,11 +700,16 @@ export default function EditListingPage() {
             shipping_cents:
               patch.shipping_cents != null
                 ? String(Math.round(patch.shipping_cents / 100))
-                : patch.listing_type === 'collection' || patch.listing_type === 'vault'
+                : patch.listing_type === 'collection'
                   ? '0'
                   : f.shipping_cents,
             open_to_trade: patch.listing_type === 'sell' ? f.open_to_trade : false,
-            accepts_offers: patch.listing_type === 'sell' ? f.accepts_offers : false,
+            accepts_offers:
+              patch.listing_type === 'collection'
+                ? true
+                : patch.listing_type === 'sell'
+                  ? f.accepts_offers
+                  : false,
           }));
           setModeBlockedReason(null);
           setActiveTradeId(null);
@@ -990,6 +1002,34 @@ export default function EditListingPage() {
       </div>
 
       <CollectionPurchaseNotesFields notes={purchaseNotes} onChange={setPurchaseNotes} />
+
+      {isCollection ? (
+        <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-3">
+          <div>
+            <p className="text-sm text-foreground">Accept offers</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Let buyers make unsolicited offers on pairs in your collection
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={form.accepts_offers}
+            onClick={() => setForm((f) => ({ ...f, accepts_offers: !f.accepts_offers }))}
+            className={cn(
+              'relative w-11 h-6 rounded-full transition-colors shrink-0',
+              form.accepts_offers ? 'bg-accent' : 'bg-muted'
+            )}
+          >
+            <span
+              className={cn(
+                'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                form.accepts_offers ? 'translate-x-5' : 'translate-x-0.5'
+              )}
+            />
+          </button>
+        </div>
+      ) : null}
 
       {isPricedListing ? (
         <div className="space-y-3">

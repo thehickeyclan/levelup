@@ -21,7 +21,6 @@ const TYPE_OPTIONS = [
   { id: 'all', label: 'All' },
   { id: 'buy', label: 'For Sale' },
   { id: 'trade', label: 'Trade' },
-  { id: 'vault', label: 'Offers' },
   { id: 'collectors', label: 'Collection' },
 ] as const;
 

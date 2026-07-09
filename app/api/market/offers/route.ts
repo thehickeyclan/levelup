@@ -124,9 +124,6 @@ export async function POST(req: NextRequest) {
   if (listing.seller_id === user!.id) {
     return NextResponse.json({ error: 'Cannot offer on your own listing' }, { status: 403 });
   }
-  if (listing.listing_type === 'collection') {
-    return NextResponse.json({ error: 'This pair is not for sale' }, { status: 400 });
-  }
 
   const cashOffer = offerType === 'cash' || offerType === 'cash_and_trade';
   const tradeOffer = offerType === 'trade' || offerType === 'cash_and_trade';

@@ -7,17 +7,21 @@ import type { MarketBrowseListing } from '@/lib/market/browse-listings';
 import { formatListingColorLabel } from '@/lib/market/color-family';
 import { RarityBadge } from '@/components/market/rarity-badge';
 import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
+import { collectionAcceptsOffers, isCollectionListingType } from '@/lib/market/accepts-offers';
 import { cn } from '@/lib/utils';
 
 function typeBadge(listing: MarketBrowseListing): {
   label: string;
   className: string;
 } {
-  if (listing.listing_type === 'collection') {
-    return { label: 'Collection', className: 'bg-card border border-border text-muted-foreground' };
-  }
-  if (listing.listing_type === 'vault') {
-    return { label: 'Offers', className: 'bg-accent/90 text-accent-foreground' };
+  if (isCollectionListingType(listing.listing_type)) {
+    const offersOpen = collectionAcceptsOffers(listing);
+    return {
+      label: 'Collection',
+      className: offersOpen
+        ? 'bg-accent/90 text-accent-foreground'
+        : 'bg-card border border-border text-muted-foreground',
+    };
   }
   if (listing.listing_type === 'trade') {
     return { label: 'Trade', className: 'bg-blue-500/90 text-foreground' };
@@ -29,11 +33,10 @@ function typeBadge(listing: MarketBrowseListing): {
 }
 
 function cardCta(listing: MarketBrowseListing): { label: string; solid: boolean } | null {
-  if (listing.listing_type === 'collection') return null;
-  if (listing.listing_type === 'trade') return { label: 'Trade', solid: false };
-  if (listing.listing_type === 'vault') {
-    return { label: 'Offer', solid: false };
+  if (isCollectionListingType(listing.listing_type)) {
+    return collectionAcceptsOffers(listing) ? { label: 'Offer', solid: false } : null;
   }
+  if (listing.listing_type === 'trade') return { label: 'Trade', solid: false };
   if (listing.price_cents == null) {
     return { label: 'Offer', solid: false };
   }
@@ -41,11 +44,10 @@ function cardCta(listing: MarketBrowseListing): { label: string; solid: boolean 
 }
 
 function priceLabel(listing: MarketBrowseListing): { text: string; className: string } {
-  if (listing.listing_type === 'collection') {
-    return { text: 'Not for sale', className: 'text-muted-foreground' };
-  }
-  if (listing.listing_type === 'vault') {
-    return { text: 'Offers only', className: 'text-muted-foreground italic text-xs font-normal' };
+  if (isCollectionListingType(listing.listing_type)) {
+    return collectionAcceptsOffers(listing)
+      ? { text: 'Offers welcome', className: 'text-muted-foreground italic text-xs font-normal' }
+      : { text: 'Not for sale', className: 'text-muted-foreground' };
   }
   if (listing.listing_type === 'trade') {
     return { text: 'Trade only', className: 'text-blue-400' };
@@ -71,8 +73,10 @@ export function MarketListingCard({
   const conditionLabel = listingConditionDisplay(wearState, listing.condition);
   const colorLabel = formatListingColorLabel(listing.color_family, listing.colorway);
   const offerCount = listing.pending_offer_count;
-  const showOfferCount = offerCount > 0 && listing.listing_type !== 'collection';
-  const hotOffers = offerCount >= 2 && listing.listing_type !== 'collection';
+  const collectionListing = isCollectionListingType(listing.listing_type);
+  const showOfferCount =
+    offerCount > 0 && (!collectionListing || collectionAcceptsOffers(listing));
+  const hotOffers = offerCount >= 2 && showOfferCount;
 
   return (
     <Link
@@ -95,7 +99,7 @@ export function MarketListingCard({
           className={cn(
             'absolute top-2 left-2 rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide',
             emphasizeType ? 'text-[9px] shadow-sm' : 'text-[8px]',
-            listing.listing_type === 'collection' ? 'border' : '',
+            collectionListing && !collectionAcceptsOffers(listing) ? 'border' : '',
             badge.className
           )}
         >
@@ -112,7 +116,7 @@ export function MarketListingCard({
             AI
           </span>
         ) : null}
-        {listing.views_count > 0 && listing.listing_type !== 'collection' ? (
+        {listing.views_count > 0 && !collectionListing ? (
           <span className="absolute bottom-2 right-2 bg-foreground/75 backdrop-blur-sm rounded-full px-2 py-1 text-[9px] text-muted-foreground flex items-center gap-1">
             <Eye className="h-3 w-3" />
             {listing.views_count}
@@ -147,7 +151,7 @@ export function MarketListingCard({
             <div className="min-w-0">
               <p
                 className={cn(
-                  listing.listing_type === 'vault'
+                  collectionListing && collectionAcceptsOffers(listing)
                     ? 'text-xs font-normal italic'
                     : 'text-[13px] font-bold',
                   price.className

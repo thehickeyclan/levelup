@@ -54,11 +54,11 @@ export async function fetchSellerActiveInventory(
 
   for (const row of rows) {
     const item = mapRow(row);
-    if (row.listing_type === 'collection') {
+    if (row.listing_type === 'collection' || row.listing_type === 'vault') {
       collection.push(item);
     } else if (row.listing_type === 'trade') {
       trading.push(item);
-    } else if (row.listing_type === 'sell' || row.listing_type === 'vault') {
+    } else if (row.listing_type === 'sell') {
       forSale.push(item);
     }
   }

@@ -9,6 +9,33 @@ export type ShareGraphicSessionSlot = {
   dayAbbrev?: string;
 };
 
+/** Bottom label on a slot when sessions span multiple calendar days. */
+export function shareGraphicSlotDayLabel(
+  dt: Date,
+  multiDay: boolean,
+  visible: SessionRow[]
+): string | undefined {
+  if (!multiDay) return undefined;
+
+  const weekday = formatEST(dt, 'EEE').toUpperCase();
+  const time = formatEST(dt, 'h:mm a').toUpperCase();
+
+  let weekdayCount = 0;
+  let timeCount = 0;
+  for (const s of visible) {
+    const d = new Date(s.scheduled_datetime);
+    if (formatEST(d, 'EEE').toUpperCase() === weekday) weekdayCount++;
+    if (formatEST(d, 'h:mm a').toUpperCase() === time) timeCount++;
+  }
+
+  // Same weekday (e.g. three Sundays) or same time → show calendar date so slots don't look identical.
+  if (weekdayCount > 1 || timeCount > 1) {
+    return formatEST(dt, 'MMM d').toUpperCase();
+  }
+
+  return weekday;
+}
+
 type SessionRow = {
   scheduled_datetime: string;
   session_type?: string | null;
@@ -63,7 +90,7 @@ export function buildShareGraphicSessionSlots(
     return {
       timeLabel: formatEST(dt, 'h:mm a').toUpperCase(),
       statusLabel: truncateUpper(shareGraphicStatusLabel(s), 12),
-      dayAbbrev: multiDay ? formatEST(dt, 'EEE').toUpperCase() : undefined,
+      dayAbbrev: shareGraphicSlotDayLabel(dt, multiDay, visible),
     };
   });
 

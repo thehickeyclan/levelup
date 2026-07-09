@@ -13,6 +13,7 @@ import {
   type SessionShareGraphicContent,
 } from './build-overlay-svg';
 import { buildCoachPhotoOverlay } from './build-coach-photo-overlay';
+import { rasterizeShareOverlaySvg } from './rasterize-overlay-svg';
 
 export const SHARE_GRAPHIC_WIDTH = 1080;
 export const SHARE_GRAPHIC_HEIGHT = 1440;
@@ -144,8 +145,11 @@ export async function buildSessionShareGraphic(input: BuildSessionShareGraphicIn
   });
 
   const content = buildContent(input);
+  const textOverlayPng = rasterizeShareOverlaySvg(
+    buildTextOverlaySvg(SHARE_GRAPHIC_WIDTH, SHARE_GRAPHIC_HEIGHT, theme, content)
+  );
   overlays.push({
-    input: Buffer.from(buildTextOverlaySvg(SHARE_GRAPHIC_WIDTH, SHARE_GRAPHIC_HEIGHT, theme, content)),
+    input: textOverlayPng,
     top: 0,
     left: 0,
   });

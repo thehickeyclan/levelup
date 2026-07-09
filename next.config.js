@@ -1,10 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: ['@resvg/resvg-js', 'sharp'],
   outputFileTracingIncludes: {
     '/api/sessions/[id]/share-image': [
       './public/share-templates/**/*',
       './lib/session-share-graphic/fonts/**/*',
+      './node_modules/@resvg/resvg-js/**/*',
     ],
   },
   env: {

@@ -1,5 +1,5 @@
 import type { ShareGraphicTheme } from './themes';
-import { SHARE_GRAPHIC_FONT_FAMILY, shareGraphicFontFaceBlock } from './embed-fonts';
+import { SHARE_GRAPHIC_FONT_FAMILY } from './rasterize-overlay-svg';
 
 export type SessionShareGraphicContent = {
   firstName: string;
@@ -70,9 +70,6 @@ export function buildTextOverlaySvg(
   const font = SHARE_GRAPHIC_FONT_FAMILY;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>
-    <style>${shareGraphicFontFaceBlock()}</style>
-  </defs>
 
   <text x="56" y="300" fill="${theme.firstNameColor}" font-family="${font}" font-weight="800" font-size="64" letter-spacing="2">${fn}</text>
   <text x="56" y="388" fill="${theme.lastNameColor}" font-family="${font}" font-weight="800" font-size="78" letter-spacing="1">${ln}</text>

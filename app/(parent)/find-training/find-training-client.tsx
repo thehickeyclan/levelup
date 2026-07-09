@@ -328,15 +328,25 @@ export function FindTrainingClient({
       void navigator.clipboard.writeText(url);
     };
 
-    const buildCartPayload = () => ({
-      id: session.id,
-      scheduled_datetime: session.scheduled_datetime,
-      session_type: session.session_type,
-      price_per_participant: session.price_per_participant,
-      coach_name: coachData ? [coachData.first_name, coachData.last_name].filter(Boolean).join(' ') : 'Coach',
-      coach_id: coachData?.id ?? session.athlete_id,
-      facility_name: facilityData?.name ?? '',
-    });
+    const buildCartPayload = () => {
+      const used = new Set(
+        items
+          .filter((i) => i.id === session.id && i.athlete_id)
+          .map((i) => i.athlete_id as string)
+      );
+      const nextWrestlerId =
+        parentWrestlerIds.find((id) => !used.has(id)) ?? parentWrestlerIds[0] ?? null;
+      return {
+        id: session.id,
+        scheduled_datetime: session.scheduled_datetime,
+        session_type: session.session_type,
+        price_per_participant: session.price_per_participant,
+        coach_name: coachData ? [coachData.first_name, coachData.last_name].filter(Boolean).join(' ') : 'Coach',
+        coach_id: coachData?.id ?? session.athlete_id,
+        facility_name: facilityData?.name ?? '',
+        athlete_id: nextWrestlerId,
+      };
+    };
 
     const handleAddOne = (e: React.MouseEvent) => {
       e.preventDefault();

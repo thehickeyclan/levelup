@@ -90,6 +90,16 @@ export function CoachProfileOpenSessions({
           parentWrestlerIds.length >= 1 ? parentWrestlerIds.length : 1
         );
 
+        const nextWrestlerId = (): string | null => {
+          if (parentWrestlerIds.length === 0) return null;
+          const used = new Set(
+            items
+              .filter((i) => i.id === s.id && i.athlete_id)
+              .map((i) => i.athlete_id as string)
+          );
+          return parentWrestlerIds.find((id) => !used.has(id)) ?? parentWrestlerIds[0] ?? null;
+        };
+
         const buildCartPayload = () => ({
           id: s.id,
           scheduled_datetime: s.scheduled_datetime,
@@ -98,6 +108,7 @@ export function CoachProfileOpenSessions({
           coach_name: coachName,
           coach_id: coachId,
           facility_name: fac?.name ?? '',
+          athlete_id: nextWrestlerId(),
         });
 
         const handleAddOne = (e: React.MouseEvent) => {

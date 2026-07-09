@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/lib/cart-context';
 import { formatEST } from '@/lib/format-date';
@@ -54,7 +55,7 @@ function formatDiscoverySessionTime(d: Date): string {
 
 export function HomeDiscoverySessionCard({ session, parentWrestlerIds }: Props) {
   const router = useRouter();
-  const { addItem, sessionLineCount } = useCart();
+  const { addItem, removeItem, items, sessionLineCount } = useCart();
   const coach = Array.isArray(session.athletes) ? session.athletes[0] : session.athletes;
   const facility = Array.isArray(session.facilities) ? session.facilities[0] : session.facilities;
   const dt = new Date(session.scheduled_datetime);
@@ -64,7 +65,6 @@ export function HomeDiscoverySessionCard({ session, parentWrestlerIds }: Props) 
   const price = session.price_per_participant;
   const cartQty = sessionLineCount(session.id);
   const maxCartQty = Math.min(openSlots, parentWrestlerIds.length >= 1 ? parentWrestlerIds.length : 1);
-  const inCart = cartQty > 0;
   const typeLabel = getSessionTypeDisplay(session.session_type ?? null, session.session_mode ?? null).label;
   const coachName = coach ? [coach.first_name, coach.last_name].filter(Boolean).join(' ').trim() : 'Coach';
   const datePart = formatEST(dt, 'EEE MMM d');
@@ -73,28 +73,45 @@ export function HomeDiscoverySessionCard({ session, parentWrestlerIds }: Props) 
 
   if (!isSessionOpenForParentBrowse(session)) return null;
 
-  const handleAdd = () => {
-    if (inCart) return;
-    const wid = parentWrestlerIds[0];
-    if (!wid) {
+  const nextWrestlerId = (): string | null => {
+    if (parentWrestlerIds.length === 0) return null;
+    const used = new Set(
+      items
+        .filter((i) => i.id === session.id && i.athlete_id)
+        .map((i) => i.athlete_id as string)
+    );
+    return parentWrestlerIds.find((id) => !used.has(id)) ?? parentWrestlerIds[0] ?? null;
+  };
+
+  const buildCartPayload = (wrestlerId: string | null) => ({
+    lineId: crypto.randomUUID(),
+    id: session.id,
+    scheduled_datetime: session.scheduled_datetime,
+    session_type: session.session_type,
+    price_per_participant: session.price_per_participant,
+    coach_name: coachName || 'Coach',
+    coach_id: session.athlete_id,
+    facility_name: facility?.name ?? '',
+    athlete_id: wrestlerId,
+  });
+
+  const handleAddOne = () => {
+    if (parentWrestlerIds.length === 0) {
       router.push('/wrestlers/add');
       return;
     }
     if (cartQty >= maxCartQty) return;
-    addItem({
-      lineId: crypto.randomUUID(),
-      id: session.id,
-      scheduled_datetime: session.scheduled_datetime,
-      session_type: session.session_type,
-      price_per_participant: session.price_per_participant,
-      coach_name: coachName || 'Coach',
-      coach_id: session.athlete_id,
-      facility_name: facility?.name ?? '',
-      athlete_id: wid,
-    });
+    addItem(buildCartPayload(nextWrestlerId()));
+  };
+
+  const handleRemoveOne = () => {
+    const linesForSession = items.filter((i) => i.id === session.id);
+    const last = linesForSession[linesForSession.length - 1];
+    if (last) removeItem(last.lineId);
   };
 
   const summaryLine = [coachName, typeLabel, datePart, timePart, pricePart].filter(Boolean).join(' · ');
+  const canAdd = openSlots > 0 && cartQty < maxCartQty;
 
   return (
     <div className="flex h-[52px] max-h-[52px] min-h-[52px] w-full items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-2 py-1.5">
@@ -115,27 +132,44 @@ export function HomeDiscoverySessionCard({ session, parentWrestlerIds }: Props) 
       <p className="min-w-0 flex-1 truncate text-sm text-foreground">
         {summaryLine}
       </p>
-      {inCart ? (
+      {cartQty === 0 ? (
         <Button
           type="button"
           variant="outline"
           size="sm"
-          disabled
-          className="h-9 min-w-[44px] shrink-0 border-accent/50 bg-transparent px-2 text-xs font-semibold text-zinc-300"
-        >
-          In Cart
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleAdd}
-          disabled={openSlots <= 0 || cartQty >= maxCartQty}
+          onClick={handleAddOne}
+          disabled={!canAdd && parentWrestlerIds.length > 0}
           className="h-9 min-w-[44px] shrink-0 border-accent bg-transparent px-2 text-xs font-semibold text-accent hover:bg-accent/10 hover:text-accent"
         >
           + Add
         </Button>
+      ) : (
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRemoveOne}
+            className="h-9 w-9 p-0 border-zinc-600"
+            aria-label="Remove one spot"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </Button>
+          <span className="min-w-[1.25rem] text-center text-xs font-semibold tabular-nums text-foreground">
+            {cartQty}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAddOne}
+            disabled={!canAdd}
+            className="h-9 w-9 p-0 border-zinc-600 disabled:opacity-40"
+            aria-label="Add another wrestler"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       )}
     </div>
   );

@@ -1,5 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+const PLACEHOLDER_KEYS = new Set(['true', 'false', 'yes', 'no', '1', '0', 'enabled', 'disabled']);
+
+/** Real remove.bg API key from env — rejects placeholders like "True". */
+export function getRemoveBgApiKey(): string | null {
+  const raw = process.env.REMOVE_BG_API_KEY?.trim();
+  if (!raw) return null;
+  if (PLACEHOLDER_KEYS.has(raw.toLowerCase())) {
+    console.warn(
+      '[remove.bg] REMOVE_BG_API_KEY looks like a placeholder (e.g. "True") — set your real key from remove.bg/api'
+    );
+    return null;
+  }
+  if (raw.length < 12) {
+    console.warn('[remove.bg] REMOVE_BG_API_KEY is too short to be a valid API key');
+    return null;
+  }
+  return raw;
+}
+
 /** Remove.bg subject-only PNG; cached on athletes.photo_cutout_url. */
 export async function ensureCoachPhotoCutout(
   admin: SupabaseClient,
@@ -10,7 +29,7 @@ export async function ensureCoachPhotoCutout(
   if (!photoUrl?.trim()) return null;
   if (existingCutoutUrl?.trim()) return existingCutoutUrl.trim();
 
-  const apiKey = process.env.REMOVE_BG_API_KEY?.trim();
+  const apiKey = getRemoveBgApiKey();
   if (!apiKey) return null;
 
   try {

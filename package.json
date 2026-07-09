@@ -52,6 +52,9 @@
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.22.4"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["sharp", "esbuild"]
+  },
   "devDependencies": {
     "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^20.11.5",

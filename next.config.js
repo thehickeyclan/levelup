@@ -2,12 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ['@resvg/resvg-js', 'sharp'],
+  // Only trace real files under public/ — pnpm symlinks in node_modules break Vercel deploy.
   outputFileTracingIncludes: {
-    '/api/sessions/[id]/share-image': [
-      './public/share-templates/**/*',
-      './lib/session-share-graphic/fonts/**/*',
-      './node_modules/@resvg/resvg-js/**/*',
-    ],
+    '/api/sessions/[id]/share-image': ['./public/share-templates/**/*'],
   },
   env: {
     NEXT_PUBLIC_REWARDS_PROGRAM_ENABLED:

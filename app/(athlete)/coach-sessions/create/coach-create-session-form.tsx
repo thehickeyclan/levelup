@@ -351,11 +351,11 @@ export function CoachCreateSessionForm({
               </div>
             </div>
 
-            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+            <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-4">
               <div>
                 <p className="text-sm font-medium">Post to social?</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Promote this session only, or share every time on your schedule.
+                <p className="text-xs text-muted-foreground mt-1">
+                  Download or share an Instagram graphic with booking info.
                 </p>
               </div>
               <ShareGraphicScopePicker scope={graphicScope} onScopeChange={setGraphicScope} />
@@ -400,15 +400,11 @@ export function CoachCreateSessionForm({
                       })()
                     : `All my upcoming sessions with ${coachName}: ${scheduleUrl}`
                 }
-                className="border-0 p-0 shadow-none bg-transparent"
+                className="border-0 p-0 shadow-none bg-transparent space-y-3"
               />
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Share the session link for one time, or the all-sessions page when you want families to browse everything.
-            </p>
-
-            <div className="flex flex-wrap gap-2 pt-2">
+            <div className="flex flex-wrap gap-2 pt-1">
               <Button asChild variant="default" size="sm">
                 <Link href="/athlete-dashboard">Back to schedule</Link>
               </Button>

@@ -73,7 +73,7 @@ export type BuildSessionShareGraphicInput = {
   photoAdmin?: SupabaseClient;
   coachAthleteId?: string | null;
   appOrigin?: string;
-  /** Session signup URL — QR target for single-session graphics. */
+  /** Coach schedule URL — QR always targets /coach/[id]. */
   bookingUrl?: string | null;
 };
 
@@ -171,7 +171,7 @@ function buildContent(input: BuildSessionShareGraphicInput): SessionShareGraphic
     footerRightTitle: schoolShort,
     footerRightValue: truncateUpper(facilityFooter, 22),
     bookingLine,
-    bookingSubline: bookingLine ? 'THIS SESSION' : undefined,
+    bookingSubline: bookingLine ? 'ALL UPCOMING SESSIONS' : undefined,
   };
 }
 

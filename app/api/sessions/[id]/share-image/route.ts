@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 import { buildSessionShareGraphic } from '@/lib/session-share-graphic/build-session-share-graphic';
 import { fetchSessionShareGraphicInput } from '@/lib/session-share-graphic/fetch-session-share-graphic-input';
-import { coachSessionShareUrl } from '@/lib/coach-session-share';
+import { shareGraphicBookingUrl } from '@/lib/session-share-graphic/share-graphic-session-slots';
 import { ensureCoachPhotoCutout, getRemoveBgApiKey } from '@/lib/coach-photo-cutout';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +42,7 @@ export async function GET(
     const admin = createAdminClient(tenant.slug);
     const { data: session } = await admin
       .from('sessions')
-      .select('id, athlete_id, join_policy, partner_invite_code')
+      .select('id, athlete_id')
       .eq('id', sessionId)
       .maybeSingle();
 
@@ -78,11 +78,7 @@ export async function GET(
         )) ?? cutoutUrl;
     }
 
-    const bookingUrl = coachSessionShareUrl(appOrigin, {
-      id: sessionId,
-      join_policy: session.join_policy,
-      partner_invite_code: session.partner_invite_code,
-    });
+    const bookingUrl = shareGraphicBookingUrl(appOrigin, session.athlete_id as string);
 
     const png = await buildSessionShareGraphic({
       ...payload.input,

@@ -148,9 +148,10 @@ function buildSessionTimeBoxes(
   const gap = 10;
   const n = Math.min(slots.length, 4);
   const cols = n === 1 ? 1 : n === 3 ? 1 : 2;
-  const rows = n === 1 ? 1 : n === 2 ? 1 : n === 3 ? 3 : 2;
+  const compact = n > 2;
+  const h = compact ? 78 : boxH;
   const boxW = cols === 1 ? areaW : Math.floor((areaW - gap) / 2);
-  const compactH = n > 2 ? 78 : boxH;
+  const pad = 12;
 
   let svg = '';
   for (let i = 0; i < n; i++) {
@@ -158,22 +159,32 @@ function buildSessionTimeBoxes(
     const col = cols === 1 ? 0 : i % 2;
     const row = cols === 1 ? i : Math.floor(i / 2);
     const x = areaX + col * (boxW + gap);
-    const y = startY + row * (compactH + gap);
+    const y = startY + row * (h + gap);
     const w = cols === 1 && n === 1 ? areaW : boxW;
-    const h = compactH;
     const dividerX = x + Math.round(w * 0.58);
-    const timeSize = n > 2 ? 52 : n === 2 ? 58 : 76;
-    const statusSize = n > 2 ? 28 : 34;
+    const rightCx = dividerX + (x + w - dividerX) / 2;
     const time = escapeXml(slot.timeLabel);
     const status = escapeXml(slot.statusLabel);
     const day = slot.dayAbbrev ? escapeXml(slot.dayAbbrev) : null;
 
+    const narrow = cols === 2;
+    const timeSize = compact ? (narrow ? 30 : day ? 36 : 40) : n === 2 ? 58 : 76;
+    const daySize = compact ? 15 : 18;
+    const statusSize = compact ? 24 : 34;
+
+    // SVG y is the text baseline — anchor from top of box so glyphs stay inside the rect.
+    const timeY = day
+      ? y + pad + timeSize
+      : y + Math.round(h / 2 + timeSize * 0.3);
+    const dayY = day ? y + h - pad : null;
+    const statusY = y + Math.round(h / 2 + statusSize * 0.32);
+
     svg += `
   <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${theme.timeBoxStroke}" stroke-width="3" rx="1"/>
   <line x1="${dividerX}" y1="${y + 10}" x2="${dividerX}" y2="${y + h - 10}" stroke="${theme.timeBoxStroke}" stroke-width="2"/>
-  <text x="${x + 14}" y="${y + (day ? 36 : h / 2 + (timeSize * 0.35))}" fill="${theme.timeColor}" font-family="${FONT_DISPLAY}" font-size="${timeSize}" letter-spacing="1">${time}</text>
-  ${day ? `<text x="${x + 14}" y="${y + 58}" fill="${theme.datePrimaryColor}" font-family="${FONT_BODY}" font-weight="700" font-size="18" letter-spacing="2">${day}</text>` : ''}
-  <text x="${dividerX + (w - (dividerX - x)) / 2}" y="${y + h / 2 + statusSize * 0.35}" fill="${theme.lastNameColor}" font-family="${FONT_SCRIPT}" font-size="${statusSize}" letter-spacing="1" text-anchor="middle" transform="rotate(-12 ${dividerX + (w - (dividerX - x)) / 2} ${y + h / 2})">${status}</text>`;
+  <text x="${x + pad}" y="${timeY}" fill="${theme.timeColor}" font-family="${FONT_DISPLAY}" font-size="${timeSize}" letter-spacing="${narrow ? 0 : 1}">${time}</text>
+  ${dayY != null ? `<text x="${x + pad}" y="${dayY}" fill="${theme.datePrimaryColor}" font-family="${FONT_BODY}" font-weight="700" font-size="${daySize}" letter-spacing="1.5">${day}</text>` : ''}
+  <text x="${rightCx}" y="${statusY}" fill="${theme.lastNameColor}" font-family="${FONT_SCRIPT}" font-size="${statusSize}" letter-spacing="1" text-anchor="middle" transform="rotate(-12 ${rightCx} ${statusY})">${status}</text>`;
   }
   return svg;
 }

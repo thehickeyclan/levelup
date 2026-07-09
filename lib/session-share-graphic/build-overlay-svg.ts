@@ -66,6 +66,10 @@ export function buildLeftScrimSvg(width: number, height: number): string {
 </svg>`;
 }
 
+function estimateTextWidth(text: string, fontSize: number, letterSpacing: number): number {
+  return text.length * fontSize * 0.58 + Math.max(0, text.length - 1) * letterSpacing;
+}
+
 function ruledLabel(
   x: number,
   y: number,
@@ -77,14 +81,16 @@ function ruledLabel(
   const cx = x + width / 2;
   const lineY = y - 6;
   const lineInset = 8;
-  const textW = label.length * fontSize * 0.52;
-  const gap = 18;
+  const letterSpacing = 3;
+  const textW = estimateTextWidth(label, fontSize, letterSpacing);
+  const gap = Math.max(26, Math.round(fontSize * 0.9));
   const leftLineEnd = cx - textW / 2 - gap;
   const rightLineStart = cx + textW / 2 + gap;
+  const minLineLen = 32;
   return `
-  <line x1="${x + lineInset}" y1="${lineY}" x2="${Math.max(x + lineInset + 40, leftLineEnd)}" y2="${lineY}" stroke="${color}" stroke-width="2.5"/>
-  <text x="${cx}" y="${y}" fill="${color}" font-family="${FONT_BODY}" font-weight="700" font-size="${fontSize}" letter-spacing="3" text-anchor="middle">${label}</text>
-  <line x1="${Math.min(x + width - lineInset - 40, rightLineStart)}" y1="${lineY}" x2="${x + width - lineInset}" y2="${lineY}" stroke="${color}" stroke-width="2.5"/>
+  <line x1="${x + lineInset}" y1="${lineY}" x2="${Math.max(x + lineInset + minLineLen, leftLineEnd)}" y2="${lineY}" stroke="${color}" stroke-width="2.5"/>
+  <text x="${cx}" y="${y}" fill="${color}" font-family="${FONT_BODY}" font-weight="700" font-size="${fontSize}" letter-spacing="${letterSpacing}" text-anchor="middle">${label}</text>
+  <line x1="${Math.min(x + width - lineInset - minLineLen, rightLineStart)}" y1="${lineY}" x2="${x + width - lineInset}" y2="${lineY}" stroke="${color}" stroke-width="2.5"/>
   `;
 }
 
@@ -133,13 +139,31 @@ function buildSchoolStyleOverlay(
 </svg>`;
 }
 
+function sessionTimeBoxHeight(slotCount: number, hasDayAbbrev: boolean): number {
+  const n = Math.min(slotCount, 4);
+  const compact = n > 2;
+  if (compact) return hasDayAbbrev ? 94 : 84;
+  if (n === 2) return 98;
+  return 98;
+}
+
+function sessionSlotAreaHeight(slots: ShareGraphicSessionSlot[]): number {
+  if (slots.length === 0) return 98;
+  const n = Math.min(slots.length, 4);
+  const hasDay = slots.some((s) => Boolean(s.dayAbbrev));
+  const h = sessionTimeBoxHeight(n, hasDay);
+  const gap = 10;
+  const rows = n === 1 ? 1 : n === 3 ? 3 : 2;
+  return rows * h + (rows - 1) * gap;
+}
+
 function buildSessionTimeBoxes(
   theme: ShareGraphicTheme,
   areaX: number,
   startY: number,
   areaW: number,
   slots: ShareGraphicSessionSlot[],
-  boxH: number
+  _boxH: number
 ): string {
   if (slots.length === 0) {
     return `<text x="${areaX + 8}" y="${startY + 56}" fill="${theme.dateSecondaryColor}" font-family="${FONT_BODY}" font-weight="600" font-size="24" letter-spacing="2">POST SESSIONS TO FILL THIS</text>`;
@@ -148,10 +172,11 @@ function buildSessionTimeBoxes(
   const gap = 10;
   const n = Math.min(slots.length, 4);
   const cols = n === 1 ? 1 : n === 3 ? 1 : 2;
-  const compact = n > 2;
-  const h = compact ? 78 : boxH;
   const boxW = cols === 1 ? areaW : Math.floor((areaW - gap) / 2);
   const pad = 12;
+  const hasDay = slots.some((s) => Boolean(s.dayAbbrev));
+  const boxHeight = sessionTimeBoxHeight(n, hasDay);
+  const compact = n > 2;
 
   let svg = '';
   for (let i = 0; i < n; i++) {
@@ -159,32 +184,47 @@ function buildSessionTimeBoxes(
     const col = cols === 1 ? 0 : i % 2;
     const row = cols === 1 ? i : Math.floor(i / 2);
     const x = areaX + col * (boxW + gap);
-    const y = startY + row * (h + gap);
+    const y = startY + row * (boxHeight + gap);
     const w = cols === 1 && n === 1 ? areaW : boxW;
-    const dividerX = x + Math.round(w * 0.58);
-    const rightCx = dividerX + (x + w - dividerX) / 2;
+    const h = boxHeight;
     const time = escapeXml(slot.timeLabel);
     const status = escapeXml(slot.statusLabel);
     const day = slot.dayAbbrev ? escapeXml(slot.dayAbbrev) : null;
 
     const narrow = cols === 2;
-    const timeSize = compact ? (narrow ? 30 : day ? 36 : 40) : n === 2 ? 58 : 76;
-    const daySize = compact ? 15 : 18;
-    const statusSize = compact ? 24 : 34;
 
-    // SVG y is the text baseline — anchor from top of box so glyphs stay inside the rect.
-    const timeY = day
-      ? y + pad + timeSize
-      : y + Math.round(h / 2 + timeSize * 0.3);
-    const dayY = day ? y + h - pad : null;
-    const statusY = y + Math.round(h / 2 + statusSize * 0.32);
+    const timeSize = compact
+      ? narrow
+        ? 28
+        : day
+          ? 34
+          : 38
+      : n === 2
+        ? 50
+        : 64;
+    const statusSize = compact ? (narrow ? 18 : 20) : 26;
+    const daySize = compact ? 14 : 16;
+
+    let timeY: number;
+    let statusY: number;
+    let dayY: number | null = null;
+
+    if (day) {
+      timeY = y + pad + timeSize;
+      statusY = timeY + Math.round(statusSize * 0.45) + 5;
+      dayY = y + h - pad;
+    } else {
+      const blockH = timeSize + 8 + statusSize;
+      const blockTop = y + Math.round((h - blockH) / 2);
+      timeY = blockTop + timeSize;
+      statusY = timeY + 8 + Math.round(statusSize * 0.85);
+    }
 
     svg += `
   <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${theme.timeBoxStroke}" stroke-width="3" rx="1"/>
-  <line x1="${dividerX}" y1="${y + 10}" x2="${dividerX}" y2="${y + h - 10}" stroke="${theme.timeBoxStroke}" stroke-width="2"/>
   <text x="${x + pad}" y="${timeY}" fill="${theme.timeColor}" font-family="${FONT_DISPLAY}" font-size="${timeSize}" letter-spacing="${narrow ? 0 : 1}">${time}</text>
-  ${dayY != null ? `<text x="${x + pad}" y="${dayY}" fill="${theme.datePrimaryColor}" font-family="${FONT_BODY}" font-weight="700" font-size="${daySize}" letter-spacing="1.5">${day}</text>` : ''}
-  <text x="${rightCx}" y="${statusY}" fill="${theme.lastNameColor}" font-family="${FONT_SCRIPT}" font-size="${statusSize}" letter-spacing="1" text-anchor="middle" transform="rotate(-12 ${rightCx} ${statusY})">${status}</text>`;
+  <text x="${x + pad}" y="${statusY}" fill="${theme.lastNameColor}" font-family="${FONT_SCRIPT}" font-size="${statusSize}" letter-spacing="0.5">${status}</text>
+  ${dayY != null ? `<text x="${x + pad}" y="${dayY}" fill="${theme.datePrimaryColor}" font-family="${FONT_BODY}" font-weight="700" font-size="${daySize}" letter-spacing="1.5">${day}</text>` : ''}`;
   }
   return svg;
 }
@@ -210,7 +250,7 @@ function buildCoachSessionsSchoolOverlay(
   const boxX = 48;
   const boxY = 578;
   const boxW = 500;
-  const slotAreaH = content.sessionSlots.length > 2 ? 260 : 98;
+  const slotAreaH = sessionSlotAreaHeight(content.sessionSlots);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>

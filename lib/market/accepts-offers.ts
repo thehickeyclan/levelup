@@ -1,4 +1,4 @@
-/** Persisted for sell (optional) and collection (opt-out). Vault is legacy — treated as collection. */
+/** Persisted for sell and collection — both accept offers by default; sellers can opt out. Vault is legacy — treated as collection. */
 
 export function isCollectionListingType(listingType: string): boolean {
   return listingType === 'collection' || listingType === 'vault';
@@ -18,6 +18,17 @@ export function collectionAcceptsOffers(listing: {
   return listing.accepts_offers !== false;
 }
 
+/** Priced sell listings accept offers under ask unless seller opted out. */
+export function sellAcceptsOffers(listing: {
+  listing_type: string;
+  price_cents?: number | null;
+  accepts_offers?: boolean | null;
+}): boolean {
+  if (listing.listing_type !== 'sell') return false;
+  if (listing.price_cents == null || listing.price_cents <= 0) return false;
+  return listing.accepts_offers !== false;
+}
+
 export function normalizeListingAcceptsOffers(
   listingType: string,
   priceCents: number | null | undefined,
@@ -30,7 +41,8 @@ export function normalizeListingAcceptsOffers(
   }
   if (type !== 'sell') return false;
   if (priceCents == null || priceCents <= 0) return false;
-  return Boolean(acceptsOffers);
+  if (acceptsOffers === false) return false;
+  return true;
 }
 
 export function listingAllowsCashOffer(listing: {
@@ -44,7 +56,7 @@ export function listingAllowsCashOffer(listing: {
   }
   if (type === 'trade') return false;
   if (listing.price_cents == null) return true;
-  return Boolean(listing.accepts_offers);
+  return sellAcceptsOffers(listing);
 }
 
 export function listingAllowsTradeOffer(listing: {

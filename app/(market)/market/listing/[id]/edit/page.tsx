@@ -120,7 +120,7 @@ export default function EditListingPage() {
     condition: 'good',
     listing_type: 'collection' as MarketListingType,
     open_to_trade: false,
-    accepts_offers: false,
+    accepts_offers: true,
     price_cents: '',
     shipping_cents: '10',
     description: '',
@@ -187,7 +187,11 @@ export default function EditListingPage() {
           listing_type: rawType === 'vault' ? 'collection' : ((rawType as MarketListingType) || 'collection'),
           open_to_trade: Boolean(l.open_to_trade),
           accepts_offers:
-            rawType === 'vault' || rawType === 'collection' ? l.accepts_offers !== false : Boolean(l.accepts_offers),
+            rawType === 'vault' ||
+            rawType === 'collection' ||
+            rawType === 'sell'
+              ? l.accepts_offers !== false
+              : Boolean(l.accepts_offers),
           price_cents:
             l.price_cents != null ? String(Math.round(Number(l.price_cents) / 100)) : '',
           shipping_cents:
@@ -273,11 +277,9 @@ export default function EditListingPage() {
       listing_type: form.listing_type,
       open_to_trade: form.listing_type === 'sell' ? form.open_to_trade : false,
       accepts_offers:
-        form.listing_type === 'collection'
+        form.listing_type === 'collection' || form.listing_type === 'sell'
           ? form.accepts_offers !== false
-          : form.listing_type === 'sell'
-            ? form.accepts_offers
-            : false,
+          : false,
       description: form.description,
       collector_notes: form.collector_notes.trim() || null,
       price_cents:
@@ -648,7 +650,11 @@ export default function EditListingPage() {
       listing_type: listingType,
       open_to_trade: listingType === 'sell' ? f.open_to_trade : false,
       accepts_offers:
-        listingType === 'collection' ? true : listingType === 'sell' ? f.accepts_offers : false,
+        listingType === 'collection' || listingType === 'sell'
+          ? f.listing_type === listingType
+            ? f.accepts_offers
+            : true
+          : false,
       price_cents: listingType === 'sell' ? f.price_cents : '',
       shipping_cents: listingType === 'collection' ? '0' : f.shipping_cents,
     }));
@@ -705,11 +711,9 @@ export default function EditListingPage() {
                   : f.shipping_cents,
             open_to_trade: patch.listing_type === 'sell' ? f.open_to_trade : false,
             accepts_offers:
-              patch.listing_type === 'collection'
+              patch.listing_type === 'collection' || patch.listing_type === 'sell'
                 ? true
-                : patch.listing_type === 'sell'
-                  ? f.accepts_offers
-                  : false,
+                : false,
           }));
           setModeBlockedReason(null);
           setActiveTradeId(null);
@@ -1053,7 +1057,7 @@ export default function EditListingPage() {
             <div>
               <p className="text-sm text-foreground">Accept offers</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Buyers can submit a lower cash offer below your list price
+                On by default — buyers can offer below your list price
               </p>
             </div>
             <button

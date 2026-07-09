@@ -286,13 +286,15 @@ export async function PATCH(
     nextType !== prevType ||
     updates.price_cents !== undefined
   ) {
-    updates.accepts_offers = normalizeListingAcceptsOffers(
-      nextType,
-      nextPrice,
+    // Type change without an explicit flag → use sell/collection defaults (on).
+    // Same type → preserve existing opt-out / opt-in.
+    const acceptsOffersInput =
       updates.accepts_offers !== undefined
         ? Boolean(updates.accepts_offers)
-        : Boolean(existing.accepts_offers)
-    );
+        : nextType !== prevType
+          ? undefined
+          : (existing.accepts_offers as boolean | null | undefined);
+    updates.accepts_offers = normalizeListingAcceptsOffers(nextType, nextPrice, acceptsOffersInput);
   }
 
   if (updates.status === 'active') {

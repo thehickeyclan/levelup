@@ -7,7 +7,7 @@ import type { MarketBrowseListing } from '@/lib/market/browse-listings';
 import { formatListingColorLabel } from '@/lib/market/color-family';
 import { RarityBadge } from '@/components/market/rarity-badge';
 import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
-import { collectionAcceptsOffers, isCollectionListingType } from '@/lib/market/accepts-offers';
+import { collectionAcceptsOffers, isCollectionListingType, sellAcceptsOffers } from '@/lib/market/accepts-offers';
 import { cn } from '@/lib/utils';
 
 function typeBadge(listing: MarketBrowseListing): {
@@ -161,7 +161,7 @@ export function MarketListingCard({
               </p>
               {listing.listing_type === 'sell' &&
               listing.price_cents != null &&
-              listing.accepts_offers ? (
+              sellAcceptsOffers(listing) ? (
                 <p className="text-[10px] text-muted-foreground mt-0.5">or make an offer</p>
               ) : null}
             </div>

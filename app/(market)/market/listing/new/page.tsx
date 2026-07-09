@@ -248,7 +248,8 @@ export default function NewListingPage() {
     condition: 'good',
     listing_type: initialListingType,
     open_to_trade: false,
-    accepts_offers: initialListingType === 'collection',
+    accepts_offers:
+      initialListingType === 'collection' || initialListingType === 'sell',
     price_cents: '',
     shipping_cents: '10',
     description: '',
@@ -379,7 +380,11 @@ export default function NewListingPage() {
       listing_type: listingType,
       open_to_trade: listingType === 'sell' ? f.open_to_trade : false,
       accepts_offers:
-        listingType === 'collection' ? true : listingType === 'sell' ? f.accepts_offers : false,
+        listingType === 'collection' || listingType === 'sell'
+          ? f.listing_type === listingType
+            ? f.accepts_offers
+            : true
+          : false,
       price_cents: listingType === 'sell' ? f.price_cents : '',
       shipping_cents: listingType === 'collection' ? '0' : f.shipping_cents,
     }));
@@ -559,11 +564,9 @@ export default function NewListingPage() {
       listing_type: merged.listing_type,
       open_to_trade: merged.listing_type === 'sell' ? merged.open_to_trade : false,
       accepts_offers:
-        merged.listing_type === 'collection'
+        merged.listing_type === 'collection' || merged.listing_type === 'sell'
           ? merged.accepts_offers !== false
-          : merged.listing_type === 'sell'
-            ? merged.accepts_offers
-            : false,
+          : false,
       description: merged.description,
       collector_notes: merged.collector_notes.trim() || null,
       rarity: merged.rarity || null,
@@ -1779,7 +1782,7 @@ export default function NewListingPage() {
               <div>
                 <p className="text-sm text-foreground">Accept offers</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Buyers can submit a lower cash offer below your list price
+                  On by default — buyers can offer below your list price
                 </p>
               </div>
               <button

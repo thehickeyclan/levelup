@@ -19,7 +19,7 @@ import { formatListingColorLabel } from '@/lib/market/color-family';
 import { RarityBadge } from '@/components/market/rarity-badge';
 import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-actions';
 import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
-import { collectionAcceptsOffers, isCollectionListingType } from '@/lib/market/accepts-offers';
+import { collectionAcceptsOffers, isCollectionListingType, sellAcceptsOffers } from '@/lib/market/accepts-offers';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
 import { SellerPurchaseNotesCard } from '@/components/market/collection-purchase-notes';
@@ -205,7 +205,11 @@ export default function ListingDetailClient() {
   const isCollection = isCollectionListingType(rawListingType);
   const isActive = l.status === 'active';
   const openToTrade = Boolean(l.open_to_trade);
-  const sellAcceptsOffers = Boolean(l.accepts_offers);
+  const sellOffersOpen = sellAcceptsOffers({
+    listing_type: listingType,
+    price_cents: priceCents,
+    accepts_offers: l.accepts_offers as boolean | null,
+  });
   const collectionOffersOpen =
     isCollection &&
     collectionAcceptsOffers({
@@ -280,7 +284,7 @@ export default function ListingDetailClient() {
     listingType === 'sell' &&
     !isCollection &&
     priceCents != null &&
-    sellAcceptsOffers;
+    sellOffersOpen;
   const showBuyCta =
     isActive &&
     !isSeller &&

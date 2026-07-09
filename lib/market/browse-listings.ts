@@ -196,7 +196,12 @@ export async function fetchMarketBrowseListings(
       price_cents: row.price_cents,
       listing_type: row.listing_type as 'sell' | 'trade' | 'vault' | 'collection',
       open_to_trade: row.open_to_trade,
-      accepts_offers: Boolean(row.accepts_offers),
+      accepts_offers:
+        row.listing_type === 'sell' ||
+        row.listing_type === 'collection' ||
+        row.listing_type === 'vault'
+          ? row.accepts_offers !== false
+          : Boolean(row.accepts_offers),
       ai_assisted: Boolean(aiRow?.analyzed_at),
       primary_image_url: primaryListingImageUrl(row.market_listing_images),
       seller_id: row.seller_id,

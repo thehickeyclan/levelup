@@ -35,7 +35,7 @@ export function HomeHero({ coaches, logoSrc, logoAlt }: Props) {
 
       <div className="flex w-full max-w-sm flex-col gap-3 sm:max-w-md">
         <Button size="lg" variant="premium" asChild className="min-h-[44px] w-full">
-          <Link href="/training?tab=coaches">Browse Coaches</Link>
+          <Link href="/login">Login</Link>
         </Button>
         <Button
           size="lg"

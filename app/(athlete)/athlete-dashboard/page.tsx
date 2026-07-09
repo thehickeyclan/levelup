@@ -191,6 +191,7 @@ export default async function CoachHomePage({
         pendingJoinRequests={requestsWithSession as JoinRequestItem[]}
         coachFirstName={coachFirstName}
         coachDisplayName={coachDisplayName}
+        coachSchool={athlete?.school ?? null}
         calendarLastUpdatedAt={calendarLastUpdatedAt}
         initialTab={initialTab}
         thisMonthEarnings={thisMonthEarnings}

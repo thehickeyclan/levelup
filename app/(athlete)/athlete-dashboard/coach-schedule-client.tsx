@@ -42,6 +42,7 @@ type Props = {
   pendingJoinRequests: JoinRequestItem[];
   coachFirstName?: string | null;
   coachDisplayName: string;
+  coachSchool?: string | null;
   calendarLastUpdatedAt?: string | null;
   initialTab?: ScheduleTab;
   thisMonthEarnings?: number;
@@ -101,6 +102,7 @@ export function CoachScheduleClient({
   pendingJoinRequests,
   coachFirstName,
   coachDisplayName,
+  coachSchool,
   calendarLastUpdatedAt,
   initialTab = 'upcoming',
   thisMonthEarnings = 0,
@@ -199,6 +201,7 @@ export function CoachScheduleClient({
                     key={session.id}
                     session={session}
                     coachDisplayName={coachDisplayName}
+                    coachSchool={coachSchool}
                     emphasis="today"
                   />
                 ))}
@@ -236,6 +239,7 @@ export function CoachScheduleClient({
                     key={session.id}
                     session={session}
                     coachDisplayName={coachDisplayName}
+                    coachSchool={coachSchool}
                   />
                 ))}
               </div>

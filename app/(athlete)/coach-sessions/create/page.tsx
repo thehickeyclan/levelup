@@ -7,6 +7,7 @@ import { BackLink } from '@/components/back-link';
 import { CoachCreateSessionForm } from './coach-create-session-form';
 import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
 import { getCoachFacilitiesForEdit } from '@/lib/coach-facilities';
+import { resolveShareGraphicTheme } from '@/lib/session-share-graphic/themes';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,7 @@ export default async function CoachCreateSessionPage() {
   const coachName = [athlete.first_name, athlete.last_name].filter(Boolean).join(' ') || 'Coach';
 
   const recommendedPrices = await getRecommendedPricesForCoach(admin, coachId);
+  const defaultShareTheme = resolveShareGraphicTheme(athlete.school);
 
   return (
     <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-xl">
@@ -66,6 +68,7 @@ export default async function CoachCreateSessionPage() {
         facilities={facilities.map((f) => ({ ...f, school: f.school ?? '' }))}
         defaultFacilityId={(athlete as { facility_id?: string | null }).facility_id ?? ''}
         recommendedPrices={recommendedPrices}
+        defaultShareTheme={defaultShareTheme}
       />
     </div>
   );

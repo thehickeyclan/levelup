@@ -13,6 +13,7 @@ import {
   Share2,
   Users,
   XCircle,
+  ImageIcon,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -34,6 +35,8 @@ import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 import { fillTemplate, getTemplate } from '@/lib/playbook-templates';
 import { formatEST } from '@/lib/format-date';
 import { CoachTextGroupDialog } from '@/components/coach-text-group-dialog';
+import { SessionShareGraphicPanel } from '@/components/coach/session-share-graphic-panel';
+import { resolveShareGraphicTheme } from '@/lib/session-share-graphic/themes';
 import { cn } from '@/lib/utils';
 
 type Contact = {
@@ -57,6 +60,7 @@ type Props = {
   sessionId: string;
   session: CoachSessionShareInput;
   coachDisplayName: string;
+  coachSchool?: string | null;
   facility: string;
   scheduledDatetime: string;
   durationMinutes: number;
@@ -79,6 +83,7 @@ export function CoachSessionTileActions({
   sessionId,
   session,
   coachDisplayName,
+  coachSchool,
   facility,
   scheduledDatetime,
   durationMinutes,
@@ -91,6 +96,7 @@ export function CoachSessionTileActions({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [contactsOpen, setContactsOpen] = useState(false);
+  const [graphicOpen, setGraphicOpen] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -281,6 +287,17 @@ export function CoachSessionTileActions({
             <Share2 className="h-4 w-4 shrink-0" />
             {shareCopied ? 'Link copied' : 'Share invite link'}
           </button>
+          <button
+            type="button"
+            className={menuBtn()}
+            onClick={() => {
+              setOpen(false);
+              setGraphicOpen(true);
+            }}
+          >
+            <ImageIcon className="h-4 w-4 shrink-0" />
+            Instagram graphic
+          </button>
           <Link
             href={`/sessions/${sessionId}/reschedule`}
             className={menuBtn()}
@@ -366,6 +383,28 @@ export function CoachSessionTileActions({
               })}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={graphicOpen} onOpenChange={setGraphicOpen}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Instagram graphic</DialogTitle>
+            <DialogDescription>
+              {formatEST(dt, 'EEE, MMM d · h:mm a')} · {facility}
+            </DialogDescription>
+          </DialogHeader>
+          <SessionShareGraphicPanel
+            sessionId={sessionId}
+            defaultTheme={resolveShareGraphicTheme(coachSchool)}
+            shareCaption={buildCoachSessionShareMessage({
+              coachName: coachDisplayName,
+              session,
+              facility,
+              url: coachSessionShareUrl(typeof window !== 'undefined' ? window.location.origin : '', session),
+            })}
+            className="border-0 p-0 shadow-none"
+          />
         </DialogContent>
       </Dialog>
 

@@ -21,6 +21,8 @@ import {
   CoachNewLocationDialog,
   type CoachLocationOption,
 } from '@/components/coach-new-location-dialog';
+import { SessionShareGraphicPanel } from '@/components/coach/session-share-graphic-panel';
+import type { ShareGraphicThemeId } from '@/lib/session-share-graphic/themes';
 
 type Facility = CoachLocationOption;
 
@@ -40,6 +42,7 @@ export function CoachCreateSessionForm({
   facilities: initialFacilities,
   defaultFacilityId = '',
   recommendedPrices,
+  defaultShareTheme,
 }: {
   coachId: string;
   coachName: string;
@@ -47,6 +50,7 @@ export function CoachCreateSessionForm({
   /** Coach profile primary facility — pre-selected when in list */
   defaultFacilityId?: string;
   recommendedPrices: Record<SessionTypeKey, number>;
+  defaultShareTheme: ShareGraphicThemeId;
 }) {
   const [facilities, setFacilities] = useState<Facility[]>(initialFacilities);
   const [facilitiesLoading, setFacilitiesLoading] = useState(initialFacilities.length === 0);
@@ -68,6 +72,7 @@ export function CoachCreateSessionForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Array<{
+    sessionId: string;
     shareUrl: string;
     scheduledDatetime: string;
     maxParticipants: number;
@@ -195,6 +200,7 @@ export function CoachCreateSessionForm({
           continue;
         }
         createdSessions.push({
+          sessionId: data.sessionId as string,
           shareUrl: data.shareUrl,
           scheduledDatetime: data.scheduledDatetime,
           maxParticipants: data.maxParticipants,
@@ -268,11 +274,19 @@ export function CoachCreateSessionForm({
                       ) : (
                         <>
                           <Share2 className="h-4 w-4" />
-                          Share
+                          Copy link
                         </>
                       )}
                     </Button>
                   </div>
+                  {result.sessionId ? (
+                    <SessionShareGraphicPanel
+                      sessionId={result.sessionId}
+                      defaultTheme={defaultShareTheme}
+                      shareCaption={`Join my session — ${formatEST(new Date(result.scheduledDatetime), 'EEE, MMM d · h:mm a')}. ${result.shareUrl}`}
+                      className="rounded-lg border border-border bg-muted/20 p-3 space-y-3"
+                    />
+                  ) : null}
                 </div>
               ))}
             </div>

@@ -38,10 +38,16 @@ function participantsFromSession(s: CoachSession) {
 type Props = {
   session: CoachSession;
   coachDisplayName: string;
+  coachSchool?: string | null;
   emphasis?: 'today' | 'default';
 };
 
-export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis = 'default' }: Props) {
+export function CoachScheduleSessionCard({
+  session,
+  coachDisplayName,
+  coachSchool,
+  emphasis = 'default',
+}: Props) {
   const dur = (session as { duration_minutes?: number }).duration_minutes ?? 60;
   const dt = new Date(session.scheduled_datetime);
   const fac = facilityLabel(session);
@@ -162,6 +168,7 @@ export function CoachScheduleSessionCard({ session, coachDisplayName, emphasis =
               session_mode: session.session_mode,
             }}
             coachDisplayName={coachDisplayName}
+            coachSchool={coachSchool}
             facility={fac}
             scheduledDatetime={session.scheduled_datetime}
             durationMinutes={dur}

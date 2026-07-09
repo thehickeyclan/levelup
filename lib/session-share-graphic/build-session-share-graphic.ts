@@ -12,8 +12,10 @@ import {
   truncateUpper,
   type SessionShareGraphicContent,
 } from './build-overlay-svg';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildCoachPhotoOverlay } from './build-coach-photo-overlay';
 import { rasterizeShareOverlaySvg } from './rasterize-overlay-svg';
+import { fetchCoachImageBuffer } from './fetch-coach-image-buffer';
 
 export const SHARE_GRAPHIC_WIDTH = 1080;
 export const SHARE_GRAPHIC_HEIGHT = 1440;
@@ -33,6 +35,8 @@ export type BuildSessionShareGraphicInput = {
   coachPhotoCutoutUrl?: string | null;
   photoFocusX?: number;
   photoFocusY?: number;
+  /** Supabase admin — loads coach photos from storage (reliable on Vercel serverless). */
+  photoAdmin?: SupabaseClient;
 };
 
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
@@ -126,12 +130,19 @@ export async function buildSessionShareGraphic(input: BuildSessionShareGraphicIn
 
   const overlays: OverlayOptions[] = [];
 
+  const loadPhoto = async (url: string) => {
+    if (input.photoAdmin) {
+      return fetchCoachImageBuffer(input.photoAdmin, url);
+    }
+    return fetchImageBuffer(url);
+  };
+
   const photoOverlay = await buildCoachPhotoOverlay({
     cutoutUrl: input.coachPhotoCutoutUrl ?? null,
     photoUrl: input.coachPhotoUrl,
     photoFocusX: input.photoFocusX ?? 50,
     photoFocusY: input.photoFocusY ?? 15,
-    fetchImage: fetchImageBuffer,
+    fetchImage: loadPhoto,
   }).catch((err) => {
     console.warn('[buildSessionShareGraphic] coach photo overlay failed:', err);
     return null;

@@ -16,15 +16,27 @@ export type CoachPhotoOverlayInput = {
 export async function buildCoachPhotoOverlay(
   input: CoachPhotoOverlayInput
 ): Promise<OverlayOptions | null> {
-  const useCutout = Boolean(input.cutoutUrl?.trim());
-  const url = (useCutout ? input.cutoutUrl : input.photoUrl)?.trim();
-  if (!url) return null;
+  let useCutout = Boolean(input.cutoutUrl?.trim());
+  let url = (useCutout ? input.cutoutUrl : input.photoUrl)?.trim() ?? null;
 
-  const buf = await input.fetchImage(url);
-  if (!buf) return null;
+  let buf: Buffer | null = null;
+  if (url) buf = await input.fetchImage(url);
+
+  // Bad/missing cutout — fall back to full profile photo so Liam still appears.
+  if (!buf && useCutout && input.photoUrl?.trim()) {
+    useCutout = false;
+    url = input.photoUrl.trim();
+    buf = await input.fetchImage(url);
+  }
+
+  if (!buf) {
+    if (url) console.warn('[buildCoachPhotoOverlay] could not load coach photo:', url.slice(0, 100));
+    return null;
+  }
 
   if (useCutout) {
     const resized = await sharp(buf)
+      .ensureAlpha()
       .resize(560, 1000, { fit: 'inside', withoutEnlargement: false })
       .png()
       .toBuffer();

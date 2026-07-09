@@ -66,7 +66,10 @@ export async function GET(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    const png = await buildSessionShareGraphic(payload.input);
+    const png = await buildSessionShareGraphic({
+      ...payload.input,
+      photoAdmin: admin,
+    });
 
     // Warm cutout cache for next preview — never block the response on remove.bg.
     if (payload.input.coachPhotoUrl && !payload.input.coachPhotoCutoutUrl && session.athlete_id) {

@@ -36,6 +36,12 @@ const SESSION_FORMAT = {
 type SessionTypeKey = CoachCreateSessionType;
 type DateTimeEntry = { date: string; time: string };
 
+type InitialPrefill = {
+  type?: SessionTypeKey;
+  date?: string;
+  time?: string;
+};
+
 export function CoachCreateSessionForm({
   coachId,
   coachName,
@@ -43,6 +49,7 @@ export function CoachCreateSessionForm({
   defaultFacilityId = '',
   recommendedPrices,
   defaultShareTheme,
+  initialPrefill,
 }: {
   coachId: string;
   coachName: string;
@@ -51,11 +58,15 @@ export function CoachCreateSessionForm({
   defaultFacilityId?: string;
   recommendedPrices: Record<SessionTypeKey, number>;
   defaultShareTheme: ShareGraphicThemeId;
+  initialPrefill?: InitialPrefill;
 }) {
+  const startingType: SessionTypeKey = initialPrefill?.type ?? 'small_group';
+  const startingPreset = SESSION_FORMAT[startingType];
+
   const [facilities, setFacilities] = useState<Facility[]>(initialFacilities);
   const [facilitiesLoading, setFacilitiesLoading] = useState(initialFacilities.length === 0);
   const [newLocationOpen, setNewLocationOpen] = useState(false);
-  const [sessionType, setSessionType] = useState<SessionTypeKey>('small_group');
+  const [sessionType, setSessionType] = useState<SessionTypeKey>(startingType);
   const [joinPolicy, setJoinPolicy] = useState<'public' | 'invite_only'>('public');
   const [facilityId, setFacilityId] = useState(() => {
     if (defaultFacilityId && initialFacilities.some((f) => f.id === defaultFacilityId)) {
@@ -64,10 +75,14 @@ export function CoachCreateSessionForm({
     return initialFacilities[0]?.id || '';
   });
   const [facilitySearch, setFacilitySearch] = useState('');
-  const [dateTimes, setDateTimes] = useState<DateTimeEntry[]>([{ date: '', time: '' }]);
-  const [durationMinutes, setDurationMinutes] = useState(60);
-  const [maxParticipants, setMaxParticipants] = useState(6);
-  const [pricePerParticipant, setPricePerParticipant] = useState(() => recommendedPrices.small_group);
+  const [dateTimes, setDateTimes] = useState<DateTimeEntry[]>([
+    { date: initialPrefill?.date ?? '', time: initialPrefill?.time ?? '' },
+  ]);
+  const [durationMinutes, setDurationMinutes] = useState<number>(startingPreset.duration);
+  const [maxParticipants, setMaxParticipants] = useState<number>(startingPreset.maxParticipants);
+  const [pricePerParticipant, setPricePerParticipant] = useState(
+    () => recommendedPrices[startingType] ?? COACH_SESSION_FALLBACK_USD[startingType]
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

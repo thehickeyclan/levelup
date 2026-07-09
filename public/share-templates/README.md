@@ -7,7 +7,7 @@ Portrait feed backgrounds for auto-generated session posts. **1080×1440 PNG**, 
 | `nc-state-feed.png` | NC State ✓ |
 | `unc-feed.png` | UNC ✓ |
 | `app-state-feed.png` | App State ✓ |
-| `guild-feed.png` | The Guild black + gold — optional (fallback gradient if missing) |
+| `guild-feed.png` | The Guild black + gold ✓ |
 
 The app overlays coach photo, session details, and footer text at `/api/sessions/[id]/share-image`.
 

@@ -8,6 +8,7 @@ import {
   fetchPastSessionsForCoachEarnings,
   summarizeCoachEarningsFromPastSessions,
 } from '@/lib/coach-earnings-summary-server';
+import { fetchCoachActivationPanelData } from '@/lib/coach-activation-server';
 import { CoachScheduleClient, type JoinRequestItem, type ScheduleTab } from './coach-schedule-client';
 import type { CoachSession } from './coach-schedule-card';
 
@@ -183,6 +184,14 @@ export default async function CoachHomePage({
     return sum + Number(s.total_price || 0) * rate;
   }, 0);
 
+  const activationDb = admin ?? supabase;
+  const activationPanel = await fetchCoachActivationPanelData(
+    activationDb,
+    coachId,
+    athlete,
+    nowIso
+  );
+
   return (
     <div className="container mx-auto px-4 py-4 pb-24 md:py-8 max-w-lg md:max-w-full">
       <CoachScheduleClient
@@ -198,6 +207,7 @@ export default async function CoachHomePage({
         thisMonthSessionCount={thisMonthSessions.length}
         projectedEarnings={projectedEarnings}
         upcomingSessionCount={upcomingSessions?.length ?? 0}
+        activationPanel={activationPanel.showPanel ? activationPanel : null}
       />
     </div>
   );

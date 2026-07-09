@@ -11,7 +11,16 @@ import { resolveShareGraphicTheme } from '@/lib/session-share-graphic/themes';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CoachCreateSessionPage() {
+export default async function CoachCreateSessionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    type?: string;
+    date?: string;
+    time?: string;
+  }>;
+}) {
+  const sp = await searchParams;
   const headersList = await headers();
   const host = headersList.get('host') || '';
   const tenant = getTenantByDomain(host);
@@ -51,6 +60,21 @@ export default async function CoachCreateSessionPage() {
   const recommendedPrices = await getRecommendedPricesForCoach(admin, coachId);
   const defaultShareTheme = resolveShareGraphicTheme(athlete.school);
 
+  const typeRaw = sp.type?.trim().toLowerCase();
+  const initialType =
+    typeRaw === 'small_group' || typeRaw === 'partner' || typeRaw === 'private' ? typeRaw : undefined;
+  const dateRaw = sp.date?.trim();
+  const initialDate = dateRaw && /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : undefined;
+  const timeRaw = sp.time?.trim();
+  const timeMatch = timeRaw?.match(/^(\d{1,2}):(\d{2})$/);
+  const initialTime = (() => {
+    if (!timeMatch) return undefined;
+    const h = parseInt(timeMatch[1], 10);
+    const min = parseInt(timeMatch[2], 10);
+    if (h < 0 || h > 23 || min < 0 || min > 59) return undefined;
+    return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+  })();
+
   return (
     <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-xl">
       <div className="mb-4">
@@ -69,6 +93,11 @@ export default async function CoachCreateSessionPage() {
         defaultFacilityId={(athlete as { facility_id?: string | null }).facility_id ?? ''}
         recommendedPrices={recommendedPrices}
         defaultShareTheme={defaultShareTheme}
+        initialPrefill={{
+          type: initialType,
+          date: initialDate,
+          time: initialTime,
+        }}
       />
     </div>
   );

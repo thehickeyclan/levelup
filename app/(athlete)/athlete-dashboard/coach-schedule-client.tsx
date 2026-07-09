@@ -4,7 +4,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { CoachScheduleWelcomeBanner } from '@/components/coach-schedule-welcome-banner';
+import { CoachActivationPanel } from '@/components/coach/coach-activation-panel';
 import { CoachScheduleEarningsSnapshot } from '@/components/coach/coach-schedule-earnings-snapshot';
+import type { CoachActivationPanelData } from '@/lib/coach-activation-server';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +51,7 @@ type Props = {
   thisMonthSessionCount?: number;
   projectedEarnings?: number;
   upcomingSessionCount?: number;
+  activationPanel?: CoachActivationPanelData | null;
 };
 
 function facilityLabel(s: CoachSession): string {
@@ -109,6 +112,7 @@ export function CoachScheduleClient({
   thisMonthSessionCount = 0,
   projectedEarnings = 0,
   upcomingSessionCount = 0,
+  activationPanel = null,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -154,6 +158,8 @@ export function CoachScheduleClient({
         coachFirstName={coachFirstName}
         calendarLastUpdatedAt={calendarLastUpdatedAt}
       />
+
+      {activationPanel ? <CoachActivationPanel {...activationPanel} /> : null}
 
       <CoachScheduleEarningsSnapshot
         thisMonthEarnings={thisMonthEarnings}

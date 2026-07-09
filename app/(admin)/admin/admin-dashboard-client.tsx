@@ -882,6 +882,9 @@ export function AdminDashboardClient({
     photo_url: string | null;
     photo_focus_x: number;
     photo_focus_y: number;
+    share_photo_scale: number;
+    share_photo_offset_x: number;
+    share_photo_offset_y: number;
     venmo_handle: string | null;
     zelle_email: string | null;
     /** Coach account cell (`users.phone`); same as /profile for coaches. */
@@ -1744,6 +1747,9 @@ export function AdminDashboardClient({
         photo_url: a.photo_url ?? null,
         photo_focus_x: typeof a.photo_focus_x === 'number' ? a.photo_focus_x : 50,
         photo_focus_y: typeof a.photo_focus_y === 'number' ? a.photo_focus_y : 15,
+        share_photo_scale: typeof a.share_photo_scale === 'number' ? a.share_photo_scale : 100,
+        share_photo_offset_x: typeof a.share_photo_offset_x === 'number' ? a.share_photo_offset_x : 0,
+        share_photo_offset_y: typeof a.share_photo_offset_y === 'number' ? a.share_photo_offset_y : 0,
         venmo_handle: a.venmo_handle ?? null,
         zelle_email: a.zelle_email ?? null,
         phone: typeof a.phone === 'string' ? a.phone : '',
@@ -1776,6 +1782,9 @@ export function AdminDashboardClient({
           photo_url: athleteEditForm.photo_url,
           photo_focus_x: athleteEditForm.photo_focus_x,
           photo_focus_y: athleteEditForm.photo_focus_y,
+          share_photo_scale: athleteEditForm.share_photo_scale,
+          share_photo_offset_x: athleteEditForm.share_photo_offset_x,
+          share_photo_offset_y: athleteEditForm.share_photo_offset_y,
           venmo_handle: athleteEditForm.venmo_handle || null,
           zelle_email: athleteEditForm.zelle_email || null,
           phone: athleteEditForm.phone.trim() === '' ? null : athleteEditForm.phone.trim(),
@@ -6466,6 +6475,57 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                       setAthleteEditForm({
                         ...athleteEditForm,
                         photo_focus_y: Math.min(100, Math.max(0, Number(e.target.value) || 15)),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-2">Share graphic cutout (Instagram post)</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="share_photo_scale">Scale % (50–150)</Label>
+                  <Input
+                    id="share_photo_scale"
+                    type="number"
+                    min={50}
+                    max={150}
+                    value={athleteEditForm.share_photo_scale}
+                    onChange={(e) =>
+                      setAthleteEditForm({
+                        ...athleteEditForm,
+                        share_photo_scale: Math.min(150, Math.max(50, Number(e.target.value) || 100)),
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="share_photo_offset_x">Offset X (px)</Label>
+                  <Input
+                    id="share_photo_offset_x"
+                    type="number"
+                    min={-200}
+                    max={200}
+                    value={athleteEditForm.share_photo_offset_x}
+                    onChange={(e) =>
+                      setAthleteEditForm({
+                        ...athleteEditForm,
+                        share_photo_offset_x: Math.min(200, Math.max(-200, Number(e.target.value) || 0)),
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="share_photo_offset_y">Offset Y (px)</Label>
+                  <Input
+                    id="share_photo_offset_y"
+                    type="number"
+                    min={-200}
+                    max={200}
+                    value={athleteEditForm.share_photo_offset_y}
+                    onChange={(e) =>
+                      setAthleteEditForm({
+                        ...athleteEditForm,
+                        share_photo_offset_y: Math.min(200, Math.max(-200, Number(e.target.value) || 0)),
                       })
                     }
                   />

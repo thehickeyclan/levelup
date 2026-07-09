@@ -35,6 +35,9 @@ export type BuildSessionShareGraphicInput = {
   coachPhotoCutoutUrl?: string | null;
   photoFocusX?: number;
   photoFocusY?: number;
+  sharePhotoScale?: number;
+  sharePhotoOffsetX?: number;
+  sharePhotoOffsetY?: number;
   /** Supabase admin — loads coach photos from storage (reliable on Vercel serverless). */
   photoAdmin?: SupabaseClient;
   coachAthleteId?: string | null;
@@ -153,6 +156,9 @@ export async function buildSessionShareGraphic(input: BuildSessionShareGraphicIn
     photoUrl: input.coachPhotoUrl,
     photoFocusX: input.photoFocusX ?? 50,
     photoFocusY: input.photoFocusY ?? 15,
+    sharePhotoScale: input.sharePhotoScale,
+    sharePhotoOffsetX: input.sharePhotoOffsetX,
+    sharePhotoOffsetY: input.sharePhotoOffsetY,
     fetchImage: loadPhoto,
   }).catch((err) => {
     console.warn('[buildSessionShareGraphic] coach photo overlay failed:', err);

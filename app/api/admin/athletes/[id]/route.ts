@@ -80,6 +80,9 @@ export async function PATCH(
       photo_url?: string | null;
       photo_focus_x?: number;
       photo_focus_y?: number;
+      share_photo_scale?: number;
+      share_photo_offset_x?: number;
+      share_photo_offset_y?: number;
       venmo_handle?: string | null;
       zelle_email?: string | null;
       /** Coach account cell; stored on `users.phone`. */
@@ -102,6 +105,15 @@ export async function PATCH(
     if (body.photo_url !== undefined) updates.photo_url = body.photo_url === null || body.photo_url === '' ? null : body.photo_url;
     if (typeof body.photo_focus_x === 'number') updates.photo_focus_x = Math.min(100, Math.max(0, Math.round(body.photo_focus_x)));
     if (typeof body.photo_focus_y === 'number') updates.photo_focus_y = Math.min(100, Math.max(0, Math.round(body.photo_focus_y)));
+    if (typeof body.share_photo_scale === 'number') {
+      updates.share_photo_scale = Math.min(150, Math.max(50, Math.round(body.share_photo_scale)));
+    }
+    if (typeof body.share_photo_offset_x === 'number') {
+      updates.share_photo_offset_x = Math.min(200, Math.max(-200, Math.round(body.share_photo_offset_x)));
+    }
+    if (typeof body.share_photo_offset_y === 'number') {
+      updates.share_photo_offset_y = Math.min(200, Math.max(-200, Math.round(body.share_photo_offset_y)));
+    }
     if (body.venmo_handle !== undefined) updates.venmo_handle = body.venmo_handle === null || body.venmo_handle === '' ? null : body.venmo_handle;
     if (body.zelle_email !== undefined) updates.zelle_email = body.zelle_email === null || body.zelle_email === '' ? null : body.zelle_email;
 

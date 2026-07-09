@@ -15,6 +15,9 @@ type AthleteGraphicRow = {
   photo_cutout_url?: string | null;
   photo_focus_x?: number | null;
   photo_focus_y?: number | null;
+  share_photo_scale?: number | null;
+  share_photo_offset_x?: number | null;
+  share_photo_offset_y?: number | null;
 };
 
 type SessionRow = {
@@ -38,7 +41,7 @@ const SESSION_SELECT_WITH_CUTOUT = `
   max_participants,
   price_per_participant,
   facilities(name),
-  athletes(first_name, last_name, school, photo_url, photo_cutout_url, photo_focus_x, photo_focus_y)
+  athletes(first_name, last_name, school, photo_url, photo_cutout_url, photo_focus_x, photo_focus_y, share_photo_scale, share_photo_offset_x, share_photo_offset_y)
 `;
 
 const SESSION_SELECT_LEGACY = `
@@ -69,7 +72,7 @@ async function loadSessionRow(
   if (!primary.error && primary.data) return primary.data as SessionRow;
 
   const msg = primary.error?.message ?? '';
-  if (/photo_cutout_url|column.*does not exist/i.test(msg)) {
+  if (/photo_cutout_url|share_photo_scale|column.*does not exist/i.test(msg)) {
     const legacy = await admin.from('sessions').select(SESSION_SELECT_LEGACY).eq('id', sessionId).maybeSingle();
     if (!legacy.error && legacy.data) return legacy.data as SessionRow;
   }
@@ -117,6 +120,9 @@ export async function fetchSessionShareGraphicInput(
       coachPhotoCutoutUrl: cutoutUrl,
       photoFocusX: athlete?.photo_focus_x ?? 50,
       photoFocusY: athlete?.photo_focus_y ?? 15,
+      sharePhotoScale: athlete?.share_photo_scale ?? 100,
+      sharePhotoOffsetX: athlete?.share_photo_offset_x ?? 0,
+      sharePhotoOffsetY: athlete?.share_photo_offset_y ?? 0,
       coachAthleteId: row.athlete_id,
     },
   };

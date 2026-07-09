@@ -4,12 +4,20 @@ import { isUsableCoachCutout } from './fetch-coach-image-buffer';
 const SHARE_GRAPHIC_WIDTH = 1080;
 const SHARE_GRAPHIC_HEIGHT = 1440;
 const FOOTER_H = 132;
+/** Top of athlete slot — head can extend into upper red zone. */
+const CUTOUT_SLOT_TOP = 72;
+/** Bottom anchor — feet sit on mat / footer edge. */
+const CUTOUT_SLOT_BOTTOM = SHARE_GRAPHIC_HEIGHT - FOOTER_H + 16;
+const CUTOUT_MAX_WIDTH = Math.round(SHARE_GRAPHIC_WIDTH * 0.9);
 
 export type CoachPhotoOverlayInput = {
   cutoutUrl: string | null;
   photoUrl: string | null;
   photoFocusX: number;
   photoFocusY: number;
+  sharePhotoScale?: number;
+  sharePhotoOffsetX?: number;
+  sharePhotoOffsetY?: number;
   fetchImage: (url: string) => Promise<Buffer | null>;
 };
 
@@ -42,19 +50,67 @@ async function cropPortraitWithFocus(
   return sharp(resized).extract({ left, top, width: cropW, height: cropH }).png().toBuffer();
 }
 
+function clampScale(value: number | undefined): number {
+  if (value == null || Number.isNaN(value)) return 100;
+  return Math.min(150, Math.max(50, Math.round(value)));
+}
+
+function clampOffset(value: number | undefined): number {
+  if (value == null || Number.isNaN(value)) return 0;
+  return Math.min(200, Math.max(-200, Math.round(value)));
+}
+
+/** Height-first cutout in the right column; optional per-coach scale/offset. */
+async function layoutCutoutOverlay(
+  trimmed: Buffer,
+  focusX: number,
+  scalePct: number,
+  offsetX: number,
+  offsetY: number
+): Promise<OverlayOptions> {
+  const slotH = CUTOUT_SLOT_BOTTOM - CUTOUT_SLOT_TOP;
+  const targetH = Math.round(slotH * (scalePct / 100));
+
+  const meta = await sharp(trimmed).metadata();
+  const srcW = meta.width ?? 1;
+  const srcH = meta.height ?? 1;
+  let targetW = Math.max(1, Math.round(srcW * (targetH / srcH)));
+
+  let image = await sharp(trimmed).resize(targetW, targetH, { fit: 'fill' }).png().toBuffer();
+
+  if (targetW > CUTOUT_MAX_WIDTH) {
+    const cropW = CUTOUT_MAX_WIDTH;
+    const fx = Math.min(100, Math.max(0, focusX)) / 100;
+    let cropLeft = Math.round(targetW * fx - cropW / 2);
+    cropLeft = Math.max(0, Math.min(cropLeft, targetW - cropW));
+    image = await sharp(image)
+      .extract({ left: cropLeft, top: 0, width: cropW, height: targetH })
+      .png()
+      .toBuffer();
+    targetW = cropW;
+  }
+
+  const left = SHARE_GRAPHIC_WIDTH - targetW + 24 + offsetX;
+  const top = CUTOUT_SLOT_BOTTOM - targetH + offsetY;
+
+  return { input: image, top, left, blend: 'over' };
+}
+
 /** Bottom-right athlete overlay — remove.bg cutout when available; profile crop is last resort. */
 export async function buildCoachPhotoOverlay(
   input: CoachPhotoOverlayInput
 ): Promise<OverlayOptions | null> {
   const focusX = Math.min(100, Math.max(0, input.photoFocusX));
   const focusY = Math.min(100, Math.max(0, input.photoFocusY));
+  const scalePct = clampScale(input.sharePhotoScale);
+  const offsetX = clampOffset(input.sharePhotoOffsetX);
+  const offsetY = clampOffset(input.sharePhotoOffsetY);
   const cropW = 480;
   const cropH = 880;
 
   let buf: Buffer | null = null;
   let useCutout = false;
 
-  // Athlete-only PNG (transparent background) — matches manual Canva posts.
   if (input.cutoutUrl?.trim()) {
     const cutoutBuf = await input.fetchImage(input.cutoutUrl.trim());
     if (cutoutBuf && (await isUsableCoachCutout(cutoutBuf))) {
@@ -81,20 +137,7 @@ export async function buildCoachPhotoOverlay(
       .png()
       .toBuffer();
 
-    // Fill most of the right column — manual posts show waist-up, hero-sized.
-    const maxW = Math.round(SHARE_GRAPHIC_WIDTH * 0.78);
-    const maxH = SHARE_GRAPHIC_HEIGHT - FOOTER_H - 48;
-
-    const resized = await sharp(trimmed)
-      .resize(maxW, maxH, { fit: 'inside', withoutEnlargement: false })
-      .png()
-      .toBuffer();
-    const meta = await sharp(resized).metadata();
-    const w = meta.width ?? maxW;
-    const h = meta.height ?? maxH;
-    const left = SHARE_GRAPHIC_WIDTH - w + 16;
-    const top = SHARE_GRAPHIC_HEIGHT - FOOTER_H - h + 32;
-    return { input: resized, top: Math.max(100, top), left, blend: 'over' };
+    return layoutCutoutOverlay(trimmed, focusX, scalePct, offsetX, offsetY);
   }
 
   const portrait = await cropPortraitWithFocus(buf, cropW, cropH, focusX, focusY);
@@ -118,7 +161,15 @@ export async function buildCoachPhotoOverlay(
     .toBuffer()
     .catch(async () => portrait);
 
-  const left = SHARE_GRAPHIC_WIDTH - cropW - 28;
-  const top = SHARE_GRAPHIC_HEIGHT - FOOTER_H - cropH - 4;
-  return { input: masked, top: Math.max(200, top), left, blend: 'over' };
+  const portraitScale = scalePct / 100;
+  const scaledW = Math.round(cropW * portraitScale);
+  const scaledH = Math.round(cropH * portraitScale);
+  const scaledPortrait =
+    portraitScale === 1
+      ? masked
+      : await sharp(masked).resize(scaledW, scaledH, { fit: 'fill' }).png().toBuffer();
+
+  const left = SHARE_GRAPHIC_WIDTH - scaledW - 28 + offsetX;
+  const top = SHARE_GRAPHIC_HEIGHT - FOOTER_H - scaledH - 4 + offsetY;
+  return { input: scaledPortrait, top: Math.max(200, top), left, blend: 'over' };
 }

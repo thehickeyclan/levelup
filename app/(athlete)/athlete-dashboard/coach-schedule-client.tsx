@@ -131,7 +131,10 @@ export function CoachScheduleClient({
   const { today, upcoming } = splitCoachSessionsByToday(upcomingSessions, now);
   const pendingCount = pendingJoinRequests.length;
 
-  const shareSessionCount = upcomingSessions.length;
+  const shareSessionOptions = upcomingSessions.map((session) => ({
+    sessionId: session.id,
+    scheduledDatetime: session.scheduled_datetime,
+  }));
 
   const goTab = (id: ScheduleTab) => {
     setTab(id);
@@ -182,7 +185,7 @@ export function CoachScheduleClient({
         coachDisplayName={coachDisplayName}
         coachSchool={coachSchool}
         scheduleUrl={scheduleUrl}
-        hasUpcomingSessions={shareSessionCount > 0}
+        upcomingSessions={shareSessionOptions}
       />
 
       <Tabs value={tab} onValueChange={(v) => goTab(v as ScheduleTab)} className="w-full">

@@ -68,8 +68,7 @@ const SESSION_SELECT = `
   max_participants,
   current_participants,
   join_policy,
-  facilities(name),
-  session_participants(id)
+  facilities(name)
 `;
 
 function resolvePhotoUrl(photoUrl: string | null | undefined, appOrigin: string): string | null {

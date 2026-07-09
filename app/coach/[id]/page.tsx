@@ -14,7 +14,7 @@ import { SchoolLogo } from '@/components/school-logo';
 import { formatEST } from '@/lib/format-date';
 import { getEffectiveFilledCount } from '@/lib/sessions';
 import { coachPublicScheduleUrl } from '@/lib/coach-public-schedule-url';
-import { CoachShareSessionsHub } from '@/components/coach/coach-share-sessions-hub';
+import { CoachShareSessionsHub, type CoachShareSessionOption } from '@/components/coach/coach-share-sessions-hub';
 import { Calendar, MapPin, Users, ChevronRight, Lock, Share2, UserCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 
@@ -188,7 +188,14 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
     (host.startsWith('localhost') ? `http://${host}` : `https://${host}`);
   const shareUrl = coachPublicScheduleUrl(baseUrl, id);
-  const isOwnSchedule = Boolean(authUser && authUser.id === id && bookingRole === 'coach');
+
+  const canManageShareGraphics =
+    bookingRole === 'admin' || (bookingRole === 'coach' && authUser?.id === id);
+
+  const shareSessionOptions: CoachShareSessionOption[] = sessions.map((s) => ({
+    sessionId: s.id,
+    scheduledDatetime: s.scheduled_datetime,
+  }));
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl pb-16">
@@ -241,14 +248,14 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
         </code>
       </div>
 
-      {isOwnSchedule ? (
+      {canManageShareGraphics ? (
         <div className="mb-6">
           <CoachShareSessionsHub
             coachId={id}
             coachDisplayName={coachName}
             coachSchool={athleteRow.school}
             scheduleUrl={shareUrl}
-            hasUpcomingSessions={sessions.length > 0}
+            upcomingSessions={shareSessionOptions}
           />
         </div>
       ) : null}

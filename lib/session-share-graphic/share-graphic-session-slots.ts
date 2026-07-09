@@ -61,7 +61,7 @@ export function buildShareGraphicSessionSlots(
   const slots: ShareGraphicSessionSlot[] = visible.map((s) => {
     const dt = new Date(s.scheduled_datetime);
     return {
-      timeLabel: formatEST(dt, 'h:mm A'),
+      timeLabel: formatEST(dt, 'h:mm a').toUpperCase(),
       statusLabel: truncateUpper(shareGraphicStatusLabel(s), 12),
       dayAbbrev: multiDay ? formatEST(dt, 'EEE').toUpperCase() : undefined,
     };

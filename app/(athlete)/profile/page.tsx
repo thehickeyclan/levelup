@@ -331,6 +331,65 @@ export default function ProfilePage() {
             </div>
           )}
 
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="photo"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Profile Photo</FormLabel>
+                    <div className="flex items-center gap-4">
+                      {photoPreview && (
+                        <img
+                          src={photoPreview}
+                          alt="Profile preview"
+                          className="w-24 h-24 rounded-full object-cover border"
+                          style={{ objectPosition: `${photoFocusX}% ${photoFocusY}%` }}
+                        />
+                      )}
+                      <div>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="cursor-pointer"
+                        />
+                        <FormDescription>
+                          Upload a professional photo (max 5MB)
+                        </FormDescription>
+                      </div>
+                    </div>
+                    {photoPreview && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium mb-2">Position photo</p>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Click where your face is so it isn&apos;t cut off on your profile.
+                        </p>
+                        <div
+                          ref={photoContainerRef}
+                          role="button"
+                          tabIndex={0}
+                          onClick={handlePhotoPositionClick}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLElement).click()}
+                          className="relative w-full max-w-[280px] h-36 rounded-lg overflow-hidden border bg-muted cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
+                          aria-label="Click to set focal point"
+                        >
+                          <img
+                            ref={photoImgRef}
+                            src={photoPreview}
+                            alt=""
+                            className="w-full h-full object-cover pointer-events-none"
+                            style={{ objectPosition: `${photoFocusX}% ${photoFocusY}%` }}
+                            draggable={false}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </FormItem>
+                )}
+              />
+
           {isCoachProfile && coachPublicId && publicSessionsLink && (
             <div className="mb-6 rounded-lg border border-border bg-muted/30 p-4 space-y-3">
               <div className="flex items-start gap-2">
@@ -406,66 +465,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           )}
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Photo Upload */}
-              <FormField
-                control={form.control}
-                name="photo"
-                render={() => (
-                  <FormItem>
-                    <FormLabel>Profile Photo</FormLabel>
-                    <div className="flex items-center gap-4">
-                      {photoPreview && (
-                        <img
-                          src={photoPreview}
-                          alt="Profile preview"
-                          className="w-24 h-24 rounded-full object-cover border"
-                          style={{ objectPosition: `${photoFocusX}% ${photoFocusY}%` }}
-                        />
-                      )}
-                      <div>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoChange}
-                          className="cursor-pointer"
-                        />
-                        <FormDescription>
-                          Upload a professional photo (max 5MB)
-                        </FormDescription>
-                      </div>
-                    </div>
-                    {photoPreview && (
-                      <div className="mt-4">
-                        <p className="text-sm font-medium mb-2">Position photo</p>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Click where your face is so it isn’t cut off on your profile.
-                        </p>
-                        <div
-                          ref={photoContainerRef}
-                          role="button"
-                          tabIndex={0}
-                          onClick={handlePhotoPositionClick}
-                          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLElement).click()}
-                          className="relative w-full max-w-[280px] h-36 rounded-lg overflow-hidden border bg-muted cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
-                          aria-label="Click to set focal point"
-                        >
-                          <img
-                            ref={photoImgRef}
-                            src={photoPreview}
-                            alt=""
-                            className="w-full h-full object-cover pointer-events-none"
-                            style={{ objectPosition: `${photoFocusX}% ${photoFocusY}%` }}
-                            draggable={false}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </FormItem>
-                )}
-              />
 
               {/* Weight Class */}
               <FormField

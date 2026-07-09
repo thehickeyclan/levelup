@@ -1,10 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, Copy, ImageIcon, QrCode, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -12,33 +19,70 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { SessionShareGraphicPanel } from '@/components/coach/session-share-graphic-panel';
+import {
+  SessionShareGraphicPanel,
+  ShareGraphicScopePicker,
+  type ShareGraphicScope,
+} from '@/components/coach/session-share-graphic-panel';
 import { resolveShareGraphicTheme } from '@/lib/session-share-graphic/themes';
+import { formatEST } from '@/lib/format-date';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
+
+export type CoachShareSessionOption = {
+  sessionId: string;
+  scheduledDatetime: string;
+  shareUrl?: string;
+};
 
 type Props = {
   coachId: string;
   coachDisplayName: string;
   coachSchool?: string | null;
   scheduleUrl: string;
-  /** When false, hide graphic tools (no upcoming sessions). */
-  hasUpcomingSessions?: boolean;
+  upcomingSessions?: CoachShareSessionOption[];
   className?: string;
 };
+
+function sessionSignupUrl(scheduleUrl: string, sessionId: string): string {
+  try {
+    return new URL(`/sessions/${sessionId}/register`, scheduleUrl).href;
+  } catch {
+    return `${scheduleUrl.replace(/\/$/, '')}/sessions/${sessionId}/register`;
+  }
+}
 
 export function CoachShareSessionsHub({
   coachId,
   coachDisplayName,
   coachSchool,
   scheduleUrl,
-  hasUpcomingSessions = true,
+  upcomingSessions = [],
   className,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [graphicOpen, setGraphicOpen] = useState(false);
+  const [graphicScope, setGraphicScope] = useState<ShareGraphicScope>(
+    upcomingSessions.length === 1 ? 'single-session' : 'all-sessions'
+  );
+  const [graphicSessionId, setGraphicSessionId] = useState<string | null>(
+    upcomingSessions[0]?.sessionId ?? null
+  );
 
   const defaultTheme = resolveShareGraphicTheme(coachSchool);
   const weeklyCaption = `All my upcoming sessions with ${coachDisplayName}: ${scheduleUrl}`;
+
+  const pickedSession = useMemo(() => {
+    const id = graphicSessionId ?? upcomingSessions[0]?.sessionId;
+    return upcomingSessions.find((s) => s.sessionId === id) ?? upcomingSessions[0] ?? null;
+  }, [graphicSessionId, upcomingSessions]);
+
+  const shareCaption = useMemo(() => {
+    if (graphicScope === 'all-sessions') return weeklyCaption;
+    if (!pickedSession) return weeklyCaption;
+    const when = formatEST(new Date(pickedSession.scheduledDatetime), 'EEE, MMM d · h:mm a');
+    const url = pickedSession.shareUrl ?? sessionSignupUrl(scheduleUrl, pickedSession.sessionId);
+    return `Join my session ${when}: ${url}`;
+  }, [graphicScope, pickedSession, scheduleUrl, weeklyCaption]);
 
   const copyScheduleUrl = async () => {
     const ok = await copyTextToClipboard(scheduleUrl);
@@ -56,8 +100,8 @@ export function CoachShareSessionsHub({
           <div className="min-w-0">
             <p className="font-semibold text-sm">Share your sessions</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              One link and QR for every session on your schedule. The Instagram graphic lists all
-              upcoming times in one post.
+              One link and QR for every session on your schedule, or an Instagram graphic for one
+              session or all upcoming times.
             </p>
           </div>
         </div>
@@ -96,7 +140,7 @@ export function CoachShareSessionsHub({
           onClick={() => setGraphicOpen(true)}
         >
           <ImageIcon className="h-4 w-4" />
-          {hasUpcomingSessions ? 'Create Instagram graphic' : 'Preview Instagram graphic'}
+          {upcomingSessions.length > 0 ? 'Create Instagram graphic' : 'Preview Instagram graphic'}
         </Button>
       </div>
 
@@ -105,20 +149,49 @@ export function CoachShareSessionsHub({
           <DialogHeader>
             <DialogTitle>Instagram graphic</DialogTitle>
             <DialogDescription>
-              All upcoming sessions for {coachDisplayName} — one post, every time slot.
+              Promote one session or every upcoming time for {coachDisplayName}.
             </DialogDescription>
           </DialogHeader>
-          <SessionShareGraphicPanel
-            coachId={coachId}
-            defaultTheme={defaultTheme}
-            scheduleUrl={scheduleUrl}
-            shareCaption={weeklyCaption}
-            className="border-0 p-0 shadow-none"
-          />
-          <p className="text-xs text-muted-foreground -mt-2">
-            Suggested caption:{' '}
-            <span className="text-foreground/80">{weeklyCaption}</span>
-          </p>
+          <div className="space-y-3">
+            <ShareGraphicScopePicker scope={graphicScope} onScopeChange={setGraphicScope} />
+            {graphicScope === 'single-session' && upcomingSessions.length > 1 ? (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Which session?</Label>
+                <Select
+                  value={graphicSessionId ?? upcomingSessions[0]?.sessionId}
+                  onValueChange={setGraphicSessionId}
+                >
+                  <SelectTrigger className="min-h-[44px]">
+                    <SelectValue placeholder="Choose a session" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {upcomingSessions.map((s) => (
+                      <SelectItem key={s.sessionId} value={s.sessionId}>
+                        {formatEST(new Date(s.scheduledDatetime), 'EEE, MMM d · h:mm a')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+            <SessionShareGraphicPanel
+              coachId={coachId}
+              scope={graphicScope}
+              sessionId={
+                graphicScope === 'single-session'
+                  ? pickedSession?.sessionId
+                  : undefined
+              }
+              defaultTheme={defaultTheme}
+              scheduleUrl={scheduleUrl}
+              shareCaption={shareCaption}
+              className="border-0 p-0 shadow-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              Suggested caption:{' '}
+              <span className="text-foreground/80">{shareCaption}</span>
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
     </>

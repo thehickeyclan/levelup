@@ -142,9 +142,25 @@ function buildSchoolStyleOverlay(
 function sessionTimeBoxHeight(slotCount: number, hasDayAbbrev: boolean): number {
   const n = Math.min(slotCount, 4);
   const compact = n > 2;
-  if (compact) return hasDayAbbrev ? 94 : 84;
-  if (n === 2) return 98;
-  return 98;
+  if (compact) return hasDayAbbrev ? 102 : 90;
+  if (n === 2) return 106;
+  return 108;
+}
+
+/** Baseline positions — SVG y is the text baseline; leave a clear gap below the time caps. */
+function timeSlotTextLayout(
+  boxTop: number,
+  boxHeight: number,
+  pad: number,
+  timeSize: number,
+  statusSize: number,
+  hasDay: boolean
+): { timeY: number; statusY: number; dayY: number | null } {
+  const statusGap = hasDay ? 12 : 14;
+  const timeY = boxTop + pad + timeSize;
+  const statusY = timeY + statusGap + Math.round(statusSize * 0.82);
+  const dayY = hasDay ? boxTop + boxHeight - pad : null;
+  return { timeY, statusY, dayY };
 }
 
 function sessionSlotAreaHeight(slots: ShareGraphicSessionSlot[]): number {
@@ -185,7 +201,6 @@ function buildSessionTimeBoxes(
     const row = cols === 1 ? i : Math.floor(i / 2);
     const x = areaX + col * (boxW + gap);
     const y = startY + row * (boxHeight + gap);
-    const w = cols === 1 && n === 1 ? areaW : boxW;
     const h = boxHeight;
     const time = escapeXml(slot.timeLabel);
     const status = escapeXml(slot.statusLabel);
@@ -202,26 +217,12 @@ function buildSessionTimeBoxes(
       : n === 2
         ? 50
         : 64;
-    const statusSize = compact ? (narrow ? 18 : 20) : 26;
+    const statusSize = compact ? (narrow ? 19 : 22) : 28;
     const daySize = compact ? 14 : 16;
 
-    let timeY: number;
-    let statusY: number;
-    let dayY: number | null = null;
-
-    if (day) {
-      timeY = y + pad + timeSize;
-      statusY = timeY + Math.round(statusSize * 0.45) + 5;
-      dayY = y + h - pad;
-    } else {
-      const blockH = timeSize + 8 + statusSize;
-      const blockTop = y + Math.round((h - blockH) / 2);
-      timeY = blockTop + timeSize;
-      statusY = timeY + 8 + Math.round(statusSize * 0.85);
-    }
+    const { timeY, statusY, dayY } = timeSlotTextLayout(y, h, pad, timeSize, statusSize, Boolean(day));
 
     svg += `
-  <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${theme.timeBoxStroke}" stroke-width="3" rx="1"/>
   <text x="${x + pad}" y="${timeY}" fill="${theme.timeColor}" font-family="${FONT_DISPLAY}" font-size="${timeSize}" letter-spacing="${narrow ? 0 : 1}">${time}</text>
   <text x="${x + pad}" y="${statusY}" fill="${theme.lastNameColor}" font-family="${FONT_SCRIPT}" font-size="${statusSize}" letter-spacing="0.5">${status}</text>
   ${dayY != null ? `<text x="${x + pad}" y="${dayY}" fill="${theme.datePrimaryColor}" font-family="${FONT_BODY}" font-weight="700" font-size="${daySize}" letter-spacing="1.5">${day}</text>` : ''}`;
@@ -339,7 +340,6 @@ export function buildTextOverlaySvg(
   <text x="56" y="300" fill="${theme.firstNameColor}" font-family="${FONT_DISPLAY}" font-size="100" letter-spacing="4">${fn}</text>
   <text x="56" y="400" fill="${theme.lastNameColor}" font-family="${FONT_SCRIPT}" font-size="80" transform="rotate(-6 56 400)">${ln}</text>
   <text x="56" y="448" fill="${theme.sessionTypeColor}" font-family="${FONT_BODY}" font-weight="700" font-size="30" letter-spacing="3">${type}</text>
-  <rect x="52" y="472" width="420" height="108" fill="none" stroke="${theme.timeBoxStroke}" stroke-width="4" rx="2"/>
   <text x="68" y="548" fill="${theme.timeColor}" font-family="${FONT_DISPLAY}" font-size="88" letter-spacing="1">${time}</text>
   <text x="56" y="612" fill="${theme.datePrimaryColor}" font-family="${FONT_BODY}" font-weight="800" font-size="30" letter-spacing="2">${day}</text>
   <text x="56" y="648" fill="${theme.dateSecondaryColor}" font-family="${FONT_BODY}" font-weight="700" font-size="28" letter-spacing="2">${dateRest}</text>

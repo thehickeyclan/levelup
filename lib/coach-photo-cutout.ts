@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchCoachImageBuffer } from '@/lib/session-share-graphic/fetch-coach-image-buffer';
 
 const PLACEHOLDER_KEYS = new Set(['true', 'false', 'yes', 'no', '1', '0', 'enabled', 'disabled']);
 
@@ -33,12 +34,11 @@ export async function ensureCoachPhotoCutout(
   if (!apiKey) return null;
 
   try {
-    const imgRes = await fetch(photoUrl.trim(), { signal: AbortSignal.timeout(15_000) });
-    if (!imgRes.ok) return null;
-    const buffer = await imgRes.arrayBuffer();
+    const imageBuf = await fetchCoachImageBuffer(admin, photoUrl, athleteId);
+    if (!imageBuf) return null;
 
     const formData = new FormData();
-    formData.append('image_file', new Blob([buffer]), 'coach.jpg');
+    formData.append('image_file', new Blob([new Uint8Array(imageBuf)]), 'coach.jpg');
     formData.append('size', 'auto');
     formData.append('type', 'person');
     formData.append('format', 'png');

@@ -37,6 +37,7 @@ export type BuildSessionShareGraphicInput = {
   photoFocusY?: number;
   /** Supabase admin — loads coach photos from storage (reliable on Vercel serverless). */
   photoAdmin?: SupabaseClient;
+  coachAthleteId?: string | null;
 };
 
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
@@ -132,7 +133,7 @@ export async function buildSessionShareGraphic(input: BuildSessionShareGraphicIn
 
   const loadPhoto = async (url: string) => {
     if (input.photoAdmin) {
-      return fetchCoachImageBuffer(input.photoAdmin, url);
+      return fetchCoachImageBuffer(input.photoAdmin, url, input.coachAthleteId);
     }
     return fetchImageBuffer(url);
   };

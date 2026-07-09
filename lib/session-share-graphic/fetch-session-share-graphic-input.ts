@@ -117,6 +117,7 @@ export async function fetchSessionShareGraphicInput(
       coachPhotoCutoutUrl: cutoutUrl,
       photoFocusX: athlete?.photo_focus_x ?? 50,
       photoFocusY: athlete?.photo_focus_y ?? 15,
+      coachAthleteId: row.athlete_id,
     },
   };
 }

@@ -1,4 +1,5 @@
 import sharp, { type OverlayOptions } from 'sharp';
+import { isUsableCoachCutout } from './fetch-coach-image-buffer';
 
 const SHARE_GRAPHIC_WIDTH = 1080;
 const SHARE_GRAPHIC_HEIGHT = 1440;
@@ -21,6 +22,12 @@ export async function buildCoachPhotoOverlay(
 
   let buf: Buffer | null = null;
   if (url) buf = await input.fetchImage(url);
+
+  // Empty/transparent cutout cached in DB — treat as missing.
+  if (buf && useCutout && !(await isUsableCoachCutout(buf))) {
+    console.warn('[buildCoachPhotoOverlay] cutout unusable, falling back to profile photo');
+    buf = null;
+  }
 
   // Bad/missing cutout — fall back to full profile photo so Liam still appears.
   if (!buf && useCutout && input.photoUrl?.trim()) {

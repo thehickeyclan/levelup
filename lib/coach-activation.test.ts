@@ -16,10 +16,20 @@ describe('buildCreateSessionPrefillUrl', () => {
 });
 
 describe('computeActivationSteps', () => {
-  it('marks bookable when upcoming session exists', () => {
+  it('does not include a rate-card step (Guild defaults apply)', () => {
     const steps = computeActivationSteps({
       profileComplete: true,
-      hasRateCard: true,
+      hasCalendar: true,
+      isBookable: true,
+      coachId: 'coach-1',
+    });
+    expect(steps.some((s) => s.id === 'rate_card')).toBe(false);
+    expect(steps).toHaveLength(4);
+  });
+
+  it('marks bookable when calendar is open at Guild rates', () => {
+    const steps = computeActivationSteps({
+      profileComplete: true,
       hasCalendar: true,
       isBookable: true,
       coachId: 'coach-1',

@@ -9,7 +9,7 @@ import { intervalsOverlapHalfOpen } from '@/lib/coach-session-overlap';
 import { addDays, parseISO } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 
-export type CoachActivationStepId = 'profile' | 'rate_card' | 'calendar' | 'bookable' | 'share';
+export type CoachActivationStepId = 'profile' | 'calendar' | 'bookable' | 'share';
 
 export type CoachActivationStep = {
   id: CoachActivationStepId;
@@ -188,7 +188,6 @@ export function suggestOpenSlots(args: SuggestOpenSlotsArgs): SlotNudgeSuggestio
 
 export type ComputeActivationStepsInput = {
   profileComplete: boolean;
-  hasRateCard: boolean;
   hasCalendar: boolean;
   isBookable: boolean;
   coachId: string;
@@ -206,23 +205,16 @@ export function computeActivationSteps(input: ComputeActivationStepsInput): Coac
       href: '/profile',
     },
     {
-      id: 'rate_card',
-      label: 'Set your rates',
-      description: 'Add session types and prices parents will see.',
-      done: input.hasRateCard,
-      href: '/rate-card',
-    },
-    {
       id: 'calendar',
       label: 'Open your calendar',
-      description: 'Add weekly availability so families can book.',
+      description: 'Add weekly availability so families can book 1:1 at Guild rates.',
       done: input.hasCalendar,
       href: '/availability',
     },
     {
       id: 'bookable',
       label: 'Post something to book',
-      description: 'Create an open session or keep privates on your calendar.',
+      description: 'Create a small group or partner session families can join.',
       done: input.isBookable,
       href: '/coach-sessions/create',
     },

@@ -28,18 +28,11 @@ export async function fetchCoachActivationPanelData(
   horizonEnd.setDate(horizonEnd.getDate() + 14);
 
   const [
-    { count: serviceCount },
     { count: weeklyCount },
     { count: datedSlotCount },
     { data: weeklyWindows },
     { data: upcomingSessions },
-    { count: privateServiceCount },
   ] = await Promise.all([
-    db
-      .from('athlete_services')
-      .select('id', { count: 'exact', head: true })
-      .eq('athlete_id', coachId)
-      .eq('active', true),
     db
       .from('athlete_availability')
       .select('id', { count: 'exact', head: true })
@@ -60,23 +53,15 @@ export async function fetchCoachActivationPanelData(
       .gte('scheduled_datetime', nowIso)
       .lte('scheduled_datetime', horizonEnd.toISOString())
       .order('scheduled_datetime', { ascending: true }),
-    db
-      .from('athlete_services')
-      .select('id', { count: 'exact', head: true })
-      .eq('athlete_id', coachId)
-      .eq('active', true)
-      .eq('session_type', 'private'),
   ]);
 
-  const hasRateCard = (serviceCount ?? 0) > 0;
   const hasCalendar = (weeklyCount ?? 0) > 0 || (datedSlotCount ?? 0) > 0;
   const hasUpcomingSession = (upcomingSessions ?? []).length > 0;
-  const hasPrivateOffering = (privateServiceCount ?? 0) > 0;
-  const isBookable = hasUpcomingSession || (hasCalendar && hasPrivateOffering);
+  // Guild standard rates apply without a custom rate card; calendar alone enables 1:1 booking.
+  const isBookable = hasUpcomingSession || hasCalendar;
 
   const steps = computeActivationSteps({
     profileComplete: isProfileComplete(athlete),
-    hasRateCard,
     hasCalendar,
     isBookable,
     coachId,

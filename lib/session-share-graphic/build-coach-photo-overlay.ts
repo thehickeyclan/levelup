@@ -75,17 +75,26 @@ export async function buildCoachPhotoOverlay(
   }
 
   if (useCutout) {
-    const resized = await sharp(buf)
+    const trimmed = await sharp(buf)
       .ensureAlpha()
-      .resize(640, 1180, { fit: 'inside', withoutEnlargement: false })
+      .trim({ threshold: 12 })
+      .png()
+      .toBuffer();
+
+    // Fill most of the right column — manual posts show waist-up, hero-sized.
+    const maxW = Math.round(SHARE_GRAPHIC_WIDTH * 0.78);
+    const maxH = SHARE_GRAPHIC_HEIGHT - FOOTER_H - 48;
+
+    const resized = await sharp(trimmed)
+      .resize(maxW, maxH, { fit: 'inside', withoutEnlargement: false })
       .png()
       .toBuffer();
     const meta = await sharp(resized).metadata();
-    const w = meta.width ?? 640;
-    const h = meta.height ?? 1180;
-    const left = SHARE_GRAPHIC_WIDTH - w - 8;
-    const top = SHARE_GRAPHIC_HEIGHT - FOOTER_H - h + 8;
-    return { input: resized, top: Math.max(160, top), left, blend: 'over' };
+    const w = meta.width ?? maxW;
+    const h = meta.height ?? maxH;
+    const left = SHARE_GRAPHIC_WIDTH - w + 16;
+    const top = SHARE_GRAPHIC_HEIGHT - FOOTER_H - h + 32;
+    return { input: resized, top: Math.max(100, top), left, blend: 'over' };
   }
 
   const portrait = await cropPortraitWithFocus(buf, cropW, cropH, focusX, focusY);

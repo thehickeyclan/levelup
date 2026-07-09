@@ -2,16 +2,21 @@ import Link from 'next/link';
 import { fetchPublicOpenJoinSummaries } from '@/lib/map/fetch-public-open-join-summaries';
 import { formatEST } from '@/lib/format-date';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { PublicOpenJoinSessionCartAction } from '@/components/map/public-open-join-session-cart-action';
 
 export async function PublicOpenJoinSessionsTable({
   tenantSlug,
   rowKindFilter = 'all',
   isLoggedIn,
+  parentWrestlerIds = [],
+  loginReturnPath = '/#open-sessions',
 }: {
   tenantSlug: string;
   rowKindFilter?: 'all' | 'partner' | 'small_group';
   isLoggedIn: boolean;
+  parentWrestlerIds?: string[];
+  /** Where guests land after login so they can use + Add on this table. */
+  loginReturnPath?: string;
 }) {
   const { rows: rowsAll, openSessionCountTodayByFilter } = await fetchPublicOpenJoinSummaries(tenantSlug, {
     daysAhead: 21,
@@ -87,9 +92,6 @@ export async function PublicOpenJoinSessionsTable({
               <tbody>
                 {rows.map((r) => {
                   const isPartner = r.kind === 'Partner';
-                  const registerPath = `/sessions/${r.sessionId}/register`;
-                  const actionHref = isLoggedIn ? registerPath : loginWithRedirect(registerPath);
-                  const actionLabel = isLoggedIn ? 'Add to cart' : 'Reserve';
                   return (
                     <tr key={r.sessionId} className="border-b border-white/[0.06] last:border-0">
                       <td className="px-3 py-3">
@@ -116,14 +118,12 @@ export async function PublicOpenJoinSessionsTable({
                       <td className="px-3 py-3 text-white/80">{formatEST(r.scheduledAt, 'EEE MMM d · h:mm a')}</td>
                       <td className="px-3 py-3 text-white/65">{r.facilityName}</td>
                       <td className="px-3 py-3 text-right align-middle">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="whitespace-nowrap px-3 text-xs font-semibold"
-                          asChild
-                        >
-                          <Link href={actionHref}>{actionLabel}</Link>
-                        </Button>
+                        <PublicOpenJoinSessionCartAction
+                          row={r}
+                          isLoggedIn={isLoggedIn}
+                          parentWrestlerIds={parentWrestlerIds}
+                          loginReturnPath={loginReturnPath}
+                        />
                       </td>
                     </tr>
                   );

@@ -12,6 +12,9 @@ export type PublicOpenJoinSessionRow = {
   facilityName: string;
   /** Capacity context: athletes already booked vs room left. */
   openingsLabel: string;
+  openSlots: number;
+  sessionType: string | null;
+  pricePerParticipant: number | null;
 };
 
 /** @deprecated Use PublicOpenJoinSessionRow; kept for any external imports. */
@@ -42,6 +45,7 @@ type SessionRow = {
   join_policy: string | null;
   current_participants: number | null;
   max_participants: number | null;
+  price_per_participant?: number | null;
   athlete_id: string;
   athletes?: { first_name?: string; last_name?: string } | { first_name?: string; last_name?: string }[] | null;
   facilities?: { name?: string } | { name?: string }[] | null;
@@ -77,6 +81,7 @@ const SESSION_SELECT = `
   join_policy,
   current_participants,
   max_participants,
+  price_per_participant,
   athlete_id,
   athletes(id, first_name, last_name),
   facilities(id, name, address),
@@ -161,6 +166,8 @@ export async function fetchPublicOpenJoinSummaries(
     const kind = labelKind(s.session_type, s.session_mode);
     const label = openingsLabelFromSession(s);
     if (!label) continue;
+    const max = s.max_participants ?? 1;
+    const filled = getEffectiveFilledCount(s);
     out.push({
       sessionId: s.id,
       coachId,
@@ -169,6 +176,10 @@ export async function fetchPublicOpenJoinSummaries(
       scheduledAt: s.scheduled_datetime,
       facilityName: facilityNameFromSession(s),
       openingsLabel: label,
+      openSlots: Math.max(0, max - filled),
+      sessionType: s.session_type,
+      pricePerParticipant:
+        typeof s.price_per_participant === 'number' ? s.price_per_participant : null,
     });
   }
 

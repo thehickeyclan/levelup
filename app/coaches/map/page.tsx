@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchCoachMapPins } from '@/lib/map/fetch-coach-map-pins';
 import { CoachMapShell } from '@/components/map/coach-map-shell';
 import { PublicOpenJoinSessionsTable } from '@/components/map/public-open-join-sessions-table';
+import { getParentYouthWrestlerIds } from '@/lib/parent-wrestlers';
 import Link from 'next/link';
 
 export const metadata = {
@@ -32,6 +33,7 @@ export default async function CoachesMapPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const parentWrestlerIds = user ? await getParentYouthWrestlerIds(supabase, user.id) : [];
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -97,7 +99,12 @@ export default async function CoachesMapPage() {
           />
         </div>
 
-        <PublicOpenJoinSessionsTable tenantSlug={tenant.slug} isLoggedIn={Boolean(user)} />
+        <PublicOpenJoinSessionsTable
+          tenantSlug={tenant.slug}
+          isLoggedIn={Boolean(user)}
+          parentWrestlerIds={parentWrestlerIds}
+          loginReturnPath="/coaches/map#open-sessions"
+        />
 
         {!accessToken && (
           <p className="mt-4 text-center text-xs text-white/40">

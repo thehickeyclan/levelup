@@ -2,6 +2,7 @@ import { fetchCoachMapPins } from '@/lib/map/fetch-coach-map-pins';
 import { CoachMapShell } from '@/components/map/coach-map-shell';
 import { PublicOpenJoinSessionsTable } from '@/components/map/public-open-join-sessions-table';
 import { createClient } from '@/lib/supabase/server';
+import { getParentYouthWrestlerIds } from '@/lib/parent-wrestlers';
 
 export async function CoachMapSection({
   tenantSlug,
@@ -25,6 +26,7 @@ export async function CoachMapSection({
     data: { user },
   } = await supabase.auth.getUser();
   const isLoggedIn = Boolean(user);
+  const parentWrestlerIds = user ? await getParentYouthWrestlerIds(supabase, user.id) : [];
 
   return (
     <section className="border-t border-accent/20 bg-black py-12 px-6">
@@ -52,6 +54,14 @@ export async function CoachMapSection({
           tenantSlug={tenantSlug}
           rowKindFilter={openSessionsRowFilter}
           isLoggedIn={isLoggedIn}
+          parentWrestlerIds={parentWrestlerIds}
+          loginReturnPath={
+            openSessionsRowFilter === 'partner'
+              ? '/?table=partner#open-sessions'
+              : openSessionsRowFilter === 'small_group'
+                ? '/?table=group#open-sessions'
+                : '/#open-sessions'
+          }
         />
 
         {!accessToken && (

@@ -42,7 +42,7 @@ async function cropPortraitWithFocus(
   return sharp(resized).extract({ left, top, width: cropW, height: cropH }).png().toBuffer();
 }
 
-/** Bottom-right athlete overlay — profile portrait (manual-post style) or cutout when available. */
+/** Bottom-right athlete overlay — remove.bg cutout when available; profile crop is last resort. */
 export async function buildCoachPhotoOverlay(
   input: CoachPhotoOverlayInput
 ): Promise<OverlayOptions | null> {
@@ -54,19 +54,19 @@ export async function buildCoachPhotoOverlay(
   let buf: Buffer | null = null;
   let useCutout = false;
 
-  // Profile photo first — matches manual posts; cutout is optional polish.
-  if (input.photoUrl?.trim()) {
-    buf = await input.fetchImage(input.photoUrl.trim());
-  }
-
-  if (!buf && input.cutoutUrl?.trim()) {
+  // Athlete-only PNG (transparent background) — matches manual Canva posts.
+  if (input.cutoutUrl?.trim()) {
     const cutoutBuf = await input.fetchImage(input.cutoutUrl.trim());
     if (cutoutBuf && (await isUsableCoachCutout(cutoutBuf))) {
       buf = cutoutBuf;
       useCutout = true;
     } else if (cutoutBuf) {
-      console.warn('[buildCoachPhotoOverlay] cutout unusable, skipping');
+      console.warn('[buildCoachPhotoOverlay] cutout unusable, falling back to profile photo');
     }
+  }
+
+  if (!buf && input.photoUrl?.trim()) {
+    buf = await input.fetchImage(input.photoUrl.trim());
   }
 
   if (!buf) {
@@ -77,15 +77,15 @@ export async function buildCoachPhotoOverlay(
   if (useCutout) {
     const resized = await sharp(buf)
       .ensureAlpha()
-      .resize(560, 1000, { fit: 'inside', withoutEnlargement: false })
+      .resize(640, 1180, { fit: 'inside', withoutEnlargement: false })
       .png()
       .toBuffer();
     const meta = await sharp(resized).metadata();
-    const w = meta.width ?? 560;
-    const h = meta.height ?? 1000;
-    const left = SHARE_GRAPHIC_WIDTH - w - 20;
-    const top = SHARE_GRAPHIC_HEIGHT - FOOTER_H - h - 4;
-    return { input: resized, top: Math.max(180, top), left, blend: 'over' };
+    const w = meta.width ?? 640;
+    const h = meta.height ?? 1180;
+    const left = SHARE_GRAPHIC_WIDTH - w - 8;
+    const top = SHARE_GRAPHIC_HEIGHT - FOOTER_H - h + 8;
+    return { input: resized, top: Math.max(160, top), left, blend: 'over' };
   }
 
   const portrait = await cropPortraitWithFocus(buf, cropW, cropH, focusX, focusY);

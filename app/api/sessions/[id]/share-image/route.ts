@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 import { buildSessionShareGraphic } from '@/lib/session-share-graphic/build-session-share-graphic';
 import { fetchSessionShareGraphicInput } from '@/lib/session-share-graphic/fetch-session-share-graphic-input';
-import { ensureCoachPhotoCutout } from '@/lib/coach-photo-cutout';
+import { ensureCoachPhotoCutout, getRemoveBgApiKey } from '@/lib/coach-photo-cutout';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -66,20 +66,23 @@ export async function GET(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
+    // Build athlete-only cutout before compositing (remove.bg). First request may take ~5–10s.
+    let cutoutUrl = payload.input.coachPhotoCutoutUrl ?? null;
+    if (payload.input.coachPhotoUrl && session.athlete_id && getRemoveBgApiKey()) {
+      cutoutUrl =
+        (await ensureCoachPhotoCutout(
+          admin,
+          session.athlete_id as string,
+          payload.input.coachPhotoUrl,
+          cutoutUrl
+        )) ?? cutoutUrl;
+    }
+
     const png = await buildSessionShareGraphic({
       ...payload.input,
+      coachPhotoCutoutUrl: cutoutUrl,
       photoAdmin: admin,
     });
-
-    // Warm cutout cache for next preview — never block the response on remove.bg.
-    if (payload.input.coachPhotoUrl && !payload.input.coachPhotoCutoutUrl && session.athlete_id) {
-      void ensureCoachPhotoCutout(
-        admin,
-        session.athlete_id as string,
-        payload.input.coachPhotoUrl,
-        null
-      ).catch((err) => console.warn('[share-image] cutout warm failed:', err));
-    }
 
     return new NextResponse(new Uint8Array(png), {
       status: 200,

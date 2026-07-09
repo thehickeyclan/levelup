@@ -1,4 +1,5 @@
 import type { ShareGraphicTheme } from './themes';
+import { SHARE_GRAPHIC_FONT_FAMILY, shareGraphicFontFaceBlock } from './embed-fonts';
 
 export type SessionShareGraphicContent = {
   firstName: string;
@@ -66,45 +67,37 @@ export function buildTextOverlaySvg(
 
   const footerH = 132;
   const footerY = height - footerH;
+  const font = SHARE_GRAPHIC_FONT_FAMILY;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <style>
-    .fn { font-family: Arial, Helvetica, sans-serif; font-weight: 800; font-size: 64px; letter-spacing: 2px; }
-    .ln { font-family: Arial, Helvetica, sans-serif; font-weight: 900; font-size: 78px; letter-spacing: 1px; }
-    .type { font-family: Arial, Helvetica, sans-serif; font-weight: 700; font-size: 34px; letter-spacing: 3px; }
-    .time { font-family: Arial, Helvetica, sans-serif; font-weight: 900; font-size: 88px; letter-spacing: 1px; }
-    .day { font-family: Arial, Helvetica, sans-serif; font-weight: 800; font-size: 30px; letter-spacing: 2px; }
-    .date { font-family: Arial, Helvetica, sans-serif; font-weight: 700; font-size: 28px; letter-spacing: 2px; }
-    .fac { font-family: Arial, Helvetica, sans-serif; font-weight: 800; font-size: 30px; letter-spacing: 1px; }
-    .ft { font-family: Arial, Helvetica, sans-serif; font-weight: 700; font-size: 20px; letter-spacing: 1.5px; }
-    .fv { font-family: Arial, Helvetica, sans-serif; font-weight: 800; font-size: 22px; letter-spacing: 1px; }
-    .brand { font-family: Arial, Helvetica, sans-serif; font-weight: 600; font-size: 16px; letter-spacing: 1px; opacity: 0.85; }
-  </style>
+  <defs>
+    <style>${shareGraphicFontFaceBlock()}</style>
+  </defs>
 
-  <text x="56" y="300" class="fn" fill="${theme.firstNameColor}">${fn}</text>
-  <text x="56" y="388" class="ln" fill="${theme.lastNameColor}">${ln}</text>
-  <text x="56" y="448" class="type" fill="${theme.sessionTypeColor}">${type}</text>
+  <text x="56" y="300" fill="${theme.firstNameColor}" font-family="${font}" font-weight="800" font-size="64" letter-spacing="2">${fn}</text>
+  <text x="56" y="388" fill="${theme.lastNameColor}" font-family="${font}" font-weight="800" font-size="78" letter-spacing="1">${ln}</text>
+  <text x="56" y="448" fill="${theme.sessionTypeColor}" font-family="${font}" font-weight="700" font-size="34" letter-spacing="3">${type}</text>
 
   <rect x="52" y="472" width="420" height="108" fill="none" stroke="${theme.timeBoxStroke}" stroke-width="4" rx="2"/>
-  <text x="68" y="548" class="time" fill="${theme.timeColor}">${time}</text>
+  <text x="68" y="548" fill="${theme.timeColor}" font-family="${font}" font-weight="800" font-size="88" letter-spacing="1">${time}</text>
 
-  <text x="56" y="612" class="day" fill="${theme.datePrimaryColor}">${day}</text>
-  <text x="56" y="648" class="date" fill="${theme.dateSecondaryColor}">${dateRest}</text>
-  <text x="56" y="710" class="fac" fill="${theme.facilityColor}">${facility}</text>
+  <text x="56" y="612" fill="${theme.datePrimaryColor}" font-family="${font}" font-weight="800" font-size="30" letter-spacing="2">${day}</text>
+  <text x="56" y="648" fill="${theme.dateSecondaryColor}" font-family="${font}" font-weight="700" font-size="28" letter-spacing="2">${dateRest}</text>
+  <text x="56" y="710" fill="${theme.facilityColor}" font-family="${font}" font-weight="800" font-size="30" letter-spacing="1">${facility}</text>
 
   <rect x="0" y="${footerY}" width="${width}" height="${footerH}" fill="#000" fill-opacity="0.92"/>
   <line x1="360" y1="${footerY + 24}" x2="360" y2="${footerY + footerH - 24}" stroke="${theme.footerDivider}" stroke-width="2"/>
   <line x1="720" y1="${footerY + 24}" x2="720" y2="${footerY + footerH - 24}" stroke="${theme.footerDivider}" stroke-width="2"/>
 
-  <text x="180" y="${footerY + 48}" class="ft" fill="${theme.footerLabelColor}" text-anchor="middle">${flt}</text>
-  <text x="180" y="${footerY + 82}" class="fv" fill="${theme.footerValueColor}" text-anchor="middle">${flv}</text>
+  <text x="180" y="${footerY + 48}" fill="${theme.footerLabelColor}" font-family="${font}" font-weight="700" font-size="20" letter-spacing="1.5" text-anchor="middle">${flt}</text>
+  <text x="180" y="${footerY + 82}" fill="${theme.footerValueColor}" font-family="${font}" font-weight="800" font-size="22" letter-spacing="1" text-anchor="middle">${flv}</text>
 
-  <text x="540" y="${footerY + 48}" class="ft" fill="${theme.footerLabelColor}" text-anchor="middle">${fct}</text>
-  <text x="540" y="${footerY + 82}" class="fv" fill="${theme.footerValueColor}" text-anchor="middle">${fcv}</text>
+  <text x="540" y="${footerY + 48}" fill="${theme.footerLabelColor}" font-family="${font}" font-weight="700" font-size="20" letter-spacing="1.5" text-anchor="middle">${fct}</text>
+  <text x="540" y="${footerY + 82}" fill="${theme.footerValueColor}" font-family="${font}" font-weight="800" font-size="22" letter-spacing="1" text-anchor="middle">${fcv}</text>
 
-  <text x="900" y="${footerY + 48}" class="ft" fill="${theme.footerLabelColor}" text-anchor="middle">${frt}</text>
-  <text x="900" y="${footerY + 82}" class="fv" fill="${theme.footerValueColor}" text-anchor="middle">${frv}</text>
+  <text x="900" y="${footerY + 48}" fill="${theme.footerLabelColor}" font-family="${font}" font-weight="700" font-size="20" letter-spacing="1.5" text-anchor="middle">${frt}</text>
+  <text x="900" y="${footerY + 82}" fill="${theme.footerValueColor}" font-family="${font}" font-weight="800" font-size="22" letter-spacing="1" text-anchor="middle">${frv}</text>
 
-  <text x="${width - 24}" y="${height - 20}" class="brand" fill="${theme.lastNameColor}" text-anchor="end">THE WRESTLING GUILD</text>
+  <text x="${width - 24}" y="${height - 20}" fill="${theme.lastNameColor}" font-family="${font}" font-weight="700" font-size="16" letter-spacing="1" opacity="0.85" text-anchor="end">THE WRESTLING GUILD</text>
 </svg>`;
 }

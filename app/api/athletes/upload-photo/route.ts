@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
+import { clearCoachPhotoCutout } from '@/lib/coach-photo-cutout';
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
     // Delete old photo if exists
     const { data: oldData } = await supabase
       .from('athletes')
-      .select('photo_url')
+      .select('photo_url, photo_cutout_url')
       .eq('id', user.id)
       .single();
 
@@ -82,9 +84,12 @@ export async function POST(req: NextRequest) {
       .getPublicUrl(data.path);
 
     // Persist to DB immediately so the photo shows even if profile save fails or is skipped
+    const admin = createAdminClient(tenant.slug);
+    await clearCoachPhotoCutout(admin, user.id, oldData?.photo_cutout_url);
+
     const { error: updateError } = await supabase
       .from('athletes')
-      .update({ photo_url: urlData.publicUrl })
+      .update({ photo_url: urlData.publicUrl, photo_cutout_url: null })
       .eq('id', user.id);
 
     if (updateError) {

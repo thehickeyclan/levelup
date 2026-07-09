@@ -6,6 +6,7 @@ import {
   type ShareGraphicThemeId,
 } from './themes';
 import type { BuildSessionShareGraphicInput } from './build-session-share-graphic';
+import { ensureCoachPhotoCutout } from '@/lib/coach-photo-cutout';
 
 type SessionRow = {
   id: string;
@@ -21,11 +22,17 @@ type SessionRow = {
     last_name?: string | null;
     school?: string | null;
     photo_url?: string | null;
+    photo_cutout_url?: string | null;
+    photo_focus_x?: number | null;
+    photo_focus_y?: number | null;
   } | {
     first_name?: string | null;
     last_name?: string | null;
     school?: string | null;
     photo_url?: string | null;
+    photo_cutout_url?: string | null;
+    photo_focus_x?: number | null;
+    photo_focus_y?: number | null;
   }[] | null;
 };
 
@@ -54,7 +61,7 @@ export async function fetchSessionShareGraphicInput(
       max_participants,
       price_per_participant,
       facilities(name),
-      athletes(first_name, last_name, school, photo_url)
+      athletes(first_name, last_name, school, photo_url, photo_cutout_url, photo_focus_x, photo_focus_y)
     `
     )
     .eq('id', sessionId)
@@ -71,6 +78,20 @@ export async function fetchSessionShareGraphicInput(
   const themeOverride = parseShareGraphicThemeId(opts.themeOverride);
   const themeId = resolveShareGraphicTheme(school, themeOverride);
 
+  const photoUrl = resolvePhotoUrl(athlete?.photo_url, opts.appOrigin);
+  let cutoutUrl = resolvePhotoUrl(athlete?.photo_cutout_url, opts.appOrigin);
+  if (photoUrl && !cutoutUrl && row.athlete_id) {
+    cutoutUrl = resolvePhotoUrl(
+      await ensureCoachPhotoCutout(
+        admin,
+        row.athlete_id,
+        athlete?.photo_url,
+        athlete?.photo_cutout_url
+      ),
+      opts.appOrigin
+    );
+  }
+
   return {
     themeId,
     input: {
@@ -85,7 +106,10 @@ export async function fetchSessionShareGraphicInput(
       maxParticipants: Number(row.max_participants) || 6,
       pricePerParticipant:
         row.price_per_participant != null ? Number(row.price_per_participant) : null,
-      coachPhotoUrl: resolvePhotoUrl(athlete?.photo_url, opts.appOrigin),
+      coachPhotoUrl: photoUrl,
+      coachPhotoCutoutUrl: cutoutUrl,
+      photoFocusX: athlete?.photo_focus_x ?? 50,
+      photoFocusY: athlete?.photo_focus_y ?? 15,
     },
   };
 }

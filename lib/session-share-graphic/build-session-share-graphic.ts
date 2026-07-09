@@ -12,6 +12,7 @@ import {
   truncateUpper,
   type SessionShareGraphicContent,
 } from './build-overlay-svg';
+import { buildCoachPhotoOverlay } from './build-coach-photo-overlay';
 
 export const SHARE_GRAPHIC_WIDTH = 1080;
 export const SHARE_GRAPHIC_HEIGHT = 1440;
@@ -28,6 +29,9 @@ export type BuildSessionShareGraphicInput = {
   maxParticipants: number;
   pricePerParticipant: number | null;
   coachPhotoUrl: string | null;
+  coachPhotoCutoutUrl?: string | null;
+  photoFocusX?: number;
+  photoFocusY?: number;
 };
 
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
@@ -121,16 +125,14 @@ export async function buildSessionShareGraphic(input: BuildSessionShareGraphicIn
 
   const overlays: OverlayOptions[] = [];
 
-  if (input.coachPhotoUrl) {
-    const photoBuf = await fetchImageBuffer(input.coachPhotoUrl);
-    if (photoBuf) {
-      const photo = await sharp(photoBuf)
-        .resize(520, 1080, { fit: 'cover', position: 'top' })
-        .png()
-        .toBuffer();
-      overlays.push({ input: photo, top: 200, left: 548, blend: 'over' });
-    }
-  }
+  const photoOverlay = await buildCoachPhotoOverlay({
+    cutoutUrl: input.coachPhotoCutoutUrl ?? null,
+    photoUrl: input.coachPhotoUrl,
+    photoFocusX: input.photoFocusX ?? 50,
+    photoFocusY: input.photoFocusY ?? 15,
+    fetchImage: fetchImageBuffer,
+  });
+  if (photoOverlay) overlays.push(photoOverlay);
 
   overlays.push({
     input: Buffer.from(buildLeftScrimSvg(SHARE_GRAPHIC_WIDTH, SHARE_GRAPHIC_HEIGHT)),

@@ -89,30 +89,40 @@ function buildContent(input: BuildSessionShareGraphicInput): SessionShareGraphic
   const dateRest = formatEST(dt, 'MMMM d, yyyy').toUpperCase();
   const time = formatEST(dt, 'h:mm a').toUpperCase();
 
-  const facilityShort = truncateUpper(input.facilityName.replace(/\s+/g, ' '), 42);
+  const facilityShort = truncateUpper(input.facilityName.replace(/\s+/g, ' '), 36);
   const schoolShort = truncateUpper(input.schoolLabel, 18);
   const coachName = truncateUpper(`${input.firstName} ${input.lastName}`.trim(), 22);
 
   let footerLeftTitle = typeDisplay.label.toUpperCase();
+  let sessionStatusLabel = typeDisplay.label.toUpperCase();
   let footerLeftValue = '';
   if (typeKey === 'small_group') {
     footerLeftValue = `LIMITED TO ${input.maxParticipants} WRESTLERS`;
+    sessionStatusLabel = `${input.maxParticipants} SPOTS`;
   } else if (typeKey === 'partner') {
     footerLeftValue = 'LIMITED TO 2 WRESTLERS';
+    sessionStatusLabel = '2 SPOTS';
   } else {
     footerLeftValue = '1-ON-1 SESSION';
+    sessionStatusLabel = 'PRIVATE';
   }
 
   const facilityFooter = truncateUpper(input.facilityName.split(/\s+/).slice(-2).join(' ') || input.facilityName, 22);
+  const facilityLine =
+    schoolShort && !facilityShort.toUpperCase().includes(schoolShort)
+      ? `${schoolShort} ${facilityShort}`
+      : facilityShort;
 
   return {
     firstName: truncateUpper(input.firstName, 14),
     lastName: truncateUpper(input.lastName, 16),
+    schoolLabel: schoolShort,
     sessionTypeLabel: typeDisplay.label.toUpperCase(),
+    sessionStatusLabel: truncateUpper(sessionStatusLabel, 14),
     timeLabel: time,
     dateDayLabel: day,
     dateRestLabel: dateRest,
-    facilityLine: `AT ${facilityShort}`,
+    facilityLine: truncateUpper(facilityLine, 42),
     footerLeftTitle,
     footerLeftValue: truncateUpper(footerLeftValue, 28),
     footerCenterTitle: coachName,

@@ -13,16 +13,25 @@ let cachedFontFiles: string[] | null = null;
 export function resolveShareGraphicFontFiles(): string[] {
   if (cachedFontFiles) return cachedFontFiles;
 
-  const names = ['Inter-Bold.ttf', 'Inter-ExtraBold.ttf'];
   const found: string[] = [];
+  const preferred = [
+    'BebasNeue-Regular.ttf',
+    'KaushanScript-Regular.ttf',
+    'Inter-Bold.ttf',
+    'Inter-ExtraBold.ttf',
+  ];
 
-  for (const name of names) {
-    for (const dir of FONT_DIR_CANDIDATES) {
+  for (const dir of FONT_DIR_CANDIDATES) {
+    if (!fs.existsSync(dir)) continue;
+    for (const name of preferred) {
       const candidate = path.join(dir, name);
-      if (fs.existsSync(candidate)) {
-        found.push(candidate);
-        break;
-      }
+      if (fs.existsSync(candidate)) found.push(candidate);
+    }
+    // Any extra bundled TTFs (future skins)
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.endsWith('.ttf')) continue;
+      const candidate = path.join(dir, name);
+      if (!found.includes(candidate)) found.push(candidate);
     }
   }
 
@@ -30,7 +39,7 @@ export function resolveShareGraphicFontFiles(): string[] {
   return found;
 }
 
-/** Rasterize SVG overlay (with text) to PNG using bundled Inter fonts. */
+/** Rasterize SVG overlay (with text) to PNG using bundled fonts. */
 export function rasterizeShareOverlaySvg(svg: string): Buffer {
   const fontFiles = resolveShareGraphicFontFiles();
   if (fontFiles.length === 0) {
@@ -46,5 +55,3 @@ export function rasterizeShareOverlaySvg(svg: string): Buffer {
 
   return Buffer.from(resvg.render().asPng());
 }
-
-export const SHARE_GRAPHIC_FONT_FAMILY = 'Inter';

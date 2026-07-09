@@ -414,7 +414,7 @@ export default function ListingDetailClient() {
   );
 
   return (
-    <div className="min-h-screen pb-24 bg-background">
+    <div className="min-h-screen pb-[calc(8rem+env(safe-area-inset-bottom,0px))] md:pb-24 bg-background">
       <div className="px-4 pt-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3">
           <Link
@@ -719,7 +719,7 @@ export default function ListingDetailClient() {
         showSellMakeOfferCta ||
         showBuyCta ||
         (isCollection && isActive && !isSeller && !collectionOffersOpen)) ? (
-        <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-3 bg-gradient-to-t from-background via-background/98 to-transparent">
+        <div className="md:hidden fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 px-4 pb-2 pt-3 bg-gradient-to-t from-background via-background/98 to-transparent">
           {isCollection && isActive && !collectionOffersOpen ? (
             collectionShowcaseBlock
           ) : showCollectionOfferCta ? (

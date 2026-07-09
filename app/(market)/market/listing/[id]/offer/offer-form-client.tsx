@@ -311,7 +311,7 @@ export function OfferFormClient({
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <div className="fixed bottom-16 left-0 right-0 z-30 px-4 pb-2 pt-2 bg-gradient-to-t from-black via-black/95 to-transparent">
+      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 px-4 pb-2 pt-2 bg-gradient-to-t from-black via-black/95 to-transparent">
         <Button
           className="w-full min-h-[48px] bg-accent text-accent-foreground font-semibold rounded-full hover:bg-accent/90"
           onClick={submit}

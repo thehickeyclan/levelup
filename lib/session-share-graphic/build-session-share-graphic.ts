@@ -175,10 +175,19 @@ function buildContent(input: BuildSessionShareGraphicInput): SessionShareGraphic
   };
 }
 
-const SHARE_GRAPHIC_QR_SIZE = 168;
-const SHARE_GRAPHIC_QR_MARGIN = 44;
+/** Keep QR compact so it stays in the photo corner and clear of left-column copy. */
+const SHARE_GRAPHIC_QR_SIZE = 120;
+const SHARE_GRAPHIC_QR_PAD = 8;
+const SHARE_GRAPHIC_QR_EDGE = 36;
+/** Left edge of QR must stay right of the text column (~548) with breathing room. */
+const SHARE_GRAPHIC_QR_MIN_LEFT = 720;
+/** Sit above the guild footer band when present (132px). */
+const SHARE_GRAPHIC_QR_FOOTER_CLEARANCE = 148;
 
-async function buildBookingQrOverlay(bookingUrl: string): Promise<OverlayOptions | null> {
+async function buildBookingQrOverlay(
+  bookingUrl: string,
+  opts?: { clearFooter?: boolean }
+): Promise<OverlayOptions | null> {
   try {
     const qrBuffer = await QRCode.toBuffer(bookingUrl, {
       width: SHARE_GRAPHIC_QR_SIZE,
@@ -187,23 +196,30 @@ async function buildBookingQrOverlay(bookingUrl: string): Promise<OverlayOptions
       color: { dark: '#0a0a0a', light: '#ffffff' },
       type: 'png',
     });
-    const pad = 10;
-    const frameSize = SHARE_GRAPHIC_QR_SIZE + pad * 2;
+    const frameSize = SHARE_GRAPHIC_QR_SIZE + SHARE_GRAPHIC_QR_PAD * 2;
     const framed = await sharp(qrBuffer)
       .extend({
-        top: pad,
-        bottom: pad,
-        left: pad,
-        right: pad,
+        top: SHARE_GRAPHIC_QR_PAD,
+        bottom: SHARE_GRAPHIC_QR_PAD,
+        left: SHARE_GRAPHIC_QR_PAD,
+        right: SHARE_GRAPHIC_QR_PAD,
         background: '#ffffff',
       })
       .png()
       .toBuffer();
 
+    const bottomClearance = opts?.clearFooter
+      ? SHARE_GRAPHIC_QR_FOOTER_CLEARANCE
+      : SHARE_GRAPHIC_QR_EDGE;
+    const left = Math.max(
+      SHARE_GRAPHIC_QR_MIN_LEFT,
+      SHARE_GRAPHIC_WIDTH - frameSize - SHARE_GRAPHIC_QR_EDGE
+    );
+
     return {
       input: framed,
-      top: SHARE_GRAPHIC_HEIGHT - frameSize - SHARE_GRAPHIC_QR_MARGIN,
-      left: SHARE_GRAPHIC_WIDTH - frameSize - SHARE_GRAPHIC_QR_MARGIN,
+      top: SHARE_GRAPHIC_HEIGHT - frameSize - bottomClearance,
+      left,
     };
   } catch (err) {
     console.warn('[buildShareGraphic] QR overlay failed:', err);
@@ -272,7 +288,9 @@ async function compositeShareGraphicLayers(
   });
 
   if (opts?.bookingUrl) {
-    const qrOverlay = await buildBookingQrOverlay(opts.bookingUrl);
+    const qrOverlay = await buildBookingQrOverlay(opts.bookingUrl, {
+      clearFooter: themeId === 'guild',
+    });
     if (qrOverlay) overlays.push(qrOverlay);
   }
 

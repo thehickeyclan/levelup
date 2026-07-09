@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { CoachScheduleWelcomeBanner } from '@/components/coach-schedule-welcome-banner';
+import { CoachScheduleEarningsSnapshot } from '@/components/coach/coach-schedule-earnings-snapshot';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,10 @@ type Props = {
   coachDisplayName: string;
   calendarLastUpdatedAt?: string | null;
   initialTab?: ScheduleTab;
+  thisMonthEarnings?: number;
+  thisMonthSessionCount?: number;
+  projectedEarnings?: number;
+  upcomingSessionCount?: number;
 };
 
 function facilityLabel(s: CoachSession): string {
@@ -98,6 +103,10 @@ export function CoachScheduleClient({
   coachDisplayName,
   calendarLastUpdatedAt,
   initialTab = 'upcoming',
+  thisMonthEarnings = 0,
+  thisMonthSessionCount = 0,
+  projectedEarnings = 0,
+  upcomingSessionCount = 0,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -142,6 +151,13 @@ export function CoachScheduleClient({
       <CoachScheduleWelcomeBanner
         coachFirstName={coachFirstName}
         calendarLastUpdatedAt={calendarLastUpdatedAt}
+      />
+
+      <CoachScheduleEarningsSnapshot
+        thisMonthEarnings={thisMonthEarnings}
+        thisMonthSessionCount={thisMonthSessionCount}
+        projectedEarnings={projectedEarnings}
+        upcomingSessionCount={upcomingSessionCount}
       />
 
       <Tabs value={tab} onValueChange={(v) => goTab(v as ScheduleTab)} className="w-full">

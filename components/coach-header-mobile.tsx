@@ -73,9 +73,6 @@ export function CoachHeaderMobile({ onSignOut }: Props) {
             <Link href="/athlete-dashboard" className={linkClass} onClick={() => setOpen(false)}>
               Schedule
             </Link>
-            <Link href="/coach-dashboard" className={linkClass} onClick={() => setOpen(false)}>
-              Dashboard
-            </Link>
             <Link href="/coach-sessions/create" className={linkClass} onClick={() => setOpen(false)}>
               Create session
             </Link>

@@ -226,12 +226,6 @@ export function Header() {
                     Profile
                   </Link>
                   <Link
-                    href="/coach-dashboard"
-                    className="text-white/90 hover:text-accent transition-colors font-medium text-sm"
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
                     href="/inbox"
                     className="relative flex items-center justify-center min-h-[44px] min-w-[44px] p-1.5 text-white hover:text-accent transition-colors font-medium rounded hover:bg-white/10"
                     aria-label={inboxUnreadCount > 0 ? `Messages (${inboxUnreadCount} unread)` : 'Messages'}

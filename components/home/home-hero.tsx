@@ -8,31 +8,20 @@ import type { FeaturedCoachStrip } from '@/lib/home/fetch-featured-coaches';
 type Props = {
   coaches: FeaturedCoachStrip[];
   logoSrc?: string;
-  /** Compact G mark — mobile hero (full lockup is too tall on small screens). */
-  compactLogoSrc?: string;
   logoAlt?: string;
 };
 
-export function HomeHero({ coaches, logoSrc, compactLogoSrc, logoAlt }: Props) {
+export function HomeHero({ coaches, logoSrc, logoAlt }: Props) {
   return (
     <section className="relative flex flex-col items-center justify-center bg-black px-6 py-8 sm:min-h-[65svh] sm:py-12">
       {logoSrc && (
-        <>
-          <div className="mb-4 sm:hidden">
-            <HomeHeroLogo
-              src={compactLogoSrc ?? logoSrc}
-              alt={logoAlt ?? 'The Wrestling Guild'}
-              className="h-auto w-full max-w-[160px] object-contain mx-auto"
-            />
-          </div>
-          <div className="mb-5 hidden sm:block sm:mb-8">
-            <HomeHeroLogo
-              src={logoSrc}
-              alt={logoAlt ?? 'The Wrestling Guild'}
-              className="h-auto w-full max-w-[min(90vw,360px)] object-contain sm:max-w-[400px]"
-            />
-          </div>
-        </>
+        <div className="mb-4 sm:mb-8">
+          <HomeHeroLogo
+            src={logoSrc}
+            alt={logoAlt ?? 'The Wrestling Guild'}
+            className="mx-auto h-auto w-full max-w-[240px] object-contain sm:max-w-[min(90vw,360px)] md:max-w-[400px]"
+          />
+        </div>
       )}
 
       <h1 className="mb-3 max-w-3xl text-center font-serif text-2xl font-black uppercase leading-snug tracking-wide text-accent sm:text-4xl md:text-5xl">

@@ -332,7 +332,7 @@ export default async function CoachHelpPage() {
                 <strong className="text-foreground">Create session</strong> — small-group or partner sessions parents can join.
               </li>
               <li>
-                <strong className="text-foreground">Dashboard</strong> — earnings snapshot and reviews (not your hourly calendar).
+                <strong className="text-foreground">Earnings</strong> — payouts, session history, reviews, and growth tips.
               </li>
             </ul>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -343,7 +343,7 @@ export default async function CoachHelpPage() {
                 <Link href="/coach-sessions">My sessions</Link>
               </Button>
               <Button asChild variant="outline" className="min-h-[44px]">
-                <Link href="/coach-dashboard">Dashboard</Link>
+                <Link href="/coach-earnings">Earnings</Link>
               </Button>
             </div>
           </CardContent>

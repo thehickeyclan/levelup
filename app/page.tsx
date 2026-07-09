@@ -74,7 +74,6 @@ export default async function HomePage({
       <HomeHero
         coaches={stripCoaches}
         logoSrc={tenant?.heroLogo ?? tenant?.logo}
-        compactLogoSrc={tenant?.logo}
         logoAlt={tenant?.productName}
       />
       <MeetCoachesSection coaches={featuredCoaches} />

@@ -3,16 +3,13 @@ import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
-import { Card, CardContent } from '@/components/ui/card';
-import { DollarSign, TrendingUp, Clock } from 'lucide-react';
-import { formatEST } from '@/lib/format-date';
-import { coachRevenueSharePercentDisplay, normalizeCoachRevenueShareRate } from '@/lib/pricing';
-import { CoachRankCard } from '@/components/coach-rank-card';
-import { formatUsdTwoDecimals } from '@/lib/coach-session-payout';
+import { isProfileComplete } from '@/lib/athletes';
+import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
 import {
   fetchPastSessionsForCoachEarnings,
   summarizeCoachEarningsFromPastSessions,
 } from '@/lib/coach-earnings-summary-server';
+import { CoachEarningsClient } from '@/components/coach/coach-earnings-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +28,7 @@ export default async function CoachEarningsPage() {
 
   const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
   if (userData?.role !== 'coach' && userData?.role !== 'admin') {
+    if (userData?.role === 'parent') redirect('/browse');
     redirect('/login');
   }
 
@@ -38,26 +36,61 @@ export default async function CoachEarningsPage() {
   const viewAsCoachId =
     userData?.role === 'admin' ? cookieStore.get('levelup_view_as_coach_id')?.value : null;
   const coachId = viewAsCoachId || user.id;
+  const isViewingAsCoach = !!viewAsCoachId;
 
-  // Service role so admins "viewing as coach" still read that coach's sessions (RLS is auth.uid()-scoped).
   const admin = createAdminClient(tenant.slug);
 
   const { data: athlete } =
     userData?.role === 'admin'
-      ? await admin.from('athletes').select('first_name, payout_rate').eq('id', coachId).maybeSingle()
-      : await supabase.from('athletes').select('first_name, payout_rate').eq('id', coachId).maybeSingle();
+      ? await admin.from('athletes').select('*').eq('id', coachId).maybeSingle()
+      : await supabase.from('athletes').select('*').eq('id', coachId).maybeSingle();
 
+  if (!athlete) {
+    if (isViewingAsCoach) {
+      return (
+        <div className="container mx-auto px-4 py-8 text-center">
+          <h1 className="text-xl font-semibold mb-2">Coach not found</h1>
+          <p className="text-muted-foreground">Select a different coach from the dropdown above.</p>
+        </div>
+      );
+    }
+    if (userData?.role === 'admin' && !viewAsCoachId) {
+      return (
+        <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-2xl">
+          <CoachEarningsClient
+            coachId={coachId}
+            payoutRate={0.8}
+            thisMonthEarnings={0}
+            allTimeEarnings={0}
+            projectedEarnings={0}
+            upcomingSessionCount={0}
+            thisMonthSessionCount={0}
+            totalPastSessionCount={0}
+            averageRating={null}
+            reviewCount={0}
+            recentReviews={[]}
+            earningsSessions={[]}
+            needsOnboarding={false}
+            adminPickCoachHint
+            showLeaderboard={false}
+          />
+        </div>
+      );
+    }
+    redirect('/onboarding');
+  }
+
+  const coachStatus = athlete.status || 'active';
+  if (!isViewingAsCoach && coachStatus === 'pending') redirect('/coach-pending');
+  if (!isViewingAsCoach && coachStatus === 'rejected') redirect('/coach-pending');
+
+  const needsOnboarding = !isViewingAsCoach && !isProfileComplete(athlete);
   const payoutRate = normalizeCoachRevenueShareRate(
     athlete?.payout_rate != null ? Number(athlete.payout_rate) : null
   );
-  const payoutPercentDisplay = coachRevenueSharePercentDisplay(
-    athlete?.payout_rate != null ? Number(athlete.payout_rate) : null
-  );
-
   const nowIso = new Date().toISOString();
 
   const pastSessionsRaw = await fetchPastSessionsForCoachEarnings(admin, coachId, nowIso);
-
   const {
     earningsSessions,
     thisMonthSessions,
@@ -66,138 +99,67 @@ export default async function CoachEarningsPage() {
     allTimeEarnings,
   } = summarizeCoachEarningsFromPastSessions(pastSessionsRaw, payoutRate, nowIso);
 
-  const totalSessions = earningsSessions.length;
-
   const { data: upcomingSessions } = await admin
     .from('sessions')
-    .select('id, scheduled_datetime, total_price, session_type, current_participants, max_participants, session_payout_rate')
+    .select('id, total_price, session_payout_rate')
     .eq('athlete_id', coachId)
     .eq('status', 'scheduled')
-    .gte('scheduled_datetime', nowIso)
-    .order('scheduled_datetime', { ascending: true })
-    .limit(10);
+    .gte('scheduled_datetime', nowIso);
 
   const projectedEarnings = (upcomingSessions ?? []).reduce((sum, s) => {
     const rate = normalizeCoachRevenueShareRate(
       s.session_payout_rate != null ? Number(s.session_payout_rate) : payoutRate
     );
-    const totalPrice = Number(s.total_price || 0);
-    return sum + totalPrice * rate;
+    return sum + Number(s.total_price || 0) * rate;
   }, 0);
+
+  const reviewsDb = admin ?? supabase;
+  const { count: reviewCount } = await reviewsDb
+    .from('reviews')
+    .select('*', { count: 'exact', head: true })
+    .eq('athlete_id', coachId);
+
+  const { data: recentReviewsRaw } = await reviewsDb
+    .from('reviews')
+    .select('id, rating, comment, created_at, users(first_name)')
+    .eq('athlete_id', coachId)
+    .order('created_at', { ascending: false })
+    .limit(3);
+
+  const recentReviews = (recentReviewsRaw ?? []).map((r) => ({
+    id: r.id as string,
+    rating: r.rating as number,
+    comment: r.comment as string | null,
+    created_at: r.created_at as string,
+    users: Array.isArray(r.users) ? r.users[0] ?? null : r.users,
+  }));
+
+  const earningsSessionsWithPayout = earningsSessions.map((session) => ({
+    id: session.id,
+    scheduled_datetime: session.scheduled_datetime,
+    session_type: session.session_type,
+    current_participants: session.current_participants,
+    payout: getSessionPayout(session),
+  }));
 
   return (
     <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-2xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Earnings</h1>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">Your rate</p>
-          <p className="font-semibold text-foreground">
-            {payoutPercentDisplay}%
-            {payoutRate >= 0.9 && (
-              <span className="ml-1 text-xs text-accent font-medium">(Founding Coach)</span>
-            )}
-          </p>
-        </div>
-      </div>
-
-      {!(userData?.role === 'admin' && !viewAsCoachId) ? (
-        <div className="mb-6">
-          <CoachRankCard coachId={coachId} topSessionsListSize={5} />
-        </div>
-      ) : null}
-
-      {userData?.role === 'admin' && !viewAsCoachId && (
-        <p className="text-sm text-muted-foreground mb-4 rounded-md border border-border bg-muted/30 px-3 py-2">
-          Choose a coach in the header to see that coach&apos;s earnings. You&apos;re signed in as admin.
-        </p>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <DollarSign className="h-4 w-4" />
-              <span className="text-sm">This Month</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">${formatUsdTwoDecimals(thisMonthEarnings)}</p>
-            <p className="text-xs text-muted-foreground">
-              {thisMonthSessions.length} session{thisMonthSessions.length !== 1 ? 's' : ''}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-sm">All Time</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">${formatUsdTwoDecimals(allTimeEarnings)}</p>
-            <p className="text-xs text-muted-foreground">
-              {totalSessions} session{totalSessions !== 1 ? 's' : ''}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {projectedEarnings > 0 && (
-        <Card className="mb-6 border-accent/30 bg-accent/5">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-accent mb-1">
-              <Clock className="h-4 w-4" />
-              <span className="text-sm font-medium">Projected from upcoming sessions</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">${formatUsdTwoDecimals(projectedEarnings)}</p>
-            <p className="text-xs text-muted-foreground">
-              {upcomingSessions?.length ?? 0} upcoming session{(upcomingSessions?.length ?? 0) !== 1 ? 's' : ''}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">
-            Your payout rate:{' '}
-            <span className="font-medium text-foreground">{payoutPercentDisplay}%</span>
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            You earn {payoutPercentDisplay}% of each session&apos;s total price after payment processing.
-          </p>
-        </CardContent>
-      </Card>
-
-      <section>
-        <h2 className="text-lg font-semibold text-foreground mb-3">Recent Sessions</h2>
-        {earningsSessions.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">
-                No past sessions with earnings yet. Completed sessions and past bookings you haven&apos;t closed out appear
-                here.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {earningsSessions.slice(0, 10).map((session) => (
-              <Card key={session.id}>
-                <CardContent className="p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {formatEST(new Date(session.scheduled_datetime!), 'MMM d, yyyy')}
-                    </p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {session.session_type?.replace('_', ' ') ?? 'Session'} · {session.current_participants ?? 1} athlete
-                      {(session.current_participants ?? 1) !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <p className="text-lg font-bold text-emerald-500">+${formatUsdTwoDecimals(getSessionPayout(session))}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
+      <CoachEarningsClient
+        coachId={coachId}
+        payoutRate={payoutRate}
+        thisMonthEarnings={thisMonthEarnings}
+        allTimeEarnings={allTimeEarnings}
+        projectedEarnings={projectedEarnings}
+        upcomingSessionCount={upcomingSessions?.length ?? 0}
+        thisMonthSessionCount={thisMonthSessions.length}
+        totalPastSessionCount={earningsSessions.length}
+        averageRating={athlete?.average_rating ?? null}
+        reviewCount={reviewCount ?? 0}
+        recentReviews={recentReviews}
+        earningsSessions={earningsSessionsWithPayout}
+        needsOnboarding={needsOnboarding}
+        showLeaderboard={!(userData?.role === 'admin' && !viewAsCoachId)}
+      />
     </div>
   );
 }

@@ -3,6 +3,11 @@ import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { getTenantByDomain } from '@/config/tenants';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
+import {
+  fetchPastSessionsForCoachEarnings,
+  summarizeCoachEarningsFromPastSessions,
+} from '@/lib/coach-earnings-summary-server';
 import { CoachScheduleClient, type JoinRequestItem, type ScheduleTab } from './coach-schedule-client';
 import type { CoachSession } from './coach-schedule-card';
 
@@ -162,6 +167,22 @@ export default async function CoachHomePage({
       ? calendarCandidates.reduce((a, b) => (new Date(a) > new Date(b) ? a : b))
       : null;
 
+  const payoutRate = normalizeCoachRevenueShareRate(
+    athlete?.payout_rate != null ? Number(athlete.payout_rate) : null
+  );
+  const pastSessionsRaw = await fetchPastSessionsForCoachEarnings(admin ?? supabase, coachId, nowIso);
+  const { thisMonthSessions, thisMonthEarnings } = summarizeCoachEarningsFromPastSessions(
+    pastSessionsRaw,
+    payoutRate,
+    nowIso
+  );
+  const projectedEarnings = (upcomingSessions ?? []).reduce((sum, s) => {
+    const rate = normalizeCoachRevenueShareRate(
+      s.session_payout_rate != null ? Number(s.session_payout_rate) : payoutRate
+    );
+    return sum + Number(s.total_price || 0) * rate;
+  }, 0);
+
   return (
     <div className="container mx-auto px-4 py-4 pb-24 md:py-8 max-w-lg md:max-w-full">
       <CoachScheduleClient
@@ -172,6 +193,10 @@ export default async function CoachHomePage({
         coachDisplayName={coachDisplayName}
         calendarLastUpdatedAt={calendarLastUpdatedAt}
         initialTab={initialTab}
+        thisMonthEarnings={thisMonthEarnings}
+        thisMonthSessionCount={thisMonthSessions.length}
+        projectedEarnings={projectedEarnings}
+        upcomingSessionCount={upcomingSessions?.length ?? 0}
       />
     </div>
   );

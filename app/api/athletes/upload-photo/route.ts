@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
-import { clearCoachPhotoCutout } from '@/lib/coach-photo-cutout';
+import { clearCoachPhotoCutout, ensureCoachPhotoCutout } from '@/lib/coach-photo-cutout';
 
 export async function POST(req: NextRequest) {
   try {
@@ -96,6 +96,10 @@ export async function POST(req: NextRequest) {
       console.error('Failed to save photo_url to athletes:', updateError);
       // Still return the URL so the client can retry profile save with it
     }
+
+    void ensureCoachPhotoCutout(admin, user.id, urlData.publicUrl, null).catch((err) =>
+      console.warn('[upload-photo] cutout generation failed:', err)
+    );
 
     return NextResponse.json({ photoUrl: urlData.publicUrl });
   } catch (error: any) {

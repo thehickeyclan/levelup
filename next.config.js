@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  outputFileTracingIncludes: {
+    '/api/sessions/[id]/share-image': [
+      './public/share-templates/**/*',
+      './lib/session-share-graphic/fonts/**/*',
+    ],
+  },
   env: {
     NEXT_PUBLIC_REWARDS_PROGRAM_ENABLED:
       process.env.NEXT_PUBLIC_REWARDS_PROGRAM_ENABLED === 'true' ||

@@ -1,29 +1,59 @@
 import fs from 'fs';
 import path from 'path';
 
-const FONT_DIR = path.join(process.cwd(), 'lib/session-share-graphic/fonts');
-
 let cachedFontFaceBlock: string | null = null;
 
-/** Embedded @font-face for sharp/librsvg on Linux (Vercel has no Arial). */
-export function shareGraphicFontFaceBlock(): string {
-  if (cachedFontFaceBlock) return cachedFontFaceBlock;
+function readFirstExistingFont(
+  fileNames: string[]
+): { buffer: Buffer; mime: string; format: string } | null {
+  const dirs = [
+    path.join(process.cwd(), 'public/share-templates/fonts'),
+    path.join(process.cwd(), 'lib/session-share-graphic/fonts'),
+  ];
+  for (const fileName of fileNames) {
+    for (const dir of dirs) {
+      const candidate = path.join(dir, fileName);
+      try {
+        if (fs.existsSync(candidate)) {
+          const buffer = fs.readFileSync(candidate);
+          if (fileName.endsWith('.ttf')) {
+            return { buffer, mime: 'font/ttf', format: 'truetype' };
+          }
+          return { buffer, mime: 'font/woff2', format: 'woff2' };
+        }
+      } catch {
+        // try next
+      }
+    }
+  }
+  return null;
+}
 
-  const bold = fs.readFileSync(path.join(FONT_DIR, 'Inter-Bold.woff2'));
-  const extraBold = fs.readFileSync(path.join(FONT_DIR, 'Inter-ExtraBold.woff2'));
+/** Embedded @font-face for sharp/librsvg on Linux (Vercel has no system Arial). */
+export function shareGraphicFontFaceBlock(): string {
+  if (cachedFontFaceBlock !== null) return cachedFontFaceBlock;
+
+  const bold = readFirstExistingFont(['Inter-Bold.ttf', 'Inter-Bold.woff2']);
+  const extraBold = readFirstExistingFont(['Inter-ExtraBold.ttf', 'Inter-ExtraBold.woff2']);
+
+  if (!bold || !extraBold) {
+    console.warn('[shareGraphicFontFaceBlock] fonts missing — text may not render');
+    cachedFontFaceBlock = '';
+    return cachedFontFaceBlock;
+  }
 
   cachedFontFaceBlock = `
   @font-face {
     font-family: 'ShareGraphic';
     font-weight: 700;
     font-style: normal;
-    src: url('data:font/woff2;base64,${bold.toString('base64')}') format('woff2');
+    src: url('data:${bold.mime};base64,${bold.buffer.toString('base64')}') format('${bold.format}');
   }
   @font-face {
     font-family: 'ShareGraphic';
     font-weight: 800;
     font-style: normal;
-    src: url('data:font/woff2;base64,${extraBold.toString('base64')}') format('woff2');
+    src: url('data:${extraBold.mime};base64,${extraBold.buffer.toString('base64')}') format('${extraBold.format}');
   }`;
 
   return cachedFontFaceBlock;

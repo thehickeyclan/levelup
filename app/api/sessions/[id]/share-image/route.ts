@@ -5,8 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 import { buildSessionShareGraphic } from '@/lib/session-share-graphic/build-session-share-graphic';
 import { fetchSessionShareGraphicInput } from '@/lib/session-share-graphic/fetch-session-share-graphic-input';
+import { ensureCoachPhotoCutout } from '@/lib/coach-photo-cutout';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function GET(
   req: NextRequest,
@@ -66,6 +68,16 @@ export async function GET(
 
     const png = await buildSessionShareGraphic(payload.input);
 
+    // Warm cutout cache for next preview — never block the response on remove.bg.
+    if (payload.input.coachPhotoUrl && !payload.input.coachPhotoCutoutUrl && session.athlete_id) {
+      void ensureCoachPhotoCutout(
+        admin,
+        session.athlete_id as string,
+        payload.input.coachPhotoUrl,
+        null
+      ).catch((err) => console.warn('[share-image] cutout warm failed:', err));
+    }
+
     return new NextResponse(new Uint8Array(png), {
       status: 200,
       headers: {
@@ -75,7 +87,8 @@ export async function GET(
       },
     });
   } catch (e) {
-    console.error('[sessions share-image GET]', e);
-    return NextResponse.json({ error: 'Failed to generate image' }, { status: 500 });
+    const message = e instanceof Error ? e.message : String(e);
+    console.error('[sessions share-image GET]', message, e);
+    return NextResponse.json({ error: 'Failed to generate image', detail: message }, { status: 500 });
   }
 }

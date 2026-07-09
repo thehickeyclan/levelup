@@ -6,7 +6,16 @@ import {
   type ShareGraphicThemeId,
 } from './themes';
 import type { BuildSessionShareGraphicInput } from './build-session-share-graphic';
-import { ensureCoachPhotoCutout } from '@/lib/coach-photo-cutout';
+
+type AthleteGraphicRow = {
+  first_name?: string | null;
+  last_name?: string | null;
+  school?: string | null;
+  photo_url?: string | null;
+  photo_cutout_url?: string | null;
+  photo_focus_x?: number | null;
+  photo_focus_y?: number | null;
+};
 
 type SessionRow = {
   id: string;
@@ -17,24 +26,32 @@ type SessionRow = {
   max_participants: number | null;
   price_per_participant: number | null;
   facilities?: { name?: string | null } | { name?: string | null }[] | null;
-  athletes?: {
-    first_name?: string | null;
-    last_name?: string | null;
-    school?: string | null;
-    photo_url?: string | null;
-    photo_cutout_url?: string | null;
-    photo_focus_x?: number | null;
-    photo_focus_y?: number | null;
-  } | {
-    first_name?: string | null;
-    last_name?: string | null;
-    school?: string | null;
-    photo_url?: string | null;
-    photo_cutout_url?: string | null;
-    photo_focus_x?: number | null;
-    photo_focus_y?: number | null;
-  }[] | null;
+  athletes?: AthleteGraphicRow | AthleteGraphicRow[] | null;
 };
+
+const SESSION_SELECT_WITH_CUTOUT = `
+  id,
+  athlete_id,
+  session_type,
+  session_mode,
+  scheduled_datetime,
+  max_participants,
+  price_per_participant,
+  facilities(name),
+  athletes(first_name, last_name, school, photo_url, photo_cutout_url, photo_focus_x, photo_focus_y)
+`;
+
+const SESSION_SELECT_LEGACY = `
+  id,
+  athlete_id,
+  session_type,
+  session_mode,
+  scheduled_datetime,
+  max_participants,
+  price_per_participant,
+  facilities(name),
+  athletes(first_name, last_name, school, photo_url, photo_focus_x, photo_focus_y)
+`;
 
 function resolvePhotoUrl(photoUrl: string | null | undefined, appOrigin: string): string | null {
   if (!photoUrl?.trim()) return null;
@@ -44,32 +61,33 @@ function resolvePhotoUrl(photoUrl: string | null | undefined, appOrigin: string)
   return u;
 }
 
+async function loadSessionRow(
+  admin: SupabaseClient,
+  sessionId: string
+): Promise<SessionRow | null> {
+  const primary = await admin.from('sessions').select(SESSION_SELECT_WITH_CUTOUT).eq('id', sessionId).maybeSingle();
+  if (!primary.error && primary.data) return primary.data as SessionRow;
+
+  const msg = primary.error?.message ?? '';
+  if (/photo_cutout_url|column.*does not exist/i.test(msg)) {
+    const legacy = await admin.from('sessions').select(SESSION_SELECT_LEGACY).eq('id', sessionId).maybeSingle();
+    if (!legacy.error && legacy.data) return legacy.data as SessionRow;
+  }
+
+  if (primary.error) {
+    console.warn('[fetchSessionShareGraphicInput] session load:', primary.error.message);
+  }
+  return null;
+}
+
 export async function fetchSessionShareGraphicInput(
   admin: SupabaseClient,
   sessionId: string,
   opts: { themeOverride?: string | null; appOrigin: string }
 ): Promise<{ input: BuildSessionShareGraphicInput; themeId: ShareGraphicThemeId } | null> {
-  const { data: session, error } = await admin
-    .from('sessions')
-    .select(
-      `
-      id,
-      athlete_id,
-      session_type,
-      session_mode,
-      scheduled_datetime,
-      max_participants,
-      price_per_participant,
-      facilities(name),
-      athletes(first_name, last_name, school, photo_url, photo_cutout_url, photo_focus_x, photo_focus_y)
-    `
-    )
-    .eq('id', sessionId)
-    .maybeSingle();
+  const row = await loadSessionRow(admin, sessionId);
+  if (!row) return null;
 
-  if (error || !session) return null;
-
-  const row = session as SessionRow;
   const athleteRow = row.athletes;
   const athlete = Array.isArray(athleteRow) ? athleteRow[0] : athleteRow;
   const facRow = row.facilities;
@@ -79,18 +97,7 @@ export async function fetchSessionShareGraphicInput(
   const themeId = resolveShareGraphicTheme(school, themeOverride);
 
   const photoUrl = resolvePhotoUrl(athlete?.photo_url, opts.appOrigin);
-  let cutoutUrl = resolvePhotoUrl(athlete?.photo_cutout_url, opts.appOrigin);
-  if (photoUrl && !cutoutUrl && row.athlete_id) {
-    cutoutUrl = resolvePhotoUrl(
-      await ensureCoachPhotoCutout(
-        admin,
-        row.athlete_id,
-        athlete?.photo_url,
-        athlete?.photo_cutout_url
-      ),
-      opts.appOrigin
-    );
-  }
+  const cutoutUrl = resolvePhotoUrl(athlete?.photo_cutout_url, opts.appOrigin);
 
   return {
     themeId,

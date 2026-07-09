@@ -131,6 +131,9 @@ export async function buildSessionShareGraphic(input: BuildSessionShareGraphicIn
     photoFocusX: input.photoFocusX ?? 50,
     photoFocusY: input.photoFocusY ?? 15,
     fetchImage: fetchImageBuffer,
+  }).catch((err) => {
+    console.warn('[buildSessionShareGraphic] coach photo overlay failed:', err);
+    return null;
   });
   if (photoOverlay) overlays.push(photoOverlay);
 

@@ -65,7 +65,8 @@ export async function buildCoachPhotoOverlay(
   const masked = await sharp(portrait)
     .composite([{ input: fadeMask, blend: 'dest-in' }])
     .png()
-    .toBuffer();
+    .toBuffer()
+    .catch(async () => portrait);
 
   const left = SHARE_GRAPHIC_WIDTH - cropW - 28;
   const top = SHARE_GRAPHIC_HEIGHT - FOOTER_H - cropH - 4;

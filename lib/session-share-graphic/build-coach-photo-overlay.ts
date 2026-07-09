@@ -13,31 +13,64 @@ export type CoachPhotoOverlayInput = {
   fetchImage: (url: string) => Promise<Buffer | null>;
 };
 
-/** Bottom-right athlete overlay — transparent cutout when available, else tight portrait crop. */
+/** Cover-crop to WxH anchored at focus point (0–100), same as CSS object-position %. */
+async function cropPortraitWithFocus(
+  buf: Buffer,
+  cropW: number,
+  cropH: number,
+  focusX: number,
+  focusY: number
+): Promise<Buffer> {
+  const meta = await sharp(buf).metadata();
+  const iw = meta.width ?? cropW;
+  const ih = meta.height ?? cropH;
+
+  const scale = Math.max(cropW / iw, cropH / ih);
+  const scaledW = Math.max(cropW, Math.round(iw * scale));
+  const scaledH = Math.max(cropH, Math.round(ih * scale));
+
+  const resized = await sharp(buf).resize(scaledW, scaledH, { fit: 'fill' }).png().toBuffer();
+
+  const px = Math.round((focusX / 100) * scaledW);
+  const py = Math.round((focusY / 100) * scaledH);
+
+  let left = px - Math.round(cropW / 2);
+  let top = py - Math.round(cropH / 2);
+  left = Math.max(0, Math.min(left, scaledW - cropW));
+  top = Math.max(0, Math.min(top, scaledH - cropH));
+
+  return sharp(resized).extract({ left, top, width: cropW, height: cropH }).png().toBuffer();
+}
+
+/** Bottom-right athlete overlay — profile portrait (manual-post style) or cutout when available. */
 export async function buildCoachPhotoOverlay(
   input: CoachPhotoOverlayInput
 ): Promise<OverlayOptions | null> {
-  let useCutout = Boolean(input.cutoutUrl?.trim());
-  let url = (useCutout ? input.cutoutUrl : input.photoUrl)?.trim() ?? null;
+  const focusX = Math.min(100, Math.max(0, input.photoFocusX));
+  const focusY = Math.min(100, Math.max(0, input.photoFocusY));
+  const cropW = 480;
+  const cropH = 880;
 
   let buf: Buffer | null = null;
-  if (url) buf = await input.fetchImage(url);
+  let useCutout = false;
 
-  // Empty/transparent cutout cached in DB — treat as missing.
-  if (buf && useCutout && !(await isUsableCoachCutout(buf))) {
-    console.warn('[buildCoachPhotoOverlay] cutout unusable, falling back to profile photo');
-    buf = null;
+  // Profile photo first — matches manual posts; cutout is optional polish.
+  if (input.photoUrl?.trim()) {
+    buf = await input.fetchImage(input.photoUrl.trim());
   }
 
-  // Bad/missing cutout — fall back to full profile photo so Liam still appears.
-  if (!buf && useCutout && input.photoUrl?.trim()) {
-    useCutout = false;
-    url = input.photoUrl.trim();
-    buf = await input.fetchImage(url);
+  if (!buf && input.cutoutUrl?.trim()) {
+    const cutoutBuf = await input.fetchImage(input.cutoutUrl.trim());
+    if (cutoutBuf && (await isUsableCoachCutout(cutoutBuf))) {
+      buf = cutoutBuf;
+      useCutout = true;
+    } else if (cutoutBuf) {
+      console.warn('[buildCoachPhotoOverlay] cutout unusable, skipping');
+    }
   }
 
   if (!buf) {
-    if (url) console.warn('[buildCoachPhotoOverlay] could not load coach photo:', url.slice(0, 100));
+    console.warn('[buildCoachPhotoOverlay] could not load coach photo');
     return null;
   }
 
@@ -55,18 +88,7 @@ export async function buildCoachPhotoOverlay(
     return { input: resized, top: Math.max(180, top), left, blend: 'over' };
   }
 
-  const focusX = Math.min(100, Math.max(0, input.photoFocusX));
-  const focusY = Math.min(100, Math.max(0, input.photoFocusY));
-  const cropW = 480;
-  const cropH = 880;
-
-  const portrait = await sharp(buf)
-    .resize(cropW, cropH, {
-      fit: 'cover',
-      position: `${focusX}% ${focusY}%`,
-    })
-    .png()
-    .toBuffer();
+  const portrait = await cropPortraitWithFocus(buf, cropW, cropH, focusX, focusY);
 
   const fadeMask = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${cropW}" height="${cropH}">

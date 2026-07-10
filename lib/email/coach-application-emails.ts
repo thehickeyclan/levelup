@@ -25,7 +25,7 @@ export async function sendCoachApplicationSubmittedToCoach(params: {
   const { to, firstName, tenant, baseUrl } = params;
   const name = escapeHtml(firstName.trim() || 'there');
   const product = escapeHtml(tenant.productName);
-  const pendingUrl = `${baseUrl.replace(/\/$/, '')}/coach-pending`;
+  const pendingUrl = `${baseUrl.replace(/\/$/, '')}/coach-pending?submitted=1`;
 
   const html = `
 <!DOCTYPE html>
@@ -107,14 +107,14 @@ export async function sendCoachApplicationApproved(params: {
 }) {
   const { to, firstName, tenant, baseUrl } = params;
   const name = escapeHtml(firstName.trim() || 'there');
-  const dashboardUrl = `${baseUrl.replace(/\/$/, '')}/athlete-dashboard`;
+  const dashboardUrl = `${baseUrl.replace(/\/$/, '')}/coach-welcome`;
 
   const html = `
 <!DOCTYPE html>
 <html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px;">
   <p>Hi ${name},</p>
   <p>Great news — your ${escapeHtml(tenant.productName)} coach application has been <strong>approved</strong>.</p>
-  <p>Sign in to finish your profile and start coaching: <a href="${escapeHtml(dashboardUrl)}">${escapeHtml(dashboardUrl)}</a></p>
+  <p>Sign in to finish setup and start coaching: <a href="${escapeHtml(dashboardUrl)}">${escapeHtml(dashboardUrl)}</a></p>
   <p>— ${escapeHtml(tenant.productName)}</p>
 </body></html>
 `.trim();
@@ -124,7 +124,7 @@ export async function sendCoachApplicationApproved(params: {
     '',
     `Your ${tenant.productName} coach application has been approved.`,
     '',
-    `Go to your dashboard: ${dashboardUrl}`,
+    `Go to your welcome checklist: ${dashboardUrl}`,
     '',
     `— ${tenant.productName}`,
   ].join('\n');

@@ -204,7 +204,7 @@ export default function CoachApplicationPage() {
         return;
       }
 
-      router.push('/coach-pending');
+      router.push('/coach-pending?submitted=1');
       router.refresh();
     } catch {
       setError('An unexpected error occurred');

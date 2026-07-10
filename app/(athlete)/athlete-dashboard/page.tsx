@@ -80,9 +80,17 @@ export default async function CoachHomePage({
   if (!isViewingAsCoach && coachStatus === 'pending') {
     redirect('/coach-pending');
   }
-  
+
   if (!isViewingAsCoach && coachStatus === 'rejected') {
     redirect('/coach-pending');
+  }
+
+  if (
+    !isViewingAsCoach &&
+    coachStatus === 'active' &&
+    !(athlete as { coach_welcome_seen_at?: string | null }).coach_welcome_seen_at
+  ) {
+    redirect('/coach-welcome');
   }
 
   const nowIso = new Date().toISOString();

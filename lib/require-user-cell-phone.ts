@@ -48,6 +48,8 @@ function pathnameAllowsMissingUserPhone(pathname: string): boolean {
   if (pathname === ACCOUNT || pathname.startsWith(`${ACCOUNT}/`)) return true;
   if (pathname.startsWith('/invite-parent')) return true;
   if (pathname.startsWith('/onboarding')) return true;
+  if (pathname.startsWith('/coach-pending')) return true;
+  if (pathname.startsWith('/coach-welcome')) return true;
   if (pathname.startsWith('/profile')) return true;
   if (pathname === '/') return true;
   for (const prefix of BROWSE_WITHOUT_USER_PHONE_PREFIXES) {

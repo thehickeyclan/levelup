@@ -761,6 +761,10 @@ export function AdminCockpitView() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Revenue Breakdown</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
+              <div className="flex justify-between text-sm pb-2 border-b border-border">
+                <span className="font-medium text-foreground">Gross revenue</span>
+                <span className="font-semibold tabular-nums">${be.gross.toFixed(2)}</span>
+              </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Coach payouts</span>
                 <span className="font-medium tabular-nums">${be.coachPayouts.toFixed(2)}</span>

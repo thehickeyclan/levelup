@@ -11,6 +11,7 @@ import {
   todayYmdInTz,
   type CockpitPeriod,
 } from '@/lib/cockpit-date-ranges';
+import { summarizeCockpitAnalytics } from '@/lib/cockpit-vercel-analytics';
 
 /**
  * GET /api/admin/cockpit?date=YYYY-MM-DD&period=today|week|month|90d|year&timezone=America/New_York
@@ -91,25 +92,42 @@ export async function GET(req: NextRequest) {
       trendCountByRanges(admin, 'reviews', null, trendRanges),
     ]);
 
-    // Vercel Analytics (drain): page views and unique visitors in range (origin matches tenant domain or request host for previews)
+    // Vercel Analytics drain → vercel_analytics_events. Visitors = sum of daily uniques (Vercel-style).
+    const ANALYTICS_ROW_LIMIT = 100_000;
     let pageViews = 0;
     let visitors = 0;
+    let periodUniqueDevices = 0;
+    let visitorsCapped = false;
+    let analyticsDataSinceMs: number | null = null;
+    let analyticsRowsWithoutKey = 0;
     try {
-      const requestHost = host.replace(/^https?:\/\//, '').split(':')[0];
-      const orFilter = `origin.ilike.%${tenant.domain}%,origin.ilike.%${requestHost}%`;
       const { data: analyticsRows } = await admin
         .from('vercel_analytics_events')
-        .select('event_type, device_id')
+        .select('device_id, session_id, timestamp_ms')
+        .eq('event_type', 'pageview')
         .gte('timestamp_ms', startMs)
         .lte('timestamp_ms', endMs)
-        .or(orFilter)
-        .limit(100000);
-      if (analyticsRows && analyticsRows.length > 0) {
-        const rows = analyticsRows as { event_type?: string; device_id?: number | null }[];
-        pageViews = rows.filter((r) => r.event_type === 'pageview').length;
-        const deviceIds = new Set(rows.map((r) => r.device_id).filter((id): id is number => id != null));
-        visitors = deviceIds.size;
-      }
+        .order('timestamp_ms', { ascending: true })
+        .limit(ANALYTICS_ROW_LIMIT);
+      const rows = (analyticsRows ?? []) as {
+        device_id?: number | null;
+        session_id?: number | null;
+        timestamp_ms: number;
+      }[];
+      const summary = summarizeCockpitAnalytics(
+        rows.map((r) => ({
+          device_id: r.device_id ?? null,
+          session_id: r.session_id ?? null,
+          timestamp_ms: r.timestamp_ms,
+        })),
+        rows.length >= ANALYTICS_ROW_LIMIT
+      );
+      pageViews = summary.pageViews;
+      visitors = summary.visitors;
+      periodUniqueDevices = summary.periodUniqueDevices;
+      visitorsCapped = summary.visitorsCapped;
+      analyticsDataSinceMs = summary.dataSinceMs;
+      analyticsRowsWithoutKey = summary.rowsWithoutVisitorKey;
     } catch {
       // Table may not exist yet or drain not configured
     }
@@ -174,6 +192,11 @@ export async function GET(req: NextRequest) {
       if (!Number.isNaN(fee) && fee > 0) stripeFeesTotal += fee;
     }
     const bookingCount = bookingRowsRaw.length;
+    let paidBookingCount = 0;
+    for (const b of bookingRowsRaw as { amount_paid?: number | null }[]) {
+      const amt = b.amount_paid;
+      if (amt != null && Number(amt) > 0) paidBookingCount += 1;
+    }
 
     let coachPayoutsAllocated = 0;
     const sessionIdList = [...sessionIdsForEconomics];
@@ -202,6 +225,7 @@ export async function GET(req: NextRequest) {
 
     const bookingEconomics = {
       bookingCount,
+      paidBookingCount,
       gross: revenueThatDay,
       coachPayouts: round2(coachPayoutsAllocated),
       stripeFees: round2(stripeFeesTotal),
@@ -435,6 +459,10 @@ export async function GET(req: NextRequest) {
       rangeEnd,
       pageViews,
       visitors,
+      periodUniqueDevices,
+      visitorsCapped,
+      analyticsDataSinceMs,
+      analyticsRowsWithoutKey,
       newParents,
       newCoaches,
       newAthletes,

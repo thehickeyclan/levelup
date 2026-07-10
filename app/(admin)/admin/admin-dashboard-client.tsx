@@ -75,6 +75,7 @@ import { CopySessionPhonesButton } from '@/components/copy-session-phones-button
 import { CoachTextGroupDialog } from '@/components/coach-text-group-dialog';
 import { showSessionSmsCopyAndTextGroup } from '@/lib/session-sms-tools';
 import { AdminCockpitView } from './admin-cockpit-view';
+import { CoachPayoutMarkPaidButton } from '@/components/admin/coach-payout-mark-paid-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { coachPayoutUsd, resolveCoachPayoutRate } from '@/lib/coach-session-payout';
@@ -243,6 +244,7 @@ export type CoachPayout = {
   name: string;
   school: string;
   amount: number;
+  session_count: number;
   venmo_handle?: string | null;
   zelle_email?: string | null;
 };
@@ -2515,7 +2517,7 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                     <span className="text-sm font-medium text-red-400">-${financeData.coachPayouts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-border">
-                    <span className="text-sm text-muted-foreground">Stripe Fees <span className="text-xs text-amber-500">(est.)</span></span>
+                    <span className="text-sm text-muted-foreground">Stripe Fees</span>
                     <span className="text-sm font-medium text-red-400">-${financeData.stripeFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex items-center justify-between py-2">
@@ -2528,11 +2530,16 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
 
             <Card>
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-medium">Payouts Due</CardTitle>
+                <div>
+                  <CardTitle className="text-sm font-medium">Payouts Due</CardTitle>
+                  <CardDescription className="text-xs mt-1">
+                    Completed sessions not yet closed — pay coach, then Mark paid.
+                  </CardDescription>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-[#B89D60] hover:text-[#B89D60]"
+                  className="text-[#B89D60] hover:text-[#B89D60] shrink-0"
                   onClick={() => handleNavChange('money', 'payouts')}
                 >
                   View all
@@ -2541,19 +2548,36 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
               </CardHeader>
               <CardContent>
                 {totalCoachPayoutsDue > 0 ? (
-                  <div className="space-y-3">
-                    {coachPayouts.slice(0, 4).map((p) => (
-                      <div key={p.athlete_id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                        <div>
-                          <p className="text-sm font-medium">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">{p.school}</p>
+                  <div className="space-y-2 max-h-[280px] overflow-y-auto">
+                    {coachPayouts.slice(0, 6).map((p) => (
+                      <div
+                        key={p.athlete_id}
+                        className="flex items-center justify-between gap-2 py-2 border-b border-border last:border-0"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{p.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {p.school}
+                            {p.session_count > 0
+                              ? ` · ${p.session_count} session${p.session_count !== 1 ? 's' : ''}`
+                              : ''}
+                          </p>
                         </div>
-                        <span className="text-sm font-medium text-[#B89D60]">${p.amount.toFixed(2)}</span>
+                        <span className="text-sm font-medium text-[#B89D60] tabular-nums shrink-0">
+                          ${p.amount.toFixed(2)}
+                        </span>
+                        <CoachPayoutMarkPaidButton
+                          athleteId={p.athlete_id}
+                          defaultAmount={p.amount}
+                          markingAthleteId={markingAthleteId}
+                          setMarkingAthleteId={setMarkingAthleteId}
+                          className="shrink-0 h-8 px-2.5 text-xs bg-[#B89D60] hover:bg-[#9A8550] text-black"
+                        />
                       </div>
                     ))}
                     <div className="pt-2 border-t border-border">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Total Due</span>
+                        <span className="text-sm font-medium">Total due</span>
                         <span className="text-lg font-semibold text-[#B89D60]">${totalCoachPayoutsDue.toFixed(2)}</span>
                       </div>
                     </div>
@@ -3530,7 +3554,14 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                         ) : (
                           coachPayouts.map((p) => (
                             <tr key={p.athlete_id} className="hover:bg-muted/30 transition-colors">
-                              <td className="py-3 px-4 font-medium">{p.name}</td>
+                              <td className="py-3 px-4 font-medium">
+                                {p.name}
+                                {p.session_count > 0 ? (
+                                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                                    ({p.session_count} session{p.session_count !== 1 ? 's' : ''})
+                                  </span>
+                                ) : null}
+                              </td>
                               <td className="py-3 px-4 text-muted-foreground">{p.school}</td>
                               <td className="py-3 px-4">
                                 {p.venmo_handle && (
@@ -3564,37 +3595,13 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                                 />
                               </td>
                               <td className="py-3 px-4 text-right">
-                                <Button
-                                  size="sm"
-                                  className="bg-[#B89D60] hover:bg-[#9A8550] text-black h-8"
-                                  disabled={markingAthleteId === p.athlete_id}
-                                  onClick={async () => {
-                                    setMarkingAthleteId(p.athlete_id);
-                                    const amount = parseFloat(
-                                      payoutTotalByAthlete[p.athlete_id] || p.amount.toString()
-                                    );
-                                    try {
-                                      const res = await fetch('/api/admin/mark-payout-paid', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ athlete_id: p.athlete_id, amount }),
-                                      });
-                                      if (res.ok) router.refresh();
-                                      else {
-                                        const data = await res.json().catch(() => ({}));
-                                        alert(data.error || 'Could not mark payout paid');
-                                      }
-                                    } finally {
-                                      setMarkingAthleteId(null);
-                                    }
-                                  }}
-                                >
-                                  {markingAthleteId === p.athlete_id ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    'Mark paid'
-                                  )}
-                                </Button>
+                                <CoachPayoutMarkPaidButton
+                                  athleteId={p.athlete_id}
+                                  defaultAmount={p.amount}
+                                  amountOverride={payoutTotalByAthlete[p.athlete_id]}
+                                  markingAthleteId={markingAthleteId}
+                                  setMarkingAthleteId={setMarkingAthleteId}
+                                />
                               </td>
                             </tr>
                           ))
@@ -4061,7 +4068,7 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                   <DollarSign className="h-5 w-5 text-[#B89D60]" />
                   <div>
                     <p className="font-medium">Gross Revenue</p>
-                    <p className="text-xs text-muted-foreground">Total collected from parents (Stripe + Cash)</p>
+                    <p className="text-xs text-muted-foreground">Parent amount paid on completed sessions</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -4081,7 +4088,7 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                   <Wallet className="h-5 w-5 text-blue-500" />
                   <div>
                     <p className="font-medium">Coach Payouts</p>
-                    <p className="text-xs text-muted-foreground">Recorded payments to coaches (athlete_payment)</p>
+                    <p className="text-xs text-muted-foreground">Allocated coach share on completed sessions</p>
                   </div>
                 </div>
                 <p className="text-xl font-bold text-blue-400">-${financeData.coachPayouts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -4106,8 +4113,8 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                 <div className="flex items-center gap-3">
                   <CreditCard className="h-5 w-5 text-red-400" />
                   <div>
-                    <p className="font-medium">Stripe Fees <span className="text-xs text-amber-500 ml-1">(estimated)</span></p>
-                    <p className="text-xs text-muted-foreground">~2.9% + $0.30 per transaction on Stripe payments</p>
+                    <p className="font-medium">Stripe Fees</p>
+                    <p className="text-xs text-muted-foreground">Actual fees from participant payments (completed sessions)</p>
                   </div>
                 </div>
                 <p className="text-xl font-bold text-red-400">-${financeData.stripeFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -4119,7 +4126,7 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                   <TrendingUp className="h-5 w-5 text-[#B89D60]" />
                   <div>
                     <p className="font-semibold">Guild Profit</p>
-                    <p className="text-xs text-muted-foreground">Guild Net - Stripe Fees (estimated)</p>
+                    <p className="text-xs text-muted-foreground">Guild net minus Stripe fees</p>
                   </div>
                 </div>
                 <p className={`text-2xl font-bold ${financeData.guildProfit >= 0 ? 'text-[#B89D60]' : 'text-red-500'}`}>

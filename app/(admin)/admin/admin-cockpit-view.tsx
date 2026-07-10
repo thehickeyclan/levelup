@@ -97,6 +97,7 @@ export type CockpitData = {
   revenueThatDay: number;
   bookingEconomics?: {
     bookingCount: number;
+    paidBookingCount?: number;
     gross: number;
     coachPayouts: number;
     stripeFees: number;
@@ -105,6 +106,10 @@ export type CockpitData = {
   };
   pageViews?: number;
   visitors?: number;
+  periodUniqueDevices?: number;
+  visitorsCapped?: boolean;
+  analyticsDataSinceMs?: number | null;
+  analyticsRowsWithoutKey?: number;
   // Credits (liability)
   outstandingCredits?: number;
   creditsIssuedInRange?: number;
@@ -215,6 +220,7 @@ function MetricCard({
   icon: Icon,
   trend,
   trendLabel,
+  subtitle,
   sparklineData,
   variant = 'default',
 }: {
@@ -223,6 +229,7 @@ function MetricCard({
   icon: React.ElementType;
   trend?: 'up' | 'down' | 'neutral';
   trendLabel?: string;
+  subtitle?: string;
   sparklineData?: number[];
   variant?: 'default' | 'highlight' | 'muted';
 }) {
@@ -254,6 +261,9 @@ function MetricCard({
             </span>
           )}
         </div>
+        {subtitle ? (
+          <p className="text-[10px] leading-snug text-muted-foreground mt-1">{subtitle}</p>
+        ) : null}
       </CardHeader>
       {sparklineData && sparklineData.length > 1 && (
         <div className="absolute bottom-0 left-0 right-0 h-8 opacity-30">
@@ -612,6 +622,7 @@ export function AdminCockpitView() {
 
   const be = d.bookingEconomics;
   const bookingN = be?.bookingCount ?? d.bookings.length;
+  const paidBookingN = be?.paidBookingCount ?? bookingN;
 
   // Prepare chart data for activity
   const selectedMetric = trendMetrics.find((m) => m.id === trendMetric);
@@ -700,9 +711,9 @@ export function AdminCockpitView() {
                 </p>
                 <div className="flex items-baseline gap-3">
                   <span className="text-4xl font-bold tabular-nums">${d.revenueThatDay.toFixed(0)}</span>
-                  {bookingN > 0 && d.revenueThatDay > 0 && (
+                  {paidBookingN > 0 && d.revenueThatDay > 0 && (
                     <span className="text-lg text-muted-foreground">
-                      ~${(d.revenueThatDay / bookingN).toFixed(0)}/signup
+                      ~${(d.revenueThatDay / paidBookingN).toFixed(0)}/paid signup
                     </span>
                   )}
                 </div>
@@ -710,7 +721,7 @@ export function AdminCockpitView() {
               <div className="flex items-center gap-6 text-sm">
                 <div className="text-center">
                   <p className="text-2xl font-bold tabular-nums">{bookingN}</p>
-                  <p className="text-muted-foreground">Bookings</p>
+                  <p className="text-muted-foreground">Signups</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold tabular-nums">{d.newParents.length}</p>
@@ -718,7 +729,7 @@ export function AdminCockpitView() {
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold tabular-nums">{d.sessionsScheduled.length}</p>
-                  <p className="text-muted-foreground">Sessions</p>
+                  <p className="text-muted-foreground">Sessions created</p>
                 </div>
               </div>
             </div>
@@ -766,7 +777,7 @@ export function AdminCockpitView() {
           variant="highlight"
         />
         <MetricCard
-          label="Bookings"
+          label="Signups"
           value={bookingN}
           icon={CreditCard}
           sparklineData={trends.bookings}
@@ -784,7 +795,7 @@ export function AdminCockpitView() {
           sparklineData={trends.coaches}
         />
         <MetricCard
-          label="New Athletes"
+          label="New wrestlers"
           value={d.newAthletes.length}
           icon={Users}
           sparklineData={trends.athletes}
@@ -794,6 +805,28 @@ export function AdminCockpitView() {
           value={typeof d.visitors === 'number' ? d.visitors : '—'}
           icon={Eye}
           variant="muted"
+          subtitle={(() => {
+            const parts: string[] = [];
+            if (typeof d.pageViews === 'number') {
+              parts.push(`${d.pageViews.toLocaleString()} page views`);
+            }
+            if (typeof d.periodUniqueDevices === 'number' && d.periodUniqueDevices > 0) {
+              parts.push(`${d.periodUniqueDevices.toLocaleString()} devices in period`);
+            }
+            if (d.visitorsCapped) parts.push('partial (range too large)');
+            if (d.analyticsDataSinceMs != null && d.rangeStart) {
+              const dataSinceYmd = formatEST(new Date(d.analyticsDataSinceMs), 'yyyy-MM-dd');
+              if (dataSinceYmd > d.rangeStart) {
+                parts.push(
+                  `drain data since ${formatEST(new Date(d.analyticsDataSinceMs), 'MMM d')}`
+                );
+              }
+            }
+            if (parts.length === 0) {
+              return 'Daily unique visitors from Vercel Analytics drain';
+            }
+            return parts.join(' · ');
+          })()}
         />
       </div>
 

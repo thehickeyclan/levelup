@@ -433,7 +433,8 @@ export default async function AdminPage() {
     }, 0),
     totalStripeFees: sessions.reduce((sum, s) => {
       if (s.booking_checkout_shell && (s.participant_amount_paid_sum ?? 0) <= 0) return sum;
-      return sum + s.stripe_fee;
+      const participantStripe = Number(s.stripe_fee_sum ?? 0);
+      return sum + (participantStripe > 0 ? participantStripe : s.stripe_fee);
     }, 0),
     totalAthletePayments: sessions.reduce((sum, s) => sum + sessionCoachShareUsd(s), 0),
     upcomingOpenRevenue: sessions
@@ -444,7 +445,10 @@ export default async function AdminPage() {
       .reduce((sum, s) => sum + s.org_fee, 0),
     upcomingOpenStripeFees: sessions
       .filter((s) => s.status === 'scheduled' && isOpenSessionFromTodayForwardEastern(s.scheduled_datetime))
-      .reduce((sum, s) => sum + s.stripe_fee, 0),
+      .reduce((sum, s) => {
+        const participantStripe = Number(s.stripe_fee_sum ?? 0);
+        return sum + (participantStripe > 0 ? participantStripe : s.stripe_fee);
+      }, 0),
     upcomingOpenAthletePayments: sessions
       .filter((s) => s.status === 'scheduled' && isOpenSessionFromTodayForwardEastern(s.scheduled_datetime))
       .reduce((sum, s) => sum + sessionCoachShareUsd(s), 0),
@@ -534,7 +538,17 @@ export default async function AdminPage() {
   );
 
   // Coach payouts: completed sessions not yet paid (athlete_payout_date IS NULL)
-  const payoutOwedByAthlete = new Map<string, { amount: number; venmo_handle?: string | null; zelle_email?: string | null; name: string; school: string }>();
+  const payoutOwedByAthlete = new Map<
+    string,
+    {
+      amount: number;
+      session_count: number;
+      venmo_handle?: string | null;
+      zelle_email?: string | null;
+      name: string;
+      school: string;
+    }
+  >();
   for (const s of sessionsRows) {
     if (s.status !== 'completed' || s.athlete_payout_date != null) continue;
     const a = s.athletes;
@@ -554,9 +568,11 @@ export default async function AdminPage() {
     });
     if (existing) {
       existing.amount += payment;
+      existing.session_count += 1;
     } else {
       payoutOwedByAthlete.set(o.id, {
         amount: payment,
+        session_count: 1,
         venmo_handle: o.venmo_handle ?? null,
         zelle_email: o.zelle_email ?? null,
         name: `${o.first_name} ${o.last_name}`,

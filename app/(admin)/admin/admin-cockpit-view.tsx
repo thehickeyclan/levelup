@@ -110,6 +110,7 @@ export type CockpitData = {
   visitorsCapped?: boolean;
   analyticsDataSinceMs?: number | null;
   analyticsRowsWithoutKey?: number;
+  analyticsSource?: 'vercel_api' | 'drain' | 'none';
   // Credits (liability)
   outstandingCredits?: number;
   creditsIssuedInRange?: number;
@@ -807,6 +808,11 @@ export function AdminCockpitView() {
           variant="muted"
           subtitle={(() => {
             const parts: string[] = [];
+            if (d.analyticsSource === 'vercel_api') {
+              parts.push('Vercel Analytics API');
+            } else if (d.analyticsSource === 'drain') {
+              parts.push('Analytics drain (partial — add VERCEL_ACCESS_TOKEN to match dashboard)');
+            }
             if (typeof d.pageViews === 'number') {
               parts.push(`${d.pageViews.toLocaleString()} page views`);
             }
@@ -814,7 +820,7 @@ export function AdminCockpitView() {
               parts.push(`${d.periodUniqueDevices.toLocaleString()} devices in period`);
             }
             if (d.visitorsCapped) parts.push('partial (range too large)');
-            if (d.analyticsDataSinceMs != null && d.rangeStart) {
+            if (d.analyticsDataSinceMs != null && d.rangeStart && d.analyticsSource === 'drain') {
               const dataSinceYmd = formatEST(new Date(d.analyticsDataSinceMs), 'yyyy-MM-dd');
               if (dataSinceYmd > d.rangeStart) {
                 parts.push(
@@ -823,7 +829,7 @@ export function AdminCockpitView() {
               }
             }
             if (parts.length === 0) {
-              return 'Daily unique visitors from Vercel Analytics drain';
+              return 'Set VERCEL_ACCESS_TOKEN + VERCEL_PROJECT_ID for Vercel dashboard numbers';
             }
             return parts.join(' · ');
           })()}

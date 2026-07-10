@@ -12,6 +12,7 @@ import {
   type CockpitPeriod,
 } from '@/lib/cockpit-date-ranges';
 import { summarizeCockpitAnalytics } from '@/lib/cockpit-vercel-analytics';
+import { fetchVercelWebAnalyticsTotals } from '@/lib/fetch-vercel-web-analytics';
 
 /**
  * GET /api/admin/cockpit?date=YYYY-MM-DD&period=today|week|month|90d|year&timezone=America/New_York
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest) {
       trendCountByRanges(admin, 'reviews', null, trendRanges),
     ]);
 
-    // Vercel Analytics drain → vercel_analytics_events. Visitors = sum of daily uniques (Vercel-style).
+    // Traffic: prefer Vercel Web Analytics API (matches dashboard); fallback to drain table.
     const ANALYTICS_ROW_LIMIT = 100_000;
     let pageViews = 0;
     let visitors = 0;
@@ -100,36 +101,46 @@ export async function GET(req: NextRequest) {
     let visitorsCapped = false;
     let analyticsDataSinceMs: number | null = null;
     let analyticsRowsWithoutKey = 0;
-    try {
-      const { data: analyticsRows } = await admin
-        .from('vercel_analytics_events')
-        .select('device_id, session_id, timestamp_ms')
-        .eq('event_type', 'pageview')
-        .gte('timestamp_ms', startMs)
-        .lte('timestamp_ms', endMs)
-        .order('timestamp_ms', { ascending: true })
-        .limit(ANALYTICS_ROW_LIMIT);
-      const rows = (analyticsRows ?? []) as {
-        device_id?: number | null;
-        session_id?: number | null;
-        timestamp_ms: number;
-      }[];
-      const summary = summarizeCockpitAnalytics(
-        rows.map((r) => ({
-          device_id: r.device_id ?? null,
-          session_id: r.session_id ?? null,
-          timestamp_ms: r.timestamp_ms,
-        })),
-        rows.length >= ANALYTICS_ROW_LIMIT
-      );
-      pageViews = summary.pageViews;
-      visitors = summary.visitors;
-      periodUniqueDevices = summary.periodUniqueDevices;
-      visitorsCapped = summary.visitorsCapped;
-      analyticsDataSinceMs = summary.dataSinceMs;
-      analyticsRowsWithoutKey = summary.rowsWithoutVisitorKey;
-    } catch {
-      // Table may not exist yet or drain not configured
+    let analyticsSource: 'vercel_api' | 'drain' | 'none' = 'none';
+
+    const vercelTotals = await fetchVercelWebAnalyticsTotals(rangeStart, rangeEnd);
+    if (vercelTotals) {
+      pageViews = vercelTotals.pageViews;
+      visitors = vercelTotals.visitors;
+      analyticsSource = 'vercel_api';
+    } else {
+      try {
+        const { data: analyticsRows } = await admin
+          .from('vercel_analytics_events')
+          .select('device_id, session_id, timestamp_ms')
+          .eq('event_type', 'pageview')
+          .gte('timestamp_ms', startMs)
+          .lte('timestamp_ms', endMs)
+          .order('timestamp_ms', { ascending: true })
+          .limit(ANALYTICS_ROW_LIMIT);
+        const rows = (analyticsRows ?? []) as {
+          device_id?: number | null;
+          session_id?: number | null;
+          timestamp_ms: number;
+        }[];
+        const summary = summarizeCockpitAnalytics(
+          rows.map((r) => ({
+            device_id: r.device_id ?? null,
+            session_id: r.session_id ?? null,
+            timestamp_ms: r.timestamp_ms,
+          })),
+          rows.length >= ANALYTICS_ROW_LIMIT
+        );
+        pageViews = summary.pageViews;
+        visitors = summary.visitors;
+        periodUniqueDevices = summary.periodUniqueDevices;
+        visitorsCapped = summary.visitorsCapped;
+        analyticsDataSinceMs = summary.dataSinceMs;
+        analyticsRowsWithoutKey = summary.rowsWithoutVisitorKey;
+        if (pageViews > 0 || visitors > 0) analyticsSource = 'drain';
+      } catch {
+        // Table may not exist yet or drain not configured
+      }
     }
 
     // Credits: total outstanding (unused, non-expired) credits owed to parents
@@ -463,6 +474,7 @@ export async function GET(req: NextRequest) {
       visitorsCapped,
       analyticsDataSinceMs,
       analyticsRowsWithoutKey,
+      analyticsSource,
       newParents,
       newCoaches,
       newAthletes,

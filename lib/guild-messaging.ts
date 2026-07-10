@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createNotification } from '@/lib/notifications';
 import { formatSellerDisplayName } from '@/lib/market/seller';
 import { normalizePhone, sendSms } from '@/lib/twilio';
+import { MESSAGES_HOME_PATH } from '@/lib/in-app-messaging';
 
 export type GuildThreadType =
   | 'listing_qa'
@@ -33,6 +34,8 @@ type FindOrCreateParams = {
   tradeId?: string;
   orderId?: string;
   sessionId?: string;
+  inquiryParentId?: string;
+  inquiryCoachId?: string;
 };
 
 function uniqueParticipants(ids: string[]): string[] {
@@ -49,7 +52,14 @@ export async function findOrCreateThread(
     .select('id, participant_ids')
     .eq('thread_type', params.threadType);
 
-  if (params.offerId) query = query.eq('offer_id', params.offerId);
+  if (params.threadType === 'coach_inquiry') {
+    if (!params.inquiryParentId || !params.inquiryCoachId) {
+      throw new Error('Coach inquiry requires parent and coach ids');
+    }
+    query = query
+      .eq('inquiry_parent_id', params.inquiryParentId)
+      .eq('inquiry_coach_id', params.inquiryCoachId);
+  } else if (params.offerId) query = query.eq('offer_id', params.offerId);
   else if (params.tradeId) query = query.eq('trade_id', params.tradeId);
   else if (params.orderId) query = query.eq('order_id', params.orderId);
   else if (params.sessionId) query = query.eq('session_id', params.sessionId);
@@ -85,6 +95,8 @@ export async function findOrCreateThread(
       trade_id: params.tradeId ?? null,
       order_id: params.orderId ?? null,
       session_id: params.sessionId ?? null,
+      inquiry_parent_id: params.inquiryParentId ?? null,
+      inquiry_coach_id: params.inquiryCoachId ?? null,
     })
     .select('id')
     .single();
@@ -218,6 +230,10 @@ function notificationTypeForThread(threadType: GuildThreadType): string {
       return 'market_order_message';
     case 'session':
       return 'session_message';
+    case 'coach_inquiry':
+      return 'coach_inquiry_message';
+    case 'group_session':
+      return 'session_message';
     default:
       return 'guild_new_message';
   }
@@ -257,7 +273,7 @@ export async function notifyGuildMessageRecipients(
       type: notifType,
       title: opts.listingTitle ? `New message · ${opts.listingTitle}` : 'New message',
       body: preview,
-      data: { thread_id: opts.threadId, link: opts.link ?? `/guild-messages?thread=${opts.threadId}` },
+      data: { thread_id: opts.threadId, link: opts.link ?? `${MESSAGES_HOME_PATH}?thread=${opts.threadId}` },
     });
 
     if (opts.smsFirstMessageOnly && isFirstMessage) {
@@ -350,17 +366,17 @@ export async function sendGuildMessage(
   };
 }
 
-/** Phase 2 UI deferred — thread exists at booking time for future session messaging. */
+/** Session thread — merges parents on small-group bookings into one roster thread. */
 export async function ensureSessionGuildThread(
   supabase: SupabaseClient,
   tenantSlug: string,
   sessionId: string,
   parentUserId: string | null | undefined,
   coachUserId: string | null | undefined
-): Promise<void> {
-  if (!parentUserId || !coachUserId || parentUserId === coachUserId) return;
+): Promise<string | null> {
+  if (!parentUserId || !coachUserId || parentUserId === coachUserId) return null;
   try {
-    await findOrCreateThread(supabase, {
+    return await findOrCreateThread(supabase, {
       threadType: 'session',
       tenantSlug,
       sessionId,
@@ -369,5 +385,28 @@ export async function ensureSessionGuildThread(
     });
   } catch (e) {
     console.warn('ensureSessionGuildThread failed', e);
+    return null;
+  }
+}
+
+export async function ensureSessionGuildThreadForParticipants(
+  supabase: SupabaseClient,
+  tenantSlug: string,
+  sessionId: string,
+  participantIds: string[]
+): Promise<string | null> {
+  const merged = uniqueParticipants(participantIds);
+  if (merged.length < 2) return null;
+  try {
+    return await findOrCreateThread(supabase, {
+      threadType: 'session',
+      tenantSlug,
+      sessionId,
+      participantIds: merged,
+      isPublic: false,
+    });
+  } catch (e) {
+    console.warn('ensureSessionGuildThreadForParticipants failed', e);
+    return null;
   }
 }

@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+/** Unified Messages unread (guild_threads). */
 export function useInboxUnreadCount(enabled: boolean) {
   const [count, setCount] = useState(0);
   const refresh = useCallback(() => {
     if (!enabled) return;
-    fetch('/api/coach-inquiries/unread-count')
+    fetch('/api/guild/messages/unread')
       .then((r) => (r.ok ? r.json() : { count: 0 }))
       .then((data) => setCount(data?.count ?? 0))
       .catch(() => setCount(0));

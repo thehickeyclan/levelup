@@ -3,7 +3,9 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
+import { formatEST } from '@/lib/format-date';
 import { getThreadUnreadCount } from '@/lib/guild-messaging';
+import { MESSAGES_HOME_PATH } from '@/lib/in-app-messaging';
 
 const THREAD_ICONS: Record<string, string> = {
   trade: '📦',
@@ -11,9 +13,9 @@ const THREAD_ICONS: Record<string, string> = {
   offer: '💬',
   listing_qa: '❓',
   session: '🎯',
-  coach_inquiry: '🎯',
+  coach_inquiry: '💬',
   session_change: '🎯',
-  group_session: '🎯',
+  group_session: '👥',
 };
 
 function threadLabel(threadType: string, title: string | null): string {
@@ -30,6 +32,10 @@ function threadLabel(threadType: string, title: string | null): string {
       return `${prefix} Listing Q&A`;
     case 'session':
       return `${prefix} Session`;
+    case 'coach_inquiry':
+      return `${prefix} Coach message`;
+    case 'group_session':
+      return `${prefix} Group session`;
     default:
       return `${prefix} Message`;
   }
@@ -52,7 +58,8 @@ export async function GET() {
   const { data: threads } = await admin
     .from('guild_threads')
     .select(`
-      id, thread_type, listing_id, offer_id, trade_id, order_id, session_id, created_at,
+      id, thread_type, listing_id, offer_id, trade_id, order_id, session_id,
+      inquiry_parent_id, inquiry_coach_id, created_at,
       market_listings(brand, model, title),
       market_offers(id),
       market_trades(id),
@@ -60,7 +67,7 @@ export async function GET() {
     `)
     .contains('participant_ids', [user.id])
     .order('created_at', { ascending: false })
-    .limit(50);
+    .limit(80);
 
   const rows = await Promise.all(
     (threads ?? []).map(async (t) => {
@@ -68,6 +75,46 @@ export async function GET() {
       const listingTitle =
         [listing?.brand, listing?.model].filter(Boolean).join(' ') || listing?.title || null;
       const order = t.market_orders as { order_ref?: string } | null;
+
+      let contextTitle: string | null = null;
+
+      if (t.thread_type === 'session' && t.session_id) {
+        const { data: sess } = await admin
+          .from('sessions')
+          .select('scheduled_datetime, athletes(first_name, last_name)')
+          .eq('id', t.session_id)
+          .maybeSingle();
+        const coach = sess?.athletes as { first_name?: string; last_name?: string } | null;
+        const coachName = coach
+          ? [coach.first_name, coach.last_name].filter(Boolean).join(' ')
+          : 'Coach';
+        const when = sess?.scheduled_datetime
+          ? formatEST(new Date(sess.scheduled_datetime as string), 'MMM d h:mm a')
+          : '';
+        contextTitle = when ? `${coachName} · ${when}` : coachName;
+      } else if (t.thread_type === 'coach_inquiry' && t.inquiry_coach_id) {
+        const { data: coach } = await admin
+          .from('athletes')
+          .select('first_name, last_name')
+          .eq('id', t.inquiry_coach_id)
+          .maybeSingle();
+        const coachName = coach
+          ? [coach.first_name, coach.last_name].filter(Boolean).join(' ')
+          : null;
+        if (user.id === t.inquiry_parent_id) {
+          contextTitle = coachName ? `Coach ${coachName}` : 'Coach';
+        } else {
+          const { data: parentUser } = await admin
+            .from('users')
+            .select('first_name, last_name, email')
+            .eq('id', t.inquiry_parent_id)
+            .maybeSingle();
+          contextTitle =
+            [parentUser?.first_name, parentUser?.last_name].filter(Boolean).join(' ').trim() ||
+            parentUser?.email ||
+            'Parent';
+        }
+      }
 
       const { data: lastMsg } = await admin
         .from('guild_messages')
@@ -79,7 +126,7 @@ export async function GET() {
 
       const unread = await getThreadUnreadCount(admin, t.id as string, user.id);
 
-      let href = `/guild-messages?thread=${t.id}`;
+      let href = `${MESSAGES_HOME_PATH}?thread=${t.id}`;
       if (t.thread_type === 'trade') href = `/market/trade/${t.trade_id}`;
       else if (t.thread_type === 'order') href = `/market/orders/${t.order_id}`;
       else if (t.thread_type === 'offer') href = `/market/offers`;
@@ -96,7 +143,7 @@ export async function GET() {
           t.thread_type as string,
           t.thread_type === 'order' && order?.order_ref
             ? `Order #${order.order_ref}`
-            : listingTitle
+            : contextTitle ?? listingTitle
         ),
         preview: (lastMsg?.body as string) ?? 'No messages yet',
         last_at: (lastMsg?.created_at as string) ?? (t.created_at as string),

@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, LayoutGrid, Users, Tag, Search, Bell } from 'lucide-react';
+import { Home, Users, Tag, Search, Bell, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /** 5 items max. Same pattern as parent/coach: one bottom nav on mobile. */
 const ITEMS = [
   { href: '/youth-dashboard', label: 'Home', icon: Home },
-  { href: '/workspaces', label: 'Workspaces', icon: LayoutGrid },
+  { href: '/messages', label: 'Messages', icon: Mail },
   { href: '/small-group-sessions', label: 'Group', icon: Users },
   { href: '/market', label: 'Market', icon: Tag },
   { href: '/browse', label: 'Browse', icon: Search },

@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/use-auth';
 import { useNotificationCount } from '@/lib/hooks/use-notification-count';
-import { useGuildUnreadCount } from '@/lib/hooks/use-guild-unread-count';
 import { useInboxUnreadCount } from '@/lib/hooks/use-inbox-unread-count';
 import { NotificationBell } from '@/components/notification-bell';
 import { Button } from './ui/button';
@@ -32,6 +31,7 @@ import { CoachHeaderMobile } from '@/components/coach-header-mobile';
 import { PublicHeaderMobile } from '@/components/public-header-mobile';
 import { isMarketingRoute } from '@/lib/marketing-routes';
 import { IN_APP_MESSAGING_ENABLED } from '@/lib/in-app-messaging';
+import { WORKSPACES_NAV_ENABLED } from '@/lib/workspaces-feature';
 
 type Coach = { id: string; first_name: string; last_name: string; school: string | null };
 
@@ -56,16 +56,24 @@ export function Header() {
   const { user, userRole, viewAsRole, effectiveRole, viewAsCoachId, setViewAsRole, setViewAsCoachId, loading, signOut } = useAuth();
   const router = useRouter();
   const [notificationCount, refreshNotifications] = useNotificationCount(!!user);
-  const [guildUnread, refreshGuildUnread] = useGuildUnreadCount(!!user);
-  const bellCount = notificationCount + guildUnread;
+  const [messagesUnread, refreshMessagesUnread] = useInboxUnreadCount(
+    !!user &&
+      (effectiveRole === 'parent' ||
+        effectiveRole === 'coach' ||
+        effectiveRole === 'youth_wrestler' ||
+        effectiveRole === 'admin')
+  );
+  const bellCount = notificationCount;
   const refreshBell = () => {
     refreshNotifications();
-    refreshGuildUnread();
+    refreshMessagesUnread();
   };
-  const showInboxIcon =
+  const showMessagesIcon =
     IN_APP_MESSAGING_ENABLED &&
-    (effectiveRole === 'parent' || effectiveRole === 'coach' || effectiveRole === 'youth_wrestler');
-  const [inboxUnreadCount, refreshInboxUnread] = useInboxUnreadCount(!!user && showInboxIcon);
+    (effectiveRole === 'parent' ||
+      effectiveRole === 'coach' ||
+      effectiveRole === 'youth_wrestler' ||
+      (effectiveRole === 'admin' && viewAsRole !== null));
   
   // Coach picker state
   const [showCoachPicker, setShowCoachPicker] = useState(false);
@@ -225,19 +233,21 @@ export function Header() {
                   >
                     Profile
                   </Link>
+                  {showMessagesIcon ? (
                   <Link
-                    href="/inbox"
+                    href="/messages"
                     className="relative flex items-center justify-center min-h-[44px] min-w-[44px] p-1.5 text-white hover:text-accent transition-colors font-medium rounded hover:bg-white/10"
-                    aria-label={inboxUnreadCount > 0 ? `Messages (${inboxUnreadCount} unread)` : 'Messages'}
+                    aria-label={messagesUnread > 0 ? `Messages (${messagesUnread} unread)` : 'Messages'}
                     title="Messages"
                   >
                     <Mail className="h-5 w-5" />
-                    {inboxUnreadCount > 0 && (
+                    {messagesUnread > 0 && (
                       <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold bg-accent text-black rounded-full -translate-y-0.5 translate-x-0.5">
-                        {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
+                        {messagesUnread > 99 ? '99+' : messagesUnread}
                       </span>
                     )}
                   </Link>
+                  ) : null}
                   <NotificationBell count={bellCount} onRefresh={refreshBell} />
                 </>
               )}
@@ -274,31 +284,35 @@ export function Header() {
                   >
                     Dashboard
                   </Link>
+                  {WORKSPACES_NAV_ENABLED ? (
                   <Link
                     href="/workspaces"
                     className="text-white hover:text-accent transition-colors font-medium"
                   >
                     Workspaces
                   </Link>
+                  ) : null}
                   <Link
                     href="/small-group-sessions"
                     className="text-white hover:text-accent transition-colors font-medium"
                   >
                     Group & partner
                   </Link>
+                  {showMessagesIcon ? (
                   <Link
-                    href="/inbox"
+                    href="/messages"
                     className="relative flex items-center justify-center min-h-[44px] min-w-[44px] p-1.5 text-white hover:text-accent transition-colors font-medium rounded hover:bg-white/10"
-                    aria-label={inboxUnreadCount > 0 ? `Community (${inboxUnreadCount} unread)` : 'Community'}
-                    title="Community"
+                    aria-label={messagesUnread > 0 ? `Messages (${messagesUnread} unread)` : 'Messages'}
+                    title="Messages"
                   >
                     <Mail className="h-5 w-5" />
-                    {inboxUnreadCount > 0 && (
+                    {messagesUnread > 0 && (
                       <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold bg-accent text-black rounded-full -translate-y-0.5 translate-x-0.5">
-                        {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
+                        {messagesUnread > 99 ? '99+' : messagesUnread}
                       </span>
                     )}
                   </Link>
+                  ) : null}
                   <NotificationBell count={bellCount} onRefresh={refreshBell} />
                 </>
               )}
@@ -372,19 +386,21 @@ export function Header() {
                   )}
                   <Link href="/dashboard" className="text-white hover:text-accent transition-colors font-medium">Home</Link>
                   <Link href="/training" className="text-white hover:text-accent transition-colors font-medium">Training</Link>
+                  {showMessagesIcon ? (
                   <Link
-                    href="/inbox"
+                    href="/messages"
                     className="relative flex items-center justify-center min-h-[44px] min-w-[44px] p-1.5 text-white hover:text-accent transition-colors font-medium rounded hover:bg-white/10"
-                    aria-label={inboxUnreadCount > 0 ? `Messages (${inboxUnreadCount} unread)` : 'Messages'}
+                    aria-label={messagesUnread > 0 ? `Messages (${messagesUnread} unread)` : 'Messages'}
                     title="Messages"
                   >
                     <Mail className="h-5 w-5" />
-                    {inboxUnreadCount > 0 && (
+                    {messagesUnread > 0 && (
                       <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold bg-accent text-black rounded-full -translate-y-0.5 translate-x-0.5">
-                        {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
+                        {messagesUnread > 99 ? '99+' : messagesUnread}
                       </span>
                     )}
                   </Link>
+                  ) : null}
                   <CartDropdown />
                   <Link href="/account" className="text-white hover:text-accent transition-colors font-medium">Account</Link>
                   <NotificationBell count={bellCount} onRefresh={refreshBell} />

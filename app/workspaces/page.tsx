@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { WORKSPACES_NAV_ENABLED } from '@/lib/workspaces-feature';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
@@ -34,6 +35,8 @@ export default async function WorkspacesPage() {
   if (userData?.role !== 'parent' && userData?.role !== 'coach' && userData?.role !== 'admin' && userData?.role !== 'youth_wrestler') {
     redirect('/');
   }
+
+  if (!WORKSPACES_NAV_ENABLED) redirect('/messages');
 
   const admin = createAdminClient(tenant.slug);
 

@@ -7,6 +7,7 @@ const PARENT_ROUTES = [
   '/find-training',
   '/browse',
   '/bookings',
+  '/messages',
   '/inbox',
   '/notifications',
   '/session-requests',

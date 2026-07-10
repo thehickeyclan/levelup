@@ -180,7 +180,7 @@ export function NotificationBell({
             </div>
             <div className="border-t px-3 py-2 shrink-0 flex flex-col gap-1">
               <Link
-                href="/guild-messages"
+                href="/messages"
                 onClick={() => setOpen(false)}
                 className="text-sm text-accent hover:underline font-medium"
               >

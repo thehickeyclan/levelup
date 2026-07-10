@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { MessageCircle, Users, Plus, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { WORKSPACES_NAV_ENABLED } from '@/lib/workspaces-feature';
 
 type Group = { id: string; name: string; athleteId: string; createdAt: string };
 type DmThread = {
@@ -104,7 +105,7 @@ export function InboxSidebar({ role, className }: { role: 'parent' | 'coach' | '
           )}
         </section>
 
-        {(role === 'parent' || role === 'coach' || role === 'youth_wrestler') && (
+        {(role === 'parent' || role === 'coach' || role === 'youth_wrestler') && WORKSPACES_NAV_ENABLED && (
           <section>
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2 py-1 block">Hubs</span>
             {loading ? (

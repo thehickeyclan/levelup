@@ -3,10 +3,11 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
-import { createNotification } from '@/lib/notifications';
-import { DM_UNAVAILABLE_MESSAGE, isMissingTableError } from '@/lib/coach-inquiries-errors';
+import { sendGuildMessage } from '@/lib/guild-messaging';
+import { loadCoachInquiryMessages } from '@/lib/guild-coach-inquiry';
+import { MESSAGES_HOME_PATH } from '@/lib/in-app-messaging';
 
-/** GET ?parentId=&athleteId= - messages in thread + other party name */
+/** GET ?parentId=&athleteId= — coach inquiry thread via guild_messages */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -22,24 +23,23 @@ export async function GET(req: NextRequest) {
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
 
     const supabase = await createClient(tenant.slug);
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     if (user.id !== parentId && user.id !== athleteId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { data: rows, error } = await supabase
-      .from('coach_inquiries')
-      .select('id, parent_id, athlete_id, sender_id, body, created_at')
-      .eq('parent_id', parentId)
-      .eq('athlete_id', athleteId)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      if (isMissingTableError(error)) return NextResponse.json({ error: DM_UNAVAILABLE_MESSAGE }, { status: 503 });
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const admin = createAdminClient(tenant.slug);
+    const { threadId, messages } = await loadCoachInquiryMessages(
+      supabase,
+      admin,
+      tenant.slug,
+      parentId,
+      athleteId
+    );
 
     const otherId = user.id === parentId ? athleteId : parentId;
     let otherName = '';
@@ -50,22 +50,30 @@ export async function GET(req: NextRequest) {
         .select('first_name, last_name')
         .eq('id', athleteId)
         .single();
-      if (athlete) {
-        otherName = [athlete.first_name, athlete.last_name].filter(Boolean).join(' ') || 'Coach';
-      } else {
-        otherName = 'Coach';
-      }
+      otherName = athlete
+        ? [athlete.first_name, athlete.last_name].filter(Boolean).join(' ') || 'Coach'
+        : 'Coach';
     } else {
       const { data: parentUser } = await supabase
         .from('users')
-        .select('email')
+        .select('email, first_name, last_name')
         .eq('id', parentId)
         .single();
-      otherName = parentUser?.email ? `Parent (${parentUser.email})` : 'Parent';
+      otherName =
+        [parentUser?.first_name, parentUser?.last_name].filter(Boolean).join(' ').trim() ||
+        (parentUser?.email ? `Parent (${parentUser.email})` : 'Parent');
     }
 
     return NextResponse.json({
-      messages: rows ?? [],
+      threadId,
+      messages: messages.map((m) => ({
+        id: m.id,
+        parent_id: parentId,
+        athlete_id: athleteId,
+        sender_id: m.sender_id,
+        body: m.body,
+        created_at: m.created_at,
+      })),
       otherParty: { id: otherId, name: otherName },
     });
   } catch (e) {
@@ -74,7 +82,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST { parentId, athleteId, body } - send message */
+/** POST { parentId, athleteId, body } — send via guild_messages */
 export async function POST(req: NextRequest) {
   try {
     const headersList = await headers();
@@ -83,7 +91,9 @@ export async function POST(req: NextRequest) {
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
 
     const supabase = await createClient(tenant.slug);
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = (await req.json()) as { parentId: string; athleteId: string; body: string };
@@ -96,58 +106,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { data: row, error } = await supabase
-      .from('coach_inquiries')
-      .insert({
+    const admin = createAdminClient(tenant.slug);
+    const { threadId } = await loadCoachInquiryMessages(
+      supabase,
+      admin,
+      tenant.slug,
+      parentId,
+      athleteId
+    );
+
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (host.startsWith('localhost') ? `http://${host}` : `https://${host}`);
+    const threadLink = `${baseUrl}${MESSAGES_HOME_PATH}?thread=${threadId}`;
+
+    const message = await sendGuildMessage(supabase, admin, {
+      threadId,
+      senderId: user.id,
+      body: text,
+      link: threadLink,
+    });
+
+    return NextResponse.json({
+      message: {
+        id: message.id,
         parent_id: parentId,
         athlete_id: athleteId,
-        sender_id: user.id,
-        body: text.trim(),
-      })
-      .select('id, parent_id, athlete_id, sender_id, body, created_at')
-      .single();
-
-    if (error) {
-      if (isMissingTableError(error)) return NextResponse.json({ error: DM_UNAVAILABLE_MESSAGE }, { status: 503 });
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    const recipientId = user.id === parentId ? athleteId : parentId;
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host.startsWith('localhost') ? `http://${host}` : `https://${host}`);
-    const threadLink = `${baseUrl}/inbox/thread/${parentId}/${athleteId}`;
-
-    try {
-      const admin = createAdminClient(tenant.slug);
-      if (recipientId === athleteId) {
-        await createNotification(admin, {
-          user_id: athleteId,
-          type: 'coach_inquiry_message',
-          title: 'New message from a parent',
-          body: text.trim().slice(0, 100) + (text.trim().length > 100 ? '…' : ''),
-          data: { parentId, athleteId, messageId: row.id, link: threadLink },
-        });
-      } else {
-        const { data: coach } = await supabase
-          .from('athletes')
-          .select('first_name, last_name')
-          .eq('id', athleteId)
-          .single();
-        const coachName = coach ? [coach.first_name, coach.last_name].filter(Boolean).join(' ') || 'Coach' : 'Coach';
-        await createNotification(admin, {
-          user_id: parentId,
-          type: 'coach_inquiry_message',
-          title: `New message from ${coachName}`,
-          body: text.trim().slice(0, 100) + (text.trim().length > 100 ? '…' : ''),
-          data: { parentId, athleteId, messageId: row.id, link: threadLink },
-        });
-      }
-    } catch (notifErr) {
-      console.warn('Coach inquiry notification insert failed:', notifErr);
-    }
-
-    return NextResponse.json({ message: row });
+        sender_id: message.sender_id,
+        body: message.body,
+        created_at: message.created_at,
+      },
+      threadId,
+    });
   } catch (e) {
     console.error('Coach inquiries POST error:', e);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const msg = e instanceof Error ? e.message : 'Internal server error';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

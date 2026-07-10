@@ -599,6 +599,7 @@ export function AdminDashboardClient({
     dir: 'desc',
   });
   const [youthLeaderboardSearch, setYouthLeaderboardSearch] = useState('');
+  const [youthDirSearch, setYouthDirSearch] = useState('');
   type YouthDirSortKey = 'name' | 'school' | 'parent' | 'spent' | 'level' | 'joined';
   const [youthDirSort, setYouthDirSort] = useState<{ key: YouthDirSortKey; dir: AdminSortDir }>({
     key: 'name',
@@ -761,37 +762,70 @@ export function AdminDashboardClient({
   const handleRemoveRosterParticipant = async (
     participantId: string,
     wrestlerName: string,
-    row: { hasStripePayment?: boolean; canDelete?: boolean; isDropIn?: boolean }
+    row: {
+      paid?: boolean;
+      amountPaid?: number;
+      hasStripePayment?: boolean;
+      canDelete?: boolean;
+      isDropIn?: boolean;
+    }
   ) => {
     if (!rosterSessionId) return;
-    const paidStripe =
-      row.hasStripePayment === true ||
-      (row.hasStripePayment === undefined && row.canDelete === false && !row.isDropIn);
-    if (paidStripe) {
+    const sess = sessions.find((s) => s.id === rosterSessionId);
+    const listPrice = Number(sess?.price_per_participant ?? 0);
+    const amount =
+      row.paid && Number(row.amountPaid) > 0
+        ? Number(row.amountPaid)
+        : listPrice;
+    const shouldCredit = row.paid === true && amount > 0;
+
+    if (shouldCredit) {
       const ok = window.confirm(
-        `Remove ${wrestlerName} from this roster? This signup was paid with Stripe. Deleting only removes the roster row—it does not refund the card. Refund in Stripe separately if needed. Continue?`
+        `Remove ${wrestlerName} from this session and add $${amount.toFixed(2)} to their parent's Guild wallet?\n\nThe session stays scheduled for everyone else. This does not refund their card — wallet credit is usable on any coach.`
       );
       if (!ok) return;
     } else {
-      if (!confirm(`Remove ${wrestlerName} from this session?`)) return;
+      const paidStripe =
+        row.hasStripePayment === true ||
+        (row.hasStripePayment === undefined && row.canDelete === false && !row.isDropIn);
+      if (paidStripe) {
+        const ok = window.confirm(
+          `Remove ${wrestlerName} from this roster? This signup was paid with Stripe. Deleting only removes the roster row—it does not refund the card. Refund in Stripe separately if needed. Continue?`
+        );
+        if (!ok) return;
+      } else {
+        if (!confirm(`Remove ${wrestlerName} from this session?`)) return;
+      }
     }
+
     setDeletingParticipantId(participantId);
     try {
       const res = await fetch(
         `/api/admin/sessions/${rosterSessionId}/participants/${participantId}`,
-        paidStripe
+        shouldCredit
           ? {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ acknowledgePaidRemoval: true }),
+              body: JSON.stringify({
+                creditParent: true,
+                acknowledgePaidRemoval: true,
+                reason: 'Removed by admin',
+              }),
             }
-          : { method: 'DELETE' }
+          : row.hasStripePayment
+            ? {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ acknowledgePaidRemoval: true }),
+              }
+            : { method: 'DELETE' }
       );
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
       if (!res.ok) {
-        alert((data as { error?: string }).error || 'Remove failed');
+        alert(data.error || 'Remove failed');
         return;
       }
+      if (data.message) alert(data.message);
       router.refresh();
       await openRoster(rosterSessionId);
     } catch (err) {
@@ -2191,6 +2225,20 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
     });
     return list;
   }, [kidsList, spendByYouthIdAll, youthDirSort]);
+
+  const filteredKidsDirectory = useMemo(() => {
+    const q = youthDirSearch.trim().toLowerCase();
+    if (!q) return sortedKidsDirectory;
+    return sortedKidsDirectory.filter((k) => {
+      const name = `${k.first_name} ${k.last_name}`.toLowerCase();
+      return (
+        name.includes(q) ||
+        (k.school ?? '').toLowerCase().includes(q) ||
+        (k.parent_email ?? '').toLowerCase().includes(q) ||
+        k.id.toLowerCase().includes(q)
+      );
+    });
+  }, [sortedKidsDirectory, youthDirSearch]);
 
   const totalYouthSpendAllTime = useMemo(
     () => Math.round(youthSessionSpendLines.reduce((s, l) => s + l.amount_paid, 0) * 100) / 100,
@@ -5241,6 +5289,20 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
               </TabsContent>
 
               <TabsContent value="directory" className="mt-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    Search by name, school, parent email, or athlete id — click a name to open their profile.
+                  </p>
+                  <div className="relative w-full sm:max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={youthDirSearch}
+                      onChange={(e) => setYouthDirSearch(e.target.value)}
+                      placeholder="Search athletes…"
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Card className="p-4">
                     <p className="text-xs text-muted-foreground uppercase tracking-wider">Total spent (all kids)</p>
@@ -5311,24 +5373,25 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                               onClick={() => toggleYouthDirSort('joined')}
                             />
                           </th>
+                          <th className="text-right py-3 px-4">Profile</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
                         {kidsLoading ? (
                           <tr>
-                            <td colSpan={6} className="py-12 text-center">
+                            <td colSpan={7} className="py-12 text-center">
                               <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                             </td>
                           </tr>
-                        ) : kidsList.length === 0 ? (
+                        ) : filteredKidsDirectory.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                            <td colSpan={7} className="py-12 text-center text-muted-foreground">
                               <User className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                              <p>No athletes found</p>
+                              <p>No athletes match your search</p>
                             </td>
                           </tr>
                         ) : (
-                          sortedKidsDirectory.map((k) => {
+                          filteredKidsDirectory.map((k) => {
                             const agg = spendByYouthIdAll.get(k.id);
                             return (
                               <tr key={k.id} className="hover:bg-muted/30 transition-colors">
@@ -5341,9 +5404,12 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                                       alt={`${k.first_name} ${k.last_name}`}
                                       className="h-8 w-8 rounded-full"
                                     />
-                                    <span className="font-medium">
+                                    <Link
+                                      href={`/wrestlers/${k.id}`}
+                                      className="font-medium hover:text-accent hover:underline"
+                                    >
                                       {k.first_name} {k.last_name}
-                                    </span>
+                                    </Link>
                                   </div>
                                 </td>
                                 <td className="py-3 px-4 text-muted-foreground">{k.school || '-'}</td>
@@ -5361,6 +5427,13 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                                 </td>
                                 <td className="py-3 px-4 text-muted-foreground">
                                   {formatEST(new Date(k.created_at), 'MMM d, yyyy')}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <Link href={`/wrestlers/${k.id}`} target="_blank">
+                                    <Button variant="ghost" size="sm" className="h-8">
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </Link>
                                 </td>
                               </tr>
                             );
@@ -5527,7 +5600,14 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                           <>
                             {sortedAthleteSpendByWrestlerRows.map((row) => (
                               <tr key={row.youth_wrestler_id} className="hover:bg-muted/30">
-                                <td className="py-3 px-4 font-medium">{row.name}</td>
+                                <td className="py-3 px-4 font-medium">
+                                  <Link
+                                    href={`/wrestlers/${row.youth_wrestler_id}`}
+                                    className="hover:text-accent hover:underline"
+                                  >
+                                    {row.name}
+                                  </Link>
+                                </td>
                                 <td className="py-3 px-4 text-right tabular-nums">{row.sessions}</td>
                                 <td className="py-3 px-4 text-right tabular-nums font-medium">
                                   ${row.total.toFixed(2)}
@@ -6754,6 +6834,10 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                 </Button>
               </div>
               <p className="text-muted-foreground text-xs pt-1 border-t border-border/60">
+                <strong className="text-foreground">Injury or can&apos;t make it:</strong> use{' '}
+                <em>Remove &amp; credit</em> on a paid wrestler — they leave the roster and the parent gets wallet credit. The session stays on for everyone else.
+              </p>
+              <p className="text-muted-foreground text-xs pt-1 border-t border-border/60">
                 <strong className="text-foreground">Move a kid to another coach:</strong> use Transfer on a wrestler, then run checkout on the{' '}
                 <em>target</em> session if they still need to pay that coach.
               </p>
@@ -6862,10 +6946,20 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                         size="sm"
                         className="h-8 text-xs text-red-400 border-red-600/30 hover:bg-red-600/10 hover:text-red-300"
                         disabled={deletingParticipantId === p.id}
-                        onClick={() => handleRemoveRosterParticipant(p.id, p.wrestlerName, p)}
+                        onClick={() =>
+                          handleRemoveRosterParticipant(p.id, p.wrestlerName, {
+                            paid: p.paid,
+                            amountPaid: p.amountPaid,
+                            hasStripePayment: p.hasStripePayment,
+                            canDelete: p.canDelete,
+                            isDropIn: p.isDropIn,
+                          })
+                        }
                       >
                         {deletingParticipantId === p.id ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : p.paid ? (
+                          'Remove & credit'
                         ) : (
                           'Remove'
                         )}

@@ -5,11 +5,17 @@ import { getTenantByDomain } from '@/config/tenants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Edit, Calendar, User, School, Target, Heart, Award, Smartphone } from 'lucide-react';
+import { Edit, Calendar, User, School, Target, Heart, Award, Smartphone, DollarSign } from 'lucide-react';
 import { BackLink } from '@/components/back-link';
 import { CoachSessionBadge } from '@/components/coach-session-badge';
 import { ProfileImage } from '@/components/profile-image';
 import { formatEST } from '@/lib/format-date';
+import {
+  buildWrestlerSpendLines,
+  computeWrestlerSpendSummary,
+  formatWrestlerUsd,
+  wrestlerAmountPaidFromSession,
+} from '@/lib/wrestler-spend-stats';
 import { LinkedParentsCard } from './linked-parents-card';
 
 export default async function YouthWrestlerProfilePage({
@@ -46,6 +52,8 @@ export default async function YouthWrestlerProfilePage({
   if (userData?.role === 'coach') {
     redirect('/athlete-dashboard');
   }
+
+  const isAdmin = userData?.role === 'admin';
   // parent and admin can both access (admin redirected to dashboard if no matching wrestler)
 
   // Get youth wrestler (RLS: primary or linked parent can see)
@@ -87,17 +95,12 @@ export default async function YouthWrestlerProfilePage({
   const { data: sessions } = sessionIds.length > 0
     ? await supabase
         .from('sessions')
-        .select('*, athletes(first_name, last_name, photo_url), facilities(name), session_participants(youth_wrestler_id, amount_paid)')
+        .select('*, athletes(first_name, last_name, photo_url), facilities(name), session_participants(youth_wrestler_id, amount_paid, paid)')
         .in('id', sessionIds)
         .order('scheduled_datetime', { ascending: false })
     : { data: [] };
 
-  const amountPaidForWrestler = (session: any) => {
-    const parts = session.session_participants ?? [];
-    const row = parts.find((p: any) => p.youth_wrestler_id === id);
-    const amt = row?.amount_paid;
-    return amt != null && Number(amt) > 0 ? Number(amt) : null;
-  };
+  const amountPaidForWrestler = (session: any) => wrestlerAmountPaidFromSession(session, id);
 
   const displayPrice = (session: any) => {
     const paid = amountPaidForWrestler(session);
@@ -107,6 +110,9 @@ export default async function YouthWrestlerProfilePage({
     const per = session.price_per_participant != null ? Number(session.price_per_participant) : 0;
     return per;
   };
+
+  const spendLines = buildWrestlerSpendLines(sessions ?? [], id);
+  const spendSummary = computeWrestlerSpendSummary(spendLines);
 
   const upcomingSessions = sessions?.filter(
     (s: any) => s.status === 'scheduled' && new Date(s.scheduled_datetime) >= new Date()
@@ -119,7 +125,10 @@ export default async function YouthWrestlerProfilePage({
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-6">
-        <BackLink fallbackHref="/dashboard" label="Back to Dashboard" />
+        <BackLink
+          fallbackHref={isAdmin ? '/admin?section=people&sub=athletes' : '/dashboard'}
+          label={isAdmin ? 'Back to Admin' : 'Back to Dashboard'}
+        />
       </div>
 
       {/* Profile Header */}
@@ -142,11 +151,13 @@ export default async function YouthWrestlerProfilePage({
                   </h1>
                   <CoachSessionBadge totalSessions={completedCount} size="md" />
                 </div>
-                <Link href={`/wrestlers/${id}/edit`}>
-                  <Button variant="outline" size="icon">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </Link>
+                {(isPrimary || isAdmin) && (
+                  <Link href={`/wrestlers/${id}/edit`}>
+                    <Button variant="outline" size="icon">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
               </div>
               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
                 {youthWrestler.age && <span>{youthWrestler.age} years old</span>}
@@ -155,12 +166,14 @@ export default async function YouthWrestlerProfilePage({
                 )}
                 {youthWrestler.weight_class && <span>{youthWrestler.weight_class}</span>}
               </div>
-              <Link href={`/browse?youthWrestlerId=${id}`}>
-                <Button variant="premium">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Find an Elite Coach for {youthWrestler.first_name}
-                </Button>
-              </Link>
+              {!isAdmin && (
+                <Link href={`/browse?youthWrestlerId=${id}`}>
+                  <Button variant="premium">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Find an Elite Coach for {youthWrestler.first_name}
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </CardContent>
@@ -170,6 +183,51 @@ export default async function YouthWrestlerProfilePage({
       <div className="mb-6">
         <LinkedParentsCard youthWrestlerId={id} isPrimary={isPrimary} parents={parents} />
       </div>
+
+      {(sessions?.length ?? 0) > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Activity &amp; spending
+            </CardTitle>
+            <CardDescription>
+              {upcomingSessions.length} upcoming · {completedCount} completed ·{' '}
+              {spendSummary.paidSessionCount} paid session
+              {spendSummary.paidSessionCount !== 1 ? 's' : ''}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Total spent</p>
+                <p className="text-2xl font-semibold tabular-nums text-accent">
+                  ${formatWrestlerUsd(spendSummary.totalSpent)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Avg / month</p>
+                <p className="text-2xl font-semibold tabular-nums">
+                  ${formatWrestlerUsd(spendSummary.avgMonthlySpent)}
+                </p>
+                {spendSummary.monthsActive > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Since first paid session ({spendSummary.monthsActive.toFixed(1)} mo)
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Upcoming</p>
+                <p className="text-2xl font-semibold tabular-nums">{upcomingSessions.length}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Completed</p>
+                <p className="text-2xl font-semibold tabular-nums">{completedCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card>
@@ -313,7 +371,7 @@ export default async function YouthWrestlerProfilePage({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {pastSessions.slice(0, 10).map((session: any) => (
+              {pastSessions.map((session: any) => (
                 <div
                   key={session.id}
                   className="flex items-center justify-between p-4 border rounded-lg"

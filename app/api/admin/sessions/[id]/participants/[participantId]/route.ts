@@ -4,6 +4,26 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { syncSessionParticipantCount } from '@/lib/transfer-session-registration';
+import { grantCredit } from '@/lib/credits';
+import { createNotification } from '@/lib/notifications';
+import { formatEST } from '@/lib/format-date';
+import { isRewardsProgramEnabled, reverseSessionEarnedForParticipant } from '@/lib/rewards';
+
+type RemoveParticipantBody = {
+  acknowledgePaidRemoval?: boolean;
+  creditParent?: boolean;
+  reason?: string;
+};
+
+async function parseRemoveBody(req: NextRequest): Promise<RemoveParticipantBody> {
+  try {
+    const text = await req.text();
+    if (!text.trim()) return {};
+    return JSON.parse(text) as RemoveParticipantBody;
+  } catch {
+    return {};
+  }
+}
 
 /**
  * PATCH — Mark an existing roster row paid (admin only). Use after session is complete for cash/Venmo/etc.
@@ -95,7 +115,8 @@ export async function PATCH(
 
 /**
  * DELETE — Remove a session participant row (admin only).
- * Stripe-linked rows require JSON body `{ "acknowledgePaidRemoval": true }` after refund / intentional roster fix.
+ * Stripe-linked rows require JSON body `{ "acknowledgePaidRemoval": true }` unless `{ "creditParent": true }`.
+ * With `creditParent: true`, paid spots receive Guild wallet credit (session stays scheduled for others).
  */
 export async function DELETE(
   req: NextRequest,
@@ -103,6 +124,11 @@ export async function DELETE(
 ) {
   try {
     const { id: sessionId, participantId } = await params;
+    const body = await parseRemoveBody(req);
+    const creditParent = body.creditParent === true;
+    const reason = typeof body.reason === 'string' && body.reason.trim()
+      ? body.reason.trim()
+      : 'Removed by admin';
     const headersList = await headers();
     const host = headersList.get('host') ?? '';
     const tenant = getTenantByDomain(host);
@@ -123,20 +149,47 @@ export async function DELETE(
     }
 
     const admin = createAdminClient(tenant.slug);
+
+    const { data: session, error: sessionErr } = await admin
+      .from('sessions')
+      .select('id, status, scheduled_datetime, athletes(first_name, last_name)')
+      .eq('id', sessionId)
+      .maybeSingle();
+
+    if (sessionErr) {
+      return NextResponse.json({ error: sessionErr.message }, { status: 500 });
+    }
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (creditParent && session.status !== 'scheduled') {
+      return NextResponse.json(
+        { error: 'Wallet credit removal is only available for scheduled sessions' },
+        { status: 400 }
+      );
+    }
+
     const { data: row, error: fetchErr } = await admin
       .from('session_participants')
-      .select('id, session_id, stripe_payment_intent_id')
+      .select(
+        'id, session_id, parent_id, amount_paid, paid, youth_wrestler_id, stripe_payment_intent_id'
+      )
       .eq('id', participantId)
       .maybeSingle();
 
     let rowData: {
       session_id?: string;
+      parent_id?: string | null;
+      amount_paid?: number | null;
+      paid?: boolean | null;
+      youth_wrestler_id?: string | null;
       stripe_payment_intent_id?: string | null;
     } | null = row;
     if (fetchErr && (fetchErr.message ?? '').includes('stripe_payment_intent_id')) {
       const retry = await admin
         .from('session_participants')
-        .select('id, session_id')
+        .select('id, session_id, parent_id, amount_paid, paid, youth_wrestler_id')
         .eq('id', participantId)
         .maybeSingle();
       rowData = retry.data as typeof rowData;
@@ -147,32 +200,61 @@ export async function DELETE(
       return NextResponse.json({ error: fetchErr.message }, { status: 500 });
     }
 
-    if (!rowData || (rowData as { session_id?: string }).session_id !== sessionId) {
+    if (!rowData || rowData.session_id !== sessionId) {
       return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
     }
 
-    let acknowledgePaidRemoval = false;
-    try {
-      const text = await req.text();
-      if (text.trim()) {
-        const body = JSON.parse(text) as { acknowledgePaidRemoval?: boolean };
-        acknowledgePaidRemoval = body?.acknowledgePaidRemoval === true;
-      }
-    } catch {
-      /* no/invalid body */
-    }
+    const acknowledgePaidRemoval =
+      body.acknowledgePaidRemoval === true || creditParent;
 
-    const pi = (rowData as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id;
+    const pi = rowData.stripe_payment_intent_id;
     const hasPi = pi != null && String(pi).trim() !== '';
     if (hasPi && !acknowledgePaidRemoval) {
       return NextResponse.json(
         {
           error:
-            'This registration is linked to a Stripe payment. Use Remove in admin and confirm, or refund in Stripe first.',
+            'This registration is linked to a Stripe payment. Use Remove & credit in admin, or refund in Stripe first.',
           code: 'STRIPE_LINKED',
         },
         { status: 400 }
       );
+    }
+
+    const amountPaid = Math.round(Number(rowData.amount_paid ?? 0) * 100) / 100;
+    const parentId = rowData.parent_id ?? null;
+    let creditGranted = 0;
+
+    if (creditParent) {
+      if (isRewardsProgramEnabled() && rowData.parent_id) {
+        await reverseSessionEarnedForParticipant(admin, {
+          sessionParticipantId: participantId,
+          parentId: rowData.parent_id,
+          sessionId,
+        });
+      }
+
+      if (amountPaid > 0 && rowData.paid === true && parentId) {
+        const coach = Array.isArray(session.athletes) ? session.athletes[0] : session.athletes;
+        const coachName = coach
+          ? [coach.first_name, coach.last_name].filter(Boolean).join(' ')
+          : 'Coach';
+        const sessionDate = formatEST(new Date(session.scheduled_datetime), 'EEE, MMM d');
+        const result = await grantCredit({
+          userId: parentId,
+          amount: amountPaid,
+          reason: `Removed from session: ${sessionDate} with ${coachName}. ${reason}`,
+          sourceType: 'cancellation',
+          sourceId: sessionId,
+          tenantSlug: tenant.slug,
+        });
+        if (!result.success) {
+          return NextResponse.json(
+            { error: result.error || 'Failed to issue wallet credit' },
+            { status: 500 }
+          );
+        }
+        creditGranted = amountPaid;
+      }
     }
 
     const { error: delErr } = await admin.from('session_participants').delete().eq('id', participantId);
@@ -182,7 +264,35 @@ export async function DELETE(
 
     await syncSessionParticipantCount(admin, sessionId);
 
-    return NextResponse.json({ success: true });
+    if (creditParent && parentId) {
+      try {
+        const coach = Array.isArray(session.athletes) ? session.athletes[0] : session.athletes;
+        const coachName = coach
+          ? [coach.first_name, coach.last_name].filter(Boolean).join(' ')
+          : 'Coach';
+        const when = formatEST(new Date(session.scheduled_datetime), 'MMM d, h:mm a');
+        const creditMsg =
+          creditGranted > 0
+            ? ` $${creditGranted.toFixed(2)} was added to your wallet — usable on any coach.`
+            : '';
+        await createNotification(admin, {
+          user_id: parentId,
+          type: 'session_cancelled',
+          title: 'Removed from session',
+          body: `Your wrestler was removed from the session on ${when} with ${coachName}.${creditMsg}`,
+          data: { link: '/bookings', session_id: sessionId },
+        });
+      } catch (notifErr) {
+        console.warn('Notify participant removal failed:', notifErr);
+      }
+    }
+
+    const message =
+      creditGranted > 0
+        ? `Removed from session. $${creditGranted.toFixed(2)} wallet credit issued.`
+        : 'Removed from session.';
+
+    return NextResponse.json({ success: true, creditGranted, message });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 500 });

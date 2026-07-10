@@ -127,7 +127,7 @@ export function SessionDetailActions({
         <div className="p-3 border border-destructive/50 rounded-lg bg-destructive/5 text-left">
           <p className="text-sm font-medium mb-2">Leave this session?</p>
           <p className="text-xs text-muted-foreground mb-3">
-            Your spot will open back up for someone else. You won’t be charged further.
+            Your athlete will be removed and the spot opens for someone else. If you already paid, wallet credit is issued automatically — usable on any coach.
           </p>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => setShowLeaveConfirm(false)} disabled={leaving}>

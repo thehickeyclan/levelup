@@ -44,11 +44,14 @@ export function MessagesInboxClient({
   const [activeThreadId, setActiveThreadId] = useState<string | null>(initialThreadId);
   const [filter, setFilter] = useState<FilterTab>('all');
 
-  useEffect(() => {
-    fetch('/api/guild/messages/inbox')
+  const loadInbox = () => {
+    return fetch('/api/guild/messages/inbox')
       .then((r) => r.json())
-      .then((d) => setThreads(d.threads ?? []))
-      .finally(() => setLoading(false));
+      .then((d) => setThreads(d.threads ?? []));
+  };
+
+  useEffect(() => {
+    loadInbox().finally(() => setLoading(false));
   }, []);
 
   const filtered = useMemo(() => {
@@ -57,7 +60,22 @@ export function MessagesInboxClient({
     return threads.filter((t) => MARKET_TYPES.has(t.thread_type));
   }, [filter, threads]);
 
-  const active = threads.find((t) => t.id === activeThreadId) ?? null;
+  const activeInFilter = filtered.some((t) => t.id === activeThreadId);
+  const active = filtered.find((t) => t.id === activeThreadId) ?? null;
+
+  const setFilterTab = (tab: FilterTab) => {
+    setFilter(tab);
+    setActiveThreadId((current) => {
+      if (!current) return null;
+      const list =
+        tab === 'all'
+          ? threads
+          : tab === 'coaching'
+            ? threads.filter((t) => COACHING_TYPES.has(t.thread_type))
+            : threads.filter((t) => MARKET_TYPES.has(t.thread_type));
+      return list.some((t) => t.id === current) ? current : null;
+    });
+  };
 
   const tabs: { id: FilterTab; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -90,7 +108,7 @@ export function MessagesInboxClient({
             <button
               key={tab.id}
               type="button"
-              onClick={() => setFilter(tab.id)}
+              onClick={() => setFilterTab(tab.id)}
               className={cn(
                 'rounded-full px-3 py-1.5 text-xs font-medium border transition-colors',
                 filter === tab.id
@@ -147,7 +165,7 @@ export function MessagesInboxClient({
               ))}
             </div>
 
-            {activeThreadId ? (
+            {activeThreadId && activeInFilter ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-foreground">
@@ -165,6 +183,9 @@ export function MessagesInboxClient({
                   showSenderName
                   placeholder="Write a message…"
                   maxHeight="420px"
+                  onMessageSent={() => {
+                    void loadInbox();
+                  }}
                 />
               </div>
             ) : null}

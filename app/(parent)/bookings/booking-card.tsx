@@ -606,7 +606,7 @@ export function BookingCard({
               <div className="mt-2 p-3 border border-destructive/50 rounded-lg bg-destructive/5 text-left w-full max-w-xs">
                 <p className="text-sm font-medium mb-2">Leave this session?</p>
                 <p className="text-xs text-muted-foreground mb-3">
-                  Your spot will open back up for someone else. You won’t be charged further.
+                  Your spot will open for someone else. If you already paid, you&apos;ll receive wallet credit for what you paid — usable on any coach.
                 </p>
                 <div className="flex gap-2">
                   <Button 

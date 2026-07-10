@@ -18,6 +18,7 @@ export type MessageThreadProps = {
   readOnly?: boolean;
   /** Scroll the thread panel when messages load (default true). Disable on listing Q&A so the product page stays at the top. */
   scrollOnLoad?: boolean;
+  onMessageSent?: () => void;
 };
 
 function formatMessageTime(createdAt: string): string {
@@ -38,6 +39,7 @@ export function MessageThread({
   showSenderName = false,
   readOnly = false,
   scrollOnLoad = true,
+  onMessageSent,
 }: MessageThreadProps) {
   const { messages, loading, error, refresh } = useGuildThreadMessages(threadId, currentUserId);
   const [draft, setDraft] = useState('');
@@ -72,6 +74,7 @@ export function MessageThread({
       if (!res.ok) throw new Error(data.error || 'Failed to send');
       setDraft('');
       await refresh();
+      onMessageSent?.();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to send');
     } finally {

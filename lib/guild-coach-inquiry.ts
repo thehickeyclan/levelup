@@ -1,25 +1,34 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  findOrCreateThread,
-  findThreadIdByContext,
   loadThreadMessages,
   type GuildMessageRow,
 } from '@/lib/guild-messaging';
 
-export async function ensureCoachInquiryThread(
+function isSchemaColumnError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const msg = error.message ?? '';
+  return error.code === 'PGRST204' || msg.includes('inquiry_parent_id') || msg.includes('inquiry_coach_id');
+}
+
+/** Match coach_inquiry thread by both participant ids (works before inquiry_* migration). */
+export async function findCoachInquiryByParticipants(
   supabase: SupabaseClient,
-  tenantSlug: string,
   parentId: string,
   coachUserId: string
-): Promise<string> {
-  return findOrCreateThread(supabase, {
-    threadType: 'coach_inquiry',
-    tenantSlug,
-    participantIds: [parentId, coachUserId],
-    inquiryParentId: parentId,
-    inquiryCoachId: coachUserId,
-    isPublic: false,
+): Promise<string | null> {
+  const { data: rows, error } = await supabase
+    .from('guild_threads')
+    .select('id, participant_ids')
+    .eq('thread_type', 'coach_inquiry')
+    .contains('participant_ids', [parentId, coachUserId]);
+
+  if (error) throw new Error(error.message);
+
+  const match = (rows ?? []).find((r) => {
+    const ids = new Set((r.participant_ids as string[]) ?? []);
+    return ids.has(parentId) && ids.has(coachUserId);
   });
+  return (match?.id as string) ?? null;
 }
 
 export async function findCoachInquiryThreadId(
@@ -27,14 +36,68 @@ export async function findCoachInquiryThreadId(
   parentId: string,
   coachUserId: string
 ): Promise<string | null> {
-  const { data } = await supabase
+  const byParticipants = await findCoachInquiryByParticipants(supabase, parentId, coachUserId);
+  if (byParticipants) return byParticipants;
+
+  const { data, error } = await supabase
     .from('guild_threads')
     .select('id')
     .eq('thread_type', 'coach_inquiry')
     .eq('inquiry_parent_id', parentId)
     .eq('inquiry_coach_id', coachUserId)
     .maybeSingle();
+
+  if (error) {
+    if (isSchemaColumnError(error)) return null;
+    throw new Error(error.message);
+  }
   return (data?.id as string) ?? null;
+}
+
+export async function ensureCoachInquiryThread(
+  supabase: SupabaseClient,
+  tenantSlug: string,
+  parentId: string,
+  coachUserId: string
+): Promise<string> {
+  const existing = await findCoachInquiryThreadId(supabase, parentId, coachUserId);
+  if (existing) return existing;
+
+  const participants = [parentId, coachUserId];
+  const baseInsert = {
+    thread_type: 'coach_inquiry' as const,
+    tenant_slug: tenantSlug,
+    participant_ids: participants,
+    is_public: false,
+    listing_id: null,
+    offer_id: null,
+    trade_id: null,
+    order_id: null,
+    session_id: null,
+  };
+
+  let { data: created, error } = await supabase
+    .from('guild_threads')
+    .insert({
+      ...baseInsert,
+      inquiry_parent_id: parentId,
+      inquiry_coach_id: coachUserId,
+    })
+    .select('id')
+    .single();
+
+  if (isSchemaColumnError(error)) {
+    ({ data: created, error } = await supabase
+      .from('guild_threads')
+      .insert(baseInsert)
+      .select('id')
+      .single());
+  }
+
+  if (error || !created) {
+    throw new Error(error?.message || 'Could not create coach inquiry thread');
+  }
+  return created.id as string;
 }
 
 /** Copy legacy coach_inquiries rows into guild_messages once per thread. */

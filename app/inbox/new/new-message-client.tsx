@@ -92,12 +92,34 @@ export function NewMessageClient({
       .finally(() => setLoading(false));
   }, [isParentView]);
 
-  const handleCoachClick = (coachId: string) => {
-    router.push(`/inbox/thread/${currentUserId}/${coachId}`);
+  const handleCoachClick = async (coachId: string) => {
+    try {
+      const res = await fetch('/api/guild/messages/coach-inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coachUserId: coachId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start conversation');
+      router.push(`/messages?thread=${data.threadId}`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not start conversation');
+    }
   };
 
-  const handleParentClick = (parentId: string) => {
-    router.push(`/inbox/thread/${parentId}/${currentUserId}`);
+  const handleParentClick = async (parentId: string) => {
+    try {
+      const res = await fetch('/api/guild/messages/coach-inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start conversation');
+      router.push(`/messages?thread=${data.threadId}`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not start conversation');
+    }
   };
 
   if (!isParentView) {

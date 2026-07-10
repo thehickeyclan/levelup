@@ -56,9 +56,13 @@ export async function findOrCreateThread(
     if (!params.inquiryParentId || !params.inquiryCoachId) {
       throw new Error('Coach inquiry requires parent and coach ids');
     }
-    query = query
-      .eq('inquiry_parent_id', params.inquiryParentId)
-      .eq('inquiry_coach_id', params.inquiryCoachId);
+    const { ensureCoachInquiryThread } = await import('@/lib/guild-coach-inquiry');
+    return ensureCoachInquiryThread(
+      supabase,
+      params.tenantSlug,
+      params.inquiryParentId,
+      params.inquiryCoachId
+    );
   } else if (params.offerId) query = query.eq('offer_id', params.offerId);
   else if (params.tradeId) query = query.eq('trade_id', params.tradeId);
   else if (params.orderId) query = query.eq('order_id', params.orderId);

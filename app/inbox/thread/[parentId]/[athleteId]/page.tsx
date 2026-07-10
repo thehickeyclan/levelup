@@ -26,6 +26,11 @@ export default async function InboxThreadRedirectPage({
   if (user.id !== parentId && user.id !== athleteId) notFound();
 
   const admin = createAdminClient(tenant.slug);
-  const threadId = await ensureCoachInquiryThread(admin, tenant.slug, parentId, athleteId);
-  redirect(`/messages?thread=${threadId}`);
+  try {
+    const threadId = await ensureCoachInquiryThread(admin, tenant.slug, parentId, athleteId);
+    redirect(`/messages?thread=${threadId}`);
+  } catch (e) {
+    console.error('InboxThreadRedirectPage:', e);
+    redirect('/messages');
+  }
 }

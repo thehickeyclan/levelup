@@ -55,11 +55,11 @@ export async function GET() {
 
   const admin = createAdminClient(tenant.slug);
 
-  const { data: threads } = await admin
+  const { data: threads, error: threadsError } = await admin
     .from('guild_threads')
     .select(`
       id, thread_type, listing_id, offer_id, trade_id, order_id, session_id,
-      inquiry_parent_id, inquiry_coach_id, created_at,
+      participant_ids, created_at,
       market_listings(brand, model, title),
       market_offers(id),
       market_trades(id),
@@ -68,6 +68,11 @@ export async function GET() {
     .contains('participant_ids', [user.id])
     .order('created_at', { ascending: false })
     .limit(80);
+
+  if (threadsError) {
+    console.error('guild inbox threads error:', threadsError);
+    return NextResponse.json({ error: threadsError.message }, { status: 500 });
+  }
 
   const rows = await Promise.all(
     (threads ?? []).map(async (t) => {
@@ -92,27 +97,29 @@ export async function GET() {
           ? formatEST(new Date(sess.scheduled_datetime as string), 'MMM d h:mm a')
           : '';
         contextTitle = when ? `${coachName} · ${when}` : coachName;
-      } else if (t.thread_type === 'coach_inquiry' && t.inquiry_coach_id) {
-        const { data: coach } = await admin
-          .from('athletes')
-          .select('first_name, last_name')
-          .eq('id', t.inquiry_coach_id)
-          .maybeSingle();
-        const coachName = coach
-          ? [coach.first_name, coach.last_name].filter(Boolean).join(' ')
-          : null;
-        if (user.id === t.inquiry_parent_id) {
-          contextTitle = coachName ? `Coach ${coachName}` : 'Coach';
-        } else {
-          const { data: parentUser } = await admin
-            .from('users')
-            .select('first_name, last_name, email')
-            .eq('id', t.inquiry_parent_id)
+      } else if (t.thread_type === 'coach_inquiry') {
+        const participantIds = ((t.participant_ids as string[]) ?? []).filter((id) => id !== user.id);
+        const otherId = participantIds[0];
+        if (otherId) {
+          const { data: coach } = await admin
+            .from('athletes')
+            .select('first_name, last_name')
+            .eq('id', otherId)
             .maybeSingle();
-          contextTitle =
-            [parentUser?.first_name, parentUser?.last_name].filter(Boolean).join(' ').trim() ||
-            parentUser?.email ||
-            'Parent';
+          if (coach) {
+            const coachName = [coach.first_name, coach.last_name].filter(Boolean).join(' ');
+            contextTitle = coachName ? `Coach ${coachName}` : 'Coach';
+          } else {
+            const { data: parentUser } = await admin
+              .from('users')
+              .select('first_name, last_name, email')
+              .eq('id', otherId)
+              .maybeSingle();
+            contextTitle =
+              [parentUser?.first_name, parentUser?.last_name].filter(Boolean).join(' ').trim() ||
+              parentUser?.email ||
+              'Parent';
+          }
         }
       }
 

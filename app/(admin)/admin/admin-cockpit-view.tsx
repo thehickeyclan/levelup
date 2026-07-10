@@ -733,22 +733,24 @@ export function AdminCockpitView() {
             <CardContent className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Coach payouts</span>
-                <span className="font-medium tabular-nums">${be.coachPayouts.toFixed(0)}</span>
+                <span className="font-medium tabular-nums">${be.coachPayouts.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Stripe fees</span>
-                <span className="font-medium tabular-nums">${be.stripeFees.toFixed(0)}</span>
+                <span className="font-medium tabular-nums">${be.stripeFees.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Guild fees</span>
-                <span className="font-medium tabular-nums">${be.guildOrgFees.toFixed(0)}</span>
+                <span className="text-muted-foreground">Guild net (after Stripe)</span>
+                <span className="font-medium tabular-nums text-[#B89D60]">${be.guildOrgFees.toFixed(2)}</span>
               </div>
-              <div className="border-t border-border pt-2 mt-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium text-[#B89D60]">Net remaining</span>
-                  <span className="font-bold tabular-nums text-[#B89D60]">${be.remainder.toFixed(2)}</span>
+              {Math.abs(be.remainder) >= 0.01 && (
+                <div className="border-t border-border pt-2 mt-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Unallocated</span>
+                    <span className="font-medium tabular-nums">${be.remainder.toFixed(2)}</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         )}

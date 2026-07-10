@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { APP_TIMEZONE } from '@/lib/format-date';
-import { COACH_REVENUE_FRACTION } from '@/lib/pricing';
+import { COACH_REVENUE_FRACTION, normalizeCoachRevenueShareRate } from '@/lib/pricing';
 import {
   parseCockpitPeriod,
   resolveCockpitRange,
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
       admin.from('athletes').select('id, first_name, last_name, school, created_at').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('youth_wrestlers').select('id, first_name, last_name, parent_id, created_at').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('sessions').select('id, scheduled_datetime, status, session_type, session_mode, current_participants, max_participants, athletes(first_name, last_name, school), facilities(name)').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
-      admin.from('session_participants').select('id, session_id, parent_id, youth_wrestler_id, amount_paid, created_at, youth_wrestlers(first_name, last_name), sessions(id, scheduled_datetime, athletes(first_name, last_name), facilities(name))').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
+      admin.from('session_participants').select('id, session_id, parent_id, youth_wrestler_id, amount_paid, stripe_fee, created_at, youth_wrestlers(first_name, last_name), sessions(id, scheduled_datetime, athletes(first_name, last_name), facilities(name))').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('sessions').select('id, athlete_payment, athlete_payout_date, athletes(first_name, last_name)').eq('status', 'completed').gte('athlete_payout_date', rangeStart).lte('athlete_payout_date', rangeEnd),
       trendCountByRanges(admin, 'users', 'parent', trendRanges),
       trendCountByRanges(admin, 'athletes', null, trendRanges),
@@ -147,13 +147,20 @@ export async function GET(req: NextRequest) {
     }
 
     // Revenue: sum of amount_paid for participants created in range (each signup row).
-    // Session-level fees (coach / Stripe / org) are summed once per distinct session.
+    // Stripe fees live on session_participants (cart/register webhooks) — sessions.stripe_fee /
+    // sessions.org_fee stay 0 for most open-session bookings and must not be used here.
+    // Coach / Guild shares are applied to *period* gross only (never full-session athlete_payment).
     const bookingRowsRaw = bookingsRes.data ?? [];
     let revenueThatDay = 0;
+    let stripeFeesTotal = 0;
     const sessionIdsForEconomics = new Set<string>();
-    /** Gross from booking rows in this period, per session (for coach share when athlete_payment not set). */
+    /** Gross from booking rows in this period, per session. */
     const grossBySessionInPeriod = new Map<string, number>();
-    for (const b of bookingRowsRaw as { session_id?: string; amount_paid?: number | null }[]) {
+    for (const b of bookingRowsRaw as {
+      session_id?: string;
+      amount_paid?: number | null;
+      stripe_fee?: number | null;
+    }[]) {
       if (b.session_id) sessionIdsForEconomics.add(b.session_id);
       const amt = b.amount_paid;
       if (amt != null && Number(amt) > 0) {
@@ -163,50 +170,44 @@ export async function GET(req: NextRequest) {
           grossBySessionInPeriod.set(b.session_id, (grossBySessionInPeriod.get(b.session_id) ?? 0) + n);
         }
       }
+      const fee = Number(b.stripe_fee ?? 0);
+      if (!Number.isNaN(fee) && fee > 0) stripeFeesTotal += fee;
     }
     const bookingCount = bookingRowsRaw.length;
 
     let coachPayoutsAllocated = 0;
-    let stripeFeesTotal = 0;
-    let orgFeesGuildTotal = 0;
     const sessionIdList = [...sessionIdsForEconomics];
     if (sessionIdList.length > 0) {
       const { data: sessFin } = await admin
         .from('sessions')
-        .select('id, athlete_payment, org_fee, stripe_fee, session_payout_rate')
+        .select('id, session_payout_rate')
         .in('id', sessionIdList);
+      const rateBySession = new Map<string, number>();
       for (const s of sessFin ?? []) {
-        const row = s as {
-          id: string;
-          athlete_payment?: number | null;
-          org_fee?: number | null;
-          stripe_fee?: number | null;
-          session_payout_rate?: number | null;
-        };
-        const storedCoach = Number(row.athlete_payment ?? 0);
-        const periodGross = grossBySessionInPeriod.get(row.id) ?? 0;
-        const rate =
-          row.session_payout_rate != null && !Number.isNaN(Number(row.session_payout_rate))
-            ? Number(row.session_payout_rate)
-            : COACH_REVENUE_FRACTION;
-        const coachAlloc =
-          storedCoach > 0 ? storedCoach : Math.round(periodGross * rate * 100) / 100;
-        coachPayoutsAllocated += coachAlloc;
-        stripeFeesTotal += Number(row.stripe_fee ?? 0);
-        orgFeesGuildTotal += Number(row.org_fee ?? 0);
+        const row = s as { id: string; session_payout_rate?: number | null };
+        rateBySession.set(row.id, normalizeCoachRevenueShareRate(row.session_payout_rate));
+      }
+      for (const [sessionId, periodGross] of grossBySessionInPeriod) {
+        const rate = rateBySession.get(sessionId) ?? COACH_REVENUE_FRACTION;
+        coachPayoutsAllocated += Math.round(periodGross * rate * 100) / 100;
       }
     }
 
     const round2 = (n: number) => Math.round(n * 100) / 100;
-    const remainderAfterModel = round2(revenueThatDay - coachPayoutsAllocated - stripeFeesTotal - orgFeesGuildTotal);
+    // Guild net after Stripe = period gross − coach share − Stripe fees (closes the books).
+    const guildNetAfterStripe = round2(revenueThatDay - coachPayoutsAllocated - stripeFeesTotal);
+    const remainderAfterModel = round2(
+      revenueThatDay - coachPayoutsAllocated - stripeFeesTotal - guildNetAfterStripe
+    );
 
     const bookingEconomics = {
       bookingCount,
       gross: revenueThatDay,
       coachPayouts: round2(coachPayoutsAllocated),
       stripeFees: round2(stripeFeesTotal),
-      guildOrgFees: round2(orgFeesGuildTotal),
-      /** Should be ~0 if gross matches session model; otherwise rounding or stale session rows */
+      /** Guild platform take after Stripe (not sessions.org_fee — that column is unused for cart). */
+      guildOrgFees: guildNetAfterStripe,
+      /** Should be ~0; non-zero means rounding drift only. */
       remainder: remainderAfterModel,
     };
 

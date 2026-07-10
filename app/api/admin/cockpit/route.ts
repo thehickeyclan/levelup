@@ -11,8 +11,13 @@ import {
   todayYmdInTz,
   type CockpitPeriod,
 } from '@/lib/cockpit-date-ranges';
-import { summarizeCockpitAnalytics } from '@/lib/cockpit-vercel-analytics';
-import { fetchVercelWebAnalyticsTotals } from '@/lib/fetch-vercel-web-analytics';
+import {
+  bucketCountsByRanges,
+  bucketSumAmountPaidByRanges,
+  cumulativeAmountPaidAtRangeEnds,
+  cumulativeCountsAtRangeEnds,
+} from '@/lib/cockpit-trend-queries';
+import { fetchVercelWebAnalyticsTotals, vercelAnalyticsTokenConfigured } from '@/lib/fetch-vercel-web-analytics';
 
 /**
  * GET /api/admin/cockpit?date=YYYY-MM-DD&period=today|week|month|90d|year&timezone=America/New_York
@@ -72,29 +77,42 @@ export async function GET(req: NextRequest) {
       sessionsScheduledRes,
       bookingsRes,
       payoutsPaidRes,
-      trendParentsRes,
-      trendCoachesRes,
-      trendAthletesRes,
-      trendSessionsRes,
-      trendBookingsRes,
-      trendReviewsRes,
+      reviewsInPeriodRes,
+      vercelAnalyticsResult,
+      cumParentTsRes,
+      cumCoachTsRes,
+      cumAthleteTsRes,
+      cumSessionTsRes,
+      cumBookingRowsRes,
+      cumReviewTsRes,
+      cumNullAthleteTsRes,
+      payoutsAllTimeRes,
+      creditsOutstandingRes,
+      creditsIssuedRes,
+      creditsUsedRes,
     ] = await Promise.all([
       admin.from('users').select('id, email, created_at').eq('role', 'parent').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('athletes').select('id, first_name, last_name, school, created_at').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('youth_wrestlers').select('id, first_name, last_name, parent_id, created_at').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
-      admin.from('sessions').select('id, scheduled_datetime, status, session_type, session_mode, current_participants, max_participants, athletes(first_name, last_name, school), facilities(name)').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
+      admin.from('sessions').select('id, scheduled_datetime, status, session_type, session_mode, current_participants, max_participants, created_at, athletes(first_name, last_name, school), facilities(name)').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('session_participants').select('id, session_id, parent_id, youth_wrestler_id, amount_paid, stripe_fee, created_at, youth_wrestlers(first_name, last_name), sessions(id, scheduled_datetime, athletes(first_name, last_name), facilities(name))').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('sessions').select('id, athlete_payment, athlete_payout_date, athletes(first_name, last_name)').eq('status', 'completed').gte('athlete_payout_date', rangeStart).lte('athlete_payout_date', rangeEnd),
-      trendCountByRanges(admin, 'users', 'parent', trendRanges),
-      trendCountByRanges(admin, 'athletes', null, trendRanges),
-      trendCountByRanges(admin, 'youth_wrestlers', null, trendRanges),
-      trendCountByRanges(admin, 'sessions', null, trendRanges),
-      trendCountByRanges(admin, 'session_participants', null, trendRanges),
-      trendCountByRanges(admin, 'reviews', null, trendRanges),
+      admin.from('reviews').select('id, rating, comment, created_at, parent_id, athlete_id, athletes(first_name, last_name)').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
+      fetchVercelWebAnalyticsTotals(rangeStart, rangeEnd),
+      admin.from('users').select('created_at').eq('role', 'parent').lte('created_at', dayEnd).limit(100000),
+      admin.from('athletes').select('created_at').lte('created_at', dayEnd).limit(100000),
+      admin.from('youth_wrestlers').select('created_at').not('created_at', 'is', null).lte('created_at', dayEnd).limit(100000),
+      admin.from('sessions').select('created_at').lte('created_at', dayEnd).limit(100000),
+      admin.from('session_participants').select('amount_paid, created_at').lte('created_at', dayEnd).limit(100000),
+      admin.from('reviews').select('created_at').lte('created_at', dayEnd).limit(100000),
+      admin.from('youth_wrestlers').select('id', { count: 'exact', head: true }).is('created_at', null),
+      admin.from('sessions').select('athlete_payment').eq('status', 'completed').not('athlete_payout_date', 'is', null),
+      admin.from('credits').select('amount').is('used_at', null).gt('expires_at', new Date().toISOString()),
+      admin.from('credits').select('amount').gte('created_at', dayStart).lte('created_at', dayEnd),
+      admin.from('credits').select('amount').gte('used_at', dayStart).lte('used_at', dayEnd),
     ]);
 
-    // Traffic: prefer Vercel Web Analytics API (matches dashboard); fallback to drain table.
-    const ANALYTICS_ROW_LIMIT = 100_000;
+    // Traffic: Vercel Web Analytics API (matches dashboard). Drain only when no token configured.
     let pageViews = 0;
     let visitors = 0;
     let periodUniqueDevices = 0;
@@ -102,78 +120,56 @@ export async function GET(req: NextRequest) {
     let analyticsDataSinceMs: number | null = null;
     let analyticsRowsWithoutKey = 0;
     let analyticsSource: 'vercel_api' | 'drain' | 'none' = 'none';
+    let analyticsApiError: string | null = null;
 
-    const vercelTotals = await fetchVercelWebAnalyticsTotals(rangeStart, rangeEnd);
-    if (vercelTotals) {
-      pageViews = vercelTotals.pageViews;
-      visitors = vercelTotals.visitors;
+    if (vercelAnalyticsResult.ok) {
+      pageViews = vercelAnalyticsResult.pageViews;
+      visitors = vercelAnalyticsResult.visitors;
       analyticsSource = 'vercel_api';
     } else {
-      try {
-        const { data: analyticsRows } = await admin
-          .from('vercel_analytics_events')
-          .select('device_id, session_id, timestamp_ms')
-          .eq('event_type', 'pageview')
-          .gte('timestamp_ms', startMs)
-          .lte('timestamp_ms', endMs)
-          .order('timestamp_ms', { ascending: true })
-          .limit(ANALYTICS_ROW_LIMIT);
-        const rows = (analyticsRows ?? []) as {
-          device_id?: number | null;
-          session_id?: number | null;
-          timestamp_ms: number;
-        }[];
-        const summary = summarizeCockpitAnalytics(
-          rows.map((r) => ({
-            device_id: r.device_id ?? null,
-            session_id: r.session_id ?? null,
-            timestamp_ms: r.timestamp_ms,
-          })),
-          rows.length >= ANALYTICS_ROW_LIMIT
-        );
-        pageViews = summary.pageViews;
-        visitors = summary.visitors;
-        periodUniqueDevices = summary.periodUniqueDevices;
-        visitorsCapped = summary.visitorsCapped;
-        analyticsDataSinceMs = summary.dataSinceMs;
-        analyticsRowsWithoutKey = summary.rowsWithoutVisitorKey;
-        if (pageViews > 0 || visitors > 0) analyticsSource = 'drain';
-      } catch {
-        // Table may not exist yet or drain not configured
+      analyticsApiError = vercelAnalyticsResult.reason;
+      if (!vercelAnalyticsTokenConfigured()) {
+        try {
+          const { data: analyticsRows } = await admin
+            .from('vercel_analytics_events')
+            .select('device_id, session_id, timestamp_ms')
+            .eq('event_type', 'pageview')
+            .gte('timestamp_ms', startMs)
+            .lte('timestamp_ms', endMs)
+            .order('timestamp_ms', { ascending: true })
+            .limit(100_000);
+          const { summarizeCockpitAnalytics } = await import('@/lib/cockpit-vercel-analytics');
+          const rows = (analyticsRows ?? []) as {
+            device_id?: number | null;
+            session_id?: number | null;
+            timestamp_ms: number;
+          }[];
+          const summary = summarizeCockpitAnalytics(
+            rows.map((r) => ({
+              device_id: r.device_id ?? null,
+              session_id: r.session_id ?? null,
+              timestamp_ms: r.timestamp_ms,
+            })),
+            rows.length >= 100_000
+          );
+          pageViews = summary.pageViews;
+          visitors = summary.visitors;
+          periodUniqueDevices = summary.periodUniqueDevices;
+          visitorsCapped = summary.visitorsCapped;
+          analyticsDataSinceMs = summary.dataSinceMs;
+          analyticsRowsWithoutKey = summary.rowsWithoutVisitorKey;
+          if (pageViews > 0 || visitors > 0) analyticsSource = 'drain';
+        } catch {
+          // Table may not exist yet or drain not configured
+        }
       }
     }
 
-    // Credits: total outstanding (unused, non-expired) credits owed to parents
-    let outstandingCredits = 0;
-    let creditsIssuedInRange = 0;
-    let creditsUsedInRange = 0;
-    try {
-      // Total outstanding credits (liability)
-      const { data: creditsData } = await admin
-        .from('credits')
-        .select('amount')
-        .is('used_at', null)
-        .gt('expires_at', new Date().toISOString());
-      outstandingCredits = (creditsData ?? []).reduce((sum: number, c: { amount: number }) => sum + Number(c.amount), 0);
-      
-      // Credits issued in range
-      const { data: issuedData } = await admin
-        .from('credits')
-        .select('amount')
-        .gte('created_at', dayStart)
-        .lte('created_at', dayEnd);
-      creditsIssuedInRange = (issuedData ?? []).reduce((sum: number, c: { amount: number }) => sum + Number(c.amount), 0);
-      
-      // Credits used in range
-      const { data: usedData } = await admin
-        .from('credits')
-        .select('amount')
-        .gte('used_at', dayStart)
-        .lte('used_at', dayEnd);
-      creditsUsedInRange = (usedData ?? []).reduce((sum: number, c: { amount: number }) => sum + Number(c.amount), 0);
-    } catch {
-      // user_credits table may not exist
-    }
+    const sumAmounts = (rows: { amount?: number | null }[] | null | undefined) =>
+      (rows ?? []).reduce((sum, c) => sum + Number(c.amount ?? 0), 0);
+    const outstandingCredits = sumAmounts(creditsOutstandingRes.data as { amount?: number }[]);
+    const creditsIssuedInRange = sumAmounts(creditsIssuedRes.data as { amount?: number }[]);
+    const creditsUsedInRange = sumAmounts(creditsUsedRes.data as { amount?: number }[]);
 
     // Revenue: sum of amount_paid for participants created in range (each signup row).
     // Stripe fees live on session_participants (cart/register webhooks) — sessions.stripe_fee /
@@ -253,134 +249,65 @@ export async function GET(req: NextRequest) {
       return { session_id: s.id, amount: Number(s.athlete_payment ?? 0), coach_name: o ? `${o.first_name ?? ''} ${o.last_name ?? ''}`.trim() : '—' };
     });
 
-    /** All completed sessions ever marked paid (not limited to cockpit period) */
-    const { data: payoutsAllTimeRows } = await admin
-      .from('sessions')
-      .select('athlete_payment')
-      .eq('status', 'completed')
-      .not('athlete_payout_date', 'is', null);
-    const payoutsPaidAllTime = (payoutsAllTimeRows ?? []).reduce(
+    const payoutsPaidAllTime = (payoutsAllTimeRes.data ?? []).reduce(
       (sum: number, s: { athlete_payment?: number | null }) => sum + Number(s.athlete_payment ?? 0),
       0
     );
 
-    const [trendBookingGrossRes, cumBookingGrossRes] = await Promise.all([
-      trendSumAmountPaidByRanges(admin, trendRanges),
-      cumulativeBookingGrossAtRangeEnds(admin, trendRanges),
-    ]);
+    const parentTs = (newParentsRes.data ?? []).map((p: { created_at: string }) => p.created_at);
+    const coachTs = (newCoachesRes.data ?? []).map((a: { created_at: string }) => a.created_at);
+    const athleteTs = (newAthletesRes.data ?? []).map((y: { created_at: string }) => y.created_at);
+    const sessionTs = (sessionsScheduledRes.data ?? []).map((s: { created_at: string }) => s.created_at);
+    const bookingTs = (bookingsRes.data ?? []).map((b: { created_at: string }) => b.created_at);
+    const reviewTs = (reviewsInPeriodRes.data ?? []).map((r: { created_at: string }) => r.created_at);
+    const bookingAmountRows = (bookingsRes.data ?? []) as { amount_paid?: number | null; created_at: string }[];
 
     const trends = {
-      parents: trendParentsRes,
-      coaches: trendCoachesRes,
-      athletes: trendAthletesRes,
-      sessions: trendSessionsRes,
-      bookings: trendBookingsRes,
-      bookingGross: trendBookingGrossRes,
-      reviews: trendReviewsRes,
+      parents: bucketCountsByRanges(parentTs, trendRanges),
+      coaches: bucketCountsByRanges(coachTs, trendRanges),
+      athletes: bucketCountsByRanges(athleteTs, trendRanges),
+      sessions: bucketCountsByRanges(sessionTs, trendRanges),
+      bookings: bucketCountsByRanges(bookingTs, trendRanges),
+      bookingGross: bucketSumAmountPaidByRanges(bookingAmountRows, trendRanges),
+      reviews: bucketCountsByRanges(reviewTs, trendRanges),
+    };
+
+    const nullAthleteCount = cumNullAthleteTsRes.count ?? 0;
+    const cumBookingRows = (cumBookingRowsRes.data ?? []) as { amount_paid?: number | null; created_at: string | null }[];
+
+    const trendCumulativeTotals = {
+      parents: cumulativeCountsAtRangeEnds(
+        (cumParentTsRes.data ?? []).map((r: { created_at: string }) => r.created_at),
+        trendRanges
+      ),
+      coaches: cumulativeCountsAtRangeEnds(
+        (cumCoachTsRes.data ?? []).map((r: { created_at: string }) => r.created_at),
+        trendRanges
+      ),
+      athletes: cumulativeCountsAtRangeEnds(
+        (cumAthleteTsRes.data ?? []).map((r: { created_at: string }) => r.created_at),
+        trendRanges,
+        nullAthleteCount
+      ),
+      sessions: cumulativeCountsAtRangeEnds(
+        (cumSessionTsRes.data ?? []).map((r: { created_at: string }) => r.created_at),
+        trendRanges
+      ),
+      bookings: cumulativeCountsAtRangeEnds(
+        cumBookingRows.map((r) => r.created_at),
+        trendRanges
+      ),
+      bookingGross: cumulativeAmountPaidAtRangeEnds(cumBookingRows, trendRanges),
+      reviews: cumulativeCountsAtRangeEnds(
+        (cumReviewTsRes.data ?? []).map((r: { created_at: string }) => r.created_at),
+        trendRanges
+      ),
     };
 
     const trendLabels = trendRanges.map((r) => r.label);
     const trendDaysForResponse = trendRanges.map((r) => r.start.slice(0, 10));
 
-    /** All-time count at end of each bucket (created_at <= period end) — monotone growth curves */
-    const [
-      cumParentsRes,
-      cumCoachesRes,
-      cumAthletesRes,
-      cumSessionsRes,
-      cumBookingsRes,
-      cumReviewsRes,
-    ] = await Promise.all([
-      cumulativeTotalsAtRangeEnds(admin, 'users', 'parent', trendRanges),
-      cumulativeTotalsAtRangeEnds(admin, 'athletes', null, trendRanges),
-      cumulativeYouthWrestlersAtRangeEnds(admin, trendRanges),
-      cumulativeTotalsAtRangeEnds(admin, 'sessions', null, trendRanges),
-      cumulativeTotalsAtRangeEnds(admin, 'session_participants', null, trendRanges),
-      cumulativeTotalsAtRangeEnds(admin, 'reviews', null, trendRanges),
-    ]);
-
-    const trendCumulativeTotals = {
-      parents: cumParentsRes,
-      coaches: cumCoachesRes,
-      athletes: cumAthletesRes,
-      sessions: cumSessionsRes,
-      bookings: cumBookingsRes,
-      bookingGross: cumBookingGrossRes,
-      reviews: cumReviewsRes,
-    };
-
-    // Detail records for the full trend period (so table below chart shows list for selected metric)
-    const trendStart = trendRanges[0]?.start ?? dayStart;
-    const trendEnd = trendRanges[trendRanges.length - 1]?.end ?? dayEnd;
-    const [
-      trendDetailParentsRes,
-      trendDetailCoachesRes,
-      trendDetailAthletesRes,
-      trendDetailSessionsRes,
-      trendDetailBookingsRes,
-      trendDetailReviewsRes,
-    ] = await Promise.all([
-      admin.from('users').select('id, email, created_at').eq('role', 'parent').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
-      admin.from('athletes').select('id, first_name, last_name, school, created_at').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
-      admin.from('youth_wrestlers').select('id, first_name, last_name, parent_id, created_at').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
-      admin.from('sessions').select('id, scheduled_datetime, status, session_type, session_mode, current_participants, max_participants, athletes(first_name, last_name, school), facilities(name)').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
-      admin.from('session_participants').select('id, session_id, parent_id, youth_wrestler_id, amount_paid, created_at, youth_wrestlers(first_name, last_name), sessions(id, scheduled_datetime, athletes(first_name, last_name), facilities(name))').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
-      admin.from('reviews').select('id, rating, comment, created_at, parent_id, athlete_id, athletes(first_name, last_name)').gte('created_at', trendStart).lte('created_at', trendEnd).order('created_at', { ascending: false }),
-    ]);
-
-    const trendDetailParents = (trendDetailParentsRes.data ?? []).map((p: { id: string; email: string; created_at: string }) => ({ id: p.id, email: p.email, created_at: p.created_at }));
-    const trendDetailCoaches = (trendDetailCoachesRes.data ?? []).map((a: { id: string; first_name: string; last_name: string; school: string; created_at: string }) => ({
-      id: a.id, name: `${a.first_name} ${a.last_name}`.trim(), school: a.school ?? '', created_at: a.created_at,
-    }));
-    const trendDetailAthletes = (trendDetailAthletesRes.data ?? []).map((y: { id: string; first_name: string; last_name: string; parent_id: string; created_at: string }) => ({
-      id: y.id, name: `${y.first_name} ${y.last_name}`.trim(), parent_id: y.parent_id, created_at: y.created_at,
-    }));
-    const trendDetailSessions = (trendDetailSessionsRes.data ?? []).map((s: {
-      id: string; scheduled_datetime: string; status: string; session_type?: string; session_mode?: string; current_participants?: number; max_participants?: number;
-      athletes?: { first_name: string; last_name: string; school: string } | { first_name: string; last_name: string; school: string }[];
-      facilities?: { name: string } | { name: string }[];
-    }) => {
-      const a = s.athletes;
-      const o = Array.isArray(a) ? a[0] : a;
-      const f = s.facilities;
-      const fo = Array.isArray(f) ? f[0] : f;
-      return {
-        id: s.id,
-        scheduled_datetime: s.scheduled_datetime,
-        status: s.status,
-        session_type: s.session_type ?? '—',
-        session_mode: s.session_mode ?? '—',
-        coach_name: o ? `${o.first_name} ${o.last_name}` : '—',
-        facility_name: fo?.name ?? '—',
-        participants: `${s.current_participants ?? 0}/${s.max_participants ?? 1}`,
-      };
-    });
-    const trendDetailBookings = ((trendDetailBookingsRes.data ?? []) as Array<{
-      id: string; session_id: string; amount_paid?: number | null; created_at: string;
-      youth_wrestlers?: { first_name?: string; last_name?: string } | Array<{ first_name?: string; last_name?: string }> | null;
-      sessions?: { scheduled_datetime?: string; athletes?: { first_name?: string; last_name?: string } | Array<{ first_name?: string; last_name?: string }>; facilities?: { name?: string } | Array<{ name?: string }> } | null;
-    }>).map((b) => {
-      const yw = b.youth_wrestlers;
-      const ywOne = Array.isArray(yw) ? yw[0] : yw;
-      const kid_name = ywOne ? `${ywOne.first_name ?? ''} ${ywOne.last_name ?? ''}`.trim() || '—' : '—';
-      const sess = b.sessions;
-      const s = Array.isArray(sess) ? sess?.[0] : sess;
-      const a = s?.athletes;
-      const o = Array.isArray(a) ? a[0] : a;
-      const f = s?.facilities;
-      const fo = Array.isArray(f) ? f[0] : f;
-      return {
-        id: b.id,
-        session_id: b.session_id,
-        amount_paid: b.amount_paid != null ? Number(b.amount_paid) : null,
-        created_at: b.created_at,
-        kid_name,
-        coach_name: o ? `${o.first_name ?? ''} ${o.last_name ?? ''}`.trim() || '—' : '—',
-        facility_name: fo?.name ?? '—',
-        scheduled_datetime: s?.scheduled_datetime ?? '—',
-      };
-    });
-    const reviewsRaw = (trendDetailReviewsRes.data ?? []) as Array<{
+    const reviewsRaw = (reviewsInPeriodRes.data ?? []) as Array<{
       id: string; rating: number; comment: string | null; created_at: string; parent_id: string; athlete_id: string;
       athletes?: { first_name: string; last_name: string } | { first_name: string; last_name: string }[];
     }>;
@@ -462,6 +389,22 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    const trendDetailParents = newParents;
+    const trendDetailCoaches = newCoaches;
+    const trendDetailAthletes = newAthletes;
+    const trendDetailSessions = sessionsScheduled;
+    const trendDetailBookings = bookings;
+
+    const kpiCounts = {
+      bookings: bookingCount,
+      paidBookings: paidBookingCount,
+      parents: newParents.length,
+      coaches: newCoaches.length,
+      athletes: newAthletes.length,
+      sessions: sessionsScheduled.length,
+      reviews: reviewsRaw.length,
+    };
+
     return NextResponse.json({
       date,
       period,
@@ -475,6 +418,8 @@ export async function GET(req: NextRequest) {
       analyticsDataSinceMs,
       analyticsRowsWithoutKey,
       analyticsSource,
+      analyticsApiError,
+      kpiCounts,
       newParents,
       newCoaches,
       newAthletes,
@@ -505,130 +450,4 @@ export async function GET(req: NextRequest) {
     console.error('Cockpit API error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
-
-async function trendCountByRanges(
-  admin: ReturnType<typeof createAdminClient>,
-  table: 'users' | 'athletes' | 'youth_wrestlers' | 'sessions' | 'session_participants' | 'reviews',
-  role: string | null,
-  ranges: { start: string; end: string }[]
-): Promise<number[]> {
-  const counts: number[] = [];
-  for (const { start, end } of ranges) {
-    const base = (admin as any).from(table).select('*', { count: 'exact', head: true }).gte('created_at', start).lte('created_at', end);
-    const q = table === 'users' && role != null ? base.eq('role', role) : base;
-    const { count, error } = await q;
-    counts.push(error ? 0 : (count ?? 0));
-  }
-  return counts;
-}
-
-/** Total rows ever created with created_at <= end of each bucket (platform growth over time). */
-async function cumulativeTotalsAtRangeEnds(
-  admin: ReturnType<typeof createAdminClient>,
-  table: 'users' | 'athletes' | 'youth_wrestlers' | 'sessions' | 'session_participants' | 'reviews',
-  role: string | null,
-  ranges: { start: string; end: string }[]
-): Promise<number[]> {
-  const counts: number[] = [];
-  for (const { end } of ranges) {
-    const base = (admin as any).from(table).select('*', { count: 'exact', head: true }).lte('created_at', end);
-    const q = table === 'users' && role != null ? base.eq('role', role) : base;
-    const { count, error } = await q;
-    counts.push(error ? 0 : (count ?? 0));
-  }
-  return counts;
-}
-
-/**
- * Kids cumulative count: rows with created_at <= end OR created_at IS NULL (legacy imports).
- * Plain .lte(created_at) excludes NULL and undercounted (e.g. chart showed ~30 vs 37 real kids).
- */
-async function cumulativeYouthWrestlersAtRangeEnds(
-  admin: ReturnType<typeof createAdminClient>,
-  ranges: { start: string; end: string }[]
-): Promise<number[]> {
-  const { count: nullCount, error: nullErr } = await admin
-    .from('youth_wrestlers')
-    .select('*', { count: 'exact', head: true })
-    .is('created_at', null);
-  const nNull = nullErr ? 0 : (nullCount ?? 0);
-
-  const counts: number[] = [];
-  for (const { end } of ranges) {
-    const { count, error } = await admin
-      .from('youth_wrestlers')
-      .select('*', { count: 'exact', head: true })
-      .not('created_at', 'is', null)
-      .lte('created_at', end);
-    counts.push((error ? 0 : (count ?? 0)) + nNull);
-  }
-  return counts;
-}
-
-function roundMoney(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-/** Gross parent payments (sum amount_paid) per trend bucket for session_participants in that window. */
-async function trendSumAmountPaidByRanges(
-  admin: ReturnType<typeof createAdminClient>,
-  ranges: { start: string; end: string }[]
-): Promise<number[]> {
-  if (ranges.length === 0) return [];
-  const minStart = ranges[0].start;
-  const maxEnd = ranges[ranges.length - 1].end;
-  const { data, error } = await admin
-    .from('session_participants')
-    .select('amount_paid, created_at')
-    .gte('created_at', minStart)
-    .lte('created_at', maxEnd)
-    .limit(100000);
-  if (error || !data) return ranges.map(() => 0);
-  const rows = data as { amount_paid?: number | null; created_at: string }[];
-  return ranges.map(({ start, end }) => {
-    const t0 = new Date(start).getTime();
-    const t1 = new Date(end).getTime();
-    let s = 0;
-    for (const r of rows) {
-      const t = new Date(r.created_at).getTime();
-      if (t >= t0 && t <= t1) s += Number(r.amount_paid ?? 0);
-    }
-    return roundMoney(s);
-  });
-}
-
-/** Cumulative sum of amount_paid for all booking rows with created_at <= bucket end (or null timestamp). */
-async function cumulativeBookingGrossAtRangeEnds(
-  admin: ReturnType<typeof createAdminClient>,
-  ranges: { start: string; end: string }[]
-): Promise<number[]> {
-  if (ranges.length === 0) return [];
-  const maxEnd = ranges[ranges.length - 1].end;
-  const [{ data: datedRows, error: e1 }, { data: nullRows, error: e2 }] = await Promise.all([
-    admin
-      .from('session_participants')
-      .select('amount_paid, created_at')
-      .not('created_at', 'is', null)
-      .lte('created_at', maxEnd)
-      .limit(100000),
-    admin.from('session_participants').select('amount_paid, created_at').is('created_at', null).limit(10000),
-  ]);
-  if (e1 && e2) return ranges.map(() => 0);
-  const rows = [
-    ...((datedRows ?? []) as { amount_paid?: number | null; created_at: string }[]),
-    ...((nullRows ?? []) as { amount_paid?: number | null; created_at: string | null }[]),
-  ];
-  return ranges.map(({ end }) => {
-    const tEnd = new Date(end).getTime();
-    let s = 0;
-    for (const r of rows) {
-      if (r.created_at == null) {
-        s += Number(r.amount_paid ?? 0);
-        continue;
-      }
-      if (new Date(r.created_at).getTime() <= tEnd) s += Number(r.amount_paid ?? 0);
-    }
-    return roundMoney(s);
-  });
 }

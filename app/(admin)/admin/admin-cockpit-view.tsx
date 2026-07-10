@@ -111,6 +111,16 @@ export type CockpitData = {
   analyticsDataSinceMs?: number | null;
   analyticsRowsWithoutKey?: number;
   analyticsSource?: 'vercel_api' | 'drain' | 'none';
+  analyticsApiError?: string | null;
+  kpiCounts?: {
+    bookings: number;
+    paidBookings: number;
+    parents: number;
+    coaches: number;
+    athletes: number;
+    sessions: number;
+    reviews: number;
+  };
   // Credits (liability)
   outstandingCredits?: number;
   creditsIssuedInRange?: number;
@@ -530,7 +540,7 @@ export function AdminCockpitView() {
   const [reviewCoachFilter, setReviewCoachFilter] = useState<string>('');
   const [reviewStarFilter, setReviewStarFilter] = useState<number | 'all'>('all');
   const [trendChartStyle, setTrendChartStyle] = useState<'area' | 'bar'>('area');
-  const [activityMode, setActivityMode] = useState<'runningTotal' | 'perPeriod'>('runningTotal');
+  const [activityMode, setActivityMode] = useState<'runningTotal' | 'perPeriod'>('perPeriod');
   const [growthLineVisible, setGrowthLineVisible] = useState<Record<string, boolean>>(() => {
     const o = Object.fromEntries(GROWTH_LINE_SPECS.map((s) => [s.id, true])) as Record<string, boolean>;
     o.bookingGross = false;
@@ -622,8 +632,13 @@ export function AdminCockpitView() {
   ];
 
   const be = d.bookingEconomics;
-  const bookingN = be?.bookingCount ?? d.bookings.length;
-  const paidBookingN = be?.paidBookingCount ?? bookingN;
+  const kpi = d.kpiCounts;
+  const bookingN = kpi?.bookings ?? be?.bookingCount ?? d.bookings.length;
+  const paidBookingN = kpi?.paidBookings ?? be?.paidBookingCount ?? bookingN;
+  const parentN = kpi?.parents ?? d.newParents.length;
+  const coachN = kpi?.coaches ?? d.newCoaches.length;
+  const athleteN = kpi?.athletes ?? d.newAthletes.length;
+  const sessionN = kpi?.sessions ?? d.sessionsScheduled.length;
 
   // Prepare chart data for activity
   const selectedMetric = trendMetrics.find((m) => m.id === trendMetric);
@@ -722,14 +737,17 @@ export function AdminCockpitView() {
               <div className="flex items-center gap-6 text-sm">
                 <div className="text-center">
                   <p className="text-2xl font-bold tabular-nums">{bookingN}</p>
-                  <p className="text-muted-foreground">Signups</p>
+                  <p className="text-muted-foreground">Bookings</p>
+                  {paidBookingN !== bookingN && (
+                    <p className="text-[10px] text-muted-foreground">{paidBookingN} paid</p>
+                  )}
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold tabular-nums">{d.newParents.length}</p>
+                  <p className="text-2xl font-bold tabular-nums">{parentN}</p>
                   <p className="text-muted-foreground">New Parents</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold tabular-nums">{d.sessionsScheduled.length}</p>
+                  <p className="text-2xl font-bold tabular-nums">{sessionN}</p>
                   <p className="text-muted-foreground">Sessions created</p>
                 </div>
               </div>
@@ -778,58 +796,59 @@ export function AdminCockpitView() {
           variant="highlight"
         />
         <MetricCard
-          label="Signups"
+          label="Bookings"
           value={bookingN}
           icon={CreditCard}
           sparklineData={trends.bookings}
+          subtitle={paidBookingN !== bookingN ? `${paidBookingN} paid` : undefined}
         />
         <MetricCard
           label="New Parents"
-          value={d.newParents.length}
+          value={parentN}
           icon={UserPlus}
           sparklineData={trends.parents}
         />
         <MetricCard
           label="New Coaches"
-          value={d.newCoaches.length}
+          value={coachN}
           icon={Users}
           sparklineData={trends.coaches}
         />
         <MetricCard
           label="New wrestlers"
-          value={d.newAthletes.length}
+          value={athleteN}
           icon={Users}
           sparklineData={trends.athletes}
         />
         <MetricCard
           label="Visitors"
-          value={typeof d.visitors === 'number' ? d.visitors : '—'}
+          value={typeof d.visitors === 'number' ? d.visitors.toLocaleString() : '—'}
           icon={Eye}
           variant="muted"
           subtitle={(() => {
             const parts: string[] = [];
-            if (d.analyticsSource === 'vercel_api') {
-              parts.push('Vercel Analytics API');
+            if (d.analyticsApiError && d.analyticsSource !== 'vercel_api') {
+              parts.push(d.analyticsApiError);
+            } else if (d.analyticsSource === 'vercel_api') {
+              parts.push('Vercel Analytics');
             } else if (d.analyticsSource === 'drain') {
-              parts.push('Analytics drain (partial — add VERCEL_ACCESS_TOKEN to match dashboard)');
+              parts.push('Partial drain data');
             }
             if (typeof d.pageViews === 'number') {
               parts.push(`${d.pageViews.toLocaleString()} page views`);
             }
-            if (typeof d.periodUniqueDevices === 'number' && d.periodUniqueDevices > 0) {
-              parts.push(`${d.periodUniqueDevices.toLocaleString()} devices in period`);
+            if (d.analyticsSource === 'drain' && typeof d.periodUniqueDevices === 'number' && d.periodUniqueDevices > 0) {
+              parts.push(`${d.periodUniqueDevices.toLocaleString()} devices`);
             }
             if (d.visitorsCapped) parts.push('partial (range too large)');
             if (d.analyticsDataSinceMs != null && d.rangeStart && d.analyticsSource === 'drain') {
               const dataSinceYmd = formatEST(new Date(d.analyticsDataSinceMs), 'yyyy-MM-dd');
               if (dataSinceYmd > d.rangeStart) {
-                parts.push(
-                  `drain data since ${formatEST(new Date(d.analyticsDataSinceMs), 'MMM d')}`
-                );
+                parts.push(`since ${formatEST(new Date(d.analyticsDataSinceMs), 'MMM d')}`);
               }
             }
             if (parts.length === 0) {
-              return 'Set VERCEL_ACCESS_TOKEN + VERCEL_PROJECT_ID for Vercel dashboard numbers';
+              return 'Add VERCEL_ACCESS_TOKEN for Vercel dashboard numbers';
             }
             return parts.join(' · ');
           })()}

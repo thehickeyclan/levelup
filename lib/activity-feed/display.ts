@@ -24,6 +24,10 @@ export function activityPostHeadline(post: ActivityFeedPost): string {
   const name = wrestlerDisplayName(post);
   if (post.trigger_type === 'milestone_hit') return `${name} hit a milestone!`;
   if (post.trigger_type === 'session_completed') return `${name} completed a session`;
+  if (post.trigger_type === 'photo_post') {
+    if (post.youth_wrestler_id) return `${name} shared session photos`;
+    return `${coachDisplayName(post)} shared session photos`;
+  }
   return `${name} posted`;
 }
 

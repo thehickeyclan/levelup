@@ -40,6 +40,12 @@ export type ActivityFeedReview = {
   comment?: string | null;
 };
 
+export type ActivityFeedPhoto = {
+  storage_path: string;
+  display_order: number;
+  url: string;
+};
+
 export type ActivityFeedMilestone = {
   id: string;
   milestone: string;
@@ -60,6 +66,7 @@ export type ActivityFeedPost = {
   sessions?: ActivityFeedSession | ActivityFeedSession[] | null;
   reward_milestones?: ActivityFeedMilestone | ActivityFeedMilestone[] | null;
   reviews?: ActivityFeedReview | ActivityFeedReview[] | null;
+  photos?: ActivityFeedPhoto[];
   hammer_count: number;
   viewer_has_hammer: boolean;
 };

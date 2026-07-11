@@ -6,7 +6,7 @@ import { getTenantByDomain } from '@/config/tenants';
 import { fetchActivityFeed, resolveFeedContext } from '@/lib/activity-feed/fetch-feed';
 import { resolveCoachScopeForFeed } from '@/lib/activity-feed/resolve-coach-scope';
 import type { ActivityFeedScope } from '@/lib/activity-feed/types';
-import { ActivityFeedList } from '@/components/activity/activity-feed-list';
+import { ActivityPageShell } from '@/components/activity/activity-page-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,21 +63,29 @@ export default async function ActivityPage({
         ? 'Your session activity'
         : 'Guild activity';
 
+  const description =
+    scope === 'family'
+      ? 'Sessions, milestones, and photos from your wrestlers.'
+      : scope === 'coach'
+        ? 'Activity on your sessions — completions, photos, and milestones.'
+        : 'Sessions completed, photos shared, and milestones across Guild.';
+
+  const emptyMessage =
+    scope === 'coach' && role === 'admin' && !viewAsCoachId
+      ? 'Choose a coach in the header (preview as coach), then open this page again.'
+      : posts.length === 0
+        ? 'No activity yet. When sessions are marked complete — or you share photos with + — they show up here.'
+        : undefined;
+
   return (
-    <div className="px-4 pt-6 max-w-lg mx-auto">
-      <h1 className="text-xl font-bold text-foreground">{title}</h1>
-      <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
-        Sessions completed and milestones across Guild.
-      </p>
-      <div className="mt-6">
-        {scope === 'coach' && role === 'admin' && !viewAsCoachId ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            Choose a coach in the header (preview as coach), then open this page again.
-          </p>
-        ) : (
-          <ActivityFeedList posts={posts} highlightCoachHammers={scope === 'coach'} />
-        )}
-      </div>
-    </div>
+    <ActivityPageShell
+      title={title}
+      description={description}
+      posts={posts}
+      role={role}
+      highlightCoachHammers={scope === 'coach'}
+      showShareButton={!(scope === 'coach' && role === 'admin' && !viewAsCoachId)}
+      emptyMessage={emptyMessage}
+    />
   );
 }

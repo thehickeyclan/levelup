@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { attachActivityPhotoUrls } from '@/lib/activity-feed/attach-photo-urls';
 import { getParentYouthWrestlerIds } from '@/lib/parent-wrestlers';
 import type { ActivityFeedPost, ActivityFeedScope } from '@/lib/activity-feed/types';
 
@@ -95,8 +96,9 @@ export async function fetchActivityFeed(
   const page = hasMore ? rows.slice(0, limit) : rows;
   const nextCursor = hasMore ? page[page.length - 1]?.created_at ?? null : null;
   const posts = await attachHammers(db, page, viewerId);
+  const withPhotos = await attachActivityPhotoUrls(db, posts);
 
-  return { posts, nextCursor };
+  return { posts: withPhotos, nextCursor };
 }
 
 export async function fetchFamilyActivityPosts(

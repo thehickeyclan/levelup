@@ -31,6 +31,8 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const subline = activityPostSubline(post);
   const reviewLine = activityPostReviewLine(post);
   const isMilestone = post.trigger_type === 'milestone_hit';
+  const isPhotoPost = post.trigger_type === 'photo_post';
+  const photos = post.photos ?? [];
 
   const giveHammer = async () => {
     if (hasHammer || loading) return;
@@ -88,11 +90,36 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
           {reviewLine ? (
             <p className="mt-1.5 text-sm text-foreground/90 leading-relaxed">{reviewLine}</p>
           ) : null}
+          {post.caption?.trim() && isPhotoPost ? (
+            <p className="mt-1.5 text-sm text-foreground/90 leading-relaxed">{post.caption.trim()}</p>
+          ) : null}
           {highlightCoachHammers && post.coach_id ? (
             <p className="mt-1 text-xs text-muted-foreground">with {coachDisplayName(post)}</p>
           ) : null}
         </div>
       </div>
+
+      {photos.length > 0 ? (
+        <div
+          className={`mt-3 grid gap-2 ${photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
+        >
+          {photos.map((photo) => (
+            <div
+              key={photo.storage_path}
+              className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border/60 bg-muted"
+            >
+              <Image
+                src={photo.url}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="(max-width: 512px) 100vw, 256px"
+                unoptimized
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="mt-3 flex items-center gap-2">
         <Button

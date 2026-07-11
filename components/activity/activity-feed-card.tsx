@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Flame, Trophy } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ActivityFeedPost } from '@/lib/activity-feed/types';
 import {
@@ -12,6 +12,7 @@ import {
   activityPostSubline,
   coachDisplayName,
 } from '@/lib/activity-feed/display';
+import { HAMMER_EMOJI, hammerButtonLabel } from '@/lib/activity-feed/hammer-display';
 
 type Props = {
   post: ActivityFeedPost;
@@ -29,7 +30,7 @@ export function ActivityFeedCard({ post, highlightCoachKudos = false }: Props) {
   const subline = activityPostSubline(post);
   const isMilestone = post.trigger_type === 'milestone_hit';
 
-  const giveKudos = async () => {
+  const giveHammer = async () => {
     if (hasKudos || loading) return;
     setLoading(true);
     try {
@@ -95,10 +96,13 @@ export function ActivityFeedCard({ post, highlightCoachKudos = false }: Props) {
           size="sm"
           className="h-8 gap-1.5"
           disabled={hasKudos || loading}
-          onClick={giveKudos}
+          onClick={giveHammer}
+          aria-label={hasKudos ? `You gave a hammer (${kudosCount})` : 'Give a hammer'}
         >
-          <Flame className={`h-4 w-4 ${hasKudos ? 'text-orange-500' : ''}`} aria-hidden />
-          {kudosCount > 0 ? kudosCount : 'Kudos'}
+          <span className="text-base leading-none" aria-hidden>
+            {HAMMER_EMOJI}
+          </span>
+          {hammerButtonLabel(kudosCount)}
         </Button>
       </div>
     </article>

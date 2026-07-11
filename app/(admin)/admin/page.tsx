@@ -19,6 +19,7 @@ import {
   type RecentSignupRow,
 } from './admin-dashboard-client';
 import { coachPayoutUsd, type SessionCoachPayoutFields } from '@/lib/coach-session-payout';
+import { isSessionParentPaymentReceived } from '@/lib/coach-payout-status';
 import { isRewardsProgramEnabled } from '@/lib/rewards';
 import { formatEST } from '@/lib/format-date';
 import { isBookingCheckoutShellSession } from '@/lib/session-checkout-shell';
@@ -123,6 +124,7 @@ export default async function AdminPage() {
         duration_minutes,
         total_price,
         athlete_payment,
+        athlete_paid,
         athlete_payout_date,
         org_fee,
         stripe_fee,
@@ -537,7 +539,7 @@ export default async function AdminPage() {
     (a, b) => b.total_earnings - a.total_earnings || a.athlete_name.localeCompare(b.athlete_name)
   );
 
-  // Coach payouts: completed sessions not yet paid (athlete_payout_date IS NULL)
+  // Coach payouts: completed + parent paid + coach not yet paid (athlete_payout_date IS NULL)
   const payoutOwedByAthlete = new Map<
     string,
     {
@@ -549,8 +551,23 @@ export default async function AdminPage() {
       school: string;
     }
   >();
+  let completedAwaitingParentPaymentCount = 0;
   for (const s of sessionsRows) {
     if (s.status !== 'completed' || s.athlete_payout_date != null) continue;
+    const paidSum = participantAmountPaidSum(s);
+    const parentPaid = isSessionParentPaymentReceived({
+      athlete_paid: (s as { athlete_paid?: boolean | null }).athlete_paid,
+      participant_amount_paid_sum: paidSum,
+      participants: (Array.isArray(s.session_participants)
+        ? s.session_participants
+        : s.session_participants
+          ? [s.session_participants]
+          : []) as { paid?: boolean | null; amount_paid?: number | null }[],
+    });
+    if (!parentPaid) {
+      completedAwaitingParentPaymentCount += 1;
+      continue;
+    }
     const a = s.athletes;
     const o = Array.isArray(a) ? a[0] : a;
     if (!o?.id) continue;
@@ -751,6 +768,7 @@ export default async function AdminPage() {
         billing={billing}
         athleteReports={athleteReports}
         coachPayouts={coachPayouts}
+        completedAwaitingParentPaymentCount={completedAwaitingParentPaymentCount}
         credits={credits}
         recruitNcCreditTotals={recruitNcCreditTotals}
         usersError={usersRes.error?.message ?? null}

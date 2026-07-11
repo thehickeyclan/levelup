@@ -4,6 +4,18 @@ How money flows today, how to actually pay coaches, and how taxes work (US).
 
 ---
 
+## Recommended workflow (July 2026)
+
+1. **Parent pays** → Guild Stripe → Guild BofA. Wrestlers only join the roster after payment (or $0 confirm).
+2. **Coach marks session complete** (default) — admin only for exceptions.
+3. Session enters **Ready to pay** when: `status = completed`, at least one `session_participants.paid = true`, and `athlete_payout_date` is null.
+4. **Admin pays coach** weekly/biweekly from **Guild** (Zelle, ACH, or Guild Venmo — not personal accounts).
+5. **Admin → Mark paid** sets `athlete_payout_date` on those sessions.
+
+Coaches see **Payout pending** on completed, parent-paid sessions until step 5. Stripe Connect is deferred until manual volume is painful (~15+ active coaches or weekly payout admin > ~30 min).
+
+---
+
 ## Current flow (parent → platform)
 
 1. Parent books and pays via **Stripe Checkout**.
@@ -19,17 +31,17 @@ So: **you hold the cash**; coaches are not paid automatically.
 
 You have two main options.
 
-### Option A: Manual payouts (simplest to start)
+### Option A: Manual payouts (simplest to start) — **use this now**
 
-- **When:** Weekly, biweekly, or monthly (you choose).
+- **When:** Weekly or biweekly.
 - **How:**  
-  1. Run a report of completed sessions where the coach hasn’t been paid (e.g. `status = 'completed'` and `athlete_paid = false`, or a dedicated “pay coach” report).  
-  2. Pay each coach via **ACH**, **Venmo**, **Zelle**, **check**, etc., using the `athlete_payment` (or your net after platform fee) per session.  
-  3. In your app/database, mark the session as paid: set `athlete_paid = true`, `athlete_payout_date = today`, and optionally `stripe_payout_id` if you ever use Stripe for the payout.
-- **Pros:** No extra Stripe setup; you control timing and method.  
-- **Cons:** Manual work; coaches must share bank/contact details; you handle reconciliation.
+  1. Admin → **Money → Coach payouts → Ready to pay** — completed sessions where parent paid and coach not yet paid (`athlete_payout_date` is null).  
+  2. Pay each coach via **ACH**, **Zelle**, or **Guild Venmo** from the **Guild business account** (BofA), using `athlete_payment` (or estimated share) per session.  
+  3. Click **Mark paid** — sets `athlete_payout_date` and records the payout amount on each session.
+- **Pros:** No Stripe Connect setup; you control timing.  
+- **Cons:** Manual work; coaches share payout details in profile.
 
-You already have `sessions.athlete_payment`, `athlete_paid`, `athlete_payout_date`, and `athletes.stripe_account_id` in the schema; use the first three for manual payouts. `stripe_account_id` is for Option B.
+Sessions marked complete with only **unpaid** roster holds (`paid = false`, e.g. join approved but never checked out) stay out of the payout queue until resolved.
 
 ### Option B: Stripe Connect (automated payouts)
 
@@ -47,16 +59,16 @@ For implementation details, see [Stripe Connect](https://stripe.com/docs/connect
 
 ---
 
-## Important: meaning of `athlete_paid` today
+## Important: two payment events
 
-In the current webhook, when the parent’s payment succeeds we set **`athlete_paid: true`**. So right now **`athlete_paid`** is effectively “parent has paid,” not “we have paid the coach.”
+| Field / signal | Meaning |
+|----------------|---------|
+| Parent paid / entered | `session_participants.paid = true` after register, cart, or $0 confirm |
+| Coach paid | Admin **Mark paid** → `athlete_payout_date` set |
 
-For clarity and correct “Awaiting payout” logic, you may want to:
+**`athlete_paid` on sessions** is set when the parent checkout completes (legacy name — means “parent paid,” not “coach paid”). **Coach payout queue** uses `status = completed`, parent payment received, and `athlete_payout_date IS NULL`.
 
-- **Either** rename/adjust: e.g. add a field like **`payment_received`** (set when checkout completes) and use **`athlete_paid`** only when you actually pay the coach (and set **`athlete_payout_date`** then),  
-- **Or** keep current behavior and treat “awaiting payout” as “session is paid for by parent but we haven’t paid the coach yet” by only setting **`athlete_paid`** when you run payouts (and stop setting it in the webhook; only set **`payment_received`** or similar in the webhook).
-
-That way reports and coach dashboards clearly separate “parent paid” from “coach paid.”
+For clarity long-term, consider adding `payment_received` and reserving `athlete_paid` for coach payouts only — not required for the manual workflow above.
 
 ---
 
@@ -75,9 +87,9 @@ That way reports and coach dashboards clearly separate “parent paid” from �
 ## Practical checklist (manual payouts)
 
 1. **W-9:** Before paying a coach over $600 in a year, collect a **W-9** and store it (secure).  
-2. **Admin → Coach payouts:** Use the Coach payouts tab to see who is owed how much and their Venmo/Zelle (coaches enter these at sign-up and in Profile). Previously: build an admin report: “Sessions completed, parent paid, coach not yet paid” (e.g. `status = 'completed'`, payment received, `athlete_paid = false`).  
-3. **Pay:** Send money via your chosen method (ACH, Venmo, etc.).  
-4. **Record:** Mark each session as paid: `athlete_paid = true`, `athlete_payout_date = <date>`.  
+2. **Admin → Coach payouts → Ready to pay:** Completed sessions with parent payment and no `athlete_payout_date`.  
+3. **Pay:** Send from **Guild BofA** via Zelle, ACH, or Guild Venmo.  
+4. **Record:** Click **Mark paid** per coach (sets `athlete_payout_date` on each session).  
 5. **1099:** At year end, if a coach got ≥ $600, issue **1099-NEC** and file with the IRS (and state if required). Use software or a CPA.
 
 ---

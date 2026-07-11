@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { CoachPlaybook } from '@/components/coach-playbook';
 import { CoachRankCard } from '@/components/coach-rank-card';
 import { formatUsdTwoDecimals } from '@/lib/coach-session-payout';
+import { coachPayoutDisplayStatus, coachPayoutStatusLabel, participantAmountPaidSum } from '@/lib/coach-payout-status';
 import { formatEST } from '@/lib/format-date';
 import { coachRevenueSharePercentDisplay } from '@/lib/pricing';
 import { Clock, DollarSign, Star, TrendingUp } from 'lucide-react';
@@ -25,6 +26,7 @@ type EarningsSession = {
   session_type?: string | null;
   current_participants?: number | null;
   payout: number;
+  payout_status?: 'paid' | 'payout_pending' | 'awaiting_parent_payment' | 'not_completed';
 };
 
 type Props = {
@@ -36,6 +38,8 @@ type Props = {
   upcomingSessionCount: number;
   thisMonthSessionCount: number;
   totalPastSessionCount: number;
+  pendingPayoutAmount?: number;
+  pendingPayoutSessionCount?: number;
   averageRating: number | null;
   reviewCount: number;
   recentReviews: Review[];
@@ -73,6 +77,8 @@ export function CoachEarningsClient({
   needsOnboarding,
   adminPickCoachHint = false,
   showLeaderboard = true,
+  pendingPayoutAmount = 0,
+  pendingPayoutSessionCount = 0,
 }: Props) {
   const payoutPercentDisplay = coachRevenueSharePercentDisplay(
     payoutRate !== 0.8 ? payoutRate : null
@@ -169,6 +175,21 @@ export function CoachEarningsClient({
           ) : null}
           .
         </p>
+        {pendingPayoutSessionCount > 0 ? (
+          <Card className="mt-3 border-amber-500/30 bg-amber-500/5">
+            <CardContent className="flex items-start gap-3 p-4">
+              <Clock className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+              <div>
+                <p className="text-sm font-medium text-foreground">Payout pending</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  ${formatUsdTwoDecimals(pendingPayoutAmount)} from {pendingPayoutSessionCount} completed session
+                  {pendingPayoutSessionCount !== 1 ? 's' : ''} — parents already paid to register; Guild sends your
+                  share on the usual payout schedule.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
       </section>
 
       {/* 2. Session history */}
@@ -200,6 +221,9 @@ export function CoachEarningsClient({
                       {session.session_type?.replace(/_/g, ' ') ?? 'Session'} ·{' '}
                       {session.current_participants ?? 1} athlete
                       {(session.current_participants ?? 1) !== 1 ? 's' : ''}
+                      {session.payout_status && session.payout_status !== 'not_completed'
+                        ? ` · ${coachPayoutStatusLabel(session.payout_status)}`
+                        : ''}
                     </p>
                   </div>
                   <p className="shrink-0 text-lg font-bold tabular-nums text-emerald-500">

@@ -20,6 +20,11 @@ import { splitCoachSessionsByToday } from '@/lib/coach-schedule-split';
 import { CoachScheduleSessionCard } from './coach-schedule-session-card';
 import { CoachShareSessionsHub } from '@/components/coach/coach-share-sessions-hub';
 import { CoachActivityWidget } from '@/components/coach/coach-activity-widget';
+import {
+  coachPayoutDisplayStatus,
+  coachPayoutStatusLabel,
+  participantAmountPaidSum,
+} from '@/lib/coach-payout-status';
 
 export type JoinRequestItem = {
   id: string;
@@ -77,6 +82,18 @@ function pastStatusLabel(status: string | undefined): string {
   return 'Past';
 }
 
+function pastPayoutStatusLabel(session: CoachSession): string {
+  const status = coachPayoutDisplayStatus({
+    status: session.status,
+    athlete_payout_date: session.athlete_payout_date,
+    athlete_paid: session.athlete_paid,
+    participant_amount_paid_sum: participantAmountPaidSum(session.session_participants),
+    participants: session.session_participants ?? null,
+  });
+  if (status === 'not_completed') return pastStatusLabel(session.status);
+  return coachPayoutStatusLabel(status);
+}
+
 function CoachPastSessionRow({ session }: { session: CoachSession }) {
   const dt = new Date(session.scheduled_datetime);
   const names = sessionParticipantDisplayNames(session.session_participants);
@@ -98,7 +115,7 @@ function CoachPastSessionRow({ session }: { session: CoachSession }) {
         ) : null}
       </div>
       <Badge variant="secondary" className="shrink-0 text-xs">
-        {pastStatusLabel(session.status)}
+        {pastPayoutStatusLabel(session)}
       </Badge>
     </div>
   );

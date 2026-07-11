@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatEST } from '@/lib/format-date';
 import { coachPayoutUsd } from '@/lib/coach-session-payout';
+import {
+  isSessionParentPaymentReceived,
+  participantAmountPaidSum,
+} from '@/lib/coach-payout-status';
 
 /** Row shape returned by fetchPastSessionsForCoachEarnings. */
 export type CoachEarningsSessionRow = {
@@ -15,7 +19,9 @@ export type CoachEarningsSessionRow = {
   price_per_participant?: number | null;
   session_payout_rate?: number | null;
   status: string | null;
-  session_participants?: { amount_paid?: number | null }[] | null;
+  athlete_payout_date?: string | null;
+  athlete_paid?: boolean | null;
+  session_participants?: { amount_paid?: number | null; paid?: boolean | null }[] | null;
 };
 
 export function isCoachSessionEarningsEligible(
@@ -92,7 +98,9 @@ export async function fetchPastSessionsForCoachEarnings(
       price_per_participant,
       session_payout_rate,
       status,
-      session_participants(id, amount_paid)
+      athlete_payout_date,
+      athlete_paid,
+      session_participants(id, amount_paid, paid)
     `
     )
     .eq('athlete_id', coachId)
@@ -112,6 +120,8 @@ export type CoachEarningsSummary = {
   thisMonthSessions: CoachEarningsSessionRow[];
   thisMonthEarnings: number;
   allTimeEarnings: number;
+  pendingPayoutAmount: number;
+  pendingPayoutSessionCount: number;
   getSessionPayout: (s: CoachEarningsSessionRow) => number;
 };
 
@@ -133,11 +143,29 @@ export function summarizeCoachEarningsFromPastSessions(
   const thisMonthEarnings = thisMonthSessions.reduce((sum, s) => sum + getSessionPayout(s), 0);
   const allTimeEarnings = earningsSessions.reduce((sum, s) => sum + getSessionPayout(s), 0);
 
+  let pendingPayoutAmount = 0;
+  let pendingPayoutSessionCount = 0;
+  for (const s of earningsSessions) {
+    if (s.status !== 'completed' || s.athlete_payout_date) continue;
+    const paidSum = participantAmountPaidSum(s.session_participants);
+    if (!isSessionParentPaymentReceived({
+      athlete_paid: s.athlete_paid,
+      participant_amount_paid_sum: paidSum,
+      participants: s.session_participants ?? null,
+    })) {
+      continue;
+    }
+    pendingPayoutAmount += getSessionPayout(s);
+    pendingPayoutSessionCount += 1;
+  }
+
   return {
     earningsSessions,
     thisMonthSessions,
     thisMonthEarnings,
     allTimeEarnings,
+    pendingPayoutAmount,
+    pendingPayoutSessionCount,
     getSessionPayout,
   };
 }

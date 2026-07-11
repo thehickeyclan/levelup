@@ -12,6 +12,11 @@ import { UpcomingSessionActions } from './upcoming-session-actions';
 import { startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { formatEST } from '@/lib/format-date';
 import { athletePaymentForCoachEstimate, coachPayoutUsd } from '@/lib/coach-session-payout';
+import {
+  coachPayoutDisplayStatus,
+  coachPayoutStatusLabel,
+  participantAmountPaidSum,
+} from '@/lib/coach-payout-status';
 
 export type CoachSession = {
   id: string;
@@ -30,6 +35,8 @@ export type CoachSession = {
   max_participants?: number;
   /** Snapshot used with guild default for payout estimates */
   session_payout_rate?: number | null;
+  athlete_payout_date?: string | null;
+  athlete_paid?: boolean | null;
   facilities?: { id?: string; name?: string } | { id?: string; name?: string }[] | null;
   duration_minutes?: number | null;
   session_participants?: Array<{
@@ -55,6 +62,36 @@ function coachPayoutEstimate(s: CoachSession) {
     participant_amount_paid_sum: participantPaidSum(s) > 0 ? participantPaidSum(s) : null,
     session_payout_rate: s.session_payout_rate ?? null,
   });
+}
+
+function sessionStatusBadge(session: CoachSession) {
+  const paidSum = participantAmountPaidSum(session.session_participants);
+  const status = coachPayoutDisplayStatus({
+    status: session.status,
+    athlete_payout_date: session.athlete_payout_date,
+    athlete_paid: session.athlete_paid,
+    participant_amount_paid_sum: paidSum,
+    participants: session.session_participants ?? null,
+  });
+  const label =
+    status === 'not_completed'
+      ? session.status === 'cancelled'
+        ? 'Cancelled'
+        : session.status === 'no-show'
+          ? 'No-show'
+          : session.status === 'scheduled'
+            ? 'Open'
+            : session.status
+      : coachPayoutStatusLabel(status);
+  const variant =
+    status === 'paid'
+      ? 'default'
+      : status === 'payout_pending'
+        ? 'outline'
+        : session.status === 'cancelled'
+          ? 'secondary'
+          : 'outline';
+  return <Badge variant={variant}>{label}</Badge>;
 }
 
 /** Parent-facing total (for refund copy in cancel dialog). total_price when set, else price_per_participant × participants. */
@@ -266,9 +303,7 @@ export function CoachScheduleCard({
                             </>
                           )}
                           {' • '}
-                          <Badge variant={session.status === 'completed' ? 'default' : session.status === 'cancelled' ? 'secondary' : 'outline'}>
-                            {session.status === 'completed' ? 'Paid' : session.status === 'cancelled' ? 'Cancelled' : session.status === 'no-show' ? 'No-show' : session.status === 'scheduled' ? 'Open' : session.status}
-                          </Badge>
+                          {sessionStatusBadge(session)}
                         </div>
                       </div>
                       <div className="text-right flex flex-col items-end gap-1">
@@ -342,9 +377,7 @@ export function CoachScheduleCard({
                           {isTentative(session) && (
                             <Badge variant="outline" className="text-xs border-amber-500/60 text-amber-700 dark:text-amber-400 bg-amber-500/15">Tentative</Badge>
                           )}
-                          <Badge variant={session.status === 'completed' ? 'default' : session.status === 'cancelled' ? 'secondary' : 'outline'}>
-                            {session.status}
-                          </Badge>
+                          {sessionStatusBadge(session)}
                         </div>
                       </td>
                       <td className="py-2 px-2 text-right">

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { isProfileComplete } from '@/lib/athletes';
 import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
+import { coachPayoutDisplayStatus } from '@/lib/coach-payout-status';
 import {
   fetchPastSessionsForCoachEarnings,
   summarizeCoachEarningsFromPastSessions,
@@ -97,6 +98,8 @@ export default async function CoachEarningsPage() {
     getSessionPayout,
     thisMonthEarnings,
     allTimeEarnings,
+    pendingPayoutAmount,
+    pendingPayoutSessionCount,
   } = summarizeCoachEarningsFromPastSessions(pastSessionsRaw, payoutRate, nowIso);
 
   const { data: upcomingSessions } = await admin
@@ -134,13 +137,26 @@ export default async function CoachEarningsPage() {
     users: Array.isArray(r.users) ? r.users[0] ?? null : r.users,
   }));
 
-  const earningsSessionsWithPayout = earningsSessions.map((session) => ({
-    id: session.id,
-    scheduled_datetime: session.scheduled_datetime,
-    session_type: session.session_type,
-    current_participants: session.current_participants,
-    payout: getSessionPayout(session),
-  }));
+  const earningsSessionsWithPayout = earningsSessions.map((session) => {
+    const paidSum = (session.session_participants ?? []).reduce(
+      (sum, p) => sum + Number(p.amount_paid ?? 0),
+      0
+    );
+    return {
+      id: session.id,
+      scheduled_datetime: session.scheduled_datetime,
+      session_type: session.session_type,
+      current_participants: session.current_participants,
+      payout: getSessionPayout(session),
+      payout_status: coachPayoutDisplayStatus({
+        status: session.status,
+        athlete_payout_date: session.athlete_payout_date,
+        athlete_paid: session.athlete_paid,
+        participant_amount_paid_sum: paidSum,
+        participants: session.session_participants ?? null,
+      }),
+    };
+  });
 
   return (
     <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-2xl">
@@ -159,6 +175,8 @@ export default async function CoachEarningsPage() {
         earningsSessions={earningsSessionsWithPayout}
         needsOnboarding={needsOnboarding}
         showLeaderboard={!(userData?.role === 'admin' && !viewAsCoachId)}
+        pendingPayoutAmount={pendingPayoutAmount}
+        pendingPayoutSessionCount={pendingPayoutSessionCount}
       />
     </div>
   );

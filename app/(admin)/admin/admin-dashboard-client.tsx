@@ -351,6 +351,8 @@ type Props = {
   billing: BillingSummary;
   athleteReports: AthleteReport[];
   coachPayouts: CoachPayout[];
+  /** Completed sessions where parent payment is not recorded yet — not in payout queue. */
+  completedAwaitingParentPaymentCount?: number;
   credits: CreditRecord[];
   usersError?: string | null;
   /** Parent-paid session rows per youth wrestler (Stripe / recorded amounts). */
@@ -473,6 +475,7 @@ export function AdminDashboardClient({
   billing,
   athleteReports,
   coachPayouts,
+  completedAwaitingParentPaymentCount = 0,
   credits,
   usersError,
   youthSessionSpendLines = [],
@@ -3524,16 +3527,27 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
             <div>
               <h2 className="text-lg font-semibold">Coach payouts</h2>
               <p className="text-sm text-muted-foreground">
-                Pay coaches outside the app (Venmo, Zelle, etc.), then mark paid here. History lists every session
-                already marked paid.
+                Pay coaches from the Guild business account (Zelle, ACH, or Guild Venmo), then mark paid here.
+                Only completed sessions with parent payment received appear in the queue.
               </p>
             </div>
+
+            {completedAwaitingParentPaymentCount > 0 ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  {completedAwaitingParentPaymentCount} completed session
+                  {completedAwaitingParentPaymentCount !== 1 ? 's' : ''}
+                </span>{' '}
+                with an unpaid roster spot (join approved but checkout never finished). Resolve payment or
+                remove the spot before paying the coach.
+              </div>
+            ) : null}
 
             <Tabs value={payoutTab} onValueChange={(v) => setPayoutTab(v as 'pending' | 'history')} className="w-full">
               <TabsList className="grid w-full max-w-md grid-cols-2">
                 <TabsTrigger value="pending" className="gap-2">
                   <Wallet className="h-4 w-4" />
-                  Pending
+                  Ready to pay
                   {coachPayouts.filter((p) => p.amount > 0).length > 0 && (
                     <span className="ml-1 rounded-full bg-[#B89D60]/25 px-2 py-0.5 text-xs">
                       {coachPayouts.filter((p) => p.amount > 0).length}
@@ -3594,8 +3608,8 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                               <Wallet className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
                               <p>No payouts due</p>
                               <p className="text-xs mt-2 max-w-sm mx-auto">
-                                Completed sessions with no payout date appear here. Mark sessions complete first, then
-                                pay the coach and click Mark paid.
+                                Completed sessions with parent payment and no payout date appear here. Coaches should
+                                mark sessions complete; then pay from Guild and click Mark paid.
                               </p>
                             </td>
                           </tr>

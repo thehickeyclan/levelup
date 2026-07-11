@@ -99,7 +99,7 @@ export default async function CoachHomePage({
   const { data: upcomingSessions } = await supabase
     .from('sessions')
     .select(
-      '*, facilities(id, name), session_participants(youth_wrestler_id, roster_first_name, roster_last_name, amount_paid, youth_wrestlers(id, first_name, last_name))'
+      '*, facilities(id, name), session_participants(youth_wrestler_id, roster_first_name, roster_last_name, amount_paid, paid, youth_wrestlers(id, first_name, last_name))'
     )
     .eq('athlete_id', coachId)
     .eq('status', 'scheduled')
@@ -111,7 +111,7 @@ export default async function CoachHomePage({
   const { data: pastSessions } = await pastDb
     .from('sessions')
     .select(
-      '*, facilities(id, name), session_participants(youth_wrestler_id, roster_first_name, roster_last_name, amount_paid, youth_wrestlers(id, first_name, last_name))'
+      '*, facilities(id, name), session_participants(youth_wrestler_id, roster_first_name, roster_last_name, amount_paid, paid, youth_wrestlers(id, first_name, last_name))'
     )
     .eq('athlete_id', coachId)
     .or(`status.eq.completed,status.eq.cancelled,status.eq.no-show,scheduled_datetime.lt.${nowIso}`)

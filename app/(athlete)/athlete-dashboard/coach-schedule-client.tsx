@@ -175,6 +175,7 @@ export function CoachScheduleClient({
   const [tab, setTab] = useState<ScheduleTab>(initialTab);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [completingSessionId, setCompletingSessionId] = useState<string | null>(null);
+  const [cancellingSessionId, setCancellingSessionId] = useState<string | null>(null);
 
   const now = new Date();
   const sessionsNeedingComplete = sessionsNeedingCoachComplete(pastSessions, now);
@@ -230,6 +231,25 @@ export function CoachScheduleClient({
     }
   };
 
+  const handleCancelEmpty = async (sessionId: string) => {
+    if (!window.confirm('Remove this empty session from your schedule?')) return;
+    setCancellingSessionId(sessionId);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Empty session — removed by coach' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to remove session');
+      router.refresh();
+    } catch (e: unknown) {
+      window.alert(e instanceof Error ? e.message : 'Failed to remove session');
+    } finally {
+      setCancellingSessionId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <CoachScheduleWelcomeBanner
@@ -240,7 +260,9 @@ export function CoachScheduleClient({
       <CoachSessionsNeedCompletePanel
         sessions={sessionsNeedingComplete}
         completingSessionId={completingSessionId}
+        cancellingSessionId={cancellingSessionId}
         onMarkComplete={handleMarkComplete}
+        onCancelEmpty={handleCancelEmpty}
       />
 
       {activationPanel ? <CoachActivationPanel {...activationPanel} /> : null}

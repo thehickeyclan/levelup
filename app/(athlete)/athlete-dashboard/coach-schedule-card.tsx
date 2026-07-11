@@ -41,6 +41,7 @@ export type CoachSession = {
   duration_minutes?: number | null;
   session_participants?: Array<{
     amount_paid?: number | null;
+    paid?: boolean | null;
     youth_wrestler_id?: string | null;
     roster_first_name?: string | null;
     roster_last_name?: string | null;

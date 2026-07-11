@@ -32,6 +32,7 @@ import { PublicHeaderMobile } from '@/components/public-header-mobile';
 import { isMarketingRoute } from '@/lib/marketing-routes';
 import { IN_APP_MESSAGING_ENABLED } from '@/lib/in-app-messaging';
 import { WORKSPACES_NAV_ENABLED } from '@/lib/workspaces-feature';
+import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
 
 type Coach = { id: string; first_name: string; last_name: string; school: string | null };
 
@@ -228,6 +229,16 @@ export function Header() {
                     Earnings
                   </Link>
                   <Link
+                    href={activityNavHref('coach')}
+                    className={
+                      pathname.startsWith('/activity')
+                        ? 'text-accent font-semibold'
+                        : 'text-white hover:text-accent transition-colors font-medium'
+                    }
+                  >
+                    Activity
+                  </Link>
+                  <Link
                     href="/profile"
                     className="text-white hover:text-accent transition-colors font-medium"
                   >
@@ -283,6 +294,16 @@ export function Header() {
                     className="text-white hover:text-accent transition-colors font-medium"
                   >
                     Dashboard
+                  </Link>
+                  <Link
+                    href={activityNavHref('youth_wrestler')}
+                    className={
+                      pathname.startsWith('/activity')
+                        ? 'text-accent font-semibold'
+                        : 'text-white hover:text-accent transition-colors font-medium'
+                    }
+                  >
+                    Activity
                   </Link>
                   {WORKSPACES_NAV_ENABLED ? (
                   <Link
@@ -386,6 +407,16 @@ export function Header() {
                   )}
                   <Link href="/dashboard" className="text-white hover:text-accent transition-colors font-medium">Home</Link>
                   <Link href="/training" className="text-white hover:text-accent transition-colors font-medium">Training</Link>
+                  <Link
+                    href={activityNavHref('parent')}
+                    className={
+                      pathname.startsWith('/activity')
+                        ? 'text-accent font-semibold'
+                        : 'text-white hover:text-accent transition-colors font-medium'
+                    }
+                  >
+                    Activity
+                  </Link>
                   {showMessagesIcon ? (
                   <Link
                     href="/messages"

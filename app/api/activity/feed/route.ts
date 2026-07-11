@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import {
   fetchActivityFeed,
   resolveFeedContext,
 } from '@/lib/activity-feed/fetch-feed';
+import { resolveCoachScopeForFeed } from '@/lib/activity-feed/resolve-coach-scope';
 import type { ActivityFeedScope } from '@/lib/activity-feed/types';
 
 const SCOPES = new Set<ActivityFeedScope>(['community', 'family', 'coach']);
@@ -34,19 +36,25 @@ export async function GET(req: NextRequest) {
   const limit = Number(url.searchParams.get('limit') ?? 20);
   const cursor = url.searchParams.get('cursor');
 
-  const ctx = await resolveFeedContext(supabase, user.id, role === 'admin' ? 'parent' : role);
-  const coachId =
-    scope === 'coach'
-      ? role === 'coach'
-        ? user.id
-        : url.searchParams.get('coachId')
-      : ctx.coachId;
+  const effectiveRole = role === 'admin' ? 'parent' : role;
+  const cookieStore = await cookies();
+  const viewAsCoachId =
+    role === 'admin' ? cookieStore.get('levelup_view_as_coach_id')?.value : null;
 
-  const { posts, nextCursor } = await fetchActivityFeed(supabase, user.id, {
+  const ctx = await resolveFeedContext(supabase, user.id, effectiveRole);
+  const coachScope = resolveCoachScopeForFeed({
+    role,
+    userId: user.id,
+    scope,
+    viewAsCoachId: viewAsCoachId ?? url.searchParams.get('coachId'),
+  });
+  const feedDb = coachScope.useAdminClient ? createAdminClient(tenant.slug) : supabase;
+
+  const { posts, nextCursor } = await fetchActivityFeed(feedDb, user.id, {
     scope,
     limit,
     cursor,
-    coachId,
+    coachId: coachScope.coachId,
     youthWrestlerIds: ctx.youthWrestlerIds,
   });
 

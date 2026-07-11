@@ -26,23 +26,40 @@ export async function createSessionCompletedActivityPosts(
   const { data: participants, error: partErr } = await admin
     .from('session_participants')
     .select('youth_wrestler_id, parent_id')
-    .eq('session_id', sessionId)
-    .not('youth_wrestler_id', 'is', null);
+    .eq('session_id', sessionId);
 
   if (partErr) {
     console.error('activity session_completed participants:', partErr);
     return;
   }
 
+  const rows = participants ?? [];
+  if (rows.length === 0) return;
+
   const wrestlerIds = [
     ...new Set(
-      (participants ?? [])
+      rows
         .map((p: { youth_wrestler_id?: string | null }) => p.youth_wrestler_id)
         .filter((id): id is string => Boolean(id))
     ),
   ];
 
-  if (wrestlerIds.length === 0) return;
+  if (wrestlerIds.length === 0) {
+    const actorParentId =
+      (rows[0] as { parent_id?: string | null }).parent_id ?? null;
+    const { error } = await admin.from('activity_posts').insert({
+      trigger_type: 'session_completed',
+      actor_parent_id: actorParentId,
+      youth_wrestler_id: null,
+      coach_id: session.athlete_id,
+      session_id: sessionId,
+      is_public: true,
+    });
+    if (error && !isDuplicateKeyError(error.message)) {
+      console.error('activity session_completed drop-in insert:', error);
+    }
+    return;
+  }
 
   const { data: wrestlers } = await admin
     .from('youth_wrestlers')

@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { fetchActivityFeed, resolveFeedContext } from '@/lib/activity-feed/fetch-feed';
+import { resolveCoachScopeForFeed } from '@/lib/activity-feed/resolve-coach-scope';
 import type { ActivityFeedScope } from '@/lib/activity-feed/types';
 import { ActivityFeedList } from '@/components/activity/activity-feed-list';
 
@@ -34,13 +36,23 @@ export default async function ActivityPage({
   const role = userData?.role ?? 'parent';
   const effectiveRole = role === 'admin' ? 'parent' : role;
 
-  const ctx = await resolveFeedContext(supabase, user.id, effectiveRole);
-  const coachId = scope === 'coach' && effectiveRole === 'coach' ? user.id : ctx.coachId;
+  const cookieStore = await cookies();
+  const viewAsCoachId =
+    role === 'admin' ? cookieStore.get('levelup_view_as_coach_id')?.value : null;
 
-  const { posts } = await fetchActivityFeed(supabase, user.id, {
+  const ctx = await resolveFeedContext(supabase, user.id, effectiveRole);
+  const coachScope = resolveCoachScopeForFeed({
+    role,
+    userId: user.id,
+    scope,
+    viewAsCoachId,
+  });
+  const feedDb = coachScope.useAdminClient ? createAdminClient(tenant.slug) : supabase;
+
+  const { posts } = await fetchActivityFeed(feedDb, user.id, {
     scope,
     limit: 30,
-    coachId,
+    coachId: coachScope.coachId,
     youthWrestlerIds: ctx.youthWrestlerIds,
   });
 
@@ -58,7 +70,13 @@ export default async function ActivityPage({
         Sessions completed and milestones across Guild.
       </p>
       <div className="mt-6">
-        <ActivityFeedList posts={posts} highlightCoachKudos={scope === 'coach'} />
+        {scope === 'coach' && role === 'admin' && !viewAsCoachId ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">
+            Choose a coach in the header (preview as coach), then open this page again.
+          </p>
+        ) : (
+          <ActivityFeedList posts={posts} highlightCoachKudos={scope === 'coach'} />
+        )}
       </div>
     </div>
   );

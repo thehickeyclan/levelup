@@ -80,6 +80,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { coachPayoutUsd, resolveCoachPayoutRate } from '@/lib/coach-session-payout';
 import {
+  coachPayoutDisplayStatus,
+  coachPayoutStatusBadgeClass,
+  coachPayoutStatusLabel,
+} from '@/lib/coach-payout-status';
+import {
   Area,
   AreaChart,
   Bar,
@@ -2020,23 +2025,43 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
     setShowDropInDialog(true);
   };
 
-  const statusBadge = (status: string) => {
-    const isOpen = isOpenSessionStatus(status);
-    const isPaid = status === 'completed';
+  const statusBadge = (session: AdminSession) => {
+    const status = session.status;
     const isClosed = status === 'cancelled' || status === 'no-show';
-    const label = isOpen ? 'Open' : isPaid ? 'Paid' : status;
+    if (isClosed) {
+      return (
+        <Badge variant="destructive">
+          {status === 'no-show' ? 'No-show' : 'Cancelled'}
+        </Badge>
+      );
+    }
+    if (isOpenSessionStatus(status)) {
+      return (
+        <Badge
+          variant="outline"
+          className="border-emerald-600 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/20 hover:text-emerald-400"
+        >
+          Open
+        </Badge>
+      );
+    }
+    if (status === 'completed') {
+      const payoutStatus = coachPayoutDisplayStatus({
+        status: session.status,
+        athlete_payout_date: session.athlete_payout_date,
+        participant_amount_paid_sum: session.participant_amount_paid_sum,
+      });
+      const label = coachPayoutStatusLabel(payoutStatus) || 'Completed';
+      const payoutClass = coachPayoutStatusBadgeClass(payoutStatus);
+      return (
+        <Badge variant="outline" className={payoutClass || undefined}>
+          {label}
+        </Badge>
+      );
+    }
     return (
-      <Badge
-        variant={isClosed ? 'destructive' : 'outline'}
-        className={
-          isOpen
-            ? 'border-emerald-600 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/20 hover:text-emerald-400'
-            : isPaid
-              ? 'border-[#B89D60] bg-[#B89D60]/20 text-[#B89D60] hover:bg-[#B89D60]/20 hover:text-[#B89D60]'
-              : undefined
-        }
-      >
-        {label}
+      <Badge variant="outline" className="capitalize">
+        {status}
       </Badge>
     );
   };
@@ -2675,7 +2700,7 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                         <td className="py-3 px-4">
                           <div className="font-medium">{s.athlete_name}</div>
                         </td>
-                        <td className="py-3 px-4">{statusBadge(s.status)}</td>
+                        <td className="py-3 px-4">{statusBadge(s)}</td>
                         <td className="py-3 px-4 text-right font-medium tabular-nums">${s.total_price.toFixed(2)}</td>
                       </tr>
                     ))}
@@ -3175,7 +3200,7 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                             <div className="text-xs text-muted-foreground">{s.athlete_school}</div>
                           </td>
                           <td className="py-3 px-4 text-sm">{s.facility_name}</td>
-                          <td className="py-3 px-4">{statusBadge(s.status)}</td>
+                          <td className="py-3 px-4">{statusBadge(s)}</td>
                           <td className="py-3 px-4 text-right">
                             <button
                               onClick={() => openRoster(s.id)}
@@ -4698,7 +4723,7 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                                         </div>
                                         <div className="mt-1 flex flex-wrap items-center gap-1">
                                           <SessionTypeBadge sessionType={s.session_type} sessionMode={s.session_mode} />
-                                          {statusBadge(s.status)}
+                                          {statusBadge(s)}
                                         </div>
                                         <div className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
                                           {confirmedRosterCountForAdminList(s)}/{s.max_participants ?? 1} booked

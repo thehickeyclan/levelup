@@ -57,6 +57,20 @@ export function coachPayoutStatusLabel(status: CoachPayoutDisplayStatus): string
   }
 }
 
+/** Tailwind classes for admin/coach payout status badges. */
+export function coachPayoutStatusBadgeClass(status: CoachPayoutDisplayStatus): string {
+  switch (status) {
+    case 'paid':
+      return 'border-[#B89D60] bg-[#B89D60]/20 text-[#B89D60] hover:bg-[#B89D60]/20 hover:text-[#B89D60]';
+    case 'payout_pending':
+      return 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/20 hover:text-orange-400';
+    case 'awaiting_parent_payment':
+      return 'border-amber-600/50 bg-amber-600/10 text-amber-500 hover:bg-amber-600/10 hover:text-amber-500';
+    default:
+      return '';
+  }
+}
+
 export function participantAmountPaidSum(
   participants:
     | ParticipantPaymentRow[]

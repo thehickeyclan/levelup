@@ -54,6 +54,11 @@ export default async function ActivityPage({
     limit: 30,
     coachId: coachScope.coachId,
     youthWrestlerIds: ctx.youthWrestlerIds,
+    photoActor: {
+      userId: user.id,
+      role,
+      coachId: role === 'coach' ? user.id : viewAsCoachId ?? null,
+    },
   });
 
   const title =

@@ -43,6 +43,7 @@ export type ActivityFeedReview = {
 };
 
 export type ActivityFeedPhoto = {
+  id: string;
   storage_path: string;
   display_order: number;
   url: string;
@@ -69,6 +70,8 @@ export type ActivityFeedPost = {
   reward_milestones?: ActivityFeedMilestone | ActivityFeedMilestone[] | null;
   reviews?: ActivityFeedReview | ActivityFeedReview[] | null;
   photos?: ActivityFeedPhoto[];
+  /** True when the viewer can remove photos from this post. */
+  viewer_can_manage_photos?: boolean;
   hammer_count: number;
   viewer_has_hammer: boolean;
 };

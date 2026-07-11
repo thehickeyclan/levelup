@@ -322,7 +322,11 @@ export default async function HomePage() {
 
   const familyActivityPosts =
     youthWrestlerIds.length > 0
-      ? await fetchFamilyActivityPosts(admin, user.id, youthWrestlerIds, 5)
+      ? await fetchFamilyActivityPosts(admin, user.id, youthWrestlerIds, 5, {
+          userId: user.id,
+          role: userData?.role ?? 'parent',
+          coachId: null,
+        })
       : [];
 
   return (

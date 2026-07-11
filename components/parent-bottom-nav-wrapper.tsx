@@ -12,6 +12,7 @@ import { isParentRoute } from '@/lib/parent-routes';
 const COACH_ROUTES = [
   '/athlete-dashboard',
   '/coach-dashboard',
+  '/activity',
   '/availability',
   '/coach-help',
   '/coach-sessions',
@@ -30,13 +31,20 @@ const COACH_ROUTES = [
 
 const YOUTH_WRESTLER_ROUTES = [
   '/youth-dashboard',
+  '/activity',
+  '/account',
+  '/browse',
+  '/book',
   '/training',
   '/find-training',
   '/workspaces',
   '/small-group-sessions',
-  '/browse',
+  '/sessions',
   '/notifications',
+  '/messages',
+  '/inbox',
   '/market',
+  '/wrestlers',
 ];
 
 function isCoachRoute(pathname: string | null): boolean {

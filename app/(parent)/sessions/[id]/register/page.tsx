@@ -211,9 +211,11 @@ export default async function SessionRegisterPage({
   const defaultWrestlerId =
     preselectedWrestlerId && youthWrestlers.some((yw) => yw.id === preselectedWrestlerId)
       ? preselectedWrestlerId
-      : unpaidWrestlerId && youthWrestlers.some((yw) => yw.id === unpaidWrestlerId)
-        ? unpaidWrestlerId
-        : '';
+      : role === 'youth_wrestler' && youthWrestlers.some((yw) => yw.id === user.id)
+        ? user.id
+        : unpaidWrestlerId && youthWrestlers.some((yw) => yw.id === unpaidWrestlerId)
+          ? unpaidWrestlerId
+          : '';
 
   const coach = Array.isArray(s.athletes) ? s.athletes[0] : s.athletes;
   const fac = Array.isArray(s.facilities) ? s.facilities[0] : s.facilities;

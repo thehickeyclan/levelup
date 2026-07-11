@@ -42,12 +42,24 @@ export function SmallGroupSessionsClient({
   partnerSessions,
   userId,
   isAdmin = false,
+  bookingAsAthlete = false,
+  selfWrestlerId,
 }: {
   sessions: SmallGroupSession[];
   partnerSessions: PartnerSession[];
   userId: string;
   isAdmin?: boolean;
+  bookingAsAthlete?: boolean;
+  selfWrestlerId?: string;
 }) {
+  const registerHref = (sessionId: string) => {
+    const base = `/sessions/${sessionId}/register`;
+    if (bookingAsAthlete && selfWrestlerId) {
+      return `${base}?wrestler=${encodeURIComponent(selfWrestlerId)}`;
+    }
+    return base;
+  };
+
   const isOwner = (s: { parent_id?: string; athlete_id?: string }) =>
     s.parent_id === userId || s.athlete_id === userId;
 
@@ -81,9 +93,19 @@ export function SmallGroupSessionsClient({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Register your wrestler</CardTitle>
+        <CardTitle className="text-lg">Register for a session</CardTitle>
         <p className="text-sm text-muted-foreground">
-          <strong>How do I register my kid for a session?</strong> Find the session below (e.g. Liam&apos;s). Click <strong>Register</strong>. Choose your wrestler (e.g. Gavin). Pay. Done. (If you created the session yourself, click <strong>Add my wrestler</strong> instead — no extra charge.)
+          {bookingAsAthlete ? (
+            <>
+              Find a session below and tap <strong>Register</strong> to join. You&apos;ll pay with your athlete account.
+            </>
+          ) : (
+            <>
+              <strong>How do I register my kid for a session?</strong> Find the session below (e.g. Liam&apos;s). Click{' '}
+              <strong>Register</strong>. Choose your wrestler (e.g. Gavin). Pay. Done. (If you created the session yourself, click{' '}
+              <strong>Add my wrestler</strong> instead — no extra charge.)
+            </>
+          )}
         </p>
       </CardHeader>
       <CardContent>
@@ -169,12 +191,12 @@ export function SmallGroupSessionsClient({
                   <div className="flex items-center gap-2 shrink-0">
                     {canRegister && (
                       <Button asChild size="sm" className="bg-accent text-black hover:bg-accent-hover">
-                        <Link href={`/sessions/${s.id}/register`}>Register</Link>
+                        <Link href={registerHref(s.id)}>Register</Link>
                       </Button>
                     )}
                     {mine && (
                       <Button asChild size="sm" className="bg-accent text-black hover:bg-accent-hover">
-                        <Link href={`/sessions/${s.id}/register`}>Add my wrestler</Link>
+                        <Link href={registerHref(s.id)}>Add my wrestler</Link>
                       </Button>
                     )}
                     {!canRegister && !mine && policy === 'invite_only' && (

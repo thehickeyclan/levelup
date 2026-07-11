@@ -2,15 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, Tag, ShoppingCart, User } from 'lucide-react';
+import { Activity, Home, Users, Tag, ShoppingCart, User } from 'lucide-react';
+import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
 import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cart-context';
 
-/**
- * Parent mobile bottom nav - 4 core items with gold active states.
- */
+/** Parent mobile bottom nav with gold active states. */
 const ITEMS: readonly { href: string; label: string; icon: typeof Home; showBadge?: boolean }[] = [
   { href: '/dashboard', label: 'Home', icon: Home },
+  { href: activityNavHref('parent'), label: 'Activity', icon: Activity },
   { href: '/training', label: 'Training', icon: Users },
   { href: '/market', label: 'Market', icon: Tag },
   { href: '/cart', label: 'Cart', icon: ShoppingCart, showBadge: true },
@@ -29,8 +29,10 @@ export function ParentBottomNav() {
     >
       {ITEMS.map(({ href, label, icon: Icon, showBadge }) => {
         const isActive =
-          pathname === href ||
-          (href !== '/dashboard' && pathname.startsWith(href));
+          href.startsWith('/activity')
+            ? pathname.startsWith('/activity')
+            : pathname === href ||
+              (href !== '/dashboard' && pathname.startsWith(href));
         return (
           <Link
             key={href}
@@ -41,7 +43,7 @@ export function ParentBottomNav() {
               e.stopPropagation();
             }}
             className={cn(
-              'relative flex flex-col items-center justify-center min-h-[56px] min-w-0 flex-1 py-2 px-3 touch-manipulation select-none text-[11px] font-medium transition-colors duration-100 whitespace-nowrap',
+              'relative flex flex-col items-center justify-center min-h-[56px] min-w-0 flex-1 py-2 px-2 touch-manipulation select-none text-[10px] font-medium transition-colors duration-100 whitespace-nowrap',
               '-webkit-tap-highlight-color: transparent',
               isActive 
                 ? 'text-accent' 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { attachActivityPhotoUrls } from '@/lib/activity-feed/attach-photo-urls';
+import { attachPhotoPostManageFlags, type PhotoPostActor } from '@/lib/activity-feed/photo-post-auth';
 import { getParentYouthWrestlerIds } from '@/lib/parent-wrestlers';
 import type { ActivityFeedPost, ActivityFeedScope } from '@/lib/activity-feed/types';
 
@@ -26,6 +27,7 @@ type FetchOpts = {
   cursor?: string | null;
   coachId?: string | null;
   youthWrestlerIds?: string[];
+  photoActor?: PhotoPostActor | null;
 };
 
 async function attachHammers(
@@ -97,6 +99,10 @@ export async function fetchActivityFeed(
   const nextCursor = hasMore ? page[page.length - 1]?.created_at ?? null : null;
   const posts = await attachHammers(db, page, viewerId);
   const withPhotos = await attachActivityPhotoUrls(db, posts);
+  if (opts.photoActor) {
+    const withManage = await attachPhotoPostManageFlags(db, withPhotos, opts.photoActor);
+    return { posts: withManage, nextCursor };
+  }
 
   return { posts: withPhotos, nextCursor };
 }
@@ -105,12 +111,14 @@ export async function fetchFamilyActivityPosts(
   db: SupabaseClient,
   viewerId: string,
   youthWrestlerIds: string[],
-  limit = 5
+  limit = 5,
+  photoActor?: PhotoPostActor | null
 ): Promise<ActivityFeedPost[]> {
   const { posts } = await fetchActivityFeed(db, viewerId, {
     scope: 'family',
     youthWrestlerIds,
     limit,
+    photoActor,
   });
   return posts;
 }

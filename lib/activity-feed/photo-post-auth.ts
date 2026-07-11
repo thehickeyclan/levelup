@@ -269,3 +269,45 @@ export async function assertCanPostPhotosToSession(
 
   return { ok: false, status: 403, error: 'Not authorized to post photos for this session' };
 }
+
+/** Whether the viewer may add or remove photos on a feed post. */
+export async function canManagePhotoPost(
+  admin: SupabaseClient,
+  actor: PhotoPostActor,
+  post: {
+    session_id?: string | null;
+    youth_wrestler_id?: string | null;
+  }
+): Promise<boolean> {
+  if (actor.role === 'admin') return true;
+  const sessionId = post.session_id?.trim();
+  if (!sessionId) return false;
+  const access = await assertCanPostPhotosToSession(
+    admin,
+    actor,
+    sessionId,
+    post.youth_wrestler_id ?? null
+  );
+  return access.ok;
+}
+
+export async function attachPhotoPostManageFlags<T extends {
+  id: string;
+  trigger_type: string;
+  session_id?: string | null;
+  youth_wrestler_id?: string | null;
+  viewer_can_manage_photos?: boolean;
+}>(
+  admin: SupabaseClient,
+  posts: T[],
+  actor: PhotoPostActor
+): Promise<T[]> {
+  const flagged = await Promise.all(
+    posts.map(async (post) => {
+      if (post.trigger_type !== 'photo_post') return post;
+      const viewer_can_manage_photos = await canManagePhotoPost(admin, actor, post);
+      return { ...post, viewer_can_manage_photos };
+    })
+  );
+  return flagged;
+}

@@ -124,6 +124,8 @@ interface BookingFlowProps {
   products?: Product[];
   /** When set, pre-select this wrestler so the parent doesn't have to choose again (e.g. from Home "Book session" for a specific kid). */
   preselectedYouthWrestlerId?: string | null;
+  /** Logged-in youth wrestler booking a session for themselves. */
+  bookingAsAthlete?: boolean;
   /** When false (default), percent discount only if user applies a valid promo on this flow. */
   checkoutUsesSavedAccountDiscount?: boolean;
   /** Deep-link from training / shared links: yyyy-MM-dd and HH:mm as returned by availability slots API. */
@@ -142,6 +144,7 @@ export function BookingFlow({
   tenantPricing,
   products = [],
   preselectedYouthWrestlerId = null,
+  bookingAsAthlete = false,
   checkoutUsesSavedAccountDiscount = false,
   initialBookingDate = null,
   initialBookingTime = null,
@@ -153,6 +156,9 @@ export function BookingFlow({
     if (preselectedYouthWrestlerId && youthWrestlers.length > 0) {
       const found = youthWrestlers.find((w) => w.id === preselectedYouthWrestlerId);
       if (found) return [found];
+    }
+    if (bookingAsAthlete && youthWrestlers.length === 1) {
+      return [youthWrestlers[0]];
     }
     return [];
   });
@@ -179,6 +185,12 @@ export function BookingFlow({
   const [initialSlotSeeded, setInitialSlotSeeded] = useState(false);
   const [useCredits, setUseCredits] = useState(true);
   const [attendingPickerOpen, setAttendingPickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (selectedWrestlers.length === 0 && youthWrestlers.length === 1) {
+      setSelectedWrestlers([youthWrestlers[0]]);
+    }
+  }, [youthWrestlers, selectedWrestlers.length]);
 
   const sessionMode: SessionMode | null =
     sessionChoice === '1-on-1' ? 'private'
@@ -685,15 +697,23 @@ export function BookingFlow({
           {currentStep === 1 && youthWrestlers.length === 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Add your wrestler to book</CardTitle>
+                <CardTitle>{bookingAsAthlete ? 'Complete your profile to book' : 'Add your wrestler to book'}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  You need at least one wrestler on your account to book a session with {athlete.first_name} {athlete.last_name}. Add one below and you’ll return here to continue.
+                  {bookingAsAthlete
+                    ? `Add your cell number and graduation year on your profile before booking with ${athlete.first_name} ${athlete.last_name}.`
+                    : `You need at least one wrestler on your account to book a session with ${athlete.first_name} ${athlete.last_name}. Add one below and you’ll return here to continue.`}
                 </p>
               </CardHeader>
               <CardContent>
                 <Button asChild className="w-full">
-                  <Link href={`/wrestlers/add?redirect=${encodeURIComponent('/book/' + athlete.id)}`}>
-                    Add wrestler
+                  <Link
+                    href={
+                      bookingAsAthlete
+                        ? `/account`
+                        : `/wrestlers/add?redirect=${encodeURIComponent('/book/' + athlete.id)}`
+                    }
+                  >
+                    {bookingAsAthlete ? 'Open account' : 'Add wrestler'}
                   </Link>
                 </Button>
               </CardContent>
@@ -702,12 +722,31 @@ export function BookingFlow({
           {currentStep === 1 && youthWrestlers.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Select Wrestler(s)</CardTitle>
+                <CardTitle>{bookingAsAthlete ? 'Confirm it’s you' : 'Select Wrestler(s)'}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Choose one or more youth wrestlers for this session.
+                  {bookingAsAthlete
+                    ? 'You’re booking this session for yourself.'
+                    : 'Choose one or more youth wrestlers for this session.'}
                 </p>
               </CardHeader>
               <CardContent>
+                {bookingAsAthlete && selectedWrestlers.length === 1 ? (
+                  <div className="flex items-center gap-4 rounded-lg border border-accent/40 bg-accent/5 p-4">
+                    <ProfileImage
+                      src={selectedWrestlers[0].photo_url}
+                      alt={`${selectedWrestlers[0].first_name} ${selectedWrestlers[0].last_name}`}
+                      focusX={selectedWrestlers[0].photo_focus_x}
+                      focusY={selectedWrestlers[0].photo_focus_y}
+                      className="w-14 h-14 shrink-0"
+                    />
+                    <div>
+                      <p className="font-semibold">
+                        {selectedWrestlers[0].first_name} {selectedWrestlers[0].last_name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">This booking is for your athlete account.</p>
+                    </div>
+                  </div>
+                ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {youthWrestlers.map((w) => {
                     const sel = selectedWrestlers.some((x) => x.id === w.id);
@@ -741,11 +780,12 @@ export function BookingFlow({
                     );
                   })}
                 </div>
-                {numSelected > 0 && (
+                )}
+                {numSelected > 0 && !bookingAsAthlete ? (
                   <p className="text-sm text-muted-foreground mt-4">
                     {numSelected} wrestler{numSelected !== 1 ? 's' : ''} selected
                   </p>
-                )}
+                ) : null}
                 <Button onClick={handleContinue} disabled={numSelected === 0} className="w-full mt-6">
                   Continue
                 </Button>

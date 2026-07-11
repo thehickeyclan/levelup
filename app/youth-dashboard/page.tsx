@@ -105,6 +105,14 @@ export default async function YouthDashboardPage() {
         <p className="text-muted-foreground">
           Welcome back{firstName ? `, ${firstName}` : ''}. Your sessions, coaches, and workspaces.
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button asChild size="sm">
+            <Link href="/browse">Book a coach</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/small-group-sessions">Group sessions</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -120,7 +128,17 @@ export default async function YouthDashboardPage() {
             </CardHeader>
             <CardContent>
               {(!upcomingSessions || upcomingSessions.length === 0) && (!pastSessions || pastSessions.length === 0) ? (
-                <p className="text-muted-foreground py-4">No sessions yet. Your parent can book sessions with coaches.</p>
+                <div className="py-4 space-y-4">
+                  <p className="text-muted-foreground">No sessions yet. Browse coaches and book your first session.</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild>
+                      <Link href="/browse">Browse coaches</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href="/small-group-sessions">Join group sessions</Link>
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <ul className="space-y-3">
                   {(upcomingSessions ?? []).slice(0, 5).map((s: Record<string, unknown>) => {

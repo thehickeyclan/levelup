@@ -124,6 +124,8 @@ export default async function SmallGroupSessionsPage({
         partnerSessions={partnerList}
         userId={user.id}
         isAdmin={userData?.role === 'admin'}
+        bookingAsAthlete={userData?.role === 'youth_wrestler'}
+        selfWrestlerId={userData?.role === 'youth_wrestler' ? user.id : undefined}
       />
     </div>
   );

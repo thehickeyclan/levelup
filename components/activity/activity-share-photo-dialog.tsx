@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ImagePlus, Loader2, Plus, Camera } from 'lucide-react';
+import { ImagePlus, Loader2, Plus, Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -122,6 +122,10 @@ export function ActivitySharePhotoDialog({
     const next = [...files, ...Array.from(picked)].slice(0, 4);
     setFiles(next);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const submit = async () => {
@@ -309,7 +313,7 @@ export function ActivitySharePhotoDialog({
             <div className="flex flex-wrap gap-2">
               {files.map((file, i) => (
                 <div
-                  key={`${file.name}-${i}`}
+                  key={`${file.name}-${file.lastModified}-${i}`}
                   className="relative h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -318,6 +322,14 @@ export function ActivitySharePhotoDialog({
                     alt=""
                     className="h-full w-full object-cover"
                   />
+                  <button
+                    type="button"
+                    className="absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 touch-manipulation"
+                    aria-label="Remove photo"
+                    onClick={() => removeFile(i)}
+                  >
+                    <X className="h-3 w-3" aria-hidden />
+                  </button>
                 </div>
               ))}
               {files.length < 4 ? (

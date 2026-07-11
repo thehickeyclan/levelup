@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, CirclePlus, Tag, DollarSign, User } from 'lucide-react';
+import { Activity, Calendar, CirclePlus, Tag, DollarSign, User } from 'lucide-react';
+import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
 import { cn } from '@/lib/utils';
 import { useCoachPendingRequestsCount } from '@/lib/hooks/use-coach-pending-requests-count';
 
@@ -17,6 +18,12 @@ const ITEMS: readonly {
     label: 'Schedule',
     icon: Calendar,
     match: (p) => p === '/athlete-dashboard' || p.startsWith('/athlete-dashboard/'),
+  },
+  {
+    href: activityNavHref('coach'),
+    label: 'Activity',
+    icon: Activity,
+    match: (p) => p.startsWith('/activity'),
   },
   {
     href: '/coach-sessions/create',

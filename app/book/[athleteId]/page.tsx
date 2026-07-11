@@ -30,7 +30,7 @@ export default async function BookPage({
 }) {
   const { athleteId } = await params;
   const sp = await searchParams;
-  const preselectedYouthWrestlerId = sp.youthWrestlerId ?? null;
+  const preselectedYouthWrestlerIdFromUrl = sp.youthWrestlerId ?? null;
   const bookIntentRaw = sp.bookIntent?.trim().toLowerCase();
   const initialBookIntent =
     bookIntentRaw === 'private' || bookIntentRaw === 'partner' ? bookIntentRaw : null;
@@ -104,6 +104,11 @@ export default async function BookPage({
   ) {
     redirect('/browse');
   }
+
+  const preselectedYouthWrestlerId =
+    preselectedYouthWrestlerIdFromUrl ??
+    (userData?.role === 'youth_wrestler' ? user.id : null);
+  const bookingAsAthlete = userData?.role === 'youth_wrestler';
   // parent, athlete (self-managed), and admin can book
 
   // Fetch athlete data
@@ -360,6 +365,7 @@ export default async function BookPage({
         tenantPricing={tenant.pricing}
         products={products}
         preselectedYouthWrestlerId={preselectedYouthWrestlerId}
+        bookingAsAthlete={bookingAsAthlete}
         checkoutUsesSavedAccountDiscount={checkoutAllowSavedAccountPercent()}
         initialBookingDate={initialBookingDate}
         initialBookingTime={initialBookingTime}

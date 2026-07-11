@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Check, Loader2, Share2, Trophy } from 'lucide-react';
+import { Check, Loader2, Share2, Trophy, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { canShareActivityPost } from '@/lib/activity-feed/can-share-activity-post';
 import { shareActivityPost } from '@/lib/activity-feed/share-post-client';
@@ -28,7 +29,12 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const [loading, setLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'copied'>('idle');
-  const showShare = canShareActivityPost(post);
+  const [photos, setPhotos] = useState(post.photos ?? []);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const [postRemoved, setPostRemoved] = useState(false);
+  const router = useRouter();
+  const showShare = canShareActivityPost({ ...post, photos });
+  const canManagePhotos = Boolean(post.viewer_can_manage_photos);
 
   const avatarUrl = activityPostAvatarUrl(post);
   const coachAvatarUrl = activityPostCoachAvatarUrl(post);
@@ -37,7 +43,6 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const reviewLine = activityPostReviewLine(post);
   const isMilestone = post.trigger_type === 'milestone_hit';
   const isPhotoPost = post.trigger_type === 'photo_post';
-  const photos = post.photos ?? [];
 
   const giveHammer = async () => {
     if (hasHammer || loading) return;
@@ -68,6 +73,34 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
       setShareLoading(false);
     }
   };
+
+  const onDeletePhoto = async (photoId: string) => {
+    if (deletingPhotoId) return;
+    if (!window.confirm('Remove this photo from activity?')) return;
+
+    setDeletingPhotoId(photoId);
+    try {
+      const res = await fetch(`/api/activity/photos/${photoId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        window.alert(data.error || 'Could not remove photo');
+        return;
+      }
+      if (data.postDeleted) {
+        setPostRemoved(true);
+        router.refresh();
+        return;
+      }
+      setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+      router.refresh();
+    } catch {
+      window.alert('Could not remove photo');
+    } finally {
+      setDeletingPhotoId(null);
+    }
+  };
+
+  if (postRemoved) return null;
 
   return (
     <article className="rounded-xl border border-border/80 bg-card p-4">
@@ -126,7 +159,7 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
         >
           {photos.map((photo) => (
             <div
-              key={photo.storage_path}
+              key={photo.id}
               className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border/60 bg-muted"
             >
               <Image
@@ -137,6 +170,21 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
                 sizes="(max-width: 512px) 100vw, 256px"
                 unoptimized
               />
+              {canManagePhotos ? (
+                <button
+                  type="button"
+                  className="absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 touch-manipulation disabled:opacity-50"
+                  aria-label="Remove photo"
+                  disabled={deletingPhotoId === photo.id}
+                  onClick={() => void onDeletePhoto(photo.id)}
+                >
+                  {deletingPhotoId === photo.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                </button>
+              ) : null}
             </div>
           ))}
         </div>

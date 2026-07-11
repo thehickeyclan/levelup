@@ -49,6 +49,10 @@ export default async function BrowsePage({
     }
   }
   let initialFollowedCoachIds: string[] = [];
+  let effectiveYouthWrestlerId = sp.youthWrestlerId?.trim() || undefined;
+  if (user && userData?.role === 'youth_wrestler') {
+    effectiveYouthWrestlerId = user.id;
+  }
   if (user && (userData?.role === 'parent' || userData?.role === 'admin')) {
     const { data: followRows } = await supabase
       .from('coach_follows')
@@ -132,7 +136,7 @@ export default async function BrowsePage({
     <BrowseAthletesClient
       initialAthletes={athletesWithNext}
       isAdmin={!!isAdmin}
-      initialYouthWrestlerId={sp.youthWrestlerId ?? undefined}
+      initialYouthWrestlerId={effectiveYouthWrestlerId}
       initialFollowedCoachIds={initialFollowedCoachIds}
     />
   );

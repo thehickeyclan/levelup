@@ -3,6 +3,7 @@ const PARENT_ROUTES = [
   '/',
   '/dashboard',
   '/home',
+  '/activity',
   '/training',
   '/find-training',
   '/browse',

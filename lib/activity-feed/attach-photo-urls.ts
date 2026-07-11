@@ -18,7 +18,7 @@ export async function attachActivityPhotoUrls(
 
   const { data: rows, error } = await db
     .from('activity_photos')
-    .select('post_id, storage_path, display_order')
+    .select('id, post_id, storage_path, display_order')
     .in('post_id', photoPostIds)
     .order('display_order', { ascending: true });
 
@@ -32,6 +32,7 @@ export async function attachActivityPhotoUrls(
     const pid = row.post_id as string;
     const list = byPost.get(pid) ?? [];
     list.push({
+      id: row.id as string,
       storage_path: row.storage_path as string,
       display_order: Number(row.display_order ?? 0),
       url: activityPhotoPublicUrl(row.storage_path as string),

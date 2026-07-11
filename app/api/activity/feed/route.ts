@@ -56,6 +56,11 @@ export async function GET(req: NextRequest) {
     cursor,
     coachId: coachScope.coachId,
     youthWrestlerIds: ctx.youthWrestlerIds,
+    photoActor: {
+      userId: user.id,
+      role,
+      coachId: role === 'coach' ? user.id : viewAsCoachId ?? null,
+    },
   });
 
   return NextResponse.json({ posts, nextCursor });

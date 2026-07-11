@@ -49,7 +49,7 @@ describe('buildActivityPostShareCaption', () => {
       ...basePost,
       trigger_type: 'photo_post',
       caption: 'Double leg was clicking today',
-      photos: [{ storage_path: 'a.jpg', display_order: 0, url: 'https://cdn/a.jpg' }],
+      photos: [{ id: 'ph-1', storage_path: 'a.jpg', display_order: 0, url: 'https://cdn/a.jpg' }],
     };
     const caption = buildActivityPostShareCaption(post, 'https://wrestlingguild.com');
     expect(caption).toContain('shared session photos');

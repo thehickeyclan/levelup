@@ -1,13 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, MapPin, MoreHorizontal } from 'lucide-react';
+import { Loader2, MapPin, MoreHorizontal, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { CoachSessionTileActions } from '@/components/coach-session-tile-actions';
+import { CoachSessionRosterTransferDialog } from '@/components/coach/coach-session-roster-transfer-dialog';
 import { CoachWrestlerProfileDialog } from '@/components/coach-wrestler-profile-dialog';
 import { formatEST } from '@/lib/format-date';
 import { sessionParticipantDisplayNames } from '@/lib/session-participant-display-name';
 import { cn } from '@/lib/utils';
 import { getSessionTypeDisplay } from '@/lib/session-type-display';
+import {
+  buildCoachTransferSessionOptions,
+  type CoachTransferSessionOption,
+} from '@/lib/coach-transfer-session-options';
 import type { CoachSession } from './coach-schedule-card';
 
 type RosterEntry = {
@@ -41,6 +47,8 @@ type Props = {
   coachDisplayName: string;
   coachSchool?: string | null;
   emphasis?: 'today' | 'default';
+  /** All scheduled upcoming sessions — used to populate move targets. */
+  scheduledSessionsForTransfer?: CoachSession[];
 };
 
 export function CoachScheduleSessionCard({
@@ -49,6 +57,7 @@ export function CoachScheduleSessionCard({
   coachDisplayName,
   coachSchool,
   emphasis = 'default',
+  scheduledSessionsForTransfer = [],
 }: Props) {
   const dur = (session as { duration_minutes?: number }).duration_minutes ?? 60;
   const dt = new Date(session.scheduled_datetime);
@@ -61,6 +70,13 @@ export function CoachScheduleSessionCard({
   const [rosterLoading, setRosterLoading] = useState(nRegistered > 0);
   const [profileWrestlerId, setProfileWrestlerId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+
+  const transferSessionOptions: CoachTransferSessionOption[] = buildCoachTransferSessionOptions(
+    scheduledSessionsForTransfer,
+    session.id
+  );
+  const canMoveAthletes = nRegistered > 0 && transferSessionOptions.length > 0;
 
   const effectiveRoster: RosterEntry[] =
     fetchedRoster !== undefined
@@ -177,6 +193,8 @@ export function CoachScheduleSessionCard({
             durationMinutes={dur}
             athleteNames={effectiveNames}
             nRegistered={nRegistered}
+            canMoveAthlete={canMoveAthletes}
+            onMoveAthlete={() => setTransferOpen(true)}
             triggerIcon={<MoreHorizontal className="h-5 w-5" />}
             triggerLabel="Session actions"
           />
@@ -212,6 +230,18 @@ export function CoachScheduleSessionCard({
                   </li>
                 ))}
               </ul>
+              {canMoveAthletes ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 min-h-[36px] touch-manipulation"
+                  onClick={() => setTransferOpen(true)}
+                >
+                  <Users className="h-4 w-4 mr-1.5 shrink-0" />
+                  Move to another session
+                </Button>
+              ) : null}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">{nRegistered} registered</p>
@@ -224,6 +254,14 @@ export function CoachScheduleSessionCard({
       wrestlerId={profileWrestlerId}
       open={profileOpen}
       onOpenChange={setProfileOpen}
+    />
+
+    <CoachSessionRosterTransferDialog
+      open={transferOpen}
+      onOpenChange={setTransferOpen}
+      sessionId={session.id}
+      sessionLabel={`${formatEST(dt, 'EEE, MMM d, yyyy h:mm a')} · ${fac}`}
+      transferSessionOptions={transferSessionOptions}
     />
     </>
   );

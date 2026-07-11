@@ -72,6 +72,8 @@ type Props = {
   /** Compact icon trigger for session cards (default: text "Actions"). */
   triggerIcon?: ReactNode;
   triggerLabel?: string;
+  canMoveAthlete?: boolean;
+  onMoveAthlete?: () => void;
 };
 
 function menuBtn(className?: string) {
@@ -95,6 +97,8 @@ export function CoachSessionTileActions({
   className,
   triggerIcon,
   triggerLabel = 'Session actions',
+  canMoveAthlete = false,
+  onMoveAthlete,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -285,6 +289,20 @@ export function CoachSessionTileActions({
             <MessageCircle className="h-4 w-4 shrink-0" />
             Text all parents and kids
           </button>
+          {canMoveAthlete && onMoveAthlete ? (
+            <button
+              type="button"
+              className={menuBtn()}
+              disabled={!hasAthletes}
+              onClick={() => {
+                setOpen(false);
+                onMoveAthlete();
+              }}
+            >
+              <Users className="h-4 w-4 shrink-0" />
+              Move athlete to another session
+            </button>
+          ) : null}
           <div className="my-1 h-px bg-border" />
           <button type="button" className={menuBtn()} onClick={() => void onShare()}>
             <Share2 className="h-4 w-4 shrink-0" />

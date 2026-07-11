@@ -274,19 +274,27 @@ export function CoachEarningsClient({
             <CardContent className="space-y-3 p-4">
               {recentReviews.map((review) => (
                 <div key={review.id} className="border-t border-border pt-3 first:border-0 first:pt-0">
-                  <div className="mb-1 flex items-center gap-2">
-                    <div className="flex">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-3.5 w-3.5 ${i < review.rating ? 'fill-accent text-accent' : 'text-muted-foreground/30'}`}
-                          aria-hidden
-                        />
-                      ))}
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex shrink-0">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-3.5 w-3.5 ${i < review.rating ? 'fill-accent text-accent' : 'text-muted-foreground/30'}`}
+                            aria-hidden
+                          />
+                        ))}
+                      </div>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {review.users?.first_name ?? 'Parent'}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {review.users?.first_name ?? 'Parent'}
-                    </span>
+                    <time
+                      dateTime={review.created_at}
+                      className="shrink-0 text-xs text-muted-foreground"
+                    >
+                      {formatEST(new Date(review.created_at), 'MMM d, yyyy')}
+                    </time>
                   </div>
                   {review.comment && (
                     <p className="line-clamp-3 text-sm text-muted-foreground">{review.comment}</p>

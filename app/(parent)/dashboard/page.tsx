@@ -322,7 +322,7 @@ export default async function HomePage() {
 
   const familyActivityPosts =
     youthWrestlerIds.length > 0
-      ? await fetchFamilyActivityPosts(supabase, user.id, youthWrestlerIds, 5)
+      ? await fetchFamilyActivityPosts(admin, user.id, youthWrestlerIds, 5)
       : [];
 
   return (

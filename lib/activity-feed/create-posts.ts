@@ -126,3 +126,73 @@ export async function createMilestoneHitActivityPost(
     console.error('activity milestone_hit insert:', error);
   }
 }
+
+async function resolveYouthWrestlerIdForParentOnSession(
+  admin: SupabaseClient,
+  sessionId: string,
+  parentId: string
+): Promise<string | null> {
+  const { data: direct } = await admin
+    .from('session_participants')
+    .select('youth_wrestler_id')
+    .eq('session_id', sessionId)
+    .eq('parent_id', parentId)
+    .not('youth_wrestler_id', 'is', null)
+    .limit(1)
+    .maybeSingle();
+
+  if (direct?.youth_wrestler_id) return direct.youth_wrestler_id as string;
+
+  const { data: parts } = await admin
+    .from('session_participants')
+    .select('youth_wrestler_id')
+    .eq('session_id', sessionId)
+    .not('youth_wrestler_id', 'is', null);
+
+  const youthIds = (parts ?? [])
+    .map((p: { youth_wrestler_id?: string | null }) => p.youth_wrestler_id)
+    .filter((id): id is string => Boolean(id));
+
+  if (youthIds.length === 0) return null;
+
+  const { data: linked } = await admin
+    .from('youth_wrestler_parents')
+    .select('youth_wrestler_id')
+    .in('youth_wrestler_id', youthIds)
+    .eq('parent_id', parentId)
+    .limit(1)
+    .maybeSingle();
+
+  return (linked?.youth_wrestler_id as string | undefined) ?? null;
+}
+
+/**
+ * Attach a parent review to the existing session_completed activity card (PRD: no second card).
+ */
+export async function attachReviewToSessionCompletedActivityPost(
+  admin: SupabaseClient,
+  opts: { sessionId: string; parentId: string; reviewId: string }
+): Promise<void> {
+  const youthWrestlerId = await resolveYouthWrestlerIdForParentOnSession(
+    admin,
+    opts.sessionId,
+    opts.parentId
+  );
+
+  let query = admin
+    .from('activity_posts')
+    .update({ review_id: opts.reviewId })
+    .eq('session_id', opts.sessionId)
+    .eq('trigger_type', 'session_completed');
+
+  if (youthWrestlerId) {
+    query = query.eq('youth_wrestler_id', youthWrestlerId);
+  } else {
+    query = query.eq('actor_parent_id', opts.parentId);
+  }
+
+  const { error } = await query;
+  if (error) {
+    console.error('activity review attach:', error);
+  }
+}

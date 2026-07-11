@@ -11,10 +11,12 @@ const POST_SELECT = `
   coach_id,
   session_id,
   milestone_id,
+  review_id,
   youth_wrestlers(id, first_name, last_name, photo_url, school),
   athletes(id, first_name, last_name, photo_url),
   sessions(id, session_type, session_mode, scheduled_datetime, duration_minutes, facilities(name)),
-  reward_milestones(id, milestone)
+  reward_milestones(id, milestone),
+  reviews(id, rating, comment)
 `;
 
 type FetchOpts = {

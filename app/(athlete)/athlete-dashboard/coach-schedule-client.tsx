@@ -331,6 +331,7 @@ export function CoachScheduleClient({
                     coachDisplayName={coachDisplayName}
                     coachSchool={coachSchool}
                     emphasis="today"
+                    scheduledSessionsForTransfer={upcomingSessions}
                   />
                 ))}
               </div>
@@ -369,6 +370,7 @@ export function CoachScheduleClient({
                     coachId={coachId}
                     coachDisplayName={coachDisplayName}
                     coachSchool={coachSchool}
+                    scheduledSessionsForTransfer={upcomingSessions}
                   />
                 ))}
               </div>

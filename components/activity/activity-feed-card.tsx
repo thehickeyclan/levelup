@@ -9,6 +9,7 @@ import {
   activityPostAvatarUrl,
   activityPostCoachAvatarUrl,
   activityPostHeadline,
+  activityPostReviewLine,
   activityPostSubline,
   coachDisplayName,
 } from '@/lib/activity-feed/display';
@@ -28,6 +29,7 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const coachAvatarUrl = activityPostCoachAvatarUrl(post);
   const headline = activityPostHeadline(post);
   const subline = activityPostSubline(post);
+  const reviewLine = activityPostReviewLine(post);
   const isMilestone = post.trigger_type === 'milestone_hit';
 
   const giveHammer = async () => {
@@ -82,6 +84,9 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
           <p className="text-sm font-semibold text-foreground leading-snug">{headline}</p>
           {subline ? (
             <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{subline}</p>
+          ) : null}
+          {reviewLine ? (
+            <p className="mt-1.5 text-sm text-foreground/90 leading-relaxed">{reviewLine}</p>
           ) : null}
           {highlightCoachHammers && post.coach_id ? (
             <p className="mt-1 text-xs text-muted-foreground">with {coachDisplayName(post)}</p>

@@ -47,7 +47,7 @@ export default async function ActivityPage({
     scope,
     viewAsCoachId,
   });
-  const feedDb = coachScope.useAdminClient ? createAdminClient(tenant.slug) : supabase;
+  const feedDb = createAdminClient(tenant.slug);
 
   const { posts } = await fetchActivityFeed(feedDb, user.id, {
     scope,

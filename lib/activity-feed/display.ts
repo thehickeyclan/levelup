@@ -53,6 +53,19 @@ export function activityPostSubline(post: ActivityFeedPost): string | null {
   return parts.join(' · ');
 }
 
+export function activityPostReviewLine(post: ActivityFeedPost): string | null {
+  const review = first(post.reviews);
+  if (!review?.rating) return null;
+
+  const stars = '★'.repeat(Math.min(5, Math.max(1, Math.round(review.rating))));
+  const snippet = review.comment?.trim();
+  if (snippet) {
+    const short = snippet.length > 120 ? `${snippet.slice(0, 117)}…` : snippet;
+    return `${stars} · "${short}"`;
+  }
+  return `${stars} review`;
+}
+
 export function activityPostAvatarUrl(post: ActivityFeedPost): string | null {
   const yw = first(post.youth_wrestlers);
   return yw?.photo_url?.trim() || null;

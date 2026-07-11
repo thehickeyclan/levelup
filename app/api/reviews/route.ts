@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { sendCoachNewReviewSms } from '@/lib/twilio';
+import { attachReviewToSessionCompletedActivityPost } from '@/lib/activity-feed/create-posts';
 import { checkReviewRewardForSession, isRewardsProgramEnabled } from '@/lib/rewards';
 
 const REVIEW_TAGS = ['Technique', 'Great with kids', 'Punctual', 'Communication', 'My kid loved it'] as const;
@@ -209,6 +210,12 @@ export async function POST(req: NextRequest) {
         sessionId,
       });
     }
+
+    void attachReviewToSessionCompletedActivityPost(admin, {
+      sessionId,
+      parentId: user.id,
+      reviewId: review.id as string,
+    }).catch((err) => console.warn('Activity review attach failed:', err));
 
     return NextResponse.json({ review });
   } catch (e) {

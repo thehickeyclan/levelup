@@ -34,6 +34,12 @@ export type ActivityFeedSession = {
   facilities?: { name?: string } | { name?: string }[] | null;
 };
 
+export type ActivityFeedReview = {
+  id: string;
+  rating: number;
+  comment?: string | null;
+};
+
 export type ActivityFeedMilestone = {
   id: string;
   milestone: string;
@@ -48,10 +54,12 @@ export type ActivityFeedPost = {
   coach_id?: string | null;
   session_id?: string | null;
   milestone_id?: string | null;
+  review_id?: string | null;
   youth_wrestlers?: ActivityFeedWrestler | ActivityFeedWrestler[] | null;
   athletes?: ActivityFeedCoach | ActivityFeedCoach[] | null;
   sessions?: ActivityFeedSession | ActivityFeedSession[] | null;
   reward_milestones?: ActivityFeedMilestone | ActivityFeedMilestone[] | null;
+  reviews?: ActivityFeedReview | ActivityFeedReview[] | null;
   hammer_count: number;
   viewer_has_hammer: boolean;
 };

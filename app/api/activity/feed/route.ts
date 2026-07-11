@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     scope,
     viewAsCoachId: viewAsCoachId ?? url.searchParams.get('coachId'),
   });
-  const feedDb = coachScope.useAdminClient ? createAdminClient(tenant.slug) : supabase;
+  const feedDb = createAdminClient(tenant.slug);
 
   const { posts, nextCursor } = await fetchActivityFeed(feedDb, user.id, {
     scope,

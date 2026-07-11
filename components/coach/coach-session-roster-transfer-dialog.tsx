@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -50,32 +50,40 @@ export function CoachSessionRosterTransferDialog({
   );
   const [transferTargetSessionId, setTransferTargetSessionId] = useState('');
   const [transferLoading, setTransferLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadRoster = async () => {
+  const loadRoster = useCallback(async () => {
     setRosterLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch(`/api/coach/sessions/${sessionId}/roster`);
       const data = await res.json();
       if (!res.ok) {
         setRosterData([]);
-        window.alert(data.error || 'Could not load roster');
+        setLoadError(data.error || 'Could not load roster');
         return;
       }
       setRosterData(data.roster || []);
+      if ((data.roster || []).length === 0) {
+        setLoadError('No athletes found on this session roster.');
+      }
     } catch {
       setRosterData([]);
+      setLoadError('Could not load roster. Check your connection and try again.');
     } finally {
       setRosterLoading(false);
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!open) return;
+    setTransferringParticipant(null);
+    setTransferTargetSessionId('');
+    void loadRoster();
+  }, [open, loadRoster]);
 
   const handleOpenChange = (next: boolean) => {
     onOpenChange(next);
-    if (next) {
-      setTransferringParticipant(null);
-      setTransferTargetSessionId('');
-      void loadRoster();
-    }
   };
 
   const handleTransfer = async () => {
@@ -131,7 +139,9 @@ export function CoachSessionRosterTransferDialog({
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : rosterData.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No athletes registered</p>
+            <p className="text-center text-muted-foreground py-8">
+              {loadError ?? 'No athletes registered'}
+            </p>
           ) : (
             <div className="space-y-3">
               {rosterData.map((p, idx) => (

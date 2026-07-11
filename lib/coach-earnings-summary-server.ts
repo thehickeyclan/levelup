@@ -57,6 +57,11 @@ export function isCoachSessionInEarningsMonth(
   return coachEarningsMonthKey(s) === monthKey;
 }
 
+/** Revenue counts only after coach marks the session complete (close-out). */
+export function isCoachSessionClosedOutForEarnings(s: { status: string | null }): boolean {
+  return s.status === 'completed';
+}
+
 /** One session’s coach share — same math as Dashboard, /coach-earnings, and leaderboard (after eligibility filter). */
 export function payoutUsdForCoachEarningsSession(
   s: CoachEarningsSessionRow,
@@ -137,11 +142,13 @@ export function summarizeCoachEarningsFromPastSessions(
 
   const getSessionPayout = (s: CoachEarningsSessionRow) => payoutUsdForCoachEarningsSession(s, coachDefaultPayoutRate);
 
+  const closedOutSessions = earningsSessions.filter(isCoachSessionClosedOutForEarnings);
+
   const thisMonthKey = formatEST(nowIso, 'yyyy-MM');
-  const thisMonthSessions = earningsSessions.filter((s) => isCoachSessionInEarningsMonth(s, thisMonthKey));
+  const thisMonthSessions = closedOutSessions.filter((s) => isCoachSessionInEarningsMonth(s, thisMonthKey));
 
   const thisMonthEarnings = thisMonthSessions.reduce((sum, s) => sum + getSessionPayout(s), 0);
-  const allTimeEarnings = earningsSessions.reduce((sum, s) => sum + getSessionPayout(s), 0);
+  const allTimeEarnings = closedOutSessions.reduce((sum, s) => sum + getSessionPayout(s), 0);
 
   let pendingPayoutAmount = 0;
   let pendingPayoutSessionCount = 0;

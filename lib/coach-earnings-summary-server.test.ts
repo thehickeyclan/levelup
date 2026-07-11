@@ -88,6 +88,35 @@ describe('summarizeCoachEarningsFromPastSessions this month', () => {
     expect(summary.allTimeEarnings).toBe(72);
   });
 
+  it('excludes past scheduled sessions not yet marked complete from this month', () => {
+    const rows = [
+      session({
+        id: 'needs-close-out',
+        scheduled_datetime: '2026-06-13T20:00:00.000Z',
+        status: 'scheduled',
+        athlete_payment: 144,
+      }),
+      session({
+        id: 'closed',
+        scheduled_datetime: '2026-06-10T15:00:00.000Z',
+        completed_at: '2026-06-10T18:00:00.000Z',
+        status: 'completed',
+        athlete_payment: 72,
+      }),
+    ];
+
+    const summary = summarizeCoachEarningsFromPastSessions(
+      rows,
+      0.8,
+      '2026-06-13T20:00:00.000Z'
+    );
+
+    expect(summary.thisMonthSessions).toHaveLength(1);
+    expect(summary.thisMonthSessions[0]?.id).toBe('closed');
+    expect(summary.thisMonthEarnings).toBe(72);
+    expect(summary.allTimeEarnings).toBe(72);
+  });
+
   it('matches isCoachSessionInEarningsMonth helper', () => {
     const s = session({
       completed_at: '2026-06-13T18:00:00.000Z',

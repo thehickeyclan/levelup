@@ -7,6 +7,7 @@ import { formatEST } from '@/lib/format-date';
 import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
 import {
   type CoachEarningsSessionRow,
+  isCoachSessionClosedOutForEarnings,
   isCoachSessionEarningsEligible,
   isCoachSessionInEarningsMonth,
   payoutUsdForCoachEarningsSession,
@@ -96,9 +97,11 @@ export async function GET() {
 
     sessionCountMap[aid] = (sessionCountMap[aid] || 0) + 1;
 
-    if (isCoachSessionInEarningsMonth(s, thisMonthKey)) {
+    if (isCoachSessionInEarningsMonth(s, thisMonthKey) && isCoachSessionClosedOutForEarnings(s)) {
       thisMonthCountMap[aid] = (thisMonthCountMap[aid] || 0) + 1;
     }
+
+    if (!isCoachSessionClosedOutForEarnings(s)) continue;
 
     const defaultRate = coachDefaultRateMap[aid] ?? normalizeCoachRevenueShareRate(null);
     const payout = payoutUsdForCoachEarningsSession(s, defaultRate);

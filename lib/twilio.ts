@@ -5,7 +5,9 @@
  * Coaches store cell on users.phone; we send only when present (with zelle-shaped fallback).
  */
 
+import { formatEST } from './format-date';
 import { logMessage } from './message-log';
+import { getSessionTypeDisplay } from './session-type-display';
 
 export type SupabaseAdmin = import('@supabase/supabase-js').SupabaseClient;
 
@@ -531,6 +533,143 @@ export async function sendCoachNewSignupSms(
     sessionId,
     coachId: coachUserId,
   });
+}
+
+type SessionCompletedSmsContext = {
+  coachName: string;
+  typeLabel: string;
+  dateStr: string;
+  facilityName: string | null;
+  paidCount: number;
+  wrestlerSummary: string | null;
+};
+
+function participantWrestlerName(part: {
+  youth_wrestlers?:
+    | { first_name?: string; last_name?: string }
+    | { first_name?: string; last_name?: string }[]
+    | null;
+  roster_first_name?: string | null;
+  roster_last_name?: string | null;
+}): string | null {
+  const raw = part.youth_wrestlers;
+  const yw = Array.isArray(raw) ? raw[0] : raw;
+  return (
+    formatPersonName(yw?.first_name, yw?.last_name) ??
+    formatPersonName(part.roster_first_name, part.roster_last_name)
+  );
+}
+
+async function loadSessionCompletedSmsContext(
+  admin: SupabaseAdmin,
+  sessionId: string,
+  coachUserId: string
+): Promise<SessionCompletedSmsContext | null> {
+  const [{ data: athlete }, { data: session }, { data: parts }] = await Promise.all([
+    admin.from('athletes').select('first_name, last_name').eq('id', coachUserId).maybeSingle(),
+    admin
+      .from('sessions')
+      .select('scheduled_datetime, session_type, facilities(name)')
+      .eq('id', sessionId)
+      .maybeSingle(),
+    admin
+      .from('session_participants')
+      .select('youth_wrestlers(first_name, last_name), roster_first_name, roster_last_name')
+      .eq('session_id', sessionId)
+      .eq('paid', true),
+  ]);
+
+  if (!session) return null;
+
+  const coachName = formatPersonName(athlete?.first_name, athlete?.last_name) ?? 'Coach';
+  const dt = (session as { scheduled_datetime?: string | null }).scheduled_datetime;
+  const dateStr = dt ? formatEST(new Date(dt), 'EEE MMM d, h:mm a') : 'session';
+  const typeLabel = getSessionTypeDisplay(
+    (session as { session_type?: string | null }).session_type
+  ).label;
+  const facRaw = (session as { facilities?: { name?: string } | { name?: string }[] | null })
+    .facilities;
+  const facility = Array.isArray(facRaw) ? facRaw[0] : facRaw;
+  const facilityName = (facility as { name?: string } | undefined)?.name?.trim() || null;
+
+  const names: string[] = [];
+  for (const row of parts ?? []) {
+    const name = participantWrestlerName(
+      row as {
+        youth_wrestlers?:
+          | { first_name?: string; last_name?: string }
+          | { first_name?: string; last_name?: string }[]
+          | null;
+        roster_first_name?: string | null;
+        roster_last_name?: string | null;
+      }
+    );
+    if (name) names.push(name);
+  }
+
+  const paidCount = (parts ?? []).length;
+  const wrestlerSummary =
+    names.length > 0
+      ? names.slice(0, 4).join(', ') + (names.length > 4 ? ` +${names.length - 4}` : '')
+      : null;
+
+  return { coachName, typeLabel, dateStr, facilityName, paidCount, wrestlerSummary };
+}
+
+function buildAdminSessionCompletedBody(ctx: SessionCompletedSmsContext): string {
+  const place = bookingSmsFacilitySuffix(ctx.facilityName);
+  const athletes =
+    ctx.paidCount === 0
+      ? 'No paid registrants'
+      : ctx.wrestlerSummary
+        ? `${ctx.paidCount} paid (${ctx.wrestlerSummary})`
+        : `${ctx.paidCount} paid`;
+  return `The Guild (ops): Coach ${ctx.coachName} marked complete — ${ctx.typeLabel}, ${ctx.dateStr}${place}. ${athletes}. Admin → Ready to pay.`.slice(
+    0,
+    1600
+  );
+}
+
+/**
+ * SMS admin ops when a coach marks their own session complete (not when admin marks on their behalf).
+ * Uses ADMIN_BOOKING_ALERT_PHONES and/or users.phone for role=admin — same as booking alerts.
+ */
+export async function notifyAdminsSessionCompleted(
+  admin: SupabaseAdmin,
+  opts: { sessionId: string; coachUserId: string; completedByUserId: string }
+): Promise<void> {
+  if (opts.completedByUserId !== opts.coachUserId) return;
+
+  const ctx = await loadSessionCompletedSmsContext(admin, opts.sessionId, opts.coachUserId);
+  if (!ctx) return;
+
+  const opsTargets = await collectAdminBookingAlertPhonesE164(admin);
+  const body = buildAdminSessionCompletedBody(ctx);
+  const sid = opts.sessionId;
+
+  if (opsTargets.length === 0) {
+    await logSmsSkipped(admin, {
+      messageType: 'admin_session_completed_skipped',
+      recipientLabel: 'Admin ops',
+      sessionId: sid,
+      coachId: opts.coachUserId,
+      detail:
+        'No admin alert numbers configured. Set ADMIN_BOOKING_ALERT_PHONES (comma-separated) and/or add cell numbers to users.phone for admin accounts.',
+    });
+    return;
+  }
+
+  const coachE164 = await resolveCoachSmsE164(admin, opts.coachUserId);
+  for (const to of opsTargets) {
+    if (coachE164 && to === coachE164) continue;
+    await sendSms(to, body, {
+      admin,
+      messageType: 'admin_session_completed',
+      recipientLabel: 'Admin ops',
+      sessionId: sid,
+      coachId: opts.coachUserId,
+    });
+  }
 }
 
 /**

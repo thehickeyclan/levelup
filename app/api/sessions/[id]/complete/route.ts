@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { createSessionCompletedActivityPosts } from '@/lib/activity-feed/create-posts';
 import { checkSessionMilestonesForParent, isRewardsProgramEnabled } from '@/lib/rewards';
+import { notifyAdminsSessionCompleted } from '@/lib/twilio';
 
 /**
  * POST - Mark a session as completed.
@@ -69,6 +70,12 @@ export async function POST(
     }
 
     await createSessionCompletedActivityPosts(admin, sessionId);
+
+    void notifyAdminsSessionCompleted(admin, {
+      sessionId,
+      coachUserId: session.athlete_id,
+      completedByUserId: user.id,
+    }).catch((e) => console.error('Admin session completed SMS:', e));
 
     if (isRewardsProgramEnabled()) {
       const { data: partRows } = await admin

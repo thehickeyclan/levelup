@@ -19,6 +19,8 @@ import {
   type ParentHomeAnnouncement,
 } from '@/components/parent-home-announcement-banners';
 import { ParentHomeUpcomingSessionCard } from '@/components/parent-home-upcoming-session-card';
+import { ParentHomeActivitySection } from '@/components/parent-home-activity-section';
+import { fetchFamilyActivityPosts } from '@/lib/activity-feed/fetch-feed';
 
 export const dynamic = 'force-dynamic';
 
@@ -318,6 +320,11 @@ export default async function HomePage() {
   const firstName = userData?.first_name?.trim();
   const hasUpcoming = (upcomingSessions ?? []).length > 0;
 
+  const familyActivityPosts =
+    youthWrestlerIds.length > 0
+      ? await fetchFamilyActivityPosts(supabase, user.id, youthWrestlerIds, 5)
+      : [];
+
   return (
     <div className="min-h-screen pb-24">
       <div className="px-4 pt-6 pb-2">
@@ -409,6 +416,8 @@ export default async function HomePage() {
           </div>
         )}
       </section>
+
+      <ParentHomeActivitySection posts={familyActivityPosts} />
 
       <ParentHomeReviewsSection
         sessions={reviewPayloads}

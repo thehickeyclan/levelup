@@ -22,7 +22,62 @@ export type GuildMessageRow = {
   read_by: string[];
   created_at: string;
   sender_name?: string;
+  sender_photo_url?: string | null;
 };
+
+export const COACHING_THREAD_TYPES = new Set<GuildThreadType>([
+  'session',
+  'coach_inquiry',
+  'session_change',
+  'group_session',
+]);
+
+export const MARKET_THREAD_TYPES = new Set<GuildThreadType>([
+  'listing_qa',
+  'offer',
+  'trade',
+  'order',
+]);
+
+async function resolveSenderProfiles(
+  nameLookup: SupabaseClient,
+  senderIds: string[]
+): Promise<Map<string, { name: string; photo_url: string | null }>> {
+  const map = new Map<string, { name: string; photo_url: string | null }>();
+  if (!senderIds.length) return map;
+
+  const [{ data: users }, { data: athletes }] = await Promise.all([
+    nameLookup.from('users').select('id, first_name, last_name').in('id', senderIds),
+    nameLookup.from('athletes').select('id, first_name, last_name, photo_url').in('id', senderIds),
+  ]);
+
+  const athleteById = new Map((athletes ?? []).map((a) => [a.id as string, a]));
+
+  for (const u of users ?? []) {
+    const id = u.id as string;
+    const athlete = athleteById.get(id);
+    const name =
+      athlete
+        ? formatSellerDisplayName(athlete.first_name as string, athlete.last_name as string)
+        : formatSellerDisplayName(u.first_name as string, u.last_name as string);
+    map.set(id, {
+      name: name || 'Member',
+      photo_url: (athlete?.photo_url as string | null) ?? null,
+    });
+  }
+
+  for (const a of athletes ?? []) {
+    const id = a.id as string;
+    if (map.has(id)) continue;
+    map.set(id, {
+      name:
+        formatSellerDisplayName(a.first_name as string, a.last_name as string) || 'Coach',
+      photo_url: (a.photo_url as string | null) ?? null,
+    });
+  }
+
+  return map;
+}
 
 type FindOrCreateParams = {
   threadType: GuildThreadType;
@@ -195,31 +250,22 @@ export async function loadThreadMessages(
 
   const messages = rows ?? [];
   const senderIds = [...new Set(messages.map((m) => m.sender_id as string))];
-  const nameMap = new Map<string, string>();
-  const nameLookup = options?.nameClient ?? supabase;
+  const profileMap = await resolveSenderProfiles(options?.nameClient ?? supabase, senderIds);
 
-  if (senderIds.length) {
-    const { data: users } = await nameLookup
-      .from('users')
-      .select('id, first_name, last_name')
-      .in('id', senderIds);
-    for (const u of users ?? []) {
-      nameMap.set(
-        u.id as string,
-        formatSellerDisplayName(u.first_name as string, u.last_name as string) || 'Member'
-      );
-    }
-  }
-
-  return messages.map((m) => ({
-    id: m.id as string,
-    thread_id: m.thread_id as string,
-    sender_id: m.sender_id as string,
-    body: m.body as string,
-    read_by: (m.read_by as string[]) ?? [],
-    created_at: m.created_at as string,
-    sender_name: nameMap.get(m.sender_id as string) ?? 'Member',
-  }));
+  return messages.map((m) => {
+    const senderId = m.sender_id as string;
+    const profile = profileMap.get(senderId);
+    return {
+      id: m.id as string,
+      thread_id: m.thread_id as string,
+      sender_id: senderId,
+      body: m.body as string,
+      read_by: (m.read_by as string[]) ?? [],
+      created_at: m.created_at as string,
+      sender_name: profile?.name ?? 'Member',
+      sender_photo_url: profile?.photo_url ?? null,
+    };
+  });
 }
 
 function notificationTypeForThread(threadType: GuildThreadType): string {

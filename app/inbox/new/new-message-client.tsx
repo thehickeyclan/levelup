@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MessageCircle, Users, Loader2, Search } from 'lucide-react';
+import { CoachSessionMessagePanel } from '@/components/guild/coach-session-message-panel';
 import { SchoolLogo } from '@/components/school-logo';
 
 type Coach = { id: string; firstName: string; lastName: string; school: string; photoUrl?: string };
@@ -125,6 +126,7 @@ export function NewMessageClient({
   if (!isParentView) {
     return (
       <div className="space-y-6 max-w-lg">
+        <CoachSessionMessagePanel />
         <Card>
           <CardContent className="pt-6 space-y-4">
             <h2 className="font-semibold flex items-center gap-2">
@@ -132,7 +134,7 @@ export function NewMessageClient({
               Message a parent
             </h2>
             <p className="text-sm text-muted-foreground">
-              Start a direct message with a parent you have sessions or workspaces with.
+              Start a direct message with a parent you have sessions with.
             </p>
             {loading ? (
               <div className="flex justify-center py-6">
@@ -165,7 +167,9 @@ export function NewMessageClient({
         </Card>
         <Card>
           <CardContent className="pt-6 space-y-4">
-            <p className="text-muted-foreground text-sm">Start a group to message parents and wrestlers together.</p>
+            <p className="text-muted-foreground text-sm">
+              Legacy groups are being replaced by session threads and direct messages above.
+            </p>
             <Link href="/inbox/groups/new">
               <Button className="gap-2">
                 <Users className="h-4 w-4" />

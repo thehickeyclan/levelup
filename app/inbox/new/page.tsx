@@ -24,7 +24,7 @@ export default async function InboxNewPage() {
         <h1 className="text-xl font-bold">New message</h1>
         <p className="text-sm text-muted-foreground">
           {role === 'coach'
-            ? 'Start a direct message with a parent or create a group.'
+            ? 'Search sessions to message everyone, or start a direct message with a parent.'
             : 'Start a direct message with any coach.'}
         </p>
       </div>

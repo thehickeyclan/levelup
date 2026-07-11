@@ -1,4 +1,4 @@
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getTenantByDomain } from '@/config/tenants';
@@ -28,13 +28,19 @@ export default async function MessagesInboxPage({
 
   const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
   const role = userData?.role;
+  const cookieStore = await cookies();
+  const viewAsCoachId = role === 'admin' ? cookieStore.get('levelup_view_as_coach_id')?.value : null;
+  const messagingAsCoach = role === 'coach' || (role === 'admin' && !!viewAsCoachId);
   const showNewMessage = role === 'parent' || role === 'coach' || role === 'admin';
+  const inboxUserRole = messagingAsCoach ? 'coach' : role === 'admin' ? 'parent' : (role ?? 'parent');
 
   return (
     <MessagesInboxClient
       currentUserId={user.id}
       initialThreadId={sp.thread?.trim() || null}
       showNewMessage={showNewMessage}
+      userRole={inboxUserRole}
+      showCoachSessionHub={messagingAsCoach}
     />
   );
 }

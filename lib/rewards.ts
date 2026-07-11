@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createMilestoneHitActivityPost } from '@/lib/activity-feed/create-posts';
 import { createNotification } from '@/lib/notifications';
 import { getUserCreditBalance } from '@/lib/credits';
 
@@ -348,11 +349,23 @@ export async function checkSessionMilestonesForParent(
       continue;
     }
 
-    await admin.from('reward_milestones').insert({
-      parent_id: opts.parentId,
-      milestone: m.key,
-      credit_id: creditId ?? null,
-    });
+    const { data: milestoneRow } = await admin
+      .from('reward_milestones')
+      .insert({
+        parent_id: opts.parentId,
+        milestone: m.key,
+        credit_id: creditId ?? null,
+      })
+      .select('id')
+      .single();
+
+    if (milestoneRow?.id) {
+      await createMilestoneHitActivityPost(admin, {
+        parentId: opts.parentId,
+        milestoneId: milestoneRow.id,
+        milestoneKey: m.key,
+      });
+    }
 
     await createNotification(admin, {
       user_id: opts.parentId,

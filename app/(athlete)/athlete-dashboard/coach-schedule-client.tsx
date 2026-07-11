@@ -18,9 +18,8 @@ import { getSessionTypeDisplay } from '@/lib/session-type-display';
 import type { CoachSession } from './coach-schedule-card';
 import { splitCoachSessionsByToday } from '@/lib/coach-schedule-split';
 import { CoachScheduleSessionCard } from './coach-schedule-session-card';
-import {
-  CoachShareSessionsHub,
-} from '@/components/coach/coach-share-sessions-hub';
+import { CoachShareSessionsHub } from '@/components/coach/coach-share-sessions-hub';
+import { CoachActivityWidget } from '@/components/coach/coach-activity-widget';
 
 export type JoinRequestItem = {
   id: string;
@@ -57,6 +56,7 @@ type Props = {
   projectedEarnings?: number;
   upcomingSessionCount?: number;
   activationPanel?: CoachActivationPanelData | null;
+  kudosThisWeek?: number;
 };
 
 function facilityLabel(s: CoachSession): string {
@@ -120,6 +120,7 @@ export function CoachScheduleClient({
   projectedEarnings = 0,
   upcomingSessionCount = 0,
   activationPanel = null,
+  kudosThisWeek = 0,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -179,6 +180,8 @@ export function CoachScheduleClient({
         projectedEarnings={projectedEarnings}
         upcomingSessionCount={upcomingSessionCount}
       />
+
+      <CoachActivityWidget kudosThisWeek={kudosThisWeek} />
 
       <CoachShareSessionsHub
         coachId={coachId}

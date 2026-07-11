@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
+import { createSessionCompletedActivityPosts } from '@/lib/activity-feed/create-posts';
 import { checkSessionMilestonesForParent, isRewardsProgramEnabled } from '@/lib/rewards';
 
 /**
@@ -66,6 +67,8 @@ export async function POST(
       console.error('Mark session complete error:', updateError);
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
+
+    await createSessionCompletedActivityPosts(admin, sessionId);
 
     if (isRewardsProgramEnabled()) {
       const { data: partRows } = await admin

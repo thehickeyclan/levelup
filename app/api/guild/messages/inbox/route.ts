@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { formatEST } from '@/lib/format-date';
-import { getThreadUnreadCount } from '@/lib/guild-messaging';
+import { getThreadUnreadCount, MARKET_THREAD_TYPES } from '@/lib/guild-messaging';
 import { MESSAGES_HOME_PATH } from '@/lib/in-app-messaging';
 
 const THREAD_ICONS: Record<string, string> = {
@@ -53,13 +53,17 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
+  const userRole = userData?.role ?? 'parent';
+  const isCoach = userRole === 'coach';
+
   const admin = createAdminClient(tenant.slug);
 
   const { data: threads, error: threadsError } = await admin
     .from('guild_threads')
     .select(`
       id, thread_type, listing_id, offer_id, trade_id, order_id, session_id,
-      participant_ids, created_at,
+      participant_ids, inquiry_parent_id, inquiry_coach_id, created_at,
       market_listings(brand, model, title),
       market_offers(id),
       market_trades(id),
@@ -74,8 +78,14 @@ export async function GET() {
     return NextResponse.json({ error: threadsError.message }, { status: 500 });
   }
 
+  const visibleThreads = (threads ?? []).filter((t) => {
+    const type = t.thread_type as string;
+    if (isCoach && MARKET_THREAD_TYPES.has(type as never)) return false;
+    return true;
+  });
+
   const rows = await Promise.all(
-    (threads ?? []).map(async (t) => {
+    (visibleThreads).map(async (t) => {
       const listing = t.market_listings as { brand?: string; model?: string; title?: string } | null;
       const listingTitle =
         [listing?.brand, listing?.model].filter(Boolean).join(' ') || listing?.title || null;
@@ -98,18 +108,15 @@ export async function GET() {
           : '';
         contextTitle = when ? `${coachName} · ${when}` : coachName;
       } else if (t.thread_type === 'coach_inquiry') {
+        const parentId = (t.inquiry_parent_id as string | null) ?? null;
+        const coachId = (t.inquiry_coach_id as string | null) ?? null;
         const participantIds = ((t.participant_ids as string[]) ?? []).filter((id) => id !== user.id);
-        const otherId = participantIds[0];
+        const otherId = isCoach
+          ? parentId ?? participantIds.find((id) => id !== coachId) ?? participantIds[0]
+          : coachId ?? participantIds[0];
+
         if (otherId) {
-          const { data: coach } = await admin
-            .from('athletes')
-            .select('first_name, last_name')
-            .eq('id', otherId)
-            .maybeSingle();
-          if (coach) {
-            const coachName = [coach.first_name, coach.last_name].filter(Boolean).join(' ');
-            contextTitle = coachName ? `Coach ${coachName}` : 'Coach';
-          } else {
+          if (isCoach) {
             const { data: parentUser } = await admin
               .from('users')
               .select('first_name, last_name, email')
@@ -119,6 +126,26 @@ export async function GET() {
               [parentUser?.first_name, parentUser?.last_name].filter(Boolean).join(' ').trim() ||
               parentUser?.email ||
               'Parent';
+          } else {
+            const { data: coach } = await admin
+              .from('athletes')
+              .select('first_name, last_name')
+              .eq('id', otherId)
+              .maybeSingle();
+            if (coach) {
+              const coachName = [coach.first_name, coach.last_name].filter(Boolean).join(' ');
+              contextTitle = coachName ? `Coach ${coachName}` : 'Coach';
+            } else {
+              const { data: parentUser } = await admin
+                .from('users')
+                .select('first_name, last_name, email')
+                .eq('id', otherId)
+                .maybeSingle();
+              contextTitle =
+                [parentUser?.first_name, parentUser?.last_name].filter(Boolean).join(' ').trim() ||
+                parentUser?.email ||
+                'Member';
+            }
           }
         }
       }
@@ -162,5 +189,5 @@ export async function GET() {
 
   rows.sort((a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime());
 
-  return NextResponse.json({ threads: rows });
+  return NextResponse.json({ threads: rows, userRole });
 }

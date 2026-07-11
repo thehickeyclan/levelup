@@ -12,6 +12,7 @@ import {
   findThreadIdByContext,
 } from '@/lib/guild-messaging';
 import { getSessionMessageAccess } from '@/lib/session-message-access';
+import { SessionMessageSmsBar } from '@/components/guild/session-message-sms-bar';
 import { IN_APP_MESSAGING_ENABLED } from '@/lib/in-app-messaging';
 
 export default async function SessionMessagesPage({
@@ -38,7 +39,7 @@ export default async function SessionMessagesPage({
 
   const { data: session, error: sessErr } = await supabase
     .from('sessions')
-    .select('id, parent_id, athlete_id, scheduled_datetime, athletes(id, first_name, last_name, school), facilities(name)')
+    .select('id, parent_id, athlete_id, scheduled_datetime, current_participants, athletes(id, first_name, last_name, school), facilities(name)')
     .eq('id', sessionId)
     .single();
 
@@ -80,6 +81,12 @@ export default async function SessionMessagesPage({
           All messages
         </Link>
       </div>
+      <SessionMessageSmsBar
+        sessionId={sessionId}
+        sessionLabel={`${coachName} · ${dateStr}`}
+        participantCount={Number((session as { current_participants?: number }).current_participants ?? 0)}
+        isCoach={isCoach}
+      />
       <MessageThread
         threadId={threadId}
         currentUserId={user.id}

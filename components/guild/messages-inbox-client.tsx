@@ -8,6 +8,8 @@ import { BackLink } from '@/components/back-link';
 import { MessageThread } from '@/components/guild/message-thread';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { COACHING_THREAD_TYPES, MARKET_THREAD_TYPES } from '@/lib/guild-messaging';
+import { CoachSessionMessagePanel } from '@/components/guild/coach-session-message-panel';
 
 type InboxRow = {
   id: string;
@@ -21,28 +23,24 @@ type InboxRow = {
 
 type FilterTab = 'all' | 'coaching' | 'market';
 
-const COACHING_TYPES = new Set([
-  'session',
-  'coach_inquiry',
-  'session_change',
-  'group_session',
-]);
-
-const MARKET_TYPES = new Set(['listing_qa', 'offer', 'trade', 'order']);
-
 export function MessagesInboxClient({
   currentUserId,
   initialThreadId,
   showNewMessage,
+  userRole = 'parent',
+  showCoachSessionHub = false,
 }: {
   currentUserId: string;
   initialThreadId: string | null;
   showNewMessage?: boolean;
+  userRole?: string;
+  showCoachSessionHub?: boolean;
 }) {
+  const isCoach = userRole === 'coach' || showCoachSessionHub;
   const [threads, setThreads] = useState<InboxRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(initialThreadId);
-  const [filter, setFilter] = useState<FilterTab>('all');
+  const [filter, setFilter] = useState<FilterTab>(isCoach ? 'coaching' : 'all');
 
   const loadInbox = () => {
     return fetch('/api/guild/messages/inbox')
@@ -56,8 +54,10 @@ export function MessagesInboxClient({
 
   const filtered = useMemo(() => {
     if (filter === 'all') return threads;
-    if (filter === 'coaching') return threads.filter((t) => COACHING_TYPES.has(t.thread_type));
-    return threads.filter((t) => MARKET_TYPES.has(t.thread_type));
+    if (filter === 'coaching') {
+      return threads.filter((t) => COACHING_THREAD_TYPES.has(t.thread_type as never));
+    }
+    return threads.filter((t) => MARKET_THREAD_TYPES.has(t.thread_type as never));
   }, [filter, threads]);
 
   const activeInFilter = filtered.some((t) => t.id === activeThreadId);
@@ -71,27 +71,31 @@ export function MessagesInboxClient({
         tab === 'all'
           ? threads
           : tab === 'coaching'
-            ? threads.filter((t) => COACHING_TYPES.has(t.thread_type))
-            : threads.filter((t) => MARKET_TYPES.has(t.thread_type));
+            ? threads.filter((t) => COACHING_THREAD_TYPES.has(t.thread_type as never))
+            : threads.filter((t) => MARKET_THREAD_TYPES.has(t.thread_type as never));
       return list.some((t) => t.id === current) ? current : null;
     });
   };
 
-  const tabs: { id: FilterTab; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'coaching', label: 'Coaching' },
-    { id: 'market', label: 'Market' },
-  ];
+  const tabs: { id: FilterTab; label: string }[] = isCoach
+    ? [{ id: 'coaching', label: 'Coaching' }]
+    : [
+        { id: 'all', label: 'All' },
+        { id: 'coaching', label: 'Coaching' },
+        { id: 'market', label: 'Market' },
+      ];
 
   return (
     <div className="min-h-screen pb-24 bg-background">
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <BackLink fallbackHref="/dashboard" label="Back" />
+            <BackLink fallbackHref={isCoach ? '/athlete-dashboard' : '/dashboard'} label="Back" />
             <h1 className="text-2xl font-bold text-foreground mt-2">Messages</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Coaches, sessions, small groups, and Guild Market — one inbox.
+              {isCoach
+                ? 'Parents, sessions, and small groups — coaching messages only.'
+                : 'Coaches, sessions, small groups, and Guild Market — one inbox.'}
             </p>
           </div>
           {showNewMessage ? (
@@ -103,7 +107,9 @@ export function MessagesInboxClient({
           ) : null}
         </div>
 
-        <div className="flex gap-2">
+        {showCoachSessionHub ? <CoachSessionMessagePanel /> : null}
+
+        <div className={cn('flex gap-2', tabs.length > 1 ? '' : 'hidden')}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -128,7 +134,7 @@ export function MessagesInboxClient({
             <p className="text-sm text-muted-foreground">No conversations yet.</p>
             {showNewMessage ? (
               <Button asChild size="sm" className="bg-accent text-accent-foreground">
-                <Link href="/inbox/new">Message a coach</Link>
+                <Link href="/inbox/new">{isCoach ? 'Message a parent' : 'Message a coach'}</Link>
               </Button>
             ) : null}
           </div>

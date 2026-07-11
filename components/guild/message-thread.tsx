@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Loader2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { ProfileImage } from '@/components/profile-image';
 import { useGuildThreadMessages } from '@/lib/hooks/use-guild-thread-messages';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +30,38 @@ function formatMessageTime(createdAt: string): string {
   } catch {
     return '';
   }
+}
+
+function SenderAvatar({
+  name,
+  photoUrl,
+  className,
+}: {
+  name: string;
+  photoUrl?: string | null;
+  className?: string;
+}) {
+  const initial = (name || 'M').charAt(0).toUpperCase();
+  if (photoUrl) {
+    return (
+      <ProfileImage
+        src={photoUrl}
+        alt={name}
+        className={cn('w-8 h-8 shrink-0 border border-border/60', className)}
+        fallbackIconClassName="h-4 w-4 text-muted-foreground"
+      />
+    );
+  }
+  return (
+    <div
+      className={cn(
+        'w-8 h-8 rounded-full text-xs font-semibold flex items-center justify-center shrink-0',
+        className
+      )}
+    >
+      {initial}
+    </div>
+  );
 }
 
 export function MessageThread({
@@ -93,7 +126,7 @@ export function MessageThread({
     <div className="rounded-xl border border-border overflow-hidden bg-card flex flex-col">
       <div
         ref={listRef}
-        className="overflow-y-auto p-3 space-y-3"
+        className="overflow-y-auto p-3 space-y-4"
         style={{ maxHeight }}
       >
         {loading ? (
@@ -105,32 +138,50 @@ export function MessageThread({
         ) : (
           messages.map((m) => {
             const own = m.sender_id === currentUserId;
-            const initial = (m.sender_name || 'M').charAt(0).toUpperCase();
+            const displayName = own ? 'You' : (m.sender_name || 'Member');
             return (
               <div
                 key={m.id}
-                className={cn('flex gap-2', own ? 'flex-row-reverse' : 'flex-row')}
+                className={cn('flex gap-2.5 items-end', own ? 'flex-row-reverse' : 'flex-row')}
               >
-                {!own && showSenderName ? (
-                  <div className="w-7 h-7 rounded-full bg-accent/20 text-accent text-[11px] font-medium flex items-center justify-center shrink-0">
-                    {initial}
-                  </div>
+                {showSenderName ? (
+                  <SenderAvatar
+                    name={displayName}
+                    photoUrl={m.sender_photo_url}
+                    className={
+                      own
+                        ? 'bg-accent/25 text-accent ring-1 ring-accent/40'
+                        : 'bg-slate-600/50 text-slate-200 ring-1 ring-slate-500/50'
+                    }
+                  />
                 ) : null}
-                <div className={cn('max-w-[85%] space-y-0.5', own ? 'items-end' : 'items-start')}>
-                  {showSenderName && !own ? (
-                    <p className="text-[10px] text-muted-foreground px-1">{m.sender_name}</p>
+                <div
+                  className={cn(
+                    'flex flex-col max-w-[78%] min-w-0',
+                    own ? 'items-end' : 'items-start'
+                  )}
+                >
+                  {showSenderName ? (
+                    <p
+                      className={cn(
+                        'text-[11px] font-medium mb-1 px-0.5',
+                        own ? 'text-accent' : 'text-slate-300'
+                      )}
+                    >
+                      {displayName}
+                    </p>
                   ) : null}
                   <div
                     className={cn(
-                      'px-3 py-2 text-sm',
+                      'px-3 py-2 text-sm break-words shadow-sm',
                       own
-                        ? 'bg-accent text-accent-foreground rounded-2xl rounded-br-md'
-                        : 'bg-muted text-foreground rounded-xl rounded-bl-md'
+                        ? 'bg-accent text-primary rounded-2xl rounded-br-sm'
+                        : 'bg-slate-700/90 text-slate-50 border border-slate-500/40 rounded-2xl rounded-bl-sm'
                     )}
                   >
                     {m.body}
                   </div>
-                  <p className={cn('text-[10px] text-muted-foreground px-1', own && 'text-right')}>
+                  <p className={cn('text-[10px] text-muted-foreground mt-1 px-0.5', own && 'text-right')}>
                     {formatMessageTime(m.created_at)}
                   </p>
                 </div>

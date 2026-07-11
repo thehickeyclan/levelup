@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatEST } from '@/lib/format-date';
 import { suggestSessionIdFromPhotoTime } from '@/lib/activity-feed/suggest-photo-session';
 import { getSessionTypeDisplay } from '@/lib/session-type-display';
+import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
 
 type PhotoSession = {
   id: string;
@@ -149,7 +150,11 @@ export function ActivitySharePhotoDialog({
       body.set('sessionId', sessionId);
       if (youthWrestlerId) body.set('youthWrestlerId', youthWrestlerId);
       if (caption.trim()) body.set('caption', caption.trim());
-      for (const file of files) body.append('photos', file);
+      const prepared = await prepareListingPhotos(files);
+      if (prepared.prepareErrors.length > 0) {
+        throw new Error(prepared.prepareErrors[0]);
+      }
+      for (const file of prepared.files) body.append('photos', file);
 
       const res = await fetch('/api/activity/photos', { method: 'POST', body });
       const data = await res.json();

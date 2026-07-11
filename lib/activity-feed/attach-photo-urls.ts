@@ -3,10 +3,8 @@ import type { ActivityFeedPhoto, ActivityFeedPost } from '@/lib/activity-feed/ty
 
 const BUCKET = 'activity-photos';
 
-export function activityPhotoPublicUrl(storagePath: string): string {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
-  if (!base) return '';
-  return `${base}/storage/v1/object/public/${BUCKET}/${storagePath}`;
+export function activityPhotoDisplayUrl(photoId: string): string {
+  return `/api/activity/photos/${photoId}/image`;
 }
 
 export async function attachActivityPhotoUrls(
@@ -31,11 +29,12 @@ export async function attachActivityPhotoUrls(
   for (const row of rows ?? []) {
     const pid = row.post_id as string;
     const list = byPost.get(pid) ?? [];
+    const id = row.id as string;
     list.push({
-      id: row.id as string,
+      id,
       storage_path: row.storage_path as string,
       display_order: Number(row.display_order ?? 0),
-      url: activityPhotoPublicUrl(row.storage_path as string),
+      url: activityPhotoDisplayUrl(id),
     });
     byPost.set(pid, list);
   }

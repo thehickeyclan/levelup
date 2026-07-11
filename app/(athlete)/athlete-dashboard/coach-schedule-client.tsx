@@ -20,6 +20,8 @@ import { splitCoachSessionsByToday } from '@/lib/coach-schedule-split';
 import { CoachScheduleSessionCard } from './coach-schedule-session-card';
 import { CoachShareSessionsHub } from '@/components/coach/coach-share-sessions-hub';
 import { CoachActivityWidget } from '@/components/coach/coach-activity-widget';
+import { CoachSessionsNeedCompletePanel } from '@/components/coach/coach-sessions-need-complete-panel';
+import { sessionsNeedingCoachComplete } from '@/lib/coach-sessions-needing-complete';
 import {
   coachPayoutDisplayStatus,
   coachPayoutStatusLabel,
@@ -94,14 +96,23 @@ function pastPayoutStatusLabel(session: CoachSession): string {
   return coachPayoutStatusLabel(status);
 }
 
-function CoachPastSessionRow({ session }: { session: CoachSession }) {
+function CoachPastSessionRow({
+  session,
+  completingSessionId,
+  onMarkComplete,
+}: {
+  session: CoachSession;
+  completingSessionId: string | null;
+  onMarkComplete: (sessionId: string) => void;
+}) {
   const dt = new Date(session.scheduled_datetime);
   const names = sessionParticipantDisplayNames(session.session_participants);
   const n = Math.max(session.current_participants ?? 0, names.length);
+  const needsComplete = session.status === 'scheduled';
 
   return (
     <div className="rounded-lg border border-border/80 bg-card px-3 py-3 flex items-start justify-between gap-3">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground">
           {formatEST(dt, 'EEE, MMM d')} · {formatEST(dt, 'h:mm a')}
         </p>
@@ -113,9 +124,28 @@ function CoachPastSessionRow({ session }: { session: CoachSession }) {
         ) : n > 0 ? (
           <p className="text-sm text-muted-foreground mt-1.5">{n} athletes</p>
         ) : null}
+        {needsComplete ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2 h-8"
+            disabled={completingSessionId === session.id}
+            onClick={() => onMarkComplete(session.id)}
+          >
+            {completingSessionId === session.id ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" aria-hidden />
+                Marking…
+              </>
+            ) : (
+              'Mark complete'
+            )}
+          </Button>
+        ) : null}
       </div>
-      <Badge variant="secondary" className="shrink-0 text-xs">
-        {pastPayoutStatusLabel(session)}
+      <Badge variant={needsComplete ? 'outline' : 'secondary'} className="shrink-0 text-xs">
+        {needsComplete ? 'Needs complete' : pastPayoutStatusLabel(session)}
       </Badge>
     </div>
   );
@@ -144,8 +174,12 @@ export function CoachScheduleClient({
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<ScheduleTab>(initialTab);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [completingSessionId, setCompletingSessionId] = useState<string | null>(null);
 
   const now = new Date();
+  const sessionsNeedingComplete = sessionsNeedingCoachComplete(pastSessions, now);
+  const needsCompleteIds = new Set(sessionsNeedingComplete.map((s) => s.id));
+  const pastSessionsArchive = pastSessions.filter((s) => !needsCompleteIds.has(s.id));
   const { today, upcoming } = splitCoachSessionsByToday(upcomingSessions, now);
   const pendingCount = pendingJoinRequests.length;
 
@@ -182,11 +216,31 @@ export function CoachScheduleClient({
     }
   };
 
+  const handleMarkComplete = async (sessionId: string) => {
+    setCompletingSessionId(sessionId);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/complete`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to mark complete');
+      router.refresh();
+    } catch (e: unknown) {
+      window.alert(e instanceof Error ? e.message : 'Failed to mark complete');
+    } finally {
+      setCompletingSessionId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <CoachScheduleWelcomeBanner
         coachFirstName={coachFirstName}
         calendarLastUpdatedAt={calendarLastUpdatedAt}
+      />
+
+      <CoachSessionsNeedCompletePanel
+        sessions={sessionsNeedingComplete}
+        completingSessionId={completingSessionId}
+        onMarkComplete={handleMarkComplete}
       />
 
       {activationPanel ? <CoachActivationPanel {...activationPanel} /> : null}
@@ -212,9 +266,14 @@ export function CoachScheduleClient({
         <TabsList className="w-full grid grid-cols-3 h-10 p-0.5 rounded-lg bg-zinc-900/60 border border-border/60">
           <TabsTrigger
             value="upcoming"
-            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-accent/15 data-[state=active]:text-accent data-[state=active]:shadow-none"
+            className="min-h-[36px] touch-manipulation text-sm rounded-md data-[state=active]:bg-accent/15 data-[state=active]:text-accent data-[state=active]:shadow-none relative"
           >
             Upcoming
+            {sessionsNeedingComplete.length > 0 ? (
+              <span className="ml-1 inline-flex min-w-[16px] h-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-black">
+                {sessionsNeedingComplete.length > 99 ? '99+' : sessionsNeedingComplete.length}
+              </span>
+            ) : null}
           </TabsTrigger>
           <TabsTrigger
             value="past"
@@ -296,16 +355,23 @@ export function CoachScheduleClient({
         </TabsContent>
 
         <TabsContent value="past" className="mt-4 space-y-3">
-          {pastSessions.length === 0 ? (
+          {pastSessionsArchive.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                No past sessions yet.
+                {sessionsNeedingComplete.length > 0
+                  ? 'Sessions waiting for Mark complete are shown at the top of Schedule.'
+                  : 'No past sessions yet.'}
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-2">
-              {pastSessions.map((session) => (
-                <CoachPastSessionRow key={session.id} session={session} />
+              {pastSessionsArchive.map((session) => (
+                <CoachPastSessionRow
+                  key={session.id}
+                  session={session}
+                  completingSessionId={completingSessionId}
+                  onMarkComplete={handleMarkComplete}
+                />
               ))}
             </div>
           )}

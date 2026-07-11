@@ -16,12 +16,12 @@ import { HAMMER_EMOJI, hammerButtonLabel } from '@/lib/activity-feed/hammer-disp
 
 type Props = {
   post: ActivityFeedPost;
-  highlightCoachKudos?: boolean;
+  highlightCoachHammers?: boolean;
 };
 
-export function ActivityFeedCard({ post, highlightCoachKudos = false }: Props) {
-  const [kudosCount, setKudosCount] = useState(post.kudos_count);
-  const [hasKudos, setHasKudos] = useState(post.viewer_has_kudos);
+export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props) {
+  const [hammerCount, setHammerCount] = useState(post.hammer_count);
+  const [hasHammer, setHasHammer] = useState(post.viewer_has_hammer);
   const [loading, setLoading] = useState(false);
 
   const avatarUrl = activityPostAvatarUrl(post);
@@ -31,14 +31,14 @@ export function ActivityFeedCard({ post, highlightCoachKudos = false }: Props) {
   const isMilestone = post.trigger_type === 'milestone_hit';
 
   const giveHammer = async () => {
-    if (hasKudos || loading) return;
+    if (hasHammer || loading) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/activity/posts/${post.id}/kudos`, { method: 'POST' });
+      const res = await fetch(`/api/activity/posts/${post.id}/hammer`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) return;
-      setKudosCount(data.kudos_count ?? kudosCount + 1);
-      setHasKudos(true);
+      setHammerCount(data.hammer_count ?? hammerCount + 1);
+      setHasHammer(true);
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,7 @@ export function ActivityFeedCard({ post, highlightCoachKudos = false }: Props) {
           {subline ? (
             <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{subline}</p>
           ) : null}
-          {highlightCoachKudos && post.coach_id ? (
+          {highlightCoachHammers && post.coach_id ? (
             <p className="mt-1 text-xs text-muted-foreground">with {coachDisplayName(post)}</p>
           ) : null}
         </div>
@@ -92,17 +92,17 @@ export function ActivityFeedCard({ post, highlightCoachKudos = false }: Props) {
       <div className="mt-3 flex items-center gap-2">
         <Button
           type="button"
-          variant={hasKudos ? 'secondary' : 'outline'}
+          variant={hasHammer ? 'secondary' : 'outline'}
           size="sm"
           className="h-8 gap-1.5"
-          disabled={hasKudos || loading}
+          disabled={hasHammer || loading}
           onClick={giveHammer}
-          aria-label={hasKudos ? `You gave a hammer (${kudosCount})` : 'Give a hammer'}
+          aria-label={hasHammer ? `You threw a hammer (${hammerCount})` : 'Throw a hammer'}
         >
           <span className="text-base leading-none" aria-hidden>
             {HAMMER_EMOJI}
           </span>
-          {hammerButtonLabel(kudosCount)}
+          {hammerButtonLabel(hammerCount)}
         </Button>
       </div>
     </article>

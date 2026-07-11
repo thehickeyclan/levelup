@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { HAMMER_EMOJI, hammerCountPhrase } from '@/lib/activity-feed/hammer-display';
 
-export function CoachActivityWidget({ kudosThisWeek }: { kudosThisWeek: number }) {
+export function CoachActivityWidget({ hammersThisWeek }: { hammersThisWeek: number }) {
   return (
     <Card className="mb-4 border-border/80">
       <CardContent className="p-4">
@@ -15,7 +15,7 @@ export function CoachActivityWidget({ kudosThisWeek }: { kudosThisWeek: number }
             {HAMMER_EMOJI}
           </span>
           <span>
-            <span className="font-semibold">{hammerCountPhrase(kudosThisWeek)}</span> on your
+            <span className="font-semibold">{hammerCountPhrase(hammersThisWeek)}</span> on your
             sessions this week
           </span>
         </p>

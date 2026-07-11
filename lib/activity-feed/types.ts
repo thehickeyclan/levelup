@@ -52,6 +52,6 @@ export type ActivityFeedPost = {
   athletes?: ActivityFeedCoach | ActivityFeedCoach[] | null;
   sessions?: ActivityFeedSession | ActivityFeedSession[] | null;
   reward_milestones?: ActivityFeedMilestone | ActivityFeedMilestone[] | null;
-  kudos_count: number;
-  viewer_has_kudos: boolean;
+  hammer_count: number;
+  viewer_has_hammer: boolean;
 };

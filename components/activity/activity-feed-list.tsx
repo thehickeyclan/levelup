@@ -5,10 +5,10 @@ import { ActivityFeedCard } from '@/components/activity/activity-feed-card';
 
 export function ActivityFeedList({
   posts,
-  highlightCoachKudos = false,
+  highlightCoachHammers = false,
 }: {
   posts: ActivityFeedPost[];
-  highlightCoachKudos?: boolean;
+  highlightCoachHammers?: boolean;
 }) {
   if (posts.length === 0) {
     return (
@@ -21,7 +21,7 @@ export function ActivityFeedList({
   return (
     <div className="space-y-3">
       {posts.map((post) => (
-        <ActivityFeedCard key={post.id} post={post} highlightCoachKudos={highlightCoachKudos} />
+        <ActivityFeedCard key={post.id} post={post} highlightCoachHammers={highlightCoachHammers} />
       ))}
     </div>
   );

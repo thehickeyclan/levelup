@@ -1,4 +1,4 @@
-/** Wrestler slang for tough respect — UI only; DB table stays `activity_kudos`. */
+/** Wrestler slang for tough respect — stored in `activity_kudos` until a DB rename. */
 export const HAMMER_EMOJI = '🔨';
 
 export function hammerNoun(count: number): string {

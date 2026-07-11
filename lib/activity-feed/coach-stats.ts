@@ -9,8 +9,8 @@ function startOfWeekIso(now = new Date()): string {
   return d.toISOString();
 }
 
-/** Kudos on posts tied to this coach's sessions since Monday (local week). */
-export async function fetchCoachActivityKudosThisWeek(
+/** Hammers on posts tied to this coach's sessions since Monday (local week). */
+export async function fetchCoachActivityHammersThisWeek(
   db: SupabaseClient,
   coachId: string
 ): Promise<number> {
@@ -28,14 +28,14 @@ export async function fetchCoachActivityKudosThisWeek(
   }
 
   const postIds = posts.map((p: { id: string }) => p.id);
-  const { count, error: kudosErr } = await db
+  const { count, error: hammerErr } = await db
     .from('activity_kudos')
     .select('id', { count: 'exact', head: true })
     .in('post_id', postIds)
     .gte('created_at', weekStart);
 
-  if (kudosErr) {
-    console.error('coach activity kudos:', kudosErr);
+  if (hammerErr) {
+    console.error('coach activity hammers:', hammerErr);
     return 0;
   }
 

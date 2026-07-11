@@ -9,7 +9,7 @@ import {
   summarizeCoachEarningsFromPastSessions,
 } from '@/lib/coach-earnings-summary-server';
 import { fetchCoachActivationPanelData } from '@/lib/coach-activation-server';
-import { fetchCoachActivityKudosThisWeek } from '@/lib/activity-feed/coach-stats';
+import { fetchCoachActivityHammersThisWeek } from '@/lib/activity-feed/coach-stats';
 import { coachPublicScheduleUrl } from '@/lib/coach-public-schedule-url';
 import { CoachScheduleClient, type JoinRequestItem, type ScheduleTab } from './coach-schedule-client';
 import type { CoachSession } from './coach-schedule-card';
@@ -202,7 +202,7 @@ export default async function CoachHomePage({
     nowIso
   );
 
-  const kudosThisWeek = await fetchCoachActivityKudosThisWeek(activationDb, coachId);
+  const hammersThisWeek = await fetchCoachActivityHammersThisWeek(activationDb, coachId);
 
   const scheduleUrl = coachPublicScheduleUrl(
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
@@ -228,7 +228,7 @@ export default async function CoachHomePage({
         projectedEarnings={projectedEarnings}
         upcomingSessionCount={upcomingSessions?.length ?? 0}
         activationPanel={activationPanel.showPanel ? activationPanel : null}
-        kudosThisWeek={kudosThisWeek}
+        hammersThisWeek={hammersThisWeek}
       />
     </div>
   );

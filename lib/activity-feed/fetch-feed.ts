@@ -25,31 +25,31 @@ type FetchOpts = {
   youthWrestlerIds?: string[];
 };
 
-async function attachKudos(
+async function attachHammers(
   db: SupabaseClient,
-  posts: Omit<ActivityFeedPost, 'kudos_count' | 'viewer_has_kudos'>[],
+  posts: Omit<ActivityFeedPost, 'hammer_count' | 'viewer_has_hammer'>[],
   viewerId: string
 ): Promise<ActivityFeedPost[]> {
   if (posts.length === 0) return [];
 
   const postIds = posts.map((p) => p.id);
-  const { data: kudosRows } = await db
+  const { data: hammerRows } = await db
     .from('activity_kudos')
     .select('post_id, user_id')
     .in('post_id', postIds);
 
   const countByPost = new Map<string, number>();
-  const viewerKudos = new Set<string>();
-  for (const row of kudosRows ?? []) {
+  const viewerHammers = new Set<string>();
+  for (const row of hammerRows ?? []) {
     const pid = row.post_id as string;
     countByPost.set(pid, (countByPost.get(pid) ?? 0) + 1);
-    if (row.user_id === viewerId) viewerKudos.add(pid);
+    if (row.user_id === viewerId) viewerHammers.add(pid);
   }
 
   return posts.map((p) => ({
     ...p,
-    kudos_count: countByPost.get(p.id) ?? 0,
-    viewer_has_kudos: viewerKudos.has(p.id),
+    hammer_count: countByPost.get(p.id) ?? 0,
+    viewer_has_hammer: viewerHammers.has(p.id),
   }));
 }
 
@@ -88,11 +88,11 @@ export async function fetchActivityFeed(
     return { posts: [], nextCursor: null };
   }
 
-  const rows = (data ?? []) as Omit<ActivityFeedPost, 'kudos_count' | 'viewer_has_kudos'>[];
+  const rows = (data ?? []) as Omit<ActivityFeedPost, 'hammer_count' | 'viewer_has_hammer'>[];
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
   const nextCursor = hasMore ? page[page.length - 1]?.created_at ?? null : null;
-  const posts = await attachKudos(db, page, viewerId);
+  const posts = await attachHammers(db, page, viewerId);
 
   return { posts, nextCursor };
 }

@@ -75,7 +75,7 @@ export default async function ActivityPage({
             Choose a coach in the header (preview as coach), then open this page again.
           </p>
         ) : (
-          <ActivityFeedList posts={posts} highlightCoachKudos={scope === 'coach'} />
+          <ActivityFeedList posts={posts} highlightCoachHammers={scope === 'coach'} />
         )}
       </div>
     </div>

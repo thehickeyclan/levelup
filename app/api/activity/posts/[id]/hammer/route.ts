@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { getTenantByDomain } from '@/config/tenants';
 
+/** Toggle a hammer on an activity post (stored in activity_kudos). */
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -31,7 +32,11 @@ export async function POST(
       .from('activity_kudos')
       .select('id', { count: 'exact', head: true })
       .eq('post_id', postId);
-    return NextResponse.json({ success: true, kudos_count: count ?? 0, viewer_has_kudos: true });
+    return NextResponse.json({
+      success: true,
+      hammer_count: count ?? 0,
+      viewer_has_hammer: true,
+    });
   }
 
   const { error } = await supabase.from('activity_kudos').insert({
@@ -45,9 +50,13 @@ export async function POST(
         .from('activity_kudos')
         .select('id', { count: 'exact', head: true })
         .eq('post_id', postId);
-      return NextResponse.json({ success: true, kudos_count: count ?? 0, viewer_has_kudos: true });
+      return NextResponse.json({
+        success: true,
+        hammer_count: count ?? 0,
+        viewer_has_hammer: true,
+      });
     }
-    console.error('activity kudos:', error);
+    console.error('activity hammer:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -58,7 +67,7 @@ export async function POST(
 
   return NextResponse.json({
     success: true,
-    kudos_count: count ?? 1,
-    viewer_has_kudos: true,
+    hammer_count: count ?? 1,
+    viewer_has_hammer: true,
   });
 }

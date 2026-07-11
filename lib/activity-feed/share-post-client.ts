@@ -4,6 +4,10 @@ import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
 export type ShareActivityPostOutcome = 'shared' | 'downloaded' | 'copied' | 'cancelled' | 'failed';
 
+function hasNativeShare(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+}
+
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -25,25 +29,70 @@ async function urlToImageFile(url: string, filename: string): Promise<File | nul
   }
 }
 
+async function copyImageBlobToClipboard(blob: Blob): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.isSecureContext) return false;
+  if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') return false;
+  try {
+    const type = blob.type || 'image/png';
+    await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Try Web Share API with file payloads iOS accepts (files-only first). */
 async function tryNativeShare(opts: {
   files?: File[];
   title: string;
   text: string;
 }): Promise<boolean> {
-  if (typeof navigator === 'undefined' || !navigator.share) return false;
-  try {
-    if (opts.files?.length) {
-      const payload = { files: opts.files, title: opts.title, text: opts.text };
-      if (navigator.canShare && !navigator.canShare(payload)) return false;
+  if (!hasNativeShare()) return false;
+
+  const attempts: ShareData[] = [];
+  if (opts.files?.length) {
+    attempts.push({ files: opts.files });
+    attempts.push({ files: opts.files, title: opts.title, text: opts.text });
+    attempts.push({ files: opts.files, text: opts.text });
+  }
+  attempts.push({ title: opts.title, text: opts.text });
+  attempts.push({ text: opts.text });
+
+  for (const payload of attempts) {
+    try {
       await navigator.share(payload);
       return true;
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') throw e;
     }
-    await navigator.share({ title: opts.title, text: opts.text });
-    return true;
-  } catch (e) {
-    if ((e as Error)?.name === 'AbortError') throw e;
-    return false;
   }
+
+  return false;
+}
+
+async function shareFallback(opts: {
+  caption: string;
+  title: string;
+  imageBlob?: Blob | null;
+}): Promise<ShareActivityPostOutcome> {
+  if (opts.imageBlob) {
+    const imageCopied = await copyImageBlobToClipboard(opts.imageBlob);
+    const captionCopied = await copyTextToClipboard(opts.caption);
+    if (imageCopied || captionCopied) return 'copied';
+  } else {
+    const copied = await copyTextToClipboard(opts.caption);
+    if (copied) return 'copied';
+  }
+
+  if (hasNativeShare()) return 'failed';
+
+  if (opts.imageBlob) {
+    downloadBlob(opts.imageBlob, 'guild-activity.png');
+    const captionCopied = await copyTextToClipboard(opts.caption);
+    return captionCopied ? 'downloaded' : 'failed';
+  }
+
+  return 'failed';
 }
 
 async function shareSessionGraphic(post: ActivityFeedPost, caption: string): Promise<ShareActivityPostOutcome> {
@@ -63,9 +112,7 @@ async function shareSessionGraphic(post: ActivityFeedPost, caption: string): Pro
     if ((e as Error)?.name === 'AbortError') return 'cancelled';
   }
 
-  downloadBlob(blob, file.name);
-  const copied = await copyTextToClipboard(caption);
-  return copied ? 'downloaded' : 'failed';
+  return shareFallback({ caption, title: 'Guild session', imageBlob: blob });
 }
 
 async function sharePhotoPost(post: ActivityFeedPost, caption: string): Promise<ShareActivityPostOutcome> {
@@ -88,9 +135,12 @@ async function sharePhotoPost(post: ActivityFeedPost, caption: string): Promise<
     if ((e as Error)?.name === 'AbortError') return 'cancelled';
   }
 
-  downloadBlob(files[0], files[0].name);
-  const copied = await copyTextToClipboard(caption);
-  return copied ? 'downloaded' : 'failed';
+  const firstBlob = files[0] ? new Blob([files[0]], { type: files[0].type }) : null;
+  return shareFallback({
+    caption,
+    title: 'Guild session photos',
+    imageBlob: firstBlob,
+  });
 }
 
 async function shareTextOnly(caption: string, title: string): Promise<ShareActivityPostOutcome> {
@@ -101,11 +151,10 @@ async function shareTextOnly(caption: string, title: string): Promise<ShareActiv
     if ((e as Error)?.name === 'AbortError') return 'cancelled';
   }
 
-  const copied = await copyTextToClipboard(caption);
-  return copied ? 'copied' : 'failed';
+  return shareFallback({ caption, title });
 }
 
-/** Share an activity post to IG / Facebook via the native share sheet (or download + copy caption). */
+/** Share an activity post to IG / Facebook via the native share sheet (or copy caption). */
 export async function shareActivityPost(post: ActivityFeedPost): Promise<ShareActivityPostOutcome> {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const caption = buildActivityPostShareCaption(post, origin);

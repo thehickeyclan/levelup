@@ -3,15 +3,19 @@
 import { useRef, useState } from 'react';
 import { Camera, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { ActivityFeedPost } from '@/lib/activity-feed/types';
+import type { ActivityFeedPost, ActivityFeedScope } from '@/lib/activity-feed/types';
+import type { ActivityScopeOption } from '@/lib/activity-feed/activity-scope-config';
 import { ActivityFeedList } from '@/components/activity/activity-feed-list';
 import { ActivitySharePhotoDialog } from '@/components/activity/activity-share-photo-dialog';
+import { ActivityFeedScopeToggle } from '@/components/activity/activity-feed-scope-toggle';
 
 type Props = {
   title: string;
   description: string;
   posts: ActivityFeedPost[];
   role: string;
+  scope: ActivityFeedScope;
+  scopeOptions: ActivityScopeOption[];
   highlightCoachHammers?: boolean;
   showShareButton?: boolean;
   emptyMessage?: string;
@@ -22,6 +26,8 @@ export function ActivityPageShell({
   description,
   posts,
   role,
+  scope,
+  scopeOptions,
   highlightCoachHammers = false,
   showShareButton = true,
   emptyMessage,
@@ -92,6 +98,10 @@ export function ActivityPageShell({
             </Button>
           </div>
         ) : null}
+      </div>
+
+      <div className="mt-4">
+        <ActivityFeedScopeToggle options={scopeOptions} activeScope={scope} />
       </div>
 
       <div className="mt-6">

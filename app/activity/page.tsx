@@ -5,12 +5,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { fetchActivityFeed, resolveFeedContext } from '@/lib/activity-feed/fetch-feed';
 import { resolveCoachScopeForFeed } from '@/lib/activity-feed/resolve-coach-scope';
+import {
+  activityScopeMeta,
+  activityScopeOptions,
+  normalizeActivityScope,
+} from '@/lib/activity-feed/activity-scope-config';
 import type { ActivityFeedScope } from '@/lib/activity-feed/types';
 import { ActivityPageShell } from '@/components/activity/activity-page-shell';
 
 export const dynamic = 'force-dynamic';
-
-const SCOPES = new Set<ActivityFeedScope>(['community', 'family', 'coach']);
 
 export default async function ActivityPage({
   searchParams,
@@ -18,8 +21,6 @@ export default async function ActivityPage({
   searchParams: Promise<{ scope?: string }>;
 }) {
   const sp = await searchParams;
-  const scopeParam = (sp.scope ?? 'community') as ActivityFeedScope;
-  const scope = SCOPES.has(scopeParam) ? scopeParam : 'community';
 
   const headersList = await headers();
   const host = headersList.get('host') || '';
@@ -39,6 +40,11 @@ export default async function ActivityPage({
   const cookieStore = await cookies();
   const viewAsCoachId =
     role === 'admin' ? cookieStore.get('levelup_view_as_coach_id')?.value : null;
+  const adminPreviewingCoach = role === 'admin' && Boolean(viewAsCoachId);
+
+  const scope = normalizeActivityScope(sp.scope, role, { adminPreviewingCoach });
+  const scopeOptions = activityScopeOptions(role, { adminPreviewingCoach });
+  const scopeMeta = activityScopeMeta(scope, role, { adminPreviewingCoach });
 
   const ctx = await resolveFeedContext(supabase, user.id, effectiveRole);
   const coachScope = resolveCoachScopeForFeed({
@@ -61,33 +67,23 @@ export default async function ActivityPage({
     },
   });
 
-  const title =
-    scope === 'family'
-      ? 'Family activity'
-      : scope === 'coach'
-        ? 'Your session activity'
-        : 'Guild activity';
-
-  const description =
-    scope === 'family'
-      ? 'Sessions, milestones, and photos from your wrestlers.'
-      : scope === 'coach'
-        ? 'Activity on your sessions — completions, photos, and milestones.'
-        : 'Sessions completed, photos shared, and milestones across Guild.';
+  const title = scope === 'community' ? 'Guild activity' : scopeMeta.label;
 
   const emptyMessage =
     scope === 'coach' && role === 'admin' && !viewAsCoachId
       ? 'Choose a coach in the header (preview as coach), then open this page again.'
       : posts.length === 0
-        ? 'No activity yet. When sessions are marked complete — or you share photos with + — they show up here.'
+        ? scopeMeta.emptyMessage
         : undefined;
 
   return (
     <ActivityPageShell
       title={title}
-      description={description}
+      description={scopeMeta.description}
       posts={posts}
       role={role}
+      scope={scope}
+      scopeOptions={scopeOptions}
       highlightCoachHammers={scope === 'coach'}
       showShareButton={!(scope === 'coach' && role === 'admin' && !viewAsCoachId)}
       emptyMessage={emptyMessage}

@@ -67,7 +67,9 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
         setShareState('copied');
         window.setTimeout(() => setShareState('idle'), 2000);
       } else if (outcome === 'failed') {
-        window.alert('Could not share. Try again or use Download from a coach session graphic.');
+        window.alert(
+          'Could not open the share sheet. Caption copied if possible — paste it in Instagram or Messages.'
+        );
       }
     } finally {
       setShareLoading(false);

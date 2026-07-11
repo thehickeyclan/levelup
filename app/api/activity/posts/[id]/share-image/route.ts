@@ -8,12 +8,13 @@ import { renderSessionSharePng } from '@/lib/session-share-graphic/render-sessio
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+/** Branded session graphic for sharing an activity feed post (any logged-in viewer). */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: sessionId } = await params;
+    const { id: postId } = await params;
     const headersList = await headers();
     const host = resolveHostnameFromHeaders(headersList) || '';
     const tenant = getTenantByDomain(host);
@@ -29,26 +30,19 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
-    const isAdmin = userData?.role === 'admin';
-    const isCoach = userData?.role === 'coach';
-    if (!isAdmin && !isCoach) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const admin = createAdminClient(tenant.slug);
-    const { data: session } = await admin
-      .from('sessions')
-      .select('id, athlete_id')
-      .eq('id', sessionId)
+    const { data: post } = await admin
+      .from('activity_posts')
+      .select('id, trigger_type, session_id, is_public')
+      .eq('id', postId)
       .maybeSingle();
 
-    if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    if (!post) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    if (isCoach && session.athlete_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (post.trigger_type !== 'session_completed' || !post.session_id) {
+      return NextResponse.json({ error: 'This post has no share graphic' }, { status: 400 });
     }
 
     const themeParam = req.nextUrl.searchParams.get('theme');
@@ -56,7 +50,7 @@ export async function GET(
       process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
       (host.startsWith('localhost') ? `http://${host}` : `https://${host}`);
 
-    const png = await renderSessionSharePng(admin, sessionId, {
+    const png = await renderSessionSharePng(admin, post.session_id as string, {
       themeOverride: themeParam,
       appOrigin,
     });
@@ -70,12 +64,12 @@ export async function GET(
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'private, max-age=300',
-        'Content-Disposition': `inline; filename="guild-session-${sessionId.slice(0, 8)}.png"`,
+        'Content-Disposition': `inline; filename="guild-activity-${postId.slice(0, 8)}.png"`,
       },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    console.error('[sessions share-image GET]', message, e);
+    console.error('[activity share-image GET]', message, e);
     return NextResponse.json({ error: 'Failed to generate image', detail: message }, { status: 500 });
   }
 }

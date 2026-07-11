@@ -31,6 +31,8 @@ export type ActivityFeedSession = {
   session_mode?: string | null;
   scheduled_datetime: string;
   duration_minutes?: number | null;
+  join_policy?: string | null;
+  partner_invite_code?: string | null;
   facilities?: { name?: string } | { name?: string }[] | null;
 };
 

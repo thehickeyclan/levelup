@@ -15,7 +15,7 @@ const POST_SELECT = `
   review_id,
   youth_wrestlers(id, first_name, last_name, photo_url, school),
   athletes(id, first_name, last_name, photo_url),
-  sessions(id, session_type, session_mode, scheduled_datetime, duration_minutes, facilities(name)),
+  sessions(id, session_type, session_mode, scheduled_datetime, duration_minutes, join_policy, partner_invite_code, facilities(name)),
   reward_milestones(id, milestone),
   reviews(id, rating, comment)
 `;

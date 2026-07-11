@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Trophy } from 'lucide-react';
+import { Check, Loader2, Share2, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { canShareActivityPost } from '@/lib/activity-feed/can-share-activity-post';
+import { shareActivityPost } from '@/lib/activity-feed/share-post-client';
 import type { ActivityFeedPost } from '@/lib/activity-feed/types';
 import {
   activityPostAvatarUrl,
@@ -24,6 +26,9 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const [hammerCount, setHammerCount] = useState(post.hammer_count);
   const [hasHammer, setHasHammer] = useState(post.viewer_has_hammer);
   const [loading, setLoading] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareState, setShareState] = useState<'idle' | 'copied'>('idle');
+  const showShare = canShareActivityPost(post);
 
   const avatarUrl = activityPostAvatarUrl(post);
   const coachAvatarUrl = activityPostCoachAvatarUrl(post);
@@ -45,6 +50,22 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
       setHasHammer(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onShare = async () => {
+    if (shareLoading) return;
+    setShareLoading(true);
+    try {
+      const outcome = await shareActivityPost(post);
+      if (outcome === 'copied' || outcome === 'downloaded') {
+        setShareState('copied');
+        window.setTimeout(() => setShareState('idle'), 2000);
+      } else if (outcome === 'failed') {
+        window.alert('Could not share. Try again or use Download from a coach session graphic.');
+      }
+    } finally {
+      setShareLoading(false);
     }
   };
 
@@ -121,7 +142,7 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
         </div>
       ) : null}
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant={hasHammer ? 'secondary' : 'outline'}
@@ -136,6 +157,26 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
           </span>
           {hammerButtonLabel(hammerCount)}
         </Button>
+        {showShare ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 touch-manipulation"
+            disabled={shareLoading}
+            onClick={() => void onShare()}
+            aria-label="Share to Instagram or Facebook"
+          >
+            {shareLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : shareState === 'copied' ? (
+              <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden />
+            ) : (
+              <Share2 className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {shareState === 'copied' ? 'Ready to paste' : 'Share'}
+          </Button>
+        ) : null}
       </div>
     </article>
   );

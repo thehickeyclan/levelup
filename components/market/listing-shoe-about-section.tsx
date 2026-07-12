@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import type { ShoeModelAbout } from '@/lib/market/shoe-model-content';
 import { cn } from '@/lib/utils';
@@ -76,7 +76,7 @@ export function ListingShoeAboutSections({ about }: { about: ShoeModelAbout }) {
 
   const hasSpecs = specRows.length > 1;
   const hasHistory = Boolean(about.history_text?.trim());
-  const storyTitle = `The ${about.model} story`;
+  const historyTitle = 'Shoe history';
 
   if (!hasSpecs && !hasHistory) return null;
 
@@ -94,12 +94,12 @@ export function ListingShoeAboutSections({ about }: { about: ShoeModelAbout }) {
 
       {hasHistory ? (
         <CollapsibleSection
-          title={storyTitle}
+          title={historyTitle}
           titleClassName="uppercase"
-          mobileToggleLabel="Read the story"
+          mobileToggleLabel="Read history"
           attribution
         >
-          <p className="text-sm text-foreground/85 leading-relaxed italic">{about.history_text}</p>
+          <p className="text-sm text-foreground/90 leading-relaxed">{about.history_text}</p>
         </CollapsibleSection>
       ) : null}
     </div>

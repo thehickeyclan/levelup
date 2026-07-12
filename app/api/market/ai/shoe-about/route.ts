@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { checkAndIncrementAiUsage, isAiRateLimitBypass, aiLimitReachedMessage } from '@/lib/market/ai/rate-limit';
-import { ensureShoeModelContent, fetchShoeModelAbout } from '@/lib/market/shoe-model-content';
+import { ensureShoeModelContent, fetchShoeModelAbout, shoeModelHistoryNeedsRegeneration } from '@/lib/market/shoe-model-content';
 
 export async function POST(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -41,11 +41,14 @@ export async function POST(req: NextRequest) {
   }
 
   const existing = await fetchShoeModelAbout(supabase, brand, model, modelYear);
-  if (existing && !body.generate) {
+  const staleHistory = await shoeModelHistoryNeedsRegeneration(supabase, brand, model);
+  const shouldGenerate = Boolean(body.generate) || staleHistory || !existing;
+
+  if (existing && !shouldGenerate) {
     return NextResponse.json({ shoe_about: existing });
   }
 
-  if (!existing || body.generate) {
+  if (shouldGenerate) {
     const usage = await checkAndIncrementAiUsage(admin, user!.id, {
       bypass: isAiRateLimitBypass(role),
     });
@@ -57,6 +60,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const shoeAbout = await ensureShoeModelContent(admin, { brand, model, modelYear });
+  const shoeAbout = await ensureShoeModelContent(admin, {
+    brand,
+    model,
+    modelYear,
+    forceRegenerateHistory: Boolean(body.generate),
+  });
   return NextResponse.json({ shoe_about: shoeAbout });
 }

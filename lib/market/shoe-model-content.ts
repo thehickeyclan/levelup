@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { callClaude, extractJsonFromClaude } from '@/lib/market/ai/client';
+import {
+  SHOE_HISTORY_PROMPT_VERSION,
+  SHOE_HISTORY_SYSTEM_PROMPT,
+  buildShoeHistoryUserPrompt,
+} from '@/lib/market/ai/prompts';
 import { findCatalogEntry } from '@/lib/market/shoe-id/catalog';
 import { parseModelYearHint } from '@/lib/market/parse-model-year';
 
@@ -28,9 +33,37 @@ const AboutSpecsSchema = z.object({
 });
 
 function isMissingCatalogAboutColumn(message: string): boolean {
-  return /shoe_type|closure_type|fit_notes|notable_features|history_text|about_generated_at|history_generated_at|does not exist|schema cache/i.test(
+  return /shoe_type|closure_type|fit_notes|notable_features|history_text|about_generated_at|history_generated_at|history_prompt_version|does not exist|schema cache/i.test(
     message
   );
+}
+
+function catalogHistoryContext(entry: Record<string, unknown> | null) {
+  if (!entry) return null;
+  return {
+    years_produced: (entry.years_produced as string | null) ?? null,
+    upper_material: (entry.upper_material as string | null) ?? null,
+    sole_description: (entry.sole_description as string | null) ?? null,
+    collector_notes: (entry.collector_notes as string | null) ?? null,
+    visual_identifiers: (entry.visual_identifiers as string[] | null) ?? null,
+  };
+}
+
+function historyNeedsRegeneration(entry: Record<string, unknown> | null): boolean {
+  if (!entry) return true;
+  const text = String(entry.history_text ?? '').trim();
+  if (!text) return true;
+  const version = Number(entry.history_prompt_version ?? 0);
+  return version < SHOE_HISTORY_PROMPT_VERSION;
+}
+
+export async function shoeModelHistoryNeedsRegeneration(
+  supabase: SupabaseClient,
+  brand: string,
+  model: string
+): Promise<boolean> {
+  const entry = (await findCatalogEntry(supabase, brand, model)) as Record<string, unknown> | null;
+  return historyNeedsRegeneration(entry);
 }
 
 export function shoeModelAboutFromRow(
@@ -117,22 +150,23 @@ async function generateAboutSpecs(
 async function generateHistoryParagraph(
   brand: string,
   model: string,
-  year: number | null
+  year: number | null,
+  catalogEntry: Record<string, unknown> | null
 ): Promise<string> {
-  const yearLabel = year ? ` (${year})` : '';
   const outcome = await callClaude(
-    'You are a wrestling shoe historian and collector. Plain text only — no markdown.',
+    SHOE_HISTORY_SYSTEM_PROMPT,
     [
       {
         type: 'text',
-        text: `Write a 3-5 sentence history of the ${brand} ${model} wrestling shoe${yearLabel}.
-
-Cover: when/why it was created, what made it significant, how it was used in the wrestling community, and its legacy or collector status today.
-
-Write in a premium, knowledgeable tone — like a specialist auction house describing a collectible. Return only the paragraph.`,
+        text: buildShoeHistoryUserPrompt({
+          brand,
+          model,
+          releaseYear: year,
+          catalog: catalogHistoryContext(catalogEntry),
+        }),
       },
     ],
-    900
+    1200
   );
 
   if (!outcome.ok) throw new Error('Could not generate shoe history');
@@ -141,7 +175,7 @@ Write in a premium, knowledgeable tone — like a specialist auction house descr
 
 export async function ensureShoeModelContent(
   admin: SupabaseClient,
-  input: { brand: string; model: string; modelYear?: number | null }
+  input: { brand: string; model: string; modelYear?: number | null; forceRegenerateHistory?: boolean }
 ): Promise<ShoeModelAbout | null> {
   const brand = input.brand.trim();
   const model = input.model.trim();
@@ -159,7 +193,8 @@ export async function ensureShoeModelContent(
       !entry.fit_notes &&
       !entry.notable_features &&
       !entry.about_generated_at);
-  const needsHistory = !entry || (!entry.history_text && !entry.history_generated_at);
+  const needsHistory =
+    input.forceRegenerateHistory || historyNeedsRegeneration(entry);
 
   if (!needsAbout && !needsHistory) {
     return shoeModelAboutFromRow(entry!, releaseYear);
@@ -173,7 +208,7 @@ export async function ensureShoeModelContent(
 
     let historyText = (entry?.history_text as string | null)?.trim() || null;
     if (needsHistory) {
-      historyText = await generateHistoryParagraph(brand, model, releaseYear);
+      historyText = await generateHistoryParagraph(brand, model, releaseYear, entry);
     }
 
     const now = new Date().toISOString();
@@ -194,6 +229,7 @@ export async function ensureShoeModelContent(
     if (needsHistory && historyText) {
       payload.history_text = historyText;
       payload.history_generated_at = now;
+      payload.history_prompt_version = SHOE_HISTORY_PROMPT_VERSION;
     }
 
     if (entry?.id) {

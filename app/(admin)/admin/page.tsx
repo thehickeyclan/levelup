@@ -18,6 +18,7 @@ import {
   type YouthSessionSpendLine,
   type RecentSignupRow,
 } from './admin-dashboard-client';
+import { computePendingCoachPayoutStats } from '@/lib/admin/pending-coach-payout-stats';
 import { coachPayoutUsd, type SessionCoachPayoutFields } from '@/lib/coach-session-payout';
 import { isSessionParentPaymentReceived } from '@/lib/coach-payout-status';
 import { isRewardsProgramEnabled } from '@/lib/rewards';
@@ -601,6 +602,8 @@ export default async function AdminPage() {
     .map(([athlete_id, data]) => ({ athlete_id, ...data }))
     .sort((a, b) => b.amount - a.amount);
 
+  const pendingPayoutStats = computePendingCoachPayoutStats(sessionsRows);
+
   // Credits with parent email
   const credits: CreditRecord[] = (creditsRes.data ?? []).map((c) => ({
     id: c.id,
@@ -768,6 +771,7 @@ export default async function AdminPage() {
         billing={billing}
         athleteReports={athleteReports}
         coachPayouts={coachPayouts}
+        pendingPayoutSessionCount={pendingPayoutStats.sessionCount}
         completedAwaitingParentPaymentCount={completedAwaitingParentPaymentCount}
         credits={credits}
         recruitNcCreditTotals={recruitNcCreditTotals}

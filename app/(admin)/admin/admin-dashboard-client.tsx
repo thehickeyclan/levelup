@@ -356,6 +356,8 @@ type Props = {
   billing: BillingSummary;
   athleteReports: AthleteReport[];
   coachPayouts: CoachPayout[];
+  /** Completed sessions ready for coach payout (badge count). */
+  pendingPayoutSessionCount?: number;
   /** Completed sessions where parent payment is not recorded yet — not in payout queue. */
   completedAwaitingParentPaymentCount?: number;
   credits: CreditRecord[];
@@ -396,8 +398,8 @@ function NavItem({
       <Icon className="h-4 w-4 shrink-0" />
       <span className="flex-1 text-left">{label}</span>
       {badge !== undefined && badge > 0 && (
-        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-[#B89D60]/20 text-[#B89D60]">
-          {badge}
+        <span className="min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center text-[11px] font-bold rounded-full bg-[#B89D60] text-black tabular-nums">
+          {badge > 99 ? '99+' : badge}
         </span>
       )}
       {active && <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />}
@@ -480,6 +482,7 @@ export function AdminDashboardClient({
   billing,
   athleteReports,
   coachPayouts,
+  pendingPayoutSessionCount = 0,
   completedAwaitingParentPaymentCount = 0,
   credits,
   usersError,
@@ -3573,9 +3576,9 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                 <TabsTrigger value="pending" className="gap-2">
                   <Wallet className="h-4 w-4" />
                   Ready to pay
-                  {coachPayouts.filter((p) => p.amount > 0).length > 0 && (
-                    <span className="ml-1 rounded-full bg-[#B89D60]/25 px-2 py-0.5 text-xs">
-                      {coachPayouts.filter((p) => p.amount > 0).length}
+                  {pendingPayoutSessionCount > 0 && (
+                    <span className="ml-1 rounded-full bg-[#B89D60] px-2 py-0.5 text-[11px] font-bold text-black tabular-nums">
+                      {pendingPayoutSessionCount > 99 ? '99+' : pendingPayoutSessionCount}
                     </span>
                   )}
                 </TabsTrigger>
@@ -6158,7 +6161,7 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
               label="Payouts"
               active={section === 'money' && subSection === 'payouts'}
               onClick={() => handleNavChange('money', 'payouts')}
-              badge={coachPayouts.filter(p => p.amount > 0).length}
+              badge={pendingPayoutSessionCount}
             />
 <NavItem
   icon={CreditCard}

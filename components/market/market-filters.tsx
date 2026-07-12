@@ -106,7 +106,7 @@ function FilterDropdown({
           'bg-card border rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors',
           active
             ? 'border-accent text-accent'
-            : 'border-border text-muted-foreground'
+            : 'border-border/90 bg-secondary text-foreground/75 hover:text-foreground'
         )}
       >
         <span className={active ? 'text-accent' : 'text-muted-foreground'}>{icon}</span>
@@ -187,7 +187,9 @@ export function MarketFilters({
   const typePillClass = (active: boolean) =>
     cn(
       'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-      active ? 'bg-accent text-accent-foreground' : 'border border-border text-muted-foreground'
+      active
+        ? 'bg-accent text-accent-foreground'
+        : 'border border-border/90 bg-secondary text-foreground/75 hover:text-foreground'
     );
 
   const brandOptions: FilterOption[] = BRAND_OPTIONS(browseBrands).map((b) => ({
@@ -349,7 +351,7 @@ export function MarketFilters({
                 'bg-card border rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 shrink-0',
                 condition !== 'all' || color !== 'all' || minPrice || maxPrice
                   ? 'border-accent text-accent'
-                  : 'border-border text-muted-foreground'
+                  : 'border-border/90 bg-secondary text-foreground/75'
               )}
             >
               More

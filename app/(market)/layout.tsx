@@ -14,7 +14,7 @@ export default async function MarketLayout({ children }: { children: React.React
   if (!user) redirect('/login?redirect=/market');
 
   return (
-    <div className="theme-market min-h-screen bg-background text-foreground">
+    <div className="theme-market min-h-screen bg-background text-foreground border-t border-accent/30">
       {children}
     </div>
   );

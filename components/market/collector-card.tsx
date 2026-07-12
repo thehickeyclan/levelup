@@ -56,7 +56,7 @@ export function CollectorCard({
   return (
     <Link
       href={href}
-      className="bg-card rounded-xl overflow-hidden border border-border hover:border-accent/40 transition-colors flex flex-col group"
+      className="bg-card rounded-xl overflow-hidden border border-border/90 shadow-sm hover:shadow-md hover:border-accent/40 transition-all flex flex-col group"
     >
       <div className="aspect-[4/5] sm:aspect-square relative overflow-hidden bg-muted">
         <PreviewCollage urls={collector.preview_image_urls} />

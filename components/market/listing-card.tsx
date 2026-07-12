@@ -81,7 +81,7 @@ export function MarketListingCard({
   return (
     <Link
       href={`/market/listing/${listing.id}`}
-      className="bg-card rounded-xl overflow-hidden border border-border hover:border-border transition-colors flex flex-col group"
+      className="bg-card rounded-xl overflow-hidden border border-border/90 shadow-sm hover:shadow-md hover:border-accent/25 transition-all flex flex-col group"
     >
       <div className="aspect-[4/5] sm:aspect-square relative overflow-hidden bg-muted">
         {listing.primary_image_url ? (

@@ -133,6 +133,9 @@ export default function NewListingPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [identifyingShoe, setIdentifyingShoe] = useState(false);
   const [catalogEnriching, setCatalogEnriching] = useState(false);
+  const [pipelineStep, setPipelineStep] = useState<
+    'idle' | 'identifying' | 'catalog' | 'condition' | 'rarity' | 'price' | 'description'
+  >('idle');
   const [shoeIdResult, setShoeIdResult] = useState<ShoeIdResult | null>(null);
   const [shoeIdAutoApplied, setShoeIdAutoApplied] = useState(false);
   /** User verified brand + model — unlock catalog lookup, condition, description. */
@@ -170,7 +173,6 @@ export default function NewListingPage() {
 
   const lastAutoKey = useRef<string | null>(null);
   const pipelineRunning = useRef(false);
-  const catalogEnrichTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCatalogEnrichKey = useRef<string | null>(null);
   const descriptionAutoKey = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -353,6 +355,9 @@ export default function NewListingPage() {
     setConditionOverridden(false);
     lastAutoKey.current = null;
     lastCatalogEnrichKey.current = null;
+    if (wearState === 'used' && images.length > 0 && formRef.current.model.trim().length >= 2) {
+      void runSequentialListingPipeline({ skipShoeId: true, overwriteCatalogFields: false });
+    }
   };
 
   const ensureDraft = () => ensureListingDraft();
@@ -467,15 +472,7 @@ export default function NewListingPage() {
       lastCatalogEnrichKey.current = null;
       descriptionAutoKey.current = null;
 
-      void runShoeIdentification(mergedImages);
-      if (
-        (identityConfirmed || shoeIdentityLocked) &&
-        form.wear_state === 'used' &&
-        form.model.trim().length >= 2
-      ) {
-        lastCatalogEnrichKey.current = null;
-        void runMetadataPipeline({ overwriteCatalogFields: false });
-      }
+      await runSequentialListingPipeline({ imageOverride: mergedImages });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed';
       setUploadError(msg);
@@ -727,7 +724,11 @@ export default function NewListingPage() {
       confirmIdentity();
       lastCatalogEnrichKey.current = null;
       descriptionAutoKey.current = null;
-      await runMetadataPipeline({ overwriteCatalogFields: true, refreshDescription: true });
+      await runSequentialListingPipeline({
+        skipShoeId: true,
+        overwriteCatalogFields: true,
+        refreshDescription: true,
+      });
       setIdentitySavedFlash(true);
       window.setTimeout(() => setIdentitySavedFlash(false), 2500);
     } catch (err) {
@@ -773,12 +774,12 @@ export default function NewListingPage() {
   }, [form, listingId]);
 
   const runRarity = useCallback(
-    async (id: string, overrides?: Partial<typeof form>) => {
+    async (id: string, overrides?: Partial<typeof form>): Promise<Partial<typeof form>> => {
       const merged = { ...form, ...overrides };
       const brand = merged.brand.trim();
       const model = merged.model.trim();
-      if (!brand || !model) return;
-      if (normalizeMarketRarity(merged.rarity)) return;
+      if (!brand || !model) return {};
+      if (normalizeMarketRarity(merged.rarity)) return {};
 
       try {
         const res = await fetch('/api/market/ai/rarity', {
@@ -796,11 +797,15 @@ export default function NewListingPage() {
         const data = await res.json();
         if (res.ok && data.rarity) {
           const rarity = normalizeMarketRarity(data.rarity);
-          if (rarity) setForm((f) => ({ ...f, rarity }));
+          if (rarity) {
+            setForm((f) => ({ ...f, rarity }));
+            return { rarity };
+          }
         }
       } catch {
         // Non-fatal — seller can set rarity manually
       }
+      return {};
     },
     [form]
   );
@@ -938,183 +943,198 @@ export default function NewListingPage() {
     [mergeFormPatch, shoeIdentityLocked, aiDescriptionDraft]
   );
 
-  const runShoeIdentification = useCallback(async (imageOverride?: ListingImage[]) => {
-    if (pipelineRunning.current || shoeIdentityLocked) return;
-    const imageList = imageOverride ?? images;
-    if (!imageList.length) return;
+  const runShoeIdentification = useCallback(
+    async (imageOverride?: ListingImage[]): Promise<boolean> => {
+      if (pipelineRunning.current || shoeIdentityLocked) return false;
+      const imageList = imageOverride ?? images;
+      if (!imageList.length) return false;
 
-    pipelineRunning.current = true;
-    setIdentifyingShoe(true);
-    setAiPipelineError(null);
-    setError(null);
-    try {
-      const id = await ensureDraft();
-      const data = await identifyListingShoe({
-        listingId: id,
-        images: imageList.map((i) => i.public_url),
-        brandHint: shoeIdentityLocked ? form.brand.trim() || undefined : undefined,
-        modelHint: shoeIdentityLocked ? form.model.trim() || undefined : undefined,
-      });
-      const result = data.result as ShoeIdResult;
-      setShoeIdResult(result);
-      if (data.autoApplyRecommended !== false) {
-        const enrichment: ListingEnrichment = {
-          ...enrichmentFromShoeIdResult(result),
-          ...(data.catalogEnrichment ?? {}),
-        };
-        const disagree = visionDisagreesWithForm(result, form);
-        const shoeOverrides = enrichmentToFormPatch(enrichment, form, {
-          fillEmptyOnly: shoeIdentityLocked ? true : !disagree,
-          colorwayOnly: shoeIdentityLocked,
+      pipelineRunning.current = true;
+      setIdentifyingShoe(true);
+      setPipelineStep('identifying');
+      setAiPipelineError(null);
+      setError(null);
+      let canContinue = false;
+      try {
+        const id = await ensureDraft();
+        const data = await identifyListingShoe({
+          listingId: id,
+          images: imageList.map((i) => i.public_url),
+          brandHint: shoeIdentityLocked ? form.brand.trim() || undefined : undefined,
+          modelHint: shoeIdentityLocked ? form.model.trim() || undefined : undefined,
         });
-        if (Object.keys(shoeOverrides).length) mergeFormPatch(shoeOverrides);
-        setShoeIdAutoApplied(true);
-        if (disagree && !shoeIdentityLocked) {
-          lastCatalogEnrichKey.current = null;
-          descriptionAutoKey.current = null;
-          if (aiDescriptionDraft && !descriptionTouchedRef.current) {
-            setForm((f) => ({ ...f, description: '' }));
-            setAiDescriptionDraft(false);
+        const result = data.result as ShoeIdResult;
+        setShoeIdResult(result);
+        const disagree = visionDisagreesWithForm(result, formRef.current);
+        if (data.autoApplyRecommended !== false) {
+          const enrichment: ListingEnrichment = {
+            ...enrichmentFromShoeIdResult(result),
+            ...(data.catalogEnrichment ?? {}),
+          };
+          const shoeOverrides = enrichmentToFormPatch(enrichment, formRef.current, {
+            fillEmptyOnly: shoeIdentityLocked ? true : !disagree,
+            colorwayOnly: shoeIdentityLocked,
+          });
+          if (Object.keys(shoeOverrides).length) mergeFormPatch(shoeOverrides);
+          setShoeIdAutoApplied(true);
+          if (disagree && !shoeIdentityLocked) {
+            lastCatalogEnrichKey.current = null;
+            descriptionAutoKey.current = null;
+            if (aiDescriptionDraft && !descriptionTouchedRef.current) {
+              setForm((f) => ({ ...f, description: '' }));
+              setAiDescriptionDraft(false);
+            }
           }
         }
+        const autoConfirmed = shouldAutoConfirmIdentity({
+          catalogMatchId: data.catalogMatchId,
+          result,
+        });
+        if (autoConfirmed) confirmIdentity();
+        canContinue =
+          (shoeIdentityLocked && formRef.current.model.trim().length >= 2) ||
+          autoConfirmed ||
+          (!disagree && result.model.trim().length >= 2);
+        setUploadError(null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Shoe identification failed';
+        setAiPipelineError(msg);
+        setError(msg);
+        canContinue = false;
+      } finally {
+        setIdentifyingShoe(false);
+        setPipelineStep('idle');
+        pipelineRunning.current = false;
       }
-      if (shouldAutoConfirmIdentity({ catalogMatchId: data.catalogMatchId, result })) {
-        confirmIdentity();
+      return canContinue;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form.brand, form.model, images, listingId, mergeFormPatch, shoeIdentityLocked, confirmIdentity]
+  );
+
+  const runMetadataPipeline = useCallback(
+    async (opts?: {
+      overwriteCatalogFields?: boolean;
+      refreshDescription?: boolean;
+    }) => {
+      if (pipelineRunning.current) return;
+      const brand = formRef.current.brand.trim();
+      const model = formRef.current.model.trim();
+      if (!brand || model.length < 2) return;
+
+      pipelineRunning.current = true;
+      setAnalyzing(true);
+      setCatalogEnriching(true);
+      setAiPipelineError(null);
+      setError(null);
+      let overrides: Partial<typeof form> = {};
+      const formBase = () => ({ ...formRef.current, ...overrides });
+      try {
+        const id = await ensureDraft();
+        const enrichKey = `${brand}|${model}|${formRef.current.wear_state}|${images.map((i) => i.id).join(',')}`;
+
+        setPipelineStep('catalog');
+        const { patch: catalogPatch, collectorNotes } = await runCatalogEnrich(undefined, {
+          overwriteCatalogFields: opts?.overwriteCatalogFields ?? true,
+        });
+        overrides = { ...overrides, ...catalogPatch };
+        prefillCollectorNotesFromCatalog(collectorNotes);
+        lastCatalogEnrichKey.current = enrichKey;
+
+        await fetch(`/api/market/listings/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(draftPayload(overrides)),
+        });
+
+        let conditionAnalysis: AiCondition | null = null;
+        if (images.length > 0 && formBase().wear_state === 'used') {
+          setPipelineStep('condition');
+          const conditionResult = await runPhotoCondition(id, overrides);
+          overrides = { ...overrides, ...conditionResult.patch };
+          conditionAnalysis = conditionResult.analysis;
+        }
+
+        setPipelineStep('rarity');
+        const rarityPatch = await runRarity(id, overrides);
+        overrides = { ...overrides, ...rarityPatch };
+        if (Object.keys(rarityPatch).length) {
+          await fetch(`/api/market/listings/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(draftPayload(overrides)),
+          });
+        }
+
+        const listingType = formBase().listing_type;
+        if (listingType !== 'collection' && images.length > 0) {
+          setPipelineStep('price');
+          await runPrice(overrides);
+        }
+
+        const modelAfterId = formBase().model.trim();
+        if (modelAfterId && (!descriptionTouched || opts?.refreshDescription)) {
+          setPipelineStep('description');
+          descriptionAutoKey.current = null;
+          await generateDescription({
+            silent: true,
+            overrides,
+            collectorNotes,
+            force: opts?.refreshDescription,
+            conditionAnalysis,
+          });
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Analysis failed');
+      } finally {
+        setAnalyzing(false);
+        setCatalogEnriching(false);
+        setPipelineStep('idle');
+        pipelineRunning.current = false;
       }
-      setUploadError(null);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Shoe identification failed';
-      setAiPipelineError(msg);
-      setError(msg);
-    } finally {
-      setIdentifyingShoe(false);
-      pipelineRunning.current = false;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.brand, form.model, images, listingId, mergeFormPatch, shoeIdentityLocked, confirmIdentity]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      images,
+      listingId,
+      runPrice,
+      descriptionTouched,
+      generateDescription,
+      runRarity,
+      runCatalogEnrich,
+      runPhotoCondition,
+    ]
+  );
 
-  const runMetadataPipeline = useCallback(async (opts?: {
-    overwriteCatalogFields?: boolean;
-    refreshDescription?: boolean;
-  }) => {
-    if (pipelineRunning.current) return;
-    const brand = form.brand.trim();
-    const model = form.model.trim();
-    if (!brand || model.length < 2) return;
+  const runSequentialListingPipeline = useCallback(
+    async (opts?: {
+      imageOverride?: ListingImage[];
+      refreshDescription?: boolean;
+      overwriteCatalogFields?: boolean;
+      skipShoeId?: boolean;
+    }) => {
+      if (pipelineRunning.current) return;
 
-    pipelineRunning.current = true;
-    setAnalyzing(true);
-    setCatalogEnriching(true);
-    setAiPipelineError(null);
-    setError(null);
-    let overrides: Partial<typeof form> = {};
-    const formBase = () => ({ ...form, ...overrides });
-    try {
-      const id = await ensureDraft();
-      const enrichKey = `${brand}|${model}|${form.wear_state}|${images.map((i) => i.id).join(',')}`;
-
-      const { patch: catalogPatch, collectorNotes } = await runCatalogEnrich(undefined, {
-        overwriteCatalogFields: opts?.overwriteCatalogFields ?? true,
-      });
-      overrides = { ...overrides, ...catalogPatch };
-      prefillCollectorNotesFromCatalog(collectorNotes);
-      lastCatalogEnrichKey.current = enrichKey;
-
-      await fetch(`/api/market/listings/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draftPayload(overrides)),
-      });
-
-      let conditionAnalysis: AiCondition | null = null;
-      if (images.length > 0 && formBase().wear_state === 'used') {
-        const conditionResult = await runPhotoCondition(id, overrides);
-        overrides = { ...overrides, ...conditionResult.patch };
-        conditionAnalysis = conditionResult.analysis;
+      if (!opts?.skipShoeId && !shoeIdentityLocked && (opts?.imageOverride?.length ?? images.length) > 0) {
+        const canContinue = await runShoeIdentification(opts?.imageOverride);
+        if (canContinue) {
+          await runMetadataPipeline({
+            overwriteCatalogFields: opts?.overwriteCatalogFields ?? true,
+            refreshDescription: opts?.refreshDescription,
+          });
+        }
+        return;
       }
 
-      const listingType = formBase().listing_type;
-      if (listingType !== 'collection' && images.length > 0) {
-        await runPrice(overrides);
-      }
-      await runRarity(id, overrides);
-
-      const modelAfterId = formBase().model.trim();
-      if (modelAfterId && (!descriptionTouched || opts?.refreshDescription)) {
-        descriptionAutoKey.current = null;
-        await generateDescription({
-          silent: true,
-          overrides,
-          collectorNotes,
-          force: opts?.refreshDescription,
-          conditionAnalysis,
+      if (formRef.current.model.trim().length >= 2) {
+        await runMetadataPipeline({
+          overwriteCatalogFields: opts?.overwriteCatalogFields ?? true,
+          refreshDescription: opts?.refreshDescription,
         });
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed');
-    } finally {
-      setAnalyzing(false);
-      setCatalogEnriching(false);
-      pipelineRunning.current = false;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    form,
-    images.length,
-    listingId,
-    runPrice,
-    descriptionTouched,
-    generateDescription,
-    runRarity,
-    runCatalogEnrich,
-    runPhotoCondition,
-  ]);
-
-  useEffect(() => {
-    if (!imageKey || uploading || identifyingShoe || pipelineRunning.current) return;
-    if (shoeIdentityLocked) return;
-    const key = imageKey;
-    if (lastAutoKey.current === key) return;
-
-    const timer = setTimeout(() => {
-      lastAutoKey.current = key;
-      void runShoeIdentification();
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [imageKey, uploading, identifyingShoe, runShoeIdentification, shoeIdentityLocked]);
-
-  useEffect(() => {
-    if (!identityConfirmed) return;
-    const brand = form.brand.trim();
-    const model = form.model.trim();
-    if (!brand || model.length < 2) return;
-    if (uploading || analyzing || identifyingShoe || pipelineRunning.current || catalogEnriching) return;
-
-    const key = `${brand}|${model}|${form.wear_state}|${images.length}`;
-    if (lastCatalogEnrichKey.current === key) return;
-
-    if (catalogEnrichTimer.current) clearTimeout(catalogEnrichTimer.current);
-    catalogEnrichTimer.current = setTimeout(() => {
-      void runMetadataPipeline({ overwriteCatalogFields: true });
-    }, 900);
-
-    return () => {
-      if (catalogEnrichTimer.current) clearTimeout(catalogEnrichTimer.current);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    identityConfirmed,
-    form.brand,
-    form.model,
-    form.wear_state,
-    images.length,
-    uploading,
-    analyzing,
-    identifyingShoe,
-    catalogEnriching,
-    runMetadataPipeline,
-  ]);
+    },
+    [images.length, runMetadataPipeline, runShoeIdentification, shoeIdentityLocked]
+  );
 
   const applyAiGrade = () => {
     if (!isUsed || !aiCondition?.grade) return;
@@ -1319,8 +1339,7 @@ export default function NewListingPage() {
             <button
               type="button"
               onClick={() => {
-                if (identityConfirmed) void runMetadataPipeline({ overwriteCatalogFields: true });
-                else void runShoeIdentification();
+                void runSequentialListingPipeline({ overwriteCatalogFields: true });
               }}
               className="text-xs text-accent hover:text-accent/80"
             >
@@ -1360,6 +1379,7 @@ export default function NewListingPage() {
               if (!opts?.colorwayOnly) {
                 confirmIdentity();
                 setShoeIdAutoApplied(true);
+                void runSequentialListingPipeline({ skipShoeId: true, overwriteCatalogFields: true });
               }
             }}
           />
@@ -1395,6 +1415,7 @@ export default function NewListingPage() {
               onClick={() => {
                 applyShoeIdToForm(shoeIdResult);
                 confirmIdentity();
+                void runSequentialListingPipeline({ skipShoeId: true, overwriteCatalogFields: true });
               }}
             >
               {visionDisagreesWithForm(shoeIdResult, form)
@@ -1404,22 +1425,42 @@ export default function NewListingPage() {
           </div>
         ) : null}
 
-        {identityConfirmed && (catalogEnriching || analyzing) ? (
+        {identityConfirmed && pipelineStep !== 'idle' && pipelineStep !== 'identifying' ? (
           <p className="text-xs text-muted-foreground px-1">
-            Pulling catalog details, condition, and description…
+            {pipelineStep === 'catalog'
+              ? 'Looking up catalog details…'
+              : pipelineStep === 'condition'
+                ? 'AI assessing condition from photos…'
+                : pipelineStep === 'rarity'
+                  ? 'Estimating rarity…'
+                  : pipelineStep === 'price'
+                    ? 'Suggesting price from model, condition, and rarity…'
+                    : 'Writing listing description…'}
           </p>
         ) : null}
 
         {images.length > 0 && identifyingShoe ? (
-          <AiSpinner label="AI recognizing brand and model…" />
+          <AiSpinner label="Step 1 — recognizing brand and model from photos…" />
         ) : null}
 
         {images.length > 0 && analyzing && !identifyingShoe ? (
-          <AiSpinner label="AI grading condition and writing description…" />
+          <AiSpinner
+            label={
+              pipelineStep === 'condition'
+                ? 'Step 3 — AI assessing condition…'
+                : pipelineStep === 'rarity'
+                  ? 'Step 4 — estimating rarity…'
+                  : pipelineStep === 'price'
+                    ? 'Step 5 — suggesting price…'
+                    : pipelineStep === 'description'
+                      ? 'Step 6 — writing description…'
+                      : 'Step 2 — pulling catalog metadata…'
+            }
+          />
         ) : null}
 
         {catalogEnriching && !analyzing && !identifyingShoe ? (
-          <AiSpinner label="Looking up catalog details, rarity, and description…" />
+          <AiSpinner label="Step 2 — looking up catalog metadata…" />
         ) : null}
 
         {aiCondition && !analyzing ? (

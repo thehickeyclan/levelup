@@ -491,11 +491,26 @@ export default function EditListingPage() {
         }
 
         if (!merged.rarity) {
-          void fetch('/api/market/ai/rarity', {
+          const rarityRes = await fetch('/api/market/ai/rarity', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ listingId, persist: true }),
+            body: JSON.stringify({
+              listingId,
+              brand: merged.brand,
+              model: merged.model.trim(),
+              colorway: merged.colorway.trim() || null,
+              model_year: merged.model_year ? Number(merged.model_year) : null,
+              persist: true,
+            }),
           });
+          const rarityData = await rarityRes.json();
+          if (rarityRes.ok && rarityData.rarity) {
+            const rarity = normalizeMarketRarity(rarityData.rarity);
+            if (rarity) {
+              merged = { ...merged, rarity };
+              setForm((f) => ({ ...f, rarity }));
+            }
+          }
         }
 
         if (opts?.refreshDescription || !descriptionTouchedRef.current) {

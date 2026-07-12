@@ -1277,7 +1277,7 @@ export default function NewListingPage() {
     <div className="min-h-screen pb-28 px-4 pt-4 max-w-lg mx-auto space-y-5">
       <BackLink
         fallbackHref={isCollection ? '/market/my-listings' : '/market'}
-        label={isCollection ? 'My pairs' : 'Back to Market'}
+        label={isCollection ? 'My Collection' : 'Back to Market'}
       />
 
       <header className="space-y-1">

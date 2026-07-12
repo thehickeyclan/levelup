@@ -43,12 +43,16 @@ export function MarketBrowseClient({
   collectors = [],
   browseBrands = [],
   pendingOffers = 0,
+  browsePairCount = 0,
+  myCollectionCount = 0,
 }: {
   initialListings: MarketBrowseListing[];
   collectionListings?: MarketBrowseListing[];
   collectors?: MarketCollectorBrowse[];
   browseBrands?: string[];
   pendingOffers?: number;
+  browsePairCount?: number;
+  myCollectionCount?: number;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -145,6 +149,7 @@ export function MarketBrowseClient({
     isCollectors && filteredCollectionListings.length !== collectionListings.length;
 
   const listingTypeCounts = useMemo(() => summarizeListingTypes(initialListings), [initialListings]);
+  const browseCount = browsePairCount > 0 ? browsePairCount : listingTypeCounts.total;
 
   const filtered = useMemo(() => {
     const min = minPrice ? Number(minPrice) : undefined;
@@ -178,60 +183,51 @@ export function MarketBrowseClient({
       <div className="max-w-4xl mx-auto px-4 pt-6 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">The Guild Market</h1>
+            <p className="text-xs font-semibold uppercase tracking-wider text-accent">Marketplace</p>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight mt-1">The Guild Market</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isCollectors
                 ? `${displayedCollectors.length} collector${displayedCollectors.length !== 1 ? 's' : ''} · ${totalCollectorPairs} pair${totalCollectorPairs !== 1 ? 's' : ''} in collections`
-                : type === 'all'
-                  ? `${listingTypeCounts.total} pair${listingTypeCounts.total !== 1 ? 's' : ''} · newest first${
-                      listingTypeCounts.sell
-                        ? ` · ${listingTypeCounts.sell} for sale`
-                        : ''
-                    }${
-                      listingTypeCounts.collection
-                        ? ` · ${listingTypeCounts.collection} in collections`
-                        : ''
-                    }${
-                      listingTypeCounts.trade
-                        ? ` · ${listingTypeCounts.trade} for trade`
-                        : ''
-                    }`
-                  : `${initialListings.filter((l) => l.listing_type === 'sell').length} pair${
-                      initialListings.filter((l) => l.listing_type === 'sell').length !== 1 ? 's' : ''
-                    } for sale`}
-              {!isCollectors &&
-              type !== 'all' &&
-              initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length > 0
-                ? ` · ${initialListings.filter((l) => l.listing_type === 'trade' || l.open_to_trade).length} open to trade`
-                : ''}
+                : `Browsing all pairs on The Guild · ${browseCount} pair${browseCount !== 1 ? 's' : ''}`}
             </p>
           </div>
         </div>
         <div className="mt-4">
-          <MarketSubNav pendingOffers={pendingOffers} />
+          <MarketSubNav
+            pendingOffers={pendingOffers}
+            browseCount={browseCount}
+            myCollectionCount={myCollectionCount}
+          />
         </div>
       </div>
 
-      <MarketFilters
-        type={type}
-        brand={brand}
-        color={color}
-        size={size}
-        condition={condition}
-        minPrice={minPrice}
-        maxPrice={maxPrice}
-        browseBrands={browseBrands}
-        setParam={setParam}
-        setPriceRange={setPriceRange}
-        clearAllFilters={clearAllFilters}
-      />
-
-      <div className="max-w-4xl mx-auto px-4 py-4">
+      <div className="max-w-4xl mx-auto px-4">
+        <MarketFilters
+          type={type}
+          brand={brand}
+          color={color}
+          size={size}
+          condition={condition}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
+          browseBrands={browseBrands}
+          setParam={setParam}
+          setPriceRange={setPriceRange}
+          clearAllFilters={clearAllFilters}
+        />
         {isCollectors ? (
-          <p className="text-xs text-muted-foreground mb-4">
+          <p className="text-xs text-muted-foreground mt-3 mb-1">
             Browse collections — sorted by rarest first. Tap a profile to see every pair.
           </p>
+        ) : type === 'all' ? (
+          <p className="text-xs text-muted-foreground mt-3 mb-1">
+            All pairs on the platform, sorted by newest. Badges show For sale, Collection, Trade, or
+            Offers.
+          </p>
         ) : null}
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-4">
         {isCollectors ? (
           displayedCollectors.length === 0 ? (
             <div className="py-16 text-center">
@@ -280,19 +276,11 @@ export function MarketBrowseClient({
             </Button>
           </div>
         ) : (
-          <>
-            {type === 'all' ? (
-              <p className="text-xs text-muted-foreground mb-4">
-                All pairs on the platform, sorted by newest. Badges show For sale, Collection, Trade, or
-                Offers.
-              </p>
-            ) : null}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filtered.map((listing) => (
-                <MarketListingCard key={listing.id} listing={listing} emphasizeType={type === 'all'} />
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filtered.map((listing) => (
+              <MarketListingCard key={listing.id} listing={listing} emphasizeType={type === 'all'} />
+            ))}
+          </div>
         )}
       </div>
 

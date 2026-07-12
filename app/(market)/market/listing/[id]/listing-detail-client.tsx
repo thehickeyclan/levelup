@@ -161,11 +161,11 @@ export default function ListingDetailClient() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-          My pairs
+          My Collection
         </Link>
         <p className="text-destructive">{loadError}</p>
         <Button asChild variant="outline">
-          <Link href="/market/my-listings">Back to my pairs</Link>
+          <Link href="/market/my-listings">Back to My Collection</Link>
         </Button>
       </div>
     );

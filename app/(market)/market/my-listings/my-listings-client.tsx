@@ -199,6 +199,7 @@ function Section({
 export function MyListingsClient({
   groups: initialGroups,
   pendingOffers,
+  browsePairCount = 0,
 }: {
   groups: {
     pairs: MyListingRow[];
@@ -207,6 +208,7 @@ export function MyListingsClient({
     archived: MyListingRow[];
   };
   pendingOffers: number;
+  browsePairCount?: number;
 }) {
   const [groups, setGroups] = useState(initialGroups);
 
@@ -243,23 +245,41 @@ export function MyListingsClient({
     groups.drafts.length +
     groups.archived.length;
 
+  const collectionCount = groups.pairs.length;
+  const statsForSale = groups.pairs.filter((l) => l.listing_type === 'sell').length;
+  const statsInCollection = groups.pairs.filter(
+    (l) => l.listing_type === 'collection' || l.listing_type === 'vault'
+  ).length;
+
   return (
     <div className="min-h-screen pb-24 bg-background">
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">My pairs</h1>
+            <p className="text-xs font-semibold uppercase tracking-wider text-accent">My Collection</p>
+            <h1 className="text-2xl font-bold text-foreground mt-1">My Collection</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Everything in your collection — list for sale without removing a pair.
+              {collectionCount} pair{collectionCount !== 1 ? 's' : ''} · {statsForSale} for sale ·{' '}
+              {statsInCollection} in collection
             </p>
           </div>
           <Button asChild size="sm" className="bg-accent text-accent-foreground rounded-full shrink-0">
-            <Link href="/market/listing/new?type=collection">Add pair</Link>
+            <Link href="/market/listing/new?type=collection">+ Add a Pair</Link>
           </Button>
         </div>
-        <MarketSubNav pendingOffers={pendingOffers} />
+        <MarketSubNav
+          pendingOffers={pendingOffers}
+          browseCount={browsePairCount}
+          myCollectionCount={collectionCount}
+        />
         {total === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">No pairs yet.</p>
+          <div className="py-12 text-center space-y-3">
+            <p className="text-sm font-medium text-foreground">Your collection is empty.</p>
+            <p className="text-sm text-muted-foreground">Add your first pair to get started.</p>
+            <Button asChild className="bg-accent text-accent-foreground rounded-full">
+              <Link href="/market/listing/new?type=collection">+ Add a Pair</Link>
+            </Button>
+          </div>
         ) : (
           <div className="space-y-6 pb-4">
             <Section

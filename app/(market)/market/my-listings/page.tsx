@@ -30,10 +30,22 @@ export default async function MyListingsPage() {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [groups, pendingOffers] = await Promise.all([
+  const [groups, pendingOffers, browsePairCount] = await Promise.all([
     fetchMyListings(supabase, user.id),
     pendingOfferCount(tenant.slug, user.id),
+    supabase
+      .from('market_listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_slug', tenant.slug)
+      .eq('status', 'active')
+      .then((r) => r.count ?? 0),
   ]);
 
-  return <MyListingsClient groups={groups} pendingOffers={pendingOffers} />;
+  return (
+    <MyListingsClient
+      groups={groups}
+      pendingOffers={pendingOffers}
+      browsePairCount={browsePairCount}
+    />
+  );
 }

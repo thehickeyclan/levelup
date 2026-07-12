@@ -38,7 +38,7 @@ export default function ListingDetailError({
           Try again
         </Button>
         <Button asChild variant="outline">
-          <Link href="/market/my-listings">My pairs</Link>
+          <Link href="/market/my-listings">My Collection</Link>
         </Button>
       </div>
     </div>

@@ -52,6 +52,8 @@ export default async function MarketPage({
   let collectors: Awaited<ReturnType<typeof fetchMarketCollectorBrowseData>>['collectors'] = [];
   let browseBrands: string[] = [];
   let pendingOffers = 0;
+  let browsePairCount = 0;
+  let myCollectionCount = 0;
 
   if (tenant) {
     const supabase = await createClient(tenant.slug);
@@ -59,11 +61,20 @@ export default async function MarketPage({
       data: { user },
     } = await supabase.auth.getUser();
 
-    listings = await fetchMarketBrowseListings(supabase, tenant.slug, {
-      allTypes: true,
-      limit: 150,
-      ...browseFilters,
-    });
+    const [fetchedListings, browseCountResult] = await Promise.all([
+      fetchMarketBrowseListings(supabase, tenant.slug, {
+        allTypes: true,
+        limit: 150,
+        ...browseFilters,
+      }),
+      supabase
+        .from('market_listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_slug', tenant.slug)
+        .eq('status', 'active'),
+    ]);
+    listings = fetchedListings;
+    browsePairCount = browseCountResult.count ?? 0;
 
     try {
       const [collectorData, brandCatalog] = await Promise.all([
@@ -80,9 +91,19 @@ export default async function MarketPage({
 
     if (user) {
       try {
-        pendingOffers = await fetchPendingOfferCount(tenant.slug, user.id);
+        const [offers, collectionCountResult] = await Promise.all([
+          fetchPendingOfferCount(tenant.slug, user.id),
+          supabase
+            .from('market_listings')
+            .select('id', { count: 'exact', head: true })
+            .eq('seller_id', user.id)
+            .eq('status', 'active'),
+        ]);
+        pendingOffers = offers;
+        myCollectionCount = collectionCountResult.count ?? 0;
       } catch {
         pendingOffers = 0;
+        myCollectionCount = 0;
       }
     }
   }
@@ -101,6 +122,8 @@ export default async function MarketPage({
         collectors={collectors}
         browseBrands={browseBrands}
         pendingOffers={pendingOffers}
+        browsePairCount={browsePairCount}
+        myCollectionCount={myCollectionCount}
       />
     </Suspense>
   );

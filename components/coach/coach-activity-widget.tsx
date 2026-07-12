@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { HAMMER_EMOJI, hammerCountPhrase } from '@/lib/activity-feed/hammer-display';
+import { kudosReactionEmojiStrip } from '@/lib/activity-feed/kudos-reactions';
 
-export function CoachActivityWidget({ hammersThisWeek }: { hammersThisWeek: number }) {
+export function CoachActivityWidget({ kudosThisWeek }: { kudosThisWeek: number }) {
   return (
     <Card className="mb-4 border-border/80">
       <CardContent className="p-4">
@@ -11,12 +11,12 @@ export function CoachActivityWidget({ hammersThisWeek }: { hammersThisWeek: numb
           Activity on your sessions
         </p>
         <p className="text-sm text-foreground flex items-center gap-2">
-          <span className="text-base leading-none shrink-0" aria-hidden>
-            {HAMMER_EMOJI}
+          <span className="text-base leading-none shrink-0 tracking-tight" aria-hidden>
+            {kudosReactionEmojiStrip()}
           </span>
           <span>
-            <span className="font-semibold">{hammerCountPhrase(hammersThisWeek)}</span> on your
-            sessions this week
+            <span className="font-semibold tabular-nums">{kudosThisWeek}</span> on your sessions
+            this week
           </span>
         </p>
         <Button variant="link" size="sm" className="h-auto p-0 mt-2 text-xs" asChild>

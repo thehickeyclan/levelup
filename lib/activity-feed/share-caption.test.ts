@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildActivityPostShareCaption } from './share-caption';
+import { emptyKudosByReaction } from './kudos-reactions';
 import type { ActivityFeedPost } from './types';
 
 const basePost: ActivityFeedPost = {
@@ -9,8 +10,9 @@ const basePost: ActivityFeedPost = {
   coach_id: 'coach-1',
   session_id: 'sess-1',
   youth_wrestler_id: 'yw-1',
-  hammer_count: 0,
-  viewer_has_hammer: false,
+  kudos_count: 0,
+  kudos_by_reaction: emptyKudosByReaction(),
+  viewer_reactions: [],
   youth_wrestlers: { id: 'yw-1', first_name: 'Gavin', last_name: 'Hickey' },
   athletes: { id: 'coach-1', first_name: 'Liam', last_name: 'Hickey' },
   sessions: {

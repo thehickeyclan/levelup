@@ -1,3 +1,5 @@
+import type { ActivityKudosByReaction, ActivityReactionId } from '@/lib/activity-feed/kudos-reactions';
+
 export type ActivityTriggerType =
   | 'session_completed'
   | 'milestone_hit'
@@ -72,6 +74,7 @@ export type ActivityFeedPost = {
   photos?: ActivityFeedPhoto[];
   /** True when the viewer can remove photos from this post. */
   viewer_can_manage_photos?: boolean;
-  hammer_count: number;
-  viewer_has_hammer: boolean;
+  kudos_count: number;
+  kudos_by_reaction: ActivityKudosByReaction;
+  viewer_reactions: ActivityReactionId[];
 };

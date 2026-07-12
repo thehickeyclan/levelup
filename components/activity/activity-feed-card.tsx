@@ -16,7 +16,7 @@ import {
   activityPostSubline,
   coachDisplayName,
 } from '@/lib/activity-feed/display';
-import { HAMMER_EMOJI, hammerButtonLabel } from '@/lib/activity-feed/hammer-display';
+import { ActivityFeedReactions } from '@/components/activity/activity-feed-reactions';
 
 type Props = {
   post: ActivityFeedPost;
@@ -24,9 +24,6 @@ type Props = {
 };
 
 export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props) {
-  const [hammerCount, setHammerCount] = useState(post.hammer_count);
-  const [hasHammer, setHasHammer] = useState(post.viewer_has_hammer);
-  const [loading, setLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'copied'>('idle');
   const [photos, setPhotos] = useState(post.photos ?? []);
@@ -43,20 +40,6 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const reviewLine = activityPostReviewLine(post);
   const isMilestone = post.trigger_type === 'milestone_hit';
   const isPhotoPost = post.trigger_type === 'photo_post';
-
-  const giveHammer = async () => {
-    if (hasHammer || loading) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/activity/posts/${post.id}/hammer`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) return;
-      setHammerCount(data.hammer_count ?? hammerCount + 1);
-      setHasHammer(true);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const onShare = async () => {
     if (shareLoading) return;
@@ -193,20 +176,11 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant={hasHammer ? 'secondary' : 'outline'}
-          size="sm"
-          className="h-8 gap-1.5"
-          disabled={hasHammer || loading}
-          onClick={giveHammer}
-          aria-label={hasHammer ? `You threw a hammer (${hammerCount})` : 'Throw a hammer'}
-        >
-          <span className="text-base leading-none" aria-hidden>
-            {HAMMER_EMOJI}
-          </span>
-          {hammerButtonLabel(hammerCount)}
-        </Button>
+        <ActivityFeedReactions
+          postId={post.id}
+          initialByReaction={post.kudos_by_reaction}
+          initialViewerReactions={post.viewer_reactions}
+        />
         {showShare ? (
           <Button
             type="button"

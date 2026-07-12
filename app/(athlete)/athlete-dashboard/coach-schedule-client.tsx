@@ -63,7 +63,7 @@ type Props = {
   projectedEarnings?: number;
   upcomingSessionCount?: number;
   activationPanel?: CoachActivationPanelData | null;
-  hammersThisWeek?: number;
+  kudosThisWeek?: number;
 };
 
 function facilityLabel(s: CoachSession): string {
@@ -167,7 +167,7 @@ export function CoachScheduleClient({
   projectedEarnings = 0,
   upcomingSessionCount = 0,
   activationPanel = null,
-  hammersThisWeek = 0,
+  kudosThisWeek = 0,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -274,7 +274,7 @@ export function CoachScheduleClient({
         upcomingSessionCount={upcomingSessionCount}
       />
 
-      <CoachActivityWidget hammersThisWeek={hammersThisWeek} />
+      <CoachActivityWidget kudosThisWeek={kudosThisWeek} />
 
       <CoachShareSessionsHub
         coachId={coachId}

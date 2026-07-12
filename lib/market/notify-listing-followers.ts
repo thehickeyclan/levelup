@@ -24,7 +24,7 @@ function listingTitle(listing: ListingMeta): string {
   return (
     listing.title?.trim() ||
     [listing.brand, listing.model].filter(Boolean).join(' ') ||
-    'A pair you follow'
+    'A pair on your watch list'
   );
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, Sparkles } from 'lucide-react';
+import { BookOpen, CheckCircle2 } from 'lucide-react';
 import type { ShoeModelAbout } from '@/lib/market/shoe-model-content';
 import { cn } from '@/lib/utils';
 
@@ -12,7 +12,7 @@ function modelAttributionShort(about: ShoeModelAbout): string | null {
     }
     return 'Verified catalog';
   }
-  if (about.ai_generated) return 'AI-generated model info';
+  if (about.ai_generated) return 'Guild catalog reference';
   return null;
 }
 
@@ -82,7 +82,7 @@ export function ListingShoeAboutSections({ about }: { about: ShoeModelAbout }) {
             {about.verified ? (
               <CheckCircle2 className="h-3 w-3 text-accent shrink-0" />
             ) : (
-              <Sparkles className="h-3 w-3 text-accent shrink-0" />
+              <BookOpen className="h-3 w-3 text-muted-foreground shrink-0" />
             )}
             {attribution}
           </p>

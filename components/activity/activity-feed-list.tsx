@@ -1,7 +1,7 @@
 'use client';
 
 import type { ActivityFeedPost } from '@/lib/activity-feed/types';
-import { ActivityFeedCard } from '@/components/activity/activity-feed-card';
+import { ActivityFeedItems } from '@/components/activity/activity-feed-items';
 
 export function ActivityFeedList({
   posts,
@@ -20,9 +20,7 @@ export function ActivityFeedList({
 
   return (
     <div className="space-y-3">
-      {posts.map((post) => (
-        <ActivityFeedCard key={post.id} post={post} highlightCoachHammers={highlightCoachHammers} />
-      ))}
+      <ActivityFeedItems posts={posts} highlightCoachHammers={highlightCoachHammers} />
     </div>
   );
 }

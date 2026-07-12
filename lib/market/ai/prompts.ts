@@ -42,7 +42,7 @@ Return ONLY valid JSON: suggested_low_cents, suggested_mid_cents, suggested_high
 
 /** Shown on seller create/edit flow only — AI tools are private. */
 export const SELLER_AI_DISCLAIMER =
-  'AI condition and price tools are private to you. Buyers only see your photos, wear state, condition, and description.';
+  'AI condition and price tools are private to you. Buyers only see your photos, wear state, condition, and description — never AI badges on photos.';
 
 /** Buyer-facing listing copy — one abbreviated flowing paragraph; fields live elsewhere on the listing. */
 export const LISTING_DESCRIPTION_FORMAT = `Write one abbreviated buyer-facing paragraph for this wrestling shoe (~60–100 words, one tight paragraph).

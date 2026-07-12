@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Eye, Flame, Sparkles } from 'lucide-react';
+import { Eye, Flame } from 'lucide-react';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import type { MarketBrowseListing } from '@/lib/market/browse-listings';
 import { formatListingColorLabel } from '@/lib/market/color-family';
@@ -109,11 +109,6 @@ export function MarketListingCard({
           <span className="absolute top-2 right-2 bg-accent text-accent-foreground text-[8px] font-medium px-2 py-0.5 rounded-full flex items-center gap-0.5">
             <Flame className="h-2.5 w-2.5" />
             {offerCount} offers
-          </span>
-        ) : listing.ai_assisted ? (
-          <span className="absolute top-2 right-2 inline-flex items-center gap-0.5 rounded-full bg-foreground/75 px-1.5 py-0.5 text-[8px] text-accent">
-            <Sparkles className="h-2.5 w-2.5" />
-            AI
           </span>
         ) : null}
         {listing.views_count > 0 && !collectionListing ? (

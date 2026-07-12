@@ -4,14 +4,13 @@ import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Eye, Flame, Heart, Send, ShoppingCart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Eye, Flame, Send, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ListingSellerCard } from '@/components/market/listing-seller-card';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import { sanitizeBuyerListingDescription } from '@/lib/market/sanitize-listing-description';
 import {
   listingHeroImageUrl,
-  primaryImageUsesClean,
   type MarketListingImageRow,
 } from '@/lib/market/listing-images';
 import { sellerCollectionFromLabel, resolveSellerDisplayName } from '@/lib/market/seller';
@@ -285,8 +284,6 @@ export default function ListingDetailClient() {
     (l.market_listing_images as MarketListingImageRow[] | undefined) ?? []
   ).sort((a, b) => a.display_order - b.display_order);
   const activeImg = images[activeImage];
-  const heroUsesClean =
-    activeImage === 0 && primaryImageUsesClean(images) && Boolean(activeImg);
   const heroUrl = activeImg
     ? listingHeroImageUrl(activeImg, activeImage === 0)
     : null;
@@ -310,7 +307,6 @@ export default function ListingDetailClient() {
       listing_type: rawListingType,
       accepts_offers: l.accepts_offers as boolean | null,
     });
-  const aiAssisted = Boolean(l.ai_assisted);
   const wearState = (l.wear_state as 'bnib' | 'new_no_box' | 'used') || 'used';
   const conditionLabel = listingConditionDisplay(wearState, l.condition as string);
   const viewsCount = (l.views_count as number) ?? 0;
@@ -393,7 +389,7 @@ export default function ListingDetailClient() {
     <div className="bg-card border border-border rounded-xl p-4 text-center">
       <p className="text-muted-foreground text-sm mb-1">Not for sale</p>
       <p className="text-muted-foreground text-xs">
-        Tap the heart to follow this pair — get notified when it goes on sale, gets a first offer, drops in price, or sells.
+        Add to your watch list — get notified when it goes on sale, gets a first offer, drops in price, or sells.
       </p>
     </div>
   );
@@ -557,12 +553,6 @@ export default function ListingDetailClient() {
                 </div>
               )}
             </div>
-            {heroUsesClean ? (
-              <p className="text-[10px] text-muted-foreground px-4 md:px-0">
-                <Sparkles className="inline h-3 w-3 text-accent mr-0.5" />
-                Background removed — see all photos below
-              </p>
-            ) : null}
             {images.length > 1 ? (
               <div className="flex gap-2 overflow-x-auto px-4 py-3 md:px-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {images.map((img, i) => (
@@ -607,23 +597,28 @@ export default function ListingDetailClient() {
                       disabled={followBusy}
                       onClick={() => void toggleFollow()}
                       className={cn(
-                        'flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full border transition-colors touch-manipulation',
+                        'inline-flex items-center gap-1.5 rounded-full border px-3 min-h-[40px] text-xs font-medium transition-colors touch-manipulation',
                         following
                           ? 'border-accent bg-accent/15 text-accent'
                           : 'border-border bg-card text-muted-foreground hover:border-accent/50 hover:text-accent'
                       )}
-                      aria-label={following ? 'Unfollow this pair' : 'Follow this pair'}
-                      title={following ? 'Following — tap to unfollow' : 'Follow this pair for updates'}
+                      aria-label={following ? 'Remove from watch list' : 'Add to watch list'}
+                      title={
+                        following
+                          ? 'On your watch list — tap to remove'
+                          : 'Add to watch list for price and status updates'
+                      }
                     >
-                      <Heart
-                        className={cn('h-5 w-5', following && 'fill-current')}
-                        strokeWidth={following ? 2 : 1.75}
+                      <Eye
+                        className={cn('h-4 w-4 shrink-0', following && 'text-accent')}
+                        strokeWidth={following ? 2.25 : 1.75}
                       />
+                      {following ? 'Watching' : 'Watch'}
                     </button>
                   ) : null}
                   {followerCount > 0 ? (
                     <span className="text-[10px] text-muted-foreground">
-                      {followerCount} following
+                      {followerCount} watching
                     </span>
                   ) : null}
                   {viewsCount > 0 && !isCollection ? (
@@ -659,13 +654,6 @@ export default function ListingDetailClient() {
 
             {colorwayAlsoKnownAs ? (
               <p className="text-xs text-muted-foreground">{colorwayAlsoKnownAs}</p>
-            ) : null}
-
-            {aiAssisted ? (
-              <p className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <Sparkles className="h-3 w-3 text-accent" />
-                AI-assisted listing
-              </p>
             ) : null}
 
             {wearState === 'used' && isSeller && conditionAnalyzing && !conditionRead ? (
@@ -719,7 +707,7 @@ export default function ListingDetailClient() {
                 </div>
                 <div className="bg-card border border-border rounded-xl p-3 text-center">
                   <p className="text-lg font-bold text-foreground">{followerCount}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Following</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Watching</p>
                 </div>
               </div>
             ) : null}

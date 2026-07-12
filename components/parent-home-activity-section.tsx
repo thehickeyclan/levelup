@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { ActivityFeedPost } from '@/lib/activity-feed/types';
-import { ActivityFeedCard } from '@/components/activity/activity-feed-card';
+import { ActivityFeedItems } from '@/components/activity/activity-feed-items';
 
 export function ParentHomeActivitySection({ posts }: { posts: ActivityFeedPost[] }) {
   if (posts.length === 0) return null;
@@ -17,9 +17,7 @@ export function ParentHomeActivitySection({ posts }: { posts: ActivityFeedPost[]
         </Button>
       </div>
       <div className="space-y-3">
-        {posts.map((post) => (
-          <ActivityFeedCard key={post.id} post={post} />
-        ))}
+        <ActivityFeedItems posts={posts} />
       </div>
     </section>
   );

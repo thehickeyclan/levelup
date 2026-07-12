@@ -1,6 +1,6 @@
 'use client';
 
-import { Sparkles } from 'lucide-react';
+import { ClipboardCheck } from 'lucide-react';
 import {
   CONDITION_BREAKDOWN_KEYS,
   gradeDisplay,
@@ -22,8 +22,8 @@ export function ListingConditionReadSection({
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <div className="flex items-center gap-1.5 text-sm font-medium">
-          <Sparkles className="h-4 w-4 text-accent shrink-0" />
-          <span>{sellerView ? 'AI condition' : 'Condition read'}</span>
+          <ClipboardCheck className="h-4 w-4 text-accent shrink-0" />
+          <span>{sellerView ? 'Condition assessment' : 'Condition read'}</span>
         </div>
         <p className="text-sm text-foreground">
           <span className="text-lg font-bold text-accent">{read.wrestle_score.toFixed(1)}</span>

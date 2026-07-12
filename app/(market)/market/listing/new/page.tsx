@@ -31,6 +31,10 @@ import {
   type ListingEnrichment,
   enrichmentFromShoeIdResult,
 } from '@/lib/market/catalog-listing-enrich';
+import {
+  conditionGradeFromAnalysis,
+  enrichmentToFormPatch,
+} from '@/lib/market/listing-enrichment-form';
 import { shouldAutoConfirmIdentity } from '@/lib/market/catalog-from-listing';
 import type { ShoeIdResult } from '@/lib/market/shoe-id/schemas';
 import { identifyListingShoe } from '@/lib/market/identify-listing-shoe';
@@ -83,58 +87,6 @@ type AiPrice = {
   comps: PriceComp[];
 };
 
-function enrichmentToFormPatch(
-  enrichment: ListingEnrichment,
-  current: {
-    brand: string;
-    model: string;
-    colorway: string;
-    color_family: string;
-    model_year: string;
-    rarity: MarketRarity | '';
-    weight_class: string;
-  },
-  opts?: { colorwayOnly?: boolean; fillEmptyOnly?: boolean }
-) {
-  const patch: Partial<typeof current> = {};
-  const fillEmpty = opts?.fillEmptyOnly ?? false;
-
-  if (!opts?.colorwayOnly) {
-    if (enrichment.brand && (!fillEmpty || !current.brand.trim())) {
-      patch.brand = normalizeMarketBrand(enrichment.brand);
-    }
-    if (enrichment.model && (!fillEmpty || !current.model.trim())) {
-      patch.model = enrichment.model.trim();
-    }
-    if (
-      enrichment.model_year != null &&
-      enrichment.model_year > 0 &&
-      (!fillEmpty || !current.model_year)
-    ) {
-      patch.model_year = String(enrichment.model_year);
-    }
-    if (enrichment.weight_class && (!fillEmpty || !current.weight_class.trim())) {
-      patch.weight_class = enrichment.weight_class;
-    }
-    if (enrichment.rarity && (!fillEmpty || !current.rarity)) {
-      patch.rarity = enrichment.rarity;
-    }
-  }
-
-  const cw = enrichment.colorway?.trim() || '';
-  if (cw && (!fillEmpty || !current.colorway.trim())) {
-    patch.colorway = cw;
-    patch.color_family = inferColorFamilyFromColorway(cw) || current.color_family;
-  } else if (
-    enrichment.color_family &&
-    (!fillEmpty || !current.color_family.trim())
-  ) {
-    patch.color_family = enrichment.color_family;
-  }
-
-  return patch;
-}
-
 function visionDisagreesWithForm(
   result: ShoeIdResult,
   current: { brand: string; model: string }
@@ -151,15 +103,6 @@ function visionDisagreesWithForm(
 
 function gradeDisplay(grade: string) {
   return grade.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function conditionGradeFromAnalysis(
-  wearState: MarketWearState,
-  grade: string | undefined
-): string | null {
-  if (wearState !== 'used' || !grade) return null;
-  if (!(USED_CONDITIONS as readonly string[]).includes(grade)) return null;
-  return grade;
 }
 
 function AiSpinner({ label }: { label: string }) {
@@ -525,6 +468,14 @@ export default function NewListingPage() {
       descriptionAutoKey.current = null;
 
       void runShoeIdentification(mergedImages);
+      if (
+        (identityConfirmed || shoeIdentityLocked) &&
+        form.wear_state === 'used' &&
+        form.model.trim().length >= 2
+      ) {
+        lastCatalogEnrichKey.current = null;
+        void runMetadataPipeline({ overwriteCatalogFields: false });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed';
       setUploadError(msg);
@@ -591,9 +542,11 @@ export default function NewListingPage() {
   const agentPromptInput = (
     sellerNote?: string,
     overrides?: Partial<typeof form>,
-    collectorNotesOverride?: string | null
+    collectorNotesOverride?: string | null,
+    conditionAnalysisOverride?: AiCondition | null
   ) => {
     const merged = { ...form, ...overrides };
+    const conditionForPrompt = conditionAnalysisOverride ?? aiCondition;
     return {
       brand: merged.brand,
       model: merged.model,
@@ -613,7 +566,7 @@ export default function NewListingPage() {
       upperMaterial: catalogUpperMaterial,
       soleDescription: catalogSoleDescription,
       sellerNote,
-      conditionAnalysis: aiCondition,
+      conditionAnalysis: conditionForPrompt,
     };
   };
 
@@ -623,8 +576,11 @@ export default function NewListingPage() {
       silent?: boolean;
       overrides?: Partial<typeof form>;
       collectorNotes?: string | null;
+      force?: boolean;
+      conditionAnalysis?: AiCondition | null;
     }) => {
       const merged = { ...form, ...opts?.overrides };
+      const conditionForPrompt = opts?.conditionAnalysis ?? aiCondition;
       if (!merged.model.trim()) {
         if (!opts?.silent) {
           setError('Add a model (or use Shoe ID) before generating a description.');
@@ -657,7 +613,12 @@ export default function NewListingPage() {
               {
                 role: 'user',
                 content: buildListingAgentPrompt(
-                  agentPromptInput(opts?.sellerNote, opts?.overrides, opts?.collectorNotes)
+                  agentPromptInput(
+                    opts?.sellerNote,
+                    opts?.overrides,
+                    opts?.collectorNotes,
+                    conditionForPrompt
+                  )
                 ),
               },
             ],
@@ -667,7 +628,7 @@ export default function NewListingPage() {
         if (!res.ok) throw new Error(data.error || 'Description failed');
 
         if (descriptionEditedDuringAgentRef.current) return;
-        if (opts?.silent && descriptionTouchedRef.current) return;
+        if (opts?.silent && descriptionTouchedRef.current && !opts?.force) return;
 
         if (data.has_draft && (data.draft?.description || data.draft?.colorway)) {
           const clean = data.draft?.description
@@ -766,19 +727,13 @@ export default function NewListingPage() {
       confirmIdentity();
       lastCatalogEnrichKey.current = null;
       descriptionAutoKey.current = null;
-      setCatalogEnriching(true);
-      const { patch, collectorNotes } = await runCatalogEnrich(identityPatch, {
-        overwriteCatalogFields: false,
-      });
-      if (Object.keys(patch).length) mergeFormPatch(patch);
-      prefillCollectorNotesFromCatalog(collectorNotes);
+      await runMetadataPipeline({ overwriteCatalogFields: true, refreshDescription: true });
       setIdentitySavedFlash(true);
       window.setTimeout(() => setIdentitySavedFlash(false), 2500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setIdentitySaving(false);
-      setCatalogEnriching(false);
     }
   };
 
@@ -928,7 +883,7 @@ export default function NewListingPage() {
     async (
       id: string,
       overrides?: Partial<typeof form>
-    ): Promise<Partial<typeof form>> => {
+    ): Promise<{ patch: Partial<typeof form>; analysis: AiCondition | null }> => {
       const merged = { ...form, ...overrides };
       try {
         const res = await fetch('/api/market/ai/condition', {
@@ -940,7 +895,7 @@ export default function NewListingPage() {
         if (!res.ok) {
           const msg = data.error || 'Condition analysis failed';
           setAiPipelineError(msg);
-          return {};
+          return { patch: {}, analysis: null };
         }
 
         const analysis = data.analysis as AiCondition;
@@ -950,12 +905,13 @@ export default function NewListingPage() {
         const autoGrade = conditionGradeFromAnalysis(merged.wear_state, analysis.grade);
         if (autoGrade) {
           mergeFormPatch({ condition: autoGrade });
-          return { condition: autoGrade };
+          return { patch: { condition: autoGrade }, analysis };
         }
+        return { patch: {}, analysis };
       } catch {
         // Non-fatal — catalog and description can still run
       }
-      return {};
+      return { patch: {}, analysis: null };
     },
     [form, mergeFormPatch]
   );
@@ -1037,7 +993,10 @@ export default function NewListingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.brand, form.model, images, listingId, mergeFormPatch, shoeIdentityLocked, confirmIdentity]);
 
-  const runMetadataPipeline = useCallback(async (opts?: { overwriteCatalogFields?: boolean }) => {
+  const runMetadataPipeline = useCallback(async (opts?: {
+    overwriteCatalogFields?: boolean;
+    refreshDescription?: boolean;
+  }) => {
     if (pipelineRunning.current) return;
     const brand = form.brand.trim();
     const model = form.model.trim();
@@ -1052,7 +1011,7 @@ export default function NewListingPage() {
     const formBase = () => ({ ...form, ...overrides });
     try {
       const id = await ensureDraft();
-      const enrichKey = `${brand}|${model}|${form.wear_state}|${images.length}`;
+      const enrichKey = `${brand}|${model}|${form.wear_state}|${images.map((i) => i.id).join(',')}`;
 
       const { patch: catalogPatch, collectorNotes } = await runCatalogEnrich(undefined, {
         overwriteCatalogFields: opts?.overwriteCatalogFields ?? true,
@@ -1067,9 +1026,11 @@ export default function NewListingPage() {
         body: JSON.stringify(draftPayload(overrides)),
       });
 
-      if (images.length > 0) {
-        const conditionPatch = await runPhotoCondition(id, overrides);
-        overrides = { ...overrides, ...conditionPatch };
+      let conditionAnalysis: AiCondition | null = null;
+      if (images.length > 0 && formBase().wear_state === 'used') {
+        const conditionResult = await runPhotoCondition(id, overrides);
+        overrides = { ...overrides, ...conditionResult.patch };
+        conditionAnalysis = conditionResult.analysis;
       }
 
       const listingType = formBase().listing_type;
@@ -1079,9 +1040,15 @@ export default function NewListingPage() {
       await runRarity(id, overrides);
 
       const modelAfterId = formBase().model.trim();
-      if (!descriptionTouched && modelAfterId) {
+      if (modelAfterId && (!descriptionTouched || opts?.refreshDescription)) {
         descriptionAutoKey.current = null;
-        await generateDescription({ silent: true, overrides, collectorNotes });
+        await generateDescription({
+          silent: true,
+          overrides,
+          collectorNotes,
+          force: opts?.refreshDescription,
+          conditionAnalysis,
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
@@ -1657,10 +1624,12 @@ export default function NewListingPage() {
             )}
           </Button>
           {identitySavedFlash ? (
-            <span className="text-xs text-accent font-medium">Saved — AI will use these fields</span>
+            <span className="text-xs text-accent font-medium">
+              Saved — catalog, condition, and description updated
+            </span>
           ) : (
             <span className="text-xs text-muted-foreground">
-              Save brand, model, and colorway before Generate with AI
+              Save when you know the model — AI looks up catalog details and refreshes the listing
             </span>
           )}
         </div>

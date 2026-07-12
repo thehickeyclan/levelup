@@ -54,6 +54,11 @@ import {
 import { prepareListingPhotos } from '@/lib/market/prepare-listing-photo';
 import { cn } from '@/lib/utils';
 import {
+  conditionGradeFromAnalysis,
+  enrichmentToFormPatch,
+} from '@/lib/market/listing-enrichment-form';
+import type { ListingEnrichment } from '@/lib/market/catalog-listing-enrich';
+import {
   BnibSizeInventoryEditor,
   emptySizeInventoryRow,
   UsedListingSizeNote,
@@ -62,10 +67,24 @@ import {
 import { supportsMultiSizeInventory, formatMarketShoeSizeFieldLabel } from '@/lib/market/listing-sizes';
 
 const MAX_PHOTOS = 6;
+const BREAKDOWN_KEYS = ['sole', 'upper', 'midsole', 'laces'] as const;
 
-type ListingImage = MarketListingImageRow & { id: string };
+type AiCondition = {
+  wrestle_score: number;
+  grade: string;
+  breakdown: Partial<Record<(typeof BREAKDOWN_KEYS)[number], { score: number; note: string }>>;
+  listing_tip?: string;
+  summary?: string;
+  cosmetic_summary?: string;
+};
+
+function gradeDisplay(grade: string) {
+  return grade.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 const EDITABLE_STATUSES = new Set(['active', 'draft', 'archived']);
+
+type ListingImage = MarketListingImageRow & { id: string };
 
 export default function EditListingPage() {
   const params = useParams();
@@ -91,6 +110,13 @@ export default function EditListingPage() {
   const [agentInput, setAgentInput] = useState('');
   const [agentExpanded, setAgentExpanded] = useState(false);
   const [descriptionTouched, setDescriptionTouched] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [catalogEnriching, setCatalogEnriching] = useState(false);
+  const [aiCondition, setAiCondition] = useState<AiCondition | null>(null);
+  const [conditionOverridden, setConditionOverridden] = useState(false);
+  const [catalogCollectorNotes, setCatalogCollectorNotes] = useState<string | null>(null);
+  const [catalogUpperMaterial, setCatalogUpperMaterial] = useState<string | null>(null);
+  const [catalogSoleDescription, setCatalogSoleDescription] = useState<string | null>(null);
   const [purchaseNotes, setPurchaseNotes] = useState<CollectionPurchaseNotes>(
     emptyCollectionPurchaseNotes()
   );
@@ -108,6 +134,8 @@ export default function EditListingPage() {
   const descriptionTouchedRef = useRef(false);
   const descriptionEditedDuringAgentRef = useRef(false);
   const photosDirtyRef = useRef(false);
+  const pipelineRunning = useRef(false);
+  const conditionAutoKey = useRef<string | null>(null);
 
   const [form, setForm] = useState({
     brand: 'Adidas',
@@ -126,6 +154,7 @@ export default function EditListingPage() {
     description: '',
     collector_notes: '',
     rarity: '' as MarketRarity | '',
+    weight_class: '',
   });
 
   useEffect(() => {
@@ -199,7 +228,27 @@ export default function EditListingPage() {
           description: String(l.description ?? ''),
           collector_notes: String(l.collector_notes ?? ''),
           rarity: normalizeMarketRarity(l.rarity as string | null) ?? '',
+          weight_class: String(l.weight_class ?? ''),
         });
+        const aiRaw = l.market_ai_analysis;
+        const aiRow = (Array.isArray(aiRaw) ? aiRaw[0] : aiRaw) as {
+          condition_score?: number;
+          condition_grade_suggested?: string;
+          condition_breakdown?: AiCondition['breakdown'];
+          listing_tip?: string;
+          condition_summary?: string;
+          cosmetic_summary?: string;
+        } | null | undefined;
+        if (wear === 'used' && aiRow?.condition_score != null && aiRow.condition_grade_suggested) {
+          setAiCondition({
+            wrestle_score: Number(aiRow.condition_score),
+            grade: aiRow.condition_grade_suggested,
+            breakdown: (aiRow.condition_breakdown as AiCondition['breakdown']) ?? {},
+            listing_tip: aiRow.listing_tip,
+            summary: aiRow.condition_summary,
+            cosmetic_summary: aiRow.cosmetic_summary,
+          });
+        }
         setPurchaseNotes(collectionPurchaseNotesFromListing(l));
         const loadedSizes = (data.sizes as { size_us: number; quantity: number }[] | undefined) ?? [];
         if (supportsMultiSizeInventory(wear) && loadedSizes.length) {
@@ -291,9 +340,198 @@ export default function EditListingPage() {
           ? 0
           : Math.round(Number(form.shipping_cents || 0) * 100),
       rarity: form.rarity || null,
+      weight_class: form.weight_class.trim() || null,
       ...collectionPurchaseNotesToPayload(purchaseNotes),
     };
   };
+
+  const runUsedConditionAnalysis = useCallback(
+    async (opts?: { silent?: boolean; wearState?: MarketWearState }): Promise<AiCondition | null> => {
+      const wearState = opts?.wearState ?? form.wear_state;
+      if (wearState !== 'used' || !images.length || !form.model.trim()) return null;
+
+      const autoKey = `${listingId}|${images.map((i) => i.id).join(',')}|${wearState}`;
+      if (opts?.silent && conditionAutoKey.current === autoKey) return aiCondition;
+      conditionAutoKey.current = autoKey;
+
+      if (!opts?.silent) setAnalyzing(true);
+      try {
+        const res = await fetch('/api/market/ai/condition', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listingId, wear_state: wearState }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Condition analysis failed');
+
+        const analysis = data.analysis as AiCondition & {
+          summary?: string;
+          cosmetic_summary?: string;
+        };
+        const nextCondition: AiCondition = {
+          wrestle_score: analysis.wrestle_score,
+          grade: analysis.grade,
+          breakdown: analysis.breakdown ?? {},
+          listing_tip: analysis.listing_tip,
+          summary: analysis.summary,
+          cosmetic_summary: analysis.cosmetic_summary,
+        };
+        setAiCondition(nextCondition);
+        setConditionOverridden(false);
+
+        const autoGrade = conditionGradeFromAnalysis(wearState, analysis.grade);
+        if (autoGrade) {
+          setForm((f) => ({ ...f, condition: autoGrade }));
+        }
+        return nextCondition;
+      } catch (err) {
+        if (!opts?.silent) {
+          setError(err instanceof Error ? err.message : 'Condition analysis failed');
+        }
+        return null;
+      } finally {
+        if (!opts?.silent) setAnalyzing(false);
+      }
+    },
+    [aiCondition, form.model, form.wear_state, images, listingId]
+  );
+
+  const runIdentityRefreshPipeline = useCallback(
+    async (opts?: { refreshDescription?: boolean }) => {
+      if (pipelineRunning.current) return;
+      const brand = form.brand.trim();
+      const model = form.model.trim();
+      if (!brand || !model) return;
+
+      pipelineRunning.current = true;
+      setAnalyzing(true);
+      setCatalogEnriching(true);
+      setError(null);
+
+      let merged = { ...form };
+      let collectorNotes: string | null = null;
+
+      try {
+        const lookupRes = await fetch('/api/market/catalog/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            brand,
+            model,
+            colorway: merged.colorway.trim() || null,
+            listingId,
+            persist: true,
+          }),
+        });
+        const lookupData = await lookupRes.json();
+        if (lookupRes.ok) {
+          collectorNotes =
+            typeof lookupData.collector_notes === 'string' && lookupData.collector_notes.trim()
+              ? lookupData.collector_notes.trim()
+              : null;
+          setCatalogCollectorNotes(collectorNotes);
+          setCatalogUpperMaterial(
+            typeof lookupData.upper_material === 'string' && lookupData.upper_material.trim()
+              ? lookupData.upper_material.trim()
+              : null
+          );
+          setCatalogSoleDescription(
+            typeof lookupData.sole_description === 'string' && lookupData.sole_description.trim()
+              ? lookupData.sole_description.trim()
+              : null
+          );
+
+          const enrichment: ListingEnrichment = {
+            model_year: lookupData.model_year ?? undefined,
+            weight_class: lookupData.weight_class ?? undefined,
+            rarity: lookupData.rarity ? normalizeMarketRarity(lookupData.rarity) ?? undefined : undefined,
+            colorway:
+              typeof lookupData.colorway === 'string' && lookupData.colorway.trim()
+                ? lookupData.colorway.trim()
+                : undefined,
+          };
+          const patch = enrichmentToFormPatch(enrichment, merged);
+          if (Object.keys(patch).length) {
+            merged = { ...merged, ...patch };
+            setForm((f) => ({ ...f, ...patch }));
+          }
+          if (collectorNotes && !merged.collector_notes.trim()) {
+            merged = { ...merged, collector_notes: collectorNotes };
+            setForm((f) => ({ ...f, collector_notes: collectorNotes! }));
+          }
+        }
+
+        const colorway = merged.colorway.trim();
+        await fetch(`/api/market/listings/${listingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: `${merged.brand} ${merged.model}`.trim(),
+            brand: merged.brand,
+            model: merged.model.trim(),
+            colorway: colorway || null,
+            color_family: resolveColorFamily(merged.color_family, colorway),
+            model_year: merged.model_year ? Number(merged.model_year) : null,
+            weight_class: merged.weight_class.trim() || null,
+            rarity: merged.rarity || null,
+            collector_notes: merged.collector_notes.trim() || null,
+          }),
+        });
+
+        let conditionAnalysis: AiCondition | null = null;
+        if (merged.wear_state === 'used' && images.length > 0) {
+          conditionAutoKey.current = null;
+          conditionAnalysis = await runUsedConditionAnalysis({ silent: true, wearState: 'used' });
+          if (conditionAnalysis?.grade) {
+            merged = {
+              ...merged,
+              condition: conditionGradeFromAnalysis('used', conditionAnalysis.grade) ?? merged.condition,
+            };
+          }
+        }
+
+        if (!merged.rarity) {
+          void fetch('/api/market/ai/rarity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ listingId, persist: true }),
+          });
+        }
+
+        if (opts?.refreshDescription || !descriptionTouchedRef.current) {
+          await generateDescription(undefined, {
+            silent: true,
+            force: Boolean(opts?.refreshDescription),
+            formSnapshot: merged,
+            collectorNotes,
+            conditionAnalysis,
+          });
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not refresh listing details');
+      } finally {
+        pipelineRunning.current = false;
+        setAnalyzing(false);
+        setCatalogEnriching(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form, images, listingId, runUsedConditionAnalysis]
+  );
+
+  useEffect(() => {
+    if (loading || loadError) return;
+    if (form.wear_state !== 'used' || !images.length || !form.model.trim() || aiCondition) return;
+    void runUsedConditionAnalysis({ silent: true });
+  }, [
+    loading,
+    loadError,
+    form.wear_state,
+    form.model,
+    images,
+    aiCondition,
+    runUsedConditionAnalysis,
+  ]);
 
   const descriptionInput = () => ({
     brand: form.brand,
@@ -315,53 +553,8 @@ export default function EditListingPage() {
     setIdentitySavedFlash(false);
     setError(null);
     try {
-      const colorway = form.colorway.trim();
-      const identityPatch = {
-        title: `${form.brand} ${form.model}`.trim(),
-        brand: form.brand,
-        model: form.model.trim(),
-        colorway: colorway || null,
-        color_family: resolveColorFamily(form.color_family, colorway),
-      };
-      const res = await fetch(`/api/market/listings/${listingId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(identityPatch),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Save failed');
-      }
-      setForm((f) => ({
-        ...f,
-        brand: identityPatch.brand,
-        model: identityPatch.model,
-        colorway: identityPatch.colorway ?? '',
-        color_family: identityPatch.color_family ?? '',
-      }));
-
-      const lookupRes = await fetch('/api/market/catalog/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          brand: identityPatch.brand,
-          model: identityPatch.model,
-          colorway: identityPatch.colorway,
-          listingId,
-          persist: true,
-        }),
-      });
-      const lookupData = await lookupRes.json();
-      if (lookupRes.ok) {
-        const notes =
-          typeof lookupData.collector_notes === 'string' && lookupData.collector_notes.trim()
-            ? lookupData.collector_notes.trim()
-            : null;
-        if (notes) {
-          setForm((f) => (f.collector_notes.trim() ? f : { ...f, collector_notes: notes }));
-        }
-      }
-
+      lockShoeIdentity();
+      await runIdentityRefreshPipeline({ refreshDescription: true });
       setIdentitySavedFlash(true);
       window.setTimeout(() => setIdentitySavedFlash(false), 2500);
     } catch (err) {
@@ -371,15 +564,30 @@ export default function EditListingPage() {
     }
   };
 
-  const generateDescription = async (sellerNote?: string) => {
-    if (!form.model.trim()) {
-      setError('Add a model before generating a description.');
+  const generateDescription = async (
+    sellerNote?: string,
+    opts?: {
+      silent?: boolean;
+      force?: boolean;
+      formSnapshot?: typeof form;
+      collectorNotes?: string | null;
+      conditionAnalysis?: AiCondition | null;
+    }
+  ) => {
+    const snapshot = opts?.formSnapshot ?? form;
+    const conditionForPrompt = opts?.conditionAnalysis ?? aiCondition;
+    if (!snapshot.model.trim()) {
+      if (!opts?.silent) setError('Add a model before generating a description.');
       return;
     }
-    descriptionEditedDuringAgentRef.current = false;
-    setAgentLoading(true);
-    setAgentReply(null);
-    setError(null);
+    if (opts?.silent && descriptionTouchedRef.current && !opts?.force) return;
+
+    if (!opts?.silent) {
+      descriptionEditedDuringAgentRef.current = false;
+      setAgentLoading(true);
+      setAgentReply(null);
+      setError(null);
+    }
     try {
       const res = await fetch('/api/market/ai/agent', {
         method: 'POST',
@@ -390,19 +598,31 @@ export default function EditListingPage() {
             {
               role: 'user',
               content: buildListingAgentPrompt({
-                brand: form.brand,
-                model: form.model,
-                colorway: form.colorway,
-                modelYear: form.model_year ? Number(form.model_year) : null,
-                size: Number(form.size) || 10,
-                wearState: form.wear_state,
-                condition: conditionForWearState(form.wear_state, form.condition),
-                listingType: form.listing_type,
-                rarity: form.rarity || null,
-                weightClass: null,
-                collectorNotes: form.collector_notes.trim() || null,
+                brand: snapshot.brand,
+                model: snapshot.model,
+                colorway: snapshot.colorway,
+                modelYear: snapshot.model_year ? Number(snapshot.model_year) : null,
+                size: Number(snapshot.size) || 10,
+                wearState: snapshot.wear_state,
+                condition: conditionForWearState(snapshot.wear_state, snapshot.condition),
+                listingType: snapshot.listing_type,
+                rarity: snapshot.rarity || null,
+                weightClass: snapshot.weight_class.trim() || null,
+                collectorNotes:
+                  snapshot.collector_notes.trim() ||
+                  opts?.collectorNotes?.trim() ||
+                  catalogCollectorNotes?.trim() ||
+                  null,
+                upperMaterial: catalogUpperMaterial,
+                soleDescription: catalogSoleDescription,
                 sellerNote,
-                conditionAnalysis: null,
+                conditionAnalysis: conditionForPrompt
+                  ? {
+                      summary: conditionForPrompt.summary,
+                      listing_tip: conditionForPrompt.listing_tip,
+                      breakdown: conditionForPrompt.breakdown,
+                    }
+                  : null,
               }),
             },
           ],
@@ -419,7 +639,7 @@ export default function EditListingPage() {
         setForm((f) => ({
           ...f,
           ...(clean ? { description: clean } : {}),
-          ...(draftColorway && !f.colorway.trim()
+          ...(draftColorway && (!f.colorway.trim() || opts?.force)
             ? {
                 colorway: draftColorway,
                 color_family:
@@ -434,13 +654,15 @@ export default function EditListingPage() {
         setAgentInput('');
       } else if (data.message) {
         setAgentReply(data.message);
-      } else {
+      } else if (!opts?.silent) {
         setError('Could not generate description — try again.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Description failed');
+      if (!opts?.silent) {
+        setError(err instanceof Error ? err.message : 'Description failed');
+      }
     } finally {
-      setAgentLoading(false);
+      if (!opts?.silent) setAgentLoading(false);
     }
   };
 
@@ -487,6 +709,8 @@ export default function EditListingPage() {
       const refreshed = await normalizeListingImagesForClient(listingId);
       photosDirtyRef.current = false;
       setImages(refreshed);
+      conditionAutoKey.current = null;
+      setAiCondition(null);
 
       if (!refreshed.length && uploadErrors.length) {
         throw new Error(uploadErrors[0] || 'Upload failed');
@@ -495,6 +719,10 @@ export default function EditListingPage() {
         setUploadError(
           `${uploadErrors.length} photo(s) failed — ${uploadErrors[0]}. Others were saved.`
         );
+      }
+
+      if (form.wear_state === 'used' && refreshed.length > 0 && form.model.trim()) {
+        void runUsedConditionAnalysis();
       }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
@@ -782,10 +1010,12 @@ export default function EditListingPage() {
             )}
           </Button>
           {identitySavedFlash ? (
-            <span className="text-xs text-accent font-medium">Saved — AI will use these fields</span>
+            <span className="text-xs text-accent font-medium">
+              Saved — catalog, condition, and description updated
+            </span>
           ) : (
             <span className="text-xs text-muted-foreground">
-              Save brand, model, and colorway before Generate with AI
+              Save when you correct the model — AI looks up catalog details and refreshes the listing
             </span>
           )}
         </div>
@@ -920,14 +1150,20 @@ export default function EditListingPage() {
             <button
               key={opt.value}
               type="button"
-              onClick={() =>
+              onClick={() => {
+                const nextWear = opt.value;
                 setForm((f) => ({
                   ...f,
-                  wear_state: opt.value,
+                  wear_state: nextWear,
                   condition:
-                    opt.value === 'used' ? (f.condition === 'new' ? 'good' : f.condition) : 'new',
-                }))
-              }
+                    nextWear === 'used' ? (f.condition === 'new' ? 'good' : f.condition) : 'new',
+                }));
+                if (nextWear === 'used' && images.length > 0 && form.model.trim()) {
+                  conditionAutoKey.current = null;
+                  setAiCondition(null);
+                  void runUsedConditionAnalysis({ wearState: 'used' });
+                }
+              }}
               className={cn(
                 'w-full text-left rounded-lg border px-3 py-3 transition-colors',
                 form.wear_state === opt.value
@@ -946,7 +1182,10 @@ export default function EditListingPage() {
             <select
               className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
               value={form.condition}
-              onChange={(e) => setForm({ ...form, condition: e.target.value })}
+              onChange={(e) => {
+                setConditionOverridden(true);
+                setForm({ ...form, condition: e.target.value });
+              }}
             >
               {USED_CONDITIONS.map((c) => (
                 <option key={c} value={c}>
@@ -955,6 +1194,63 @@ export default function EditListingPage() {
               ))}
             </select>
           </div>
+        ) : null}
+        {isUsed && analyzing && images.length > 0 ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Sparkles className="h-4 w-4 text-accent animate-pulse" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
+            <span>AI reviewing photos for wear…</span>
+          </div>
+        ) : null}
+        {isUsed && aiCondition && !analyzing ? (
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <Sparkles className="h-4 w-4 text-accent" />
+                <span>AI condition read</span>
+              </div>
+              <span className="text-lg font-bold text-accent">
+                {aiCondition.wrestle_score.toFixed(1)} / 10
+              </span>
+            </div>
+            <div className="border-t border-border" />
+            <div className="grid grid-cols-2 gap-2">
+              {BREAKDOWN_KEYS.map((key) => (
+                <div
+                  key={key}
+                  className="rounded-lg bg-muted border border-border px-3 py-2 text-center"
+                >
+                  <p className="text-[10px] text-muted-foreground capitalize">{key}</p>
+                  <p className="text-sm font-semibold">
+                    {aiCondition.breakdown[key]?.score ?? '—'}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {aiCondition.listing_tip ? (
+              <>
+                <div className="border-t border-border" />
+                <p className="text-sm text-muted-foreground border-l-2 border-accent pl-3">
+                  {aiCondition.listing_tip}
+                </p>
+              </>
+            ) : null}
+            {!conditionOverridden && aiCondition.grade !== form.condition ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const grade = conditionGradeFromAnalysis('used', aiCondition.grade);
+                  if (grade) setForm((f) => ({ ...f, condition: grade }));
+                }}
+                className="rounded-full bg-accent text-accent-foreground text-sm font-medium px-4 py-1.5 hover:bg-accent/90"
+              >
+                Apply grade: {gradeDisplay(aiCondition.grade)} ✓
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {catalogEnriching && !analyzing ? (
+          <p className="text-xs text-muted-foreground">Looking up catalog details…</p>
         ) : null}
       </div>
 

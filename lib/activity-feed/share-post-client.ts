@@ -19,7 +19,7 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 async function urlToImageFile(url: string, filename: string): Promise<File | null> {
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { credentials: 'include' });
     if (!res.ok) return null;
     const blob = await res.blob();
     const type = blob.type || 'image/jpeg';
@@ -27,6 +27,46 @@ async function urlToImageFile(url: string, filename: string): Promise<File | nul
   } catch {
     return null;
   }
+}
+
+/** Download a single activity photo (authenticated app image URL). */
+export async function downloadActivityPhoto(url: string, photoId: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) return false;
+    const blob = await res.blob();
+    const ext = blob.type.includes('png') ? 'png' : 'jpg';
+    downloadBlob(blob, `guild-photo-${photoId.slice(0, 8)}.${ext}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Share a single activity photo via the native share sheet (or copy/download fallback). */
+export async function shareActivityPhoto(
+  url: string,
+  photoId: string,
+  caption?: string
+): Promise<ShareActivityPostOutcome> {
+  const file = await urlToImageFile(url, `guild-photo-${photoId.slice(0, 8)}.jpg`);
+  if (!file) return 'failed';
+
+  const title = 'Guild session photo';
+  const text = caption?.trim() || '';
+
+  try {
+    const shared = await tryNativeShare({
+      files: [file],
+      title,
+      text,
+    });
+    if (shared) return 'shared';
+  } catch (e) {
+    if ((e as Error)?.name === 'AbortError') return 'cancelled';
+  }
+
+  return shareFallback({ caption: text, title, imageBlob: file });
 }
 
 async function copyImageBlobToClipboard(blob: Blob): Promise<boolean> {

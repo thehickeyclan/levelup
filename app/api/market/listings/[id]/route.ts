@@ -20,7 +20,7 @@ import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/marke
 import { fetchListingSizes, supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
 import { fetchCatalogListingEnrichment } from '@/lib/market/catalog-listing-enrich';
-import { fetchShoeModelAbout } from '@/lib/market/shoe-model-content';
+import { fetchShoeModelAbout, shoeModelHistoryNeedsRegeneration } from '@/lib/market/shoe-model-content';
 import {
   extractListingConditionRead,
   publicListingConditionRead,
@@ -207,6 +207,11 @@ export async function GET(
           )
         : null;
 
+    const shoeHistoryStale =
+      brand && model.length >= 2
+        ? await shoeModelHistoryNeedsRegeneration(supabase, brand, model)
+        : false;
+
     const catalogEnrichment =
       brand && model.length >= 2
         ? await fetchCatalogListingEnrichment(
@@ -228,6 +233,7 @@ export async function GET(
       seller: { ...seller, school: seller.school },
       sellerStats,
       shoe_about: shoeAbout,
+      shoe_history_stale: shoeHistoryStale,
       colorway_aliases: catalogEnrichment?.colorway_aliases ?? [],
       condition_read: conditionRead,
       pending_offer_count: pendingOfferCount ?? 0,

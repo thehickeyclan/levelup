@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Check, Loader2, Share2, Trophy, X } from 'lucide-react';
@@ -17,6 +17,8 @@ import {
   coachDisplayName,
 } from '@/lib/activity-feed/display';
 import { ActivityFeedReactions } from '@/components/activity/activity-feed-reactions';
+import { ActivityPhotoLightbox } from '@/components/activity/activity-photo-lightbox';
+import { buildActivityPostShareCaption } from '@/lib/activity-feed/share-caption';
 
 type Props = {
   post: ActivityFeedPost;
@@ -29,6 +31,7 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const [photos, setPhotos] = useState(post.photos ?? []);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [postRemoved, setPostRemoved] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const router = useRouter();
   const showShare = canShareActivityPost({ ...post, photos });
   const canManagePhotos = Boolean(post.viewer_can_manage_photos);
@@ -40,6 +43,14 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const reviewLine = activityPostReviewLine(post);
   const isMilestone = post.trigger_type === 'milestone_hit';
   const isPhotoPost = post.trigger_type === 'photo_post';
+  const photoShareCaption = useMemo(
+    () =>
+      buildActivityPostShareCaption(
+        post,
+        typeof window !== 'undefined' ? window.location.origin : ''
+      ),
+    [post]
+  );
 
   const onShare = async () => {
     if (shareLoading) return;
@@ -142,26 +153,36 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
         <div
           className={`mt-3 grid gap-2 ${photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
         >
-          {photos.map((photo) => (
+          {photos.map((photo, photoIndex) => (
             <div
               key={photo.id}
               className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border/60 bg-muted"
             >
-              <Image
-                src={photo.url}
-                alt=""
-                fill
-                className="object-cover"
-                sizes="(max-width: 512px) 100vw, 256px"
-                unoptimized
-              />
+              <button
+                type="button"
+                className="absolute inset-0 z-0 cursor-zoom-in touch-manipulation"
+                aria-label="View full size photo"
+                onClick={() => setLightboxIndex(photoIndex)}
+              >
+                <Image
+                  src={photo.url}
+                  alt=""
+                  fill
+                  className="object-cover pointer-events-none"
+                  sizes="(max-width: 512px) 100vw, 256px"
+                  unoptimized
+                />
+              </button>
               {canManagePhotos ? (
                 <button
                   type="button"
-                  className="absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 touch-manipulation disabled:opacity-50"
+                  className="absolute top-1.5 right-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 touch-manipulation disabled:opacity-50"
                   aria-label="Remove photo"
                   disabled={deletingPhotoId === photo.id}
-                  onClick={() => void onDeletePhoto(photo.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void onDeletePhoto(photo.id);
+                  }}
                 >
                   {deletingPhotoId === photo.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -174,6 +195,14 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
           ))}
         </div>
       ) : null}
+
+      <ActivityPhotoLightbox
+        photos={photos}
+        initialIndex={lightboxIndex ?? 0}
+        open={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+        shareCaption={photoShareCaption}
+      />
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <ActivityFeedReactions

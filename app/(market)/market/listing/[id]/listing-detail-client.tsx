@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Eye, Flame, Heart, Send, ShoppingCart, Sparkles } from 'lucide-react';
@@ -72,6 +72,7 @@ export default function ListingDetailClient() {
     pending_offer_count: number;
     following?: boolean;
     follower_count?: number;
+    shoe_history_stale?: boolean;
     viewer?: {
       isSeller: boolean;
       can_change_mode?: boolean;
@@ -89,6 +90,7 @@ export default function ListingDetailClient() {
   const [conditionRead, setConditionRead] = useState<ListingConditionRead | null>(null);
   const [conditionAnalyzing, setConditionAnalyzing] = useState(false);
   const [colorwayAliases, setColorwayAliases] = useState<string[]>([]);
+  const staleHistoryRepairRef = useRef<string | null>(null);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -148,10 +150,23 @@ export default function ListingDetailClient() {
   }, [id, data?.listing?.rarity, data?.listing?.brand, data?.listing?.model]);
 
   useEffect(() => {
-    if (!data?.listing || shoeAbout) return;
+    staleHistoryRepairRef.current = null;
+  }, [id]);
+
+  useEffect(() => {
+    if (!data?.listing) return;
     const brand = String(data.listing.brand ?? '').trim();
     const model = String(data.listing.model ?? '').trim();
     if (!brand || model.length < 2) return;
+
+    if (shoeAbout && !data.shoe_history_stale) return;
+
+    if (data.shoe_history_stale) {
+      if (staleHistoryRepairRef.current === id) return;
+      staleHistoryRepairRef.current = id;
+    } else if (shoeAbout) {
+      return;
+    }
 
     void fetch('/api/market/ai/shoe-about', {
       method: 'POST',
@@ -166,7 +181,7 @@ export default function ListingDetailClient() {
         if (d.shoe_about) setShoeAbout(d.shoe_about as ShoeModelAbout);
       })
       .catch(() => {});
-  }, [id, data?.listing?.brand, data?.listing?.model, data?.listing?.model_year, shoeAbout]);
+  }, [id, data?.listing, data?.shoe_history_stale, shoeAbout]);
 
   useEffect(() => {
     if (!data?.listing || conditionRead || conditionAnalyzing) return;

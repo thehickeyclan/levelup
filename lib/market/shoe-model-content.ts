@@ -10,8 +10,11 @@ import {
 import { findCatalogEntry } from '@/lib/market/shoe-id/catalog';
 import { parseModelYearHint } from '@/lib/market/parse-model-year';
 import {
-  modelNameImpliesAthleteEdition,
+  curatedCatalogHistory,
+  historyMentionsAthleteEdition,
   sanitizeCatalogDisplayText,
+  sanitizeCatalogHistoryText,
+  stripAthleteEditionFromDescription,
 } from '@/lib/market/catalog-display-text';
 
 export type ShoeModelAbout = {
@@ -50,6 +53,12 @@ function isVerifiedCatalogEntry(entry: Record<string, unknown> | null): boolean 
   return Boolean(entry?.verified);
 }
 
+function hasProtectedCatalogHistory(entry: Record<string, unknown> | null): boolean {
+  if (!entry || !isVerifiedCatalogEntry(entry)) return false;
+  const source = String(entry.source ?? '').trim().toLowerCase();
+  return source === 'manual' || source === 'phipps_handbook';
+}
+
 function catalogHasAboutFields(entry: Record<string, unknown>): boolean {
   return (
     Boolean(entry.shoe_type) ||
@@ -84,7 +93,10 @@ function aboutNeedsRegeneration(entry: Record<string, unknown> | null): boolean 
 function historyNeedsRegeneration(entry: Record<string, unknown> | null): boolean {
   if (!entry) return true;
   const text = String(entry.history_text ?? '').trim();
+  const model = String(entry.model ?? '').trim();
   if (!text) return true;
+  if (hasProtectedCatalogHistory(entry)) return false;
+  if (historyMentionsAthleteEdition(text, model)) return true;
   if (isVerifiedCatalogEntry(entry)) return false;
   const version = Number(entry.history_prompt_version ?? 0);
   return version < SHOE_HISTORY_PROMPT_VERSION;
@@ -144,7 +156,7 @@ export function shoeModelAboutFromRow(
     closure_type: sanitizeCatalogDisplayText(row.closure_type as string | null),
     fit_notes: sanitizeCatalogDisplayText(row.fit_notes as string | null),
     notable_features: sanitizeCatalogDisplayText(row.notable_features as string | null),
-    history_text: sanitizeCatalogDisplayText(row.history_text as string | null),
+    history_text: sanitizeCatalogHistoryText(row.history_text as string | null, brand, model),
     ai_generated: hasAiTimestamps && !verified,
     verified,
     source_notes: (row.source_notes as string | null)?.trim() || null,
@@ -234,13 +246,6 @@ function historyMentionsSplitSole(history: string): boolean {
   return /\bsplit[\s-]?sole\b/i.test(history);
 }
 
-function historyMentionsAthleteEdition(history: string, model: string): boolean {
-  if (modelNameImpliesAthleteEdition(model)) return false;
-  return /\b(jordan oliver|\bjo\b|signature edition|athlete signature|player exclusive|pe edition)\b/i.test(
-    history
-  );
-}
-
 function historyValidationError(
   history: string,
   catalogEntry: Record<string, unknown> | null,
@@ -313,11 +318,19 @@ async function generateValidatedHistoryParagraph(
     history = await generateHistoryParagraph(brand, model, year, catalogEntry, firstError);
     const secondError = historyValidationError(history, catalogEntry, model);
     if (secondError) {
-      history = history
+      history = stripAthleteEditionFromDescription(history, model)
         .replace(/\bsplit[\s-]?sole\b/gi, 'full rubber outsole')
         .replace(/\s{2,}/g, ' ')
         .trim();
+      if (historyMentionsAthleteEdition(history, model)) {
+        const curated = curatedCatalogHistory(brand, model);
+        if (curated) history = curated;
+      }
     }
+  }
+  if (historyMentionsAthleteEdition(history, model)) {
+    const curated = curatedCatalogHistory(brand, model);
+    if (curated) history = curated;
   }
   return history;
 }
@@ -366,6 +379,9 @@ export async function ensureShoeModelContent(
         releaseYear,
         groundedEntry
       );
+      if (historyText && historyMentionsAthleteEdition(historyText, model)) {
+        historyText = curatedCatalogHistory(brand, model) ?? historyText;
+      }
     }
 
     const now = new Date().toISOString();

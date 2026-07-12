@@ -1,0 +1,4 @@
+# Copy this file to .github-token.local (gitignored) and paste ONE line: your GitHub PAT.
+# Fine-grained token: owner thehickeyclan, repo levelup, Contents = Read and write.
+# Never commit .github-token.local. Revoke any token that was pasted in chat or terminal.
+github_pat_REPLACE_ME

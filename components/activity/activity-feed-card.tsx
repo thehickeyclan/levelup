@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Check, Loader2, Share2, Trophy, X } from 'lucide-react';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { canShareActivityPost } from '@/lib/activity-feed/can-share-activity-post';
 import { shareActivityPost } from '@/lib/activity-feed/share-post-client';
 import type { ActivityFeedPost } from '@/lib/activity-feed/types';
+import { isMarketListingActivityPost } from '@/lib/activity-feed/market-listing-activity';
 import {
   activityPostAvatarUrl,
   activityPostCoachAvatarUrl,
@@ -43,6 +45,10 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const reviewLine = activityPostReviewLine(post);
   const isMilestone = post.trigger_type === 'milestone_hit';
   const isPhotoPost = post.trigger_type === 'photo_post';
+  const isMarketListing = isMarketListingActivityPost(post.trigger_type);
+  const listingHref = post.market_listing_id
+    ? `/market/listing/${post.market_listing_id}`
+    : null;
   const photoShareCaption = useMemo(
     () =>
       buildActivityPostShareCaption(
@@ -143,6 +149,14 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
           {post.caption?.trim() && isPhotoPost ? (
             <p className="mt-1.5 text-sm text-foreground/90 leading-relaxed">{post.caption.trim()}</p>
           ) : null}
+          {isMarketListing && listingHref ? (
+            <Link
+              href={listingHref}
+              className="mt-1.5 inline-block text-xs font-medium text-accent hover:text-accent/80"
+            >
+              View listing →
+            </Link>
+          ) : null}
           {highlightCoachHammers && post.coach_id ? (
             <p className="mt-1 text-xs text-muted-foreground">with {coachDisplayName(post)}</p>
           ) : null}
@@ -158,21 +172,38 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
               key={photo.id}
               className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border/60 bg-muted"
             >
-              <button
-                type="button"
-                className="absolute inset-0 z-0 cursor-zoom-in touch-manipulation"
-                aria-label="View full size photo"
-                onClick={() => setLightboxIndex(photoIndex)}
-              >
-                <Image
-                  src={photo.url}
-                  alt=""
-                  fill
-                  className="object-cover pointer-events-none"
-                  sizes="(max-width: 512px) 100vw, 256px"
-                  unoptimized
-                />
-              </button>
+              {isMarketListing && listingHref ? (
+                <Link
+                  href={listingHref}
+                  className="absolute inset-0 z-0 block touch-manipulation"
+                  aria-label="View listing"
+                >
+                  <Image
+                    src={photo.url}
+                    alt=""
+                    fill
+                    className="object-cover transition-opacity hover:opacity-95"
+                    sizes="(max-width: 512px) 100vw, 256px"
+                    unoptimized
+                  />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="absolute inset-0 z-0 cursor-zoom-in touch-manipulation"
+                  aria-label="View full size photo"
+                  onClick={() => setLightboxIndex(photoIndex)}
+                >
+                  <Image
+                    src={photo.url}
+                    alt=""
+                    fill
+                    className="object-cover pointer-events-none"
+                    sizes="(max-width: 512px) 100vw, 256px"
+                    unoptimized
+                  />
+                </button>
+              )}
               {canManagePhotos ? (
                 <button
                   type="button"

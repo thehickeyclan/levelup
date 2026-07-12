@@ -19,6 +19,7 @@ import { normalizeMarketRarity } from '@/lib/market/rarity';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { fetchListingSizes, supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
+import { createMarketListingActivityPost } from '@/lib/activity-feed/market-listing-post';
 import { fetchCatalogListingEnrichment } from '@/lib/market/catalog-listing-enrich';
 import { fetchShoeModelAbout, shoeModelHistoryNeedsRegeneration } from '@/lib/market/shoe-model-content';
 import {
@@ -409,6 +410,9 @@ export async function PATCH(
     void feedListingToCatalog(admin, id).catch((err) => {
       console.error('feedListingToCatalog:', err);
     });
+    if (['collection', 'sell', 'trade'].includes(nextType)) {
+      void createMarketListingActivityPost(admin, id);
+    }
   }
 
   return NextResponse.json({ listing: data });

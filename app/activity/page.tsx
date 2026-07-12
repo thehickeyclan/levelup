@@ -60,6 +60,7 @@ export default async function ActivityPage({
     limit: 30,
     coachId: coachScope.coachId,
     youthWrestlerIds: ctx.youthWrestlerIds,
+    tenantSlug: tenant.slug,
     photoActor: {
       userId: user.id,
       role,

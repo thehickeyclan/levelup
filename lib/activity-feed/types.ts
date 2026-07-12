@@ -8,7 +8,9 @@ export type ActivityTriggerType =
   | 'booking_confirmed'
   | 'market_purchase'
   | 'market_listing_sold'
-  | 'market_trade_completed';
+  | 'market_trade_completed'
+  | 'market_listing_published'
+  | 'market_collection_listed';
 
 export type ActivityFeedScope = 'community' | 'family' | 'coach';
 
@@ -56,22 +58,36 @@ export type ActivityFeedMilestone = {
   milestone: string;
 };
 
+export type ActivityFeedMarketListing = {
+  id: string;
+  brand?: string | null;
+  model?: string | null;
+  title?: string | null;
+  colorway?: string | null;
+  listing_type?: string | null;
+};
+
 export type ActivityFeedPost = {
   id: string;
   trigger_type: ActivityTriggerType;
   created_at: string;
   caption?: string | null;
+  actor_parent_id?: string | null;
   youth_wrestler_id?: string | null;
   coach_id?: string | null;
   session_id?: string | null;
   milestone_id?: string | null;
   review_id?: string | null;
+  market_listing_id?: string | null;
+  market_listings?: ActivityFeedMarketListing | ActivityFeedMarketListing[] | null;
   youth_wrestlers?: ActivityFeedWrestler | ActivityFeedWrestler[] | null;
   athletes?: ActivityFeedCoach | ActivityFeedCoach[] | null;
   sessions?: ActivityFeedSession | ActivityFeedSession[] | null;
   reward_milestones?: ActivityFeedMilestone | ActivityFeedMilestone[] | null;
   reviews?: ActivityFeedReview | ActivityFeedReview[] | null;
   photos?: ActivityFeedPhoto[];
+  seller_display_name?: string | null;
+  seller_photo_url?: string | null;
   /** True when the viewer can remove photos from this post. */
   viewer_can_manage_photos?: boolean;
   kudos_count: number;

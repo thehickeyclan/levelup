@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
     cursor,
     coachId: coachScope.coachId,
     youthWrestlerIds: ctx.youthWrestlerIds,
+    tenantSlug: tenant.slug,
     photoActor: {
       userId: user.id,
       role,

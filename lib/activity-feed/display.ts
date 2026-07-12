@@ -1,4 +1,9 @@
 import type { ActivityFeedPost } from '@/lib/activity-feed/types';
+import {
+  isMarketListingActivityPost,
+  marketListingHeadlineParts,
+  sellerShortDisplayName,
+} from '@/lib/activity-feed/market-listing-activity';
 import { milestoneLabelForKey } from '@/lib/activity-feed/milestone-label';
 import { getSessionTypeDisplay } from '@/lib/session-type-display';
 import { formatEST } from '@/lib/format-date';
@@ -28,10 +33,27 @@ export function activityPostHeadline(post: ActivityFeedPost): string {
     if (post.youth_wrestler_id) return `${name} shared session photos`;
     return `${coachDisplayName(post)} shared session photos`;
   }
+  if (isMarketListingActivityPost(post.trigger_type)) {
+    const listing = first(post.market_listings);
+    const model = listing?.model?.trim() || listing?.title?.trim() || 'a pair';
+    const brand = listing?.brand?.trim();
+    const shoe = brand ? `${brand} ${model}` : model;
+    const seller = sellerShortDisplayName(post.seller_display_name);
+    const { verb, tail } = marketListingHeadlineParts(listing?.listing_type);
+    return `${seller} ${verb} ${shoe} ${tail}`;
+  }
   return `${name} posted`;
 }
 
 export function activityPostSubline(post: ActivityFeedPost): string | null {
+  if (isMarketListingActivityPost(post.trigger_type)) {
+    const listing = first(post.market_listings);
+    const colorway = listing?.colorway?.trim();
+    const bits = ['Guild Market'];
+    if (colorway) bits.unshift(colorway);
+    return bits.join(' · ');
+  }
+
   if (post.trigger_type === 'milestone_hit') {
     const ms = first(post.reward_milestones);
     if (!ms?.milestone) return null;
@@ -71,6 +93,9 @@ export function activityPostReviewLine(post: ActivityFeedPost): string | null {
 }
 
 export function activityPostAvatarUrl(post: ActivityFeedPost): string | null {
+  if (isMarketListingActivityPost(post.trigger_type)) {
+    return post.seller_photo_url?.trim() || null;
+  }
   const yw = first(post.youth_wrestlers);
   return yw?.photo_url?.trim() || null;
 }

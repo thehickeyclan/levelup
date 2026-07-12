@@ -10,9 +10,9 @@ export type ActivityScopeOption = {
 const COMMUNITY: ActivityScopeOption = {
   scope: 'community',
   label: 'All Guild',
-  description: 'Sessions completed, photos shared, and milestones across Guild.',
+  description: 'Sessions completed, photos shared, collection pairs, and milestones across Guild.',
   emptyMessage:
-    'No activity yet. When sessions are marked complete — or someone shares photos — they show up here.',
+    'No activity yet. When sessions are marked complete, photos are shared, or collection pairs go live — they show up here.',
 };
 
 function familyScope(label: string, description: string): ActivityScopeOption {

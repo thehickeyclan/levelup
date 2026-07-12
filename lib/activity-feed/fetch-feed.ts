@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { attachActivityPhotoUrls } from '@/lib/activity-feed/attach-photo-urls';
+import { attachFeedPostPhotos } from '@/lib/activity-feed/attach-photo-urls';
+import { attachMarketListingFeedMeta } from '@/lib/activity-feed/market-listing-post';
 import {
   emptyKudosByReaction,
   normalizeActivityReactionId,
@@ -15,16 +16,19 @@ const POST_SELECT = `
   trigger_type,
   created_at,
   caption,
+  actor_parent_id,
   youth_wrestler_id,
   coach_id,
   session_id,
   milestone_id,
   review_id,
+  market_listing_id,
   youth_wrestlers(id, first_name, last_name, photo_url, school),
   athletes(id, first_name, last_name, photo_url),
   sessions(id, session_type, session_mode, scheduled_datetime, duration_minutes, join_policy, partner_invite_code, facilities(name)),
   reward_milestones(id, milestone),
-  reviews(id, rating, comment)
+  reviews(id, rating, comment),
+  market_listings(id, brand, model, title, colorway, listing_type)
 `;
 
 type FetchOpts = {
@@ -34,6 +38,7 @@ type FetchOpts = {
   coachId?: string | null;
   youthWrestlerIds?: string[];
   photoActor?: PhotoPostActor | null;
+  tenantSlug?: string;
 };
 
 async function attachKudos(
@@ -98,8 +103,12 @@ export async function fetchActivityFeed(
     query = query.eq('is_public', true);
   } else if (opts.scope === 'family') {
     const ids = opts.youthWrestlerIds ?? [];
-    if (ids.length === 0) return { posts: [], nextCursor: null };
-    query = query.in('youth_wrestler_id', ids);
+    if (ids.length === 0) {
+      query = query.eq('actor_parent_id', viewerId);
+    } else {
+      const idList = ids.map((id) => `"${id}"`).join(',');
+      query = query.or(`youth_wrestler_id.in.(${idList}),actor_parent_id.eq.${viewerId}`);
+    }
   } else if (opts.scope === 'coach') {
     const coachId = opts.coachId?.trim();
     if (!coachId) return { posts: [], nextCursor: null };
@@ -120,13 +129,16 @@ export async function fetchActivityFeed(
   const page = hasMore ? rows.slice(0, limit) : rows;
   const nextCursor = hasMore ? page[page.length - 1]?.created_at ?? null : null;
   const posts = await attachKudos(db, page, viewerId);
-  const withPhotos = await attachActivityPhotoUrls(db, posts);
+  const withPhotos = await attachFeedPostPhotos(db, posts);
+  const withSellerMeta = opts.tenantSlug
+    ? await attachMarketListingFeedMeta(opts.tenantSlug, withPhotos)
+    : withPhotos;
   if (opts.photoActor) {
-    const withManage = await attachPhotoPostManageFlags(db, withPhotos, opts.photoActor);
+    const withManage = await attachPhotoPostManageFlags(db, withSellerMeta, opts.photoActor);
     return { posts: withManage, nextCursor };
   }
 
-  return { posts: withPhotos, nextCursor };
+  return { posts: withSellerMeta, nextCursor };
 }
 
 export async function fetchFamilyActivityPosts(

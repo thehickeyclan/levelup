@@ -14,66 +14,51 @@ export function ListingConditionReadSection({
   read: ListingConditionRead;
   sellerView?: boolean;
 }) {
-  const showBreakdown = sellerView && CONDITION_BREAKDOWN_KEYS.some((key) => read.breakdown[key]?.score != null);
+  const showBreakdown =
+    sellerView && CONDITION_BREAKDOWN_KEYS.some((key) => read.breakdown[key]?.score != null);
+  const showSummary = Boolean(read.summary?.trim()) && !sellerView;
 
   return (
-    <section className="space-y-3">
-      <h3 className="text-[10px] font-medium uppercase tracking-[0.15em] text-accent">
-        Condition on this pair
-      </h3>
-      <p className="text-xs text-muted-foreground">
-        {sellerView
-          ? 'AI read of the photos on this listing — not the model in general.'
-          : 'Photo-based condition read for this exact pair.'}
-      </p>
-      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-sm font-medium">
-            <Sparkles className="h-4 w-4 text-accent" />
-            <span>AI condition read</span>
-          </div>
-          <span className="text-lg font-bold text-accent">{read.wrestle_score.toFixed(1)} / 10</span>
+    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <div className="flex items-center gap-1.5 text-sm font-medium">
+          <Sparkles className="h-4 w-4 text-accent shrink-0" />
+          <span>{sellerView ? 'AI condition' : 'Condition read'}</span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {sellerView ? 'Suggested grade' : 'Grade'}:{' '}
-          <span className="text-foreground font-medium">{gradeDisplay(read.grade)}</span>
-        </p>
-        {showBreakdown ? (
-          <>
-            <div className="border-t border-border" />
-            <div className="grid grid-cols-2 gap-2">
-              {CONDITION_BREAKDOWN_KEYS.map((key) => (
-                <div
-                  key={key}
-                  className="rounded-lg bg-muted border border-border px-3 py-2 text-center"
-                >
-                  <p className="text-[10px] text-muted-foreground capitalize">{key}</p>
-                  <p className="text-sm font-semibold">{read.breakdown[key]?.score ?? '—'}</p>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : null}
-        {read.summary ? (
-          <>
-            <div className="border-t border-border" />
-            <p className="text-sm text-foreground/85 leading-relaxed">{read.summary}</p>
-          </>
-        ) : null}
-        {sellerView && read.listing_tip ? (
-          <>
-            <div className="border-t border-border" />
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Listing tip (only you see this)
-            </p>
-            <p className="text-sm text-muted-foreground border-l-2 border-accent pl-3">{read.listing_tip}</p>
-          </>
-        ) : null}
-        <p className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <Sparkles className="h-3 w-3 text-accent" />
-          AI photo analysis on this listing
+        <p className="text-sm text-foreground">
+          <span className="text-lg font-bold text-accent">{read.wrestle_score.toFixed(1)}</span>
+          <span className="text-muted-foreground"> / 10</span>
+          <span className="text-muted-foreground mx-1.5">·</span>
+          <span className="font-medium">{gradeDisplay(read.grade)}</span>
         </p>
       </div>
-    </section>
+
+      {showBreakdown ? (
+        <div className="grid grid-cols-4 gap-2">
+          {CONDITION_BREAKDOWN_KEYS.map((key) => (
+            <div
+              key={key}
+              className="rounded-lg bg-muted border border-border px-2 py-2 text-center"
+            >
+              <p className="text-[10px] text-muted-foreground capitalize">{key}</p>
+              <p className="text-sm font-semibold">{read.breakdown[key]?.score ?? '—'}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {showSummary ? (
+        <p className="text-sm text-foreground/85 leading-relaxed">{read.summary}</p>
+      ) : null}
+
+      {sellerView && read.listing_tip ? (
+        <p className="text-sm text-muted-foreground border-l-2 border-accent pl-3">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground block mb-1">
+            Listing tip
+          </span>
+          {read.listing_tip}
+        </p>
+      ) : null}
+    </div>
   );
 }

@@ -758,15 +758,9 @@ export default function ListingDetailClient() {
             <div className="hidden md:block pt-1">{!isCollection ? ctaBlock : null}</div>
 
             <div className="border-t border-accent/20 pt-6 space-y-4">
-              <div>
-                <h2 className="text-[10px] font-medium uppercase tracking-[0.15em] text-accent">
-                  This pair
-                </h2>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Description and condition for this exact shoe in {isSeller ? 'your' : "the seller's"}{' '}
-                  collection.
-                </p>
-              </div>
+              <h2 className="text-[10px] font-medium uppercase tracking-[0.15em] text-accent">
+                This pair
+              </h2>
 
               {wearState === 'used' && conditionRead ? (
                 <ListingConditionReadSection read={conditionRead} sellerView={isSeller} />
@@ -774,10 +768,9 @@ export default function ListingDetailClient() {
 
               {l.description ? (
                 <div className="rounded-xl border border-border bg-card p-4">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                    Seller description
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Description
                   </p>
-                  <p className="text-[10px] text-muted-foreground mb-2">This listing only</p>
                   <p className="text-sm whitespace-pre-line text-foreground/80 leading-relaxed">
                     {sanitizeBuyerListingDescription(l.description as string)}
                   </p>
@@ -786,10 +779,9 @@ export default function ListingDetailClient() {
 
               {l.collector_notes ? (
                 <div className="rounded-xl border border-border bg-card p-4">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                     Collector notes
                   </p>
-                  <p className="text-[10px] text-muted-foreground mb-2">Story behind this pair</p>
                   <p className="text-sm whitespace-pre-line text-foreground/80 leading-relaxed">
                     {String(l.collector_notes)}
                   </p>

@@ -769,7 +769,7 @@ export default function ListingDetailClient() {
               </div>
 
               {wearState === 'used' && conditionRead ? (
-                <ListingConditionReadSection read={conditionRead} />
+                <ListingConditionReadSection read={conditionRead} sellerView={isSeller} />
               ) : null}
 
               {l.description ? (

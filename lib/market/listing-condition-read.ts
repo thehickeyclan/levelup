@@ -47,3 +47,19 @@ export function extractListingConditionRead(
 export function gradeDisplay(grade: string): string {
   return grade.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+/** Buyers see score, grade, and summary only — not breakdown or seller coaching. */
+export function publicListingConditionRead(
+  read: ListingConditionRead | null,
+  isSeller: boolean
+): ListingConditionRead | null {
+  if (!read) return null;
+  if (isSeller) return read;
+  return {
+    wrestle_score: read.wrestle_score,
+    grade: read.grade,
+    breakdown: {},
+    summary: read.summary ?? null,
+    listing_tip: null,
+  };
+}

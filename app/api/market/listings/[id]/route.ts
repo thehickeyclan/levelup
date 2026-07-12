@@ -20,7 +20,10 @@ import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/marke
 import { fetchListingSizes, supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
 import { fetchShoeModelAbout } from '@/lib/market/shoe-model-content';
-import { extractListingConditionRead } from '@/lib/market/listing-condition-read';
+import {
+  extractListingConditionRead,
+  publicListingConditionRead,
+} from '@/lib/market/listing-condition-read';
 import type { MarketWearState } from '@/lib/market/wear-state';
 import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -203,7 +206,10 @@ export async function GET(
           )
         : null;
 
-    const conditionRead = extractListingConditionRead(listing, wearState);
+    const conditionRead = publicListingConditionRead(
+      extractListingConditionRead(listing, wearState),
+      isOwner
+    );
 
     return NextResponse.json({
       listing: publicListing,

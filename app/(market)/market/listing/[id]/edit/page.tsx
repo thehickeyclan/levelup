@@ -478,6 +478,17 @@ export default function EditListingPage() {
           }),
         });
 
+        void fetch('/api/market/ai/shoe-about', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            listingId,
+            brand: merged.brand,
+            model: merged.model.trim(),
+            modelYear: merged.model_year ? Number(merged.model_year) : null,
+          }),
+        }).catch(() => {});
+
         let conditionAnalysis: AiCondition | null = null;
         if (merged.wear_state === 'used' && images.length > 0) {
           conditionAutoKey.current = null;

@@ -19,6 +19,7 @@ import { normalizeMarketRarity } from '@/lib/market/rarity';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { fetchListingSizes, supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
+import { fetchShoeModelAbout } from '@/lib/market/shoe-model-content';
 import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -188,11 +189,24 @@ export async function GET(
           ai_assisted: aiAssisted,
         };
 
+    const brand = String(listing.brand ?? '').trim();
+    const model = String(listing.model ?? '').trim();
+    const shoeAbout =
+      brand && model.length >= 2
+        ? await fetchShoeModelAbout(
+            supabase,
+            brand,
+            model,
+            (listing.model_year as number | null) ?? null
+          )
+        : null;
+
     return NextResponse.json({
       listing: publicListing,
       sizes,
       seller: { ...seller, school: seller.school },
       sellerStats,
+      shoe_about: shoeAbout,
       pending_offer_count: pendingOfferCount ?? 0,
       following,
       follower_count: followerCount ?? 0,

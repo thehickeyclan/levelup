@@ -1041,6 +1041,22 @@ export default function NewListingPage() {
         prefillCollectorNotesFromCatalog(collectorNotes);
         lastCatalogEnrichKey.current = enrichKey;
 
+        const mergedAfterCatalog = formBase();
+        if (mergedAfterCatalog.brand.trim() && mergedAfterCatalog.model.trim().length >= 2) {
+          void fetch('/api/market/ai/shoe-about', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              listingId: id,
+              brand: mergedAfterCatalog.brand.trim(),
+              model: mergedAfterCatalog.model.trim(),
+              modelYear: mergedAfterCatalog.model_year
+                ? Number(mergedAfterCatalog.model_year)
+                : null,
+            }),
+          }).catch(() => {});
+        }
+
         await fetch(`/api/market/listings/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },

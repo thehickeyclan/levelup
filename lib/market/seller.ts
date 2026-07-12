@@ -37,6 +37,17 @@ export function formatSellerDisplayName(
   return s ? `${base} · ${s}` : base;
 }
 
+/** Small label on a listing detail page, e.g. "From Matt H.'s collection". */
+export function sellerCollectionFromLabel(displayName: string): string {
+  const segment = displayName.split(' · ')[0]?.trim() || displayName.trim();
+  const parts = segment.split(/\s+/).filter(Boolean);
+  if (!parts.length) return "From seller's collection";
+  const first = parts[0];
+  const lastInitial = parts[1]?.charAt(0);
+  const short = lastInitial ? `${first} ${lastInitial}.` : first;
+  return `From ${short}'s collection`;
+}
+
 /** Possessive heading for a seller's collection tab, e.g. "Matt's Collection". */
 export function sellerCollectionHeading(displayName: string): string {
   const segment = displayName.split(' · ')[0]?.trim() || displayName.trim();

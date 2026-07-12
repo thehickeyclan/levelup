@@ -14,7 +14,7 @@ import {
   primaryImageUsesClean,
   type MarketListingImageRow,
 } from '@/lib/market/listing-images';
-import { sellerCollectionHeading, resolveSellerDisplayName } from '@/lib/market/seller';
+import { sellerCollectionFromLabel, resolveSellerDisplayName } from '@/lib/market/seller';
 import { formatListingColorLabel } from '@/lib/market/color-family';
 import { RarityBadge } from '@/components/market/rarity-badge';
 import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-actions';
@@ -31,6 +31,16 @@ import {
   type ListingSizeRow,
 } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
+
+import type { ShoeModelAbout } from '@/lib/market/shoe-model-content';
+
+const ListingShoeAboutSections = dynamic(
+  () =>
+    import('@/components/market/listing-shoe-about-section').then((m) => ({
+      default: m.ListingShoeAboutSections,
+    })),
+  { ssr: false }
+);
 
 const ListingQaSection = dynamic(
   () =>
@@ -65,6 +75,7 @@ export default function ListingDetailClient() {
   const [selectedSizeUs, setSelectedSizeUs] = useState<number | null>(null);
   const [inventorySizes, setInventorySizes] = useState<ListingSizeRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [shoeAbout, setShoeAbout] = useState<ShoeModelAbout | null>(null);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -83,6 +94,7 @@ export default function ListingDetailClient() {
       })
       .then((d) => {
         setData(d);
+        setShoeAbout((d.shoe_about as ShoeModelAbout | null) ?? null);
         setFollowing(Boolean(d.following));
         setActiveImage(0);
         const sizes = (d.sizes as ListingSizeRow[] | undefined) ?? [];
@@ -119,6 +131,27 @@ export default function ListingDetailClient() {
       })
       .catch(() => {});
   }, [id, data?.listing?.rarity, data?.listing?.brand, data?.listing?.model]);
+
+  useEffect(() => {
+    if (!data?.listing || shoeAbout) return;
+    const brand = String(data.listing.brand ?? '').trim();
+    const model = String(data.listing.model ?? '').trim();
+    if (!brand || model.length < 2) return;
+
+    void fetch('/api/market/ai/shoe-about', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        listingId: id,
+        modelYear: (data.listing.model_year as number | null) ?? null,
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.shoe_about) setShoeAbout(d.shoe_about as ShoeModelAbout);
+      })
+      .catch(() => {});
+  }, [id, data?.listing?.brand, data?.listing?.model, data?.listing?.model_year, shoeAbout]);
 
   const toggleFollow = async () => {
     if (!data || data.viewer?.isSeller) return;
@@ -488,19 +521,6 @@ export default function ListingDetailClient() {
 
           {/* Info + CTAs */}
           <div className="space-y-4 md:space-y-5">
-            {isCollection ? (
-              <div className="space-y-1">
-                <Link
-                  href={`/market/seller/${sellerId}?tab=collection`}
-                  className="text-xl font-semibold text-foreground hover:text-accent transition-colors"
-                >
-                  {sellerCollectionHeading(sellerDisplayName)}
-                </Link>
-                <p className="text-xs text-muted-foreground">
-                  Collection — {collectionOffersOpen ? 'offers welcome' : 'not for sale'}
-                </p>
-              </div>
-            ) : null}
             <div>
               <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-accent mb-2">
                 {l.brand as string}
@@ -514,7 +534,7 @@ export default function ListingDetailClient() {
                 <p className="text-xs text-muted-foreground mb-2">Assessing how rare this pair is…</p>
               )}
               <div className="flex items-start justify-between gap-3">
-                <h1 className="text-3xl font-medium tracking-tight text-foreground leading-tight">
+                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground leading-tight">
                   {displayTitle}
                 </h1>
                 <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
@@ -551,6 +571,16 @@ export default function ListingDetailClient() {
                   ) : null}
                 </div>
               </div>
+              {isCollection ? (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {sellerCollectionFromLabel(sellerDisplayName)}
+                </p>
+              ) : null}
+              {isCollection ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Collection — {collectionOffersOpen ? 'offers welcome' : 'not for sale'}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -677,13 +707,6 @@ export default function ListingDetailClient() {
 
             <div className="hidden md:block pt-1">{!isCollection ? ctaBlock : null}</div>
 
-            <ListingSellerCard
-              sellerId={sellerId}
-              displayName={sellerDisplayName}
-              school={sellerSchool}
-              stats={stats}
-            />
-
             {l.description ? (
               <div className="rounded-xl border border-border bg-card p-4">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -695,6 +718,13 @@ export default function ListingDetailClient() {
               </div>
             ) : null}
 
+            <ListingSellerCard
+              sellerId={sellerId}
+              displayName={sellerDisplayName}
+              school={sellerSchool}
+              stats={stats}
+            />
+
             {l.collector_notes ? (
               <div className="rounded-xl border border-border bg-card p-4">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -705,6 +735,8 @@ export default function ListingDetailClient() {
                 </p>
               </div>
             ) : null}
+
+            {shoeAbout ? <ListingShoeAboutSections about={shoeAbout} /> : null}
 
             {sellerId ? (
               <ListingQaSection

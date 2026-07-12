@@ -20,6 +20,8 @@ import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/marke
 import { fetchListingSizes, supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
 import { fetchShoeModelAbout } from '@/lib/market/shoe-model-content';
+import { extractListingConditionRead } from '@/lib/market/listing-condition-read';
+import type { MarketWearState } from '@/lib/market/wear-state';
 import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -175,7 +177,7 @@ export async function GET(
       }
     }
 
-    const wearState = listing.wear_state as string | null;
+    const wearState = (listing.wear_state as MarketWearState) || 'used';
     const sizes = supportsMultiSizeInventory(wearState)
       ? await fetchListingSizes(supabase, id)
       : [];
@@ -201,12 +203,15 @@ export async function GET(
           )
         : null;
 
+    const conditionRead = extractListingConditionRead(listing, wearState);
+
     return NextResponse.json({
       listing: publicListing,
       sizes,
       seller: { ...seller, school: seller.school },
       sellerStats,
       shoe_about: shoeAbout,
+      condition_read: conditionRead,
       pending_offer_count: pendingOfferCount ?? 0,
       following,
       follower_count: followerCount ?? 0,

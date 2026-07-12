@@ -1,9 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { CheckCircle2, Sparkles } from 'lucide-react';
 import type { ShoeModelAbout } from '@/lib/market/shoe-model-content';
 import { cn } from '@/lib/utils';
+
+function modelAttributionLabel(about: ShoeModelAbout, kind: 'specs' | 'history'): string {
+  if (about.verified) {
+    const notes = about.source_notes?.trim();
+    if (notes) return `Verified — ${notes}`;
+    return 'Verified catalog';
+  }
+  if (about.ai_generated) {
+    return kind === 'specs' ? 'AI-generated model specs' : 'AI-generated model history';
+  }
+  return '';
+}
 
 function SpecRow({ label, value }: { label: string; value: string }) {
   return (
@@ -16,39 +28,52 @@ function SpecRow({ label, value }: { label: string; value: string }) {
 
 function CollapsibleSection({
   title,
+  subtitle,
   titleClassName,
   mobileToggleLabel,
   children,
   attribution,
+  attributionLabel = 'AI-generated',
+  attributionIcon = 'sparkles',
 }: {
   title: string;
+  subtitle?: string;
   titleClassName?: string;
   mobileToggleLabel: string;
   children: React.ReactNode;
   attribution?: boolean;
+  attributionLabel?: string;
+  attributionIcon?: 'sparkles' | 'verified';
 }) {
   const [expandedMobile, setExpandedMobile] = useState(false);
 
   return (
-    <section className="border-t border-accent/20 pt-6 space-y-3">
-      <h3
-        className={cn(
-          'text-[10px] font-medium uppercase tracking-[0.15em] text-accent',
-          titleClassName
-        )}
-      >
-        {title}
-      </h3>
+    <section className="border-t border-border/60 pt-6 space-y-3">
+      <div>
+        <h3
+          className={cn(
+            'text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground',
+            titleClassName
+          )}
+        >
+          {title}
+        </h3>
+        {subtitle ? <p className="text-xs text-muted-foreground mt-1">{subtitle}</p> : null}
+      </div>
       <div className={cn('space-y-3', !expandedMobile && 'hidden md:block')}>{children}</div>
-      {attribution ? (
+      {attribution && attributionLabel ? (
         <p
           className={cn(
             'inline-flex items-center gap-1.5 text-[10px] text-muted-foreground',
             !expandedMobile && 'hidden md:inline-flex'
           )}
         >
-          <Sparkles className="h-3 w-3 text-accent" />
-          AI-generated
+          {attributionIcon === 'verified' ? (
+            <CheckCircle2 className="h-3 w-3 text-accent" />
+          ) : (
+            <Sparkles className="h-3 w-3 text-accent" />
+          )}
+          {attributionLabel}
         </p>
       ) : null}
       <button
@@ -63,6 +88,7 @@ function CollapsibleSection({
 }
 
 export function ListingShoeAboutSections({ about }: { about: ShoeModelAbout }) {
+  const modelLabel = `${about.brand} ${about.model}`.trim();
   const specRows = [
     about.release_year ? { label: 'Released', value: String(about.release_year) } : null,
     about.shoe_type ? { label: 'Type', value: about.shoe_type } : null,
@@ -76,14 +102,32 @@ export function ListingShoeAboutSections({ about }: { about: ShoeModelAbout }) {
 
   const hasSpecs = specRows.length > 1;
   const hasHistory = Boolean(about.history_text?.trim());
-  const historyTitle = 'Shoe history';
+  const modelScope = `Shared on every ${modelLabel} listing — not specific to this pair.`;
+  const specsAttribution = modelAttributionLabel(about, 'specs');
+  const historyAttribution = modelAttributionLabel(about, 'history');
 
   if (!hasSpecs && !hasHistory) return null;
 
   return (
     <div className="space-y-0">
+      <div className="border-t border-accent/20 pt-6 pb-2">
+        <h2 className="text-[10px] font-medium uppercase tracking-[0.15em] text-accent">
+          The shoe model
+        </h2>
+        <p className="text-xs text-muted-foreground mt-1">
+          General specs and history for {modelLabel}, not this exact pair.
+        </p>
+      </div>
+
       {hasSpecs ? (
-        <CollapsibleSection title="About this shoe" mobileToggleLabel="Show specs" attribution>
+        <CollapsibleSection
+          title={`About the ${about.model}`}
+          subtitle={modelScope}
+          mobileToggleLabel="Show model specs"
+          attribution={Boolean(specsAttribution)}
+          attributionLabel={specsAttribution}
+          attributionIcon={about.verified ? 'verified' : 'sparkles'}
+        >
           <div className="rounded-xl border border-border bg-card px-4 py-2">
             {specRows.map((row) => (
               <SpecRow key={row.label} label={row.label} value={row.value} />
@@ -94,10 +138,12 @@ export function ListingShoeAboutSections({ about }: { about: ShoeModelAbout }) {
 
       {hasHistory ? (
         <CollapsibleSection
-          title={historyTitle}
-          titleClassName="uppercase"
-          mobileToggleLabel="Read history"
-          attribution
+          title={`History of the ${about.model}`}
+          subtitle={modelScope}
+          mobileToggleLabel="Read model history"
+          attribution={Boolean(historyAttribution)}
+          attributionLabel={historyAttribution}
+          attributionIcon={about.verified ? 'verified' : 'sparkles'}
         >
           <p className="text-sm text-foreground/90 leading-relaxed">{about.history_text}</p>
         </CollapsibleSection>

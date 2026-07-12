@@ -67,6 +67,13 @@ type CatalogFullEntry = CatalogRow & {
   price_source?: string | null;
   inflation_adjusted_price?: string | null;
   collector_notes?: string | null;
+  reference_url?: string | null;
+  source_notes?: string | null;
+  shoe_type?: string | null;
+  closure_type?: string | null;
+  fit_notes?: string | null;
+  notable_features?: string | null;
+  history_text?: string | null;
   reference_image_urls?: string[] | null;
   sale_comps?: SaleComp[] | null;
 };
@@ -100,6 +107,13 @@ type CatalogFormState = {
   value_mid: string;
   value_high: string;
   collector_notes: string;
+  reference_url: string;
+  source_notes: string;
+  shoe_type: string;
+  closure_type: string;
+  fit_notes: string;
+  notable_features: string;
+  history_text: string;
   saleComps: SaleCompForm[];
 };
 
@@ -239,6 +253,13 @@ function emptyForm(): CatalogFormState {
     value_mid: '',
     value_high: '',
     collector_notes: '',
+    reference_url: '',
+    source_notes: '',
+    shoe_type: '',
+    closure_type: '',
+    fit_notes: '',
+    notable_features: '',
+    history_text: '',
     saleComps: [emptySaleComp()],
   };
 }
@@ -264,6 +285,13 @@ function formFromResult(r: ShoeIdResult): CatalogFormState {
     value_mid: String(Math.round(r.value_mid_cents / 100)),
     value_high: String(Math.round(r.value_high_cents / 100)),
     collector_notes: r.collector_notes,
+    reference_url: '',
+    source_notes: '',
+    shoe_type: '',
+    closure_type: '',
+    fit_notes: '',
+    notable_features: '',
+    history_text: '',
     saleComps: [emptySaleComp()],
   };
 }
@@ -339,6 +367,13 @@ function formToPayload(form: CatalogFormState, linkImageUrls?: string[]) {
     value_mid_cents: form.value_mid ? Math.round(Number(form.value_mid) * 100) : undefined,
     value_high_cents: form.value_high ? Math.round(Number(form.value_high) * 100) : undefined,
     collector_notes: form.collector_notes || undefined,
+    reference_url: form.reference_url.trim() || undefined,
+    source_notes: form.source_notes.trim() || undefined,
+    shoe_type: form.shoe_type.trim() || undefined,
+    closure_type: form.closure_type.trim() || undefined,
+    fit_notes: form.fit_notes.trim() || undefined,
+    notable_features: form.notable_features.trim() || undefined,
+    history_text: form.history_text.trim() || undefined,
     reference_image_urls: linkImageUrls?.length ? linkImageUrls : undefined,
     sale_comps: saleCompsToPayload(form.saleComps, linkImageUrls),
     verified: true,
@@ -347,7 +382,7 @@ function formToPayload(form: CatalogFormState, linkImageUrls?: string[]) {
 }
 
 function formatCatalogSaveError(message: string): string {
-  if (/reference_image_urls|sale_comps|original_msrp|catalog_price|inflation_adjusted|colorway_profiles|weight|column/i.test(message)) {
+  if (/reference_image_urls|sale_comps|original_msrp|catalog_price|inflation_adjusted|colorway_profiles|weight|reference_url|source_notes|shoe_type|history_text|column/i.test(message)) {
     return `${message}\n\nApply the wrestling_shoes_catalog migrations on Supabase, then try again.`;
   }
   return message;
@@ -390,6 +425,13 @@ function formFromCatalogEntry(entry: CatalogFullEntry): CatalogFormState {
     value_mid: centsToDollars(entry.value_mid_cents),
     value_high: centsToDollars(entry.value_high_cents),
     collector_notes: entry.collector_notes ?? '',
+    reference_url: entry.reference_url ?? '',
+    source_notes: entry.source_notes ?? '',
+    shoe_type: entry.shoe_type ?? '',
+    closure_type: entry.closure_type ?? '',
+    fit_notes: entry.fit_notes ?? '',
+    notable_features: entry.notable_features ?? '',
+    history_text: entry.history_text ?? '',
     saleComps: saleCompsFromEntry(entry.sale_comps),
   };
 }
@@ -457,6 +499,13 @@ function mergeEnrichmentIntoForm(
     value_mid: enrichment.value_mid_cents ? centsToDollars(enrichment.value_mid_cents) : form.value_mid,
     value_high: enrichment.value_high_cents ? centsToDollars(enrichment.value_high_cents) : form.value_high,
     collector_notes: enrichment.collector_notes || form.collector_notes,
+    reference_url: form.reference_url,
+    source_notes: form.source_notes,
+    shoe_type: form.shoe_type,
+    closure_type: form.closure_type,
+    fit_notes: form.fit_notes,
+    notable_features: form.notable_features,
+    history_text: form.history_text,
     saleComps: form.saleComps,
     original_msrp: form.original_msrp,
     catalog_price: form.catalog_price,
@@ -939,6 +988,72 @@ function CatalogForm({
           onChange={(e) => setForm({ ...form, collector_notes: e.target.value })}
         />
       </div>
+      <div className="space-y-3 rounded-lg border border-[#333] bg-[#141414] p-3">
+        <p className="text-[10px] text-[#888] uppercase tracking-wide">Model listing copy</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Shoe type</Label>
+            <Input
+              value={form.shoe_type}
+              onChange={(e) => setForm({ ...form, shoe_type: e.target.value })}
+              placeholder="Entry-level competition and training"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Closure</Label>
+            <Input
+              value={form.closure_type}
+              onChange={(e) => setForm({ ...form, closure_type: e.target.value })}
+              placeholder="Lace-up"
+            />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">Fit notes</Label>
+          <Input
+            value={form.fit_notes}
+            onChange={(e) => setForm({ ...form, fit_notes: e.target.value })}
+            placeholder="True to size"
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Notable features</Label>
+          <Input
+            value={form.notable_features}
+            onChange={(e) => setForm({ ...form, notable_features: e.target.value })}
+            placeholder="Third generation of the Matflex line"
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Model history (listing detail)</Label>
+          <textarea
+            className="w-full mt-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm min-h-[80px]"
+            value={form.history_text}
+            onChange={(e) => setForm({ ...form, history_text: e.target.value })}
+            placeholder="3–4 sentences shown on every listing for this model"
+          />
+        </div>
+      </div>
+      <div className="space-y-3 rounded-lg border border-[#333] bg-[#141414] p-3">
+        <p className="text-[10px] text-[#888] uppercase tracking-wide">Verification sources</p>
+        <div>
+          <Label className="text-xs">Reference URL</Label>
+          <Input
+            value={form.reference_url}
+            onChange={(e) => setForm({ ...form, reference_url: e.target.value })}
+            placeholder="https://rarewrestlingshoes.com/..."
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Source notes</Label>
+          <textarea
+            className="w-full mt-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm min-h-[60px]"
+            value={form.source_notes}
+            onChange={(e) => setForm({ ...form, source_notes: e.target.value })}
+            placeholder="Drew Phipps, The Wrestling Shoe Handbook — Matflex chapter"
+          />
+        </div>
+      </div>
       {referenceImageUrls != null ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
@@ -1008,6 +1123,7 @@ function isCommunityListingCatalogSource(source: string | null | undefined): boo
 function formatCatalogSourceLabel(source: string | null | undefined): string {
   if (!source) return '—';
   if (source === 'showcase') return 'collection';
+  if (source === 'phipps_handbook') return 'Phipps handbook';
   return source;
 }
 

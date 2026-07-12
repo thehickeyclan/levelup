@@ -78,21 +78,26 @@ Return ONLY valid JSON: { "has_draft": boolean, "message"?: string, "draft"?: { 
 /** @deprecated Use SELLER_AI_DISCLAIMER on seller flows only. */
 export const AI_DISCLAIMER = SELLER_AI_DISCLAIMER;
 
+/** Bump when about-spec copy rules change — triggers regen for catalog rows below this version. */
+export const SHOE_ABOUT_PROMPT_VERSION = 1;
+
 /** Bump when history copy rules change — triggers one-time regen for catalog rows below this version. */
-export const SHOE_HISTORY_PROMPT_VERSION = 2;
+export const SHOE_HISTORY_PROMPT_VERSION = 3;
 
-export const SHOE_HISTORY_SYSTEM_PROMPT = `You are a wrestling shoe historian writing model history for The Guild Market — a marketplace where wrestlers and parents buy shoes to compete, not display.
+export const SHOE_HISTORY_SYSTEM_PROMPT = `You are a wrestling shoe historian writing model history for The Guild Market.
 
-Write factual, specific model history in the voice of a knowledgeable collector or specialist dealer. Plain text only — no markdown, no bullet points, no title line.
+Write factual, specific model history in the voice of a knowledgeable collector. Plain text only — no markdown, no bullet points, no title line.
 
 Rules:
-- 3–4 sentences, roughly 70–120 words
-- Open with the shoe's place in wrestling culture (iconic, defining, entry-level, etc.) or when it was introduced
-- Include concrete design details: sole type, upper materials, fit, weight feel — not vague praise
-- Name who wore it or who it was built for (youth, high school, elite, etc.) when accurate
-- Close with legacy: generations, longevity, collector status, or continued relevance today
-- Use catalog facts when provided; never invent a release era that contradicts catalog years
-- Do not use generic filler ("combining affordability, durability, and reliable performance" without specifics)
+- Exactly 3–4 sentences, 70–110 words total — never longer
+- Open with when introduced or the shoe's role (entry-level, iconic, etc.)
+- Include 1–2 concrete design details (sole, upper, fit) using ONLY catalog facts when provided
+- Name who it was built for (youth, high school, elite) when accurate
+- Close with one legacy line (generations, community use, collector status)
+- NEVER invent sole construction — if catalog says full/unisole/one-piece outsole, do NOT call it split sole
+- Only say "split sole" if catalog sole explicitly describes a split sole
+- Do not copy sole type from example shoes — examples are for tone and length only
+- Do not write auction-catalog filler or nostalgic padding — stay tight and factual
 - Name the exact brand and model in the first sentence`;
 
 export function buildShoeHistoryUserPrompt(input: {
@@ -119,12 +124,12 @@ export function buildShoeHistoryUserPrompt(input: {
 
   const contextBlock =
     catalogLines.length > 0
-      ? `\n\nCatalog facts (prefer these over guessing):\n${catalogLines.map((l) => `- ${l}`).join('\n')}`
-      : '';
+      ? `\n\nCatalog facts — REQUIRED when present; do not contradict these:\n${catalogLines.map((l) => `- ${l}`).join('\n')}`
+      : '\n\nNo catalog sole data — describe role and community use; omit sole construction unless you are certain.';
 
   return `Write the model history paragraph for: ${input.brand} ${input.model}${contextBlock}
 
-Match this depth and specificity — same tone, different shoe:
+Match this depth, length, and tone — not their sole details:
 
 Example A:
 "The adidas Combat Speed is one of the most iconic wrestling shoes in history. First introduced in the late 1980s, its lightweight design, split sole, and sock-like fit made it a staple on the feet of elite wrestlers for decades. Few wrestling shoes have achieved the lasting popularity and collector status of the original Combat Speed colorways."
@@ -132,7 +137,7 @@ Example A:
 Example B:
 "Introduced in the late 2000s, the Nike Takedown was designed as an affordable, entry-level wrestling shoe that delivered dependable performance without sacrificing Nike's signature style. Featuring a lightweight synthetic upper, full-length gum rubber outsole, and secure fit, the Takedown quickly became a popular choice for youth and high school wrestlers. Through multiple generations, it has remained one of Nike's longest-running wrestling shoe lines, introducing thousands of athletes to the sport."
 
-Avoid vague summaries with no design specifics (e.g. only "affordability, durability, and reliable performance" with no sole, upper, or fit details).
+Hard limits: 3–4 sentences, 70–110 words. No split sole unless catalog sole says split.
 
 Return only the paragraph for ${input.brand} ${input.model}.`;
 }

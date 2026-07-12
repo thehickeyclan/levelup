@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { callClaude, extractJsonFromClaude } from '@/lib/market/ai/client';
 import {
+  SHOE_ABOUT_PROMPT_VERSION,
   SHOE_HISTORY_PROMPT_VERSION,
   SHOE_HISTORY_SYSTEM_PROMPT,
   buildShoeHistoryUserPrompt,
@@ -21,6 +22,9 @@ export type ShoeModelAbout = {
   notable_features: string | null;
   history_text: string | null;
   ai_generated: boolean;
+  verified: boolean;
+  source_notes: string | null;
+  reference_url: string | null;
 };
 
 const AboutSpecsSchema = z.object({
@@ -33,8 +37,23 @@ const AboutSpecsSchema = z.object({
 });
 
 function isMissingCatalogAboutColumn(message: string): boolean {
-  return /shoe_type|closure_type|fit_notes|notable_features|history_text|about_generated_at|history_generated_at|history_prompt_version|does not exist|schema cache/i.test(
+  return /shoe_type|closure_type|fit_notes|notable_features|history_text|about_generated_at|history_generated_at|history_prompt_version|about_prompt_version|reference_url|source_notes|does not exist|schema cache/i.test(
     message
+  );
+}
+
+function isVerifiedCatalogEntry(entry: Record<string, unknown> | null): boolean {
+  return Boolean(entry?.verified);
+}
+
+function catalogHasAboutFields(entry: Record<string, unknown>): boolean {
+  return (
+    Boolean(entry.shoe_type) ||
+    Boolean(entry.closure_type) ||
+    Boolean(entry.fit_notes) ||
+    Boolean(entry.notable_features) ||
+    Boolean(entry.upper_material) ||
+    Boolean(entry.sole_description)
   );
 }
 
@@ -49,10 +68,20 @@ function catalogHistoryContext(entry: Record<string, unknown> | null) {
   };
 }
 
+function aboutNeedsRegeneration(entry: Record<string, unknown> | null): boolean {
+  if (!entry) return true;
+  if (isVerifiedCatalogEntry(entry) && catalogHasAboutFields(entry)) return false;
+  const hasFields = catalogHasAboutFields(entry);
+  if (!hasFields || !entry.about_generated_at) return true;
+  const version = Number(entry.about_prompt_version ?? 0);
+  return version < SHOE_ABOUT_PROMPT_VERSION;
+}
+
 function historyNeedsRegeneration(entry: Record<string, unknown> | null): boolean {
   if (!entry) return true;
   const text = String(entry.history_text ?? '').trim();
   if (!text) return true;
+  if (isVerifiedCatalogEntry(entry)) return false;
   const version = Number(entry.history_prompt_version ?? 0);
   return version < SHOE_HISTORY_PROMPT_VERSION;
 }
@@ -64,6 +93,15 @@ export async function shoeModelHistoryNeedsRegeneration(
 ): Promise<boolean> {
   const entry = (await findCatalogEntry(supabase, brand, model)) as Record<string, unknown> | null;
   return historyNeedsRegeneration(entry);
+}
+
+export async function shoeModelAboutNeedsRegeneration(
+  supabase: SupabaseClient,
+  brand: string,
+  model: string
+): Promise<boolean> {
+  const entry = (await findCatalogEntry(supabase, brand, model)) as Record<string, unknown> | null;
+  return aboutNeedsRegeneration(entry);
 }
 
 export function shoeModelAboutFromRow(
@@ -89,6 +127,9 @@ export function shoeModelAboutFromRow(
 
   if (!hasAbout && !hasHistory) return null;
 
+  const verified = Boolean(row.verified);
+  const hasAiTimestamps = Boolean(row.about_generated_at || row.history_generated_at);
+
   return {
     brand,
     model,
@@ -100,7 +141,10 @@ export function shoeModelAboutFromRow(
     fit_notes: (row.fit_notes as string | null)?.trim() || null,
     notable_features: (row.notable_features as string | null)?.trim() || null,
     history_text: (row.history_text as string | null)?.trim() || null,
-    ai_generated: Boolean(row.about_generated_at || row.history_generated_at),
+    ai_generated: hasAiTimestamps && !verified,
+    verified,
+    source_notes: (row.source_notes as string | null)?.trim() || null,
+    reference_url: (row.reference_url as string | null)?.trim() || null,
   };
 }
 
@@ -118,19 +162,30 @@ export async function fetchShoeModelAbout(
 async function generateAboutSpecs(
   brand: string,
   model: string,
-  year: number | null
+  year: number | null,
+  catalogEntry: Record<string, unknown> | null
 ): Promise<z.infer<typeof AboutSpecsSchema>> {
   const yearLabel = year ? ` (${year})` : '';
+  const catalogSole = String(catalogEntry?.sole_description ?? '').trim();
+  const catalogUpper = String(catalogEntry?.upper_material ?? '').trim();
+  const catalogContext = [
+    catalogSole ? `Known sole (prefer if accurate): ${catalogSole}` : null,
+    catalogUpper ? `Known upper (prefer if accurate): ${catalogUpper}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
   const outcome = await callClaude(
-    'You are a wrestling shoe expert. Return JSON only — no preamble, no markdown.',
+    'You are a wrestling shoe expert. Return JSON only — no preamble, no markdown. Be precise about sole construction — only use "split sole" when the model truly has separate heel and forefoot pods.',
     [
       {
         type: 'text',
         text: `For the ${brand} ${model}${yearLabel} wrestling shoe, provide structured specs in JSON only:
+${catalogContext ? `\n${catalogContext}\n` : ''}
 {
   "shoe_type": "Competition / Training / Practice",
   "upper_material": "brief material description",
-  "sole_type": "brief sole description",
+  "sole_type": "accurate sole — full-length/unisole rubber outsole OR split sole OR other; do not guess split sole",
   "closure_type": "Lace-up / Velcro / etc",
   "fit_notes": "True to size / Runs narrow / etc",
   "notable_features": "one key distinguishing feature"
@@ -144,33 +199,112 @@ async function generateAboutSpecs(
   const parsed = AboutSpecsSchema.parse(
     JSON.parse(extractJsonFromClaude(outcome.result.text))
   );
+
+  const catalogSoleTrim = String(catalogEntry?.sole_description ?? '').trim();
+  const catalogUpperTrim = String(catalogEntry?.upper_material ?? '').trim();
+  if (catalogSoleTrim) parsed.sole_type = catalogSoleTrim;
+  if (catalogUpperTrim) parsed.upper_material = catalogUpperTrim;
+
+  if (
+    parsed.sole_type &&
+    historyMentionsSplitSole(parsed.sole_type) &&
+    catalogSoleTrim &&
+    !catalogSoleIsSplit(catalogSoleTrim)
+  ) {
+    parsed.sole_type = catalogSoleTrim;
+  }
+
   return parsed;
+}
+
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function catalogSoleIsSplit(sole: string | null | undefined): boolean {
+  const lower = (sole ?? '').toLowerCase();
+  return lower.includes('split');
+}
+
+function historyMentionsSplitSole(history: string): boolean {
+  return /\bsplit[\s-]?sole\b/i.test(history);
+}
+
+function historyValidationError(
+  history: string,
+  catalogEntry: Record<string, unknown> | null
+): string | null {
+  const sole = String(catalogEntry?.sole_description ?? '').trim();
+  if (sole && !catalogSoleIsSplit(sole) && historyMentionsSplitSole(history)) {
+    return `Catalog sole is "${sole}" — not a split sole. Rewrite without split sole.`;
+  }
+  if (wordCount(history) > 120) {
+    return 'Too long — rewrite to 3–4 sentences and 70–110 words.';
+  }
+  return null;
+}
+
+function mergeSpecsIntoEntry(
+  entry: Record<string, unknown> | null,
+  specs: z.infer<typeof AboutSpecsSchema>
+): Record<string, unknown> {
+  return {
+    ...(entry ?? {}),
+    shoe_type: specs.shoe_type ?? entry?.shoe_type ?? null,
+    upper_material: specs.upper_material ?? entry?.upper_material ?? null,
+    sole_description: specs.sole_type ?? entry?.sole_description ?? null,
+    closure_type: specs.closure_type ?? entry?.closure_type ?? null,
+    fit_notes: specs.fit_notes ?? entry?.fit_notes ?? null,
+    notable_features: specs.notable_features ?? entry?.notable_features ?? null,
+  };
 }
 
 async function generateHistoryParagraph(
   brand: string,
   model: string,
   year: number | null,
-  catalogEntry: Record<string, unknown> | null
+  catalogEntry: Record<string, unknown> | null,
+  correction?: string
 ): Promise<string> {
+  const basePrompt = buildShoeHistoryUserPrompt({
+    brand,
+    model,
+    releaseYear: year,
+    catalog: catalogHistoryContext(catalogEntry),
+  });
+  const prompt = correction
+    ? `${basePrompt}\n\nCORRECTION REQUIRED: ${correction}\nRewrite the paragraph.`
+    : basePrompt;
+
   const outcome = await callClaude(
     SHOE_HISTORY_SYSTEM_PROMPT,
-    [
-      {
-        type: 'text',
-        text: buildShoeHistoryUserPrompt({
-          brand,
-          model,
-          releaseYear: year,
-          catalog: catalogHistoryContext(catalogEntry),
-        }),
-      },
-    ],
-    1200
+    [{ type: 'text', text: prompt }],
+    500
   );
 
   if (!outcome.ok) throw new Error('Could not generate shoe history');
   return outcome.result.text.trim();
+}
+
+async function generateValidatedHistoryParagraph(
+  brand: string,
+  model: string,
+  year: number | null,
+  catalogEntry: Record<string, unknown> | null
+): Promise<string> {
+  let history = await generateHistoryParagraph(brand, model, year, catalogEntry);
+  const firstError = historyValidationError(history, catalogEntry);
+  if (firstError) {
+    history = await generateHistoryParagraph(brand, model, year, catalogEntry, firstError);
+    const secondError = historyValidationError(history, catalogEntry);
+    if (secondError) {
+      history = history
+        .replace(/\bsplit[\s-]?sole\b/gi, 'full rubber outsole')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+  }
+  return history;
 }
 
 export async function ensureShoeModelContent(
@@ -186,13 +320,7 @@ export async function ensureShoeModelContent(
     input.modelYear ??
     (entry ? parseModelYearHint(null, (entry.years_produced as string | null) ?? null) : null);
 
-  const needsAbout =
-    !entry ||
-    (!entry.shoe_type &&
-      !entry.closure_type &&
-      !entry.fit_notes &&
-      !entry.notable_features &&
-      !entry.about_generated_at);
+  const needsAbout = !entry || aboutNeedsRegeneration(entry);
   const needsHistory =
     input.forceRegenerateHistory || historyNeedsRegeneration(entry);
 
@@ -202,20 +330,34 @@ export async function ensureShoeModelContent(
 
   try {
     let specs: z.infer<typeof AboutSpecsSchema> = {};
-    if (needsAbout) {
-      specs = await generateAboutSpecs(brand, model, releaseYear);
+    let groundedEntry = entry;
+
+    const shouldGenerateSpecs =
+      needsAbout ||
+      (needsHistory &&
+        (!String(entry?.sole_description ?? '').trim() || historyNeedsRegeneration(entry)));
+
+    if (shouldGenerateSpecs) {
+      specs = await generateAboutSpecs(brand, model, releaseYear, entry);
+      groundedEntry = mergeSpecsIntoEntry(entry, specs);
+      entry = groundedEntry;
     }
 
     let historyText = (entry?.history_text as string | null)?.trim() || null;
     if (needsHistory) {
-      historyText = await generateHistoryParagraph(brand, model, releaseYear, entry);
+      historyText = await generateValidatedHistoryParagraph(
+        brand,
+        model,
+        releaseYear,
+        groundedEntry
+      );
     }
 
     const now = new Date().toISOString();
     const payload: Record<string, unknown> = {
       updated_at: now,
     };
-    if (needsAbout) {
+    if (shouldGenerateSpecs) {
       Object.assign(payload, {
         shoe_type: specs.shoe_type ?? null,
         upper_material: specs.upper_material ?? entry?.upper_material ?? null,
@@ -224,6 +366,7 @@ export async function ensureShoeModelContent(
         fit_notes: specs.fit_notes ?? null,
         notable_features: specs.notable_features ?? null,
         about_generated_at: now,
+        about_prompt_version: SHOE_ABOUT_PROMPT_VERSION,
       });
     }
     if (needsHistory && historyText) {

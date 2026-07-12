@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { checkAndIncrementAiUsage, isAiRateLimitBypass, aiLimitReachedMessage } from '@/lib/market/ai/rate-limit';
-import { ensureShoeModelContent, fetchShoeModelAbout, shoeModelHistoryNeedsRegeneration } from '@/lib/market/shoe-model-content';
+import { ensureShoeModelContent, fetchShoeModelAbout, shoeModelAboutNeedsRegeneration, shoeModelHistoryNeedsRegeneration } from '@/lib/market/shoe-model-content';
 
 export async function POST(req: NextRequest) {
   const ctx = await requireMarketUser();
@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
 
   const existing = await fetchShoeModelAbout(supabase, brand, model, modelYear);
   const staleHistory = await shoeModelHistoryNeedsRegeneration(supabase, brand, model);
-  const shouldGenerate = Boolean(body.generate) || staleHistory || !existing;
+  const staleAbout = await shoeModelAboutNeedsRegeneration(supabase, brand, model);
+  const shouldGenerate = Boolean(body.generate) || staleHistory || staleAbout || !existing;
 
   if (existing && !shouldGenerate) {
     return NextResponse.json({ shoe_about: existing });

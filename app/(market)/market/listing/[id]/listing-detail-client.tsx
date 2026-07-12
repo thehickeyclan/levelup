@@ -33,6 +33,15 @@ import {
 import { cn } from '@/lib/utils';
 
 import type { ShoeModelAbout } from '@/lib/market/shoe-model-content';
+import type { ListingConditionRead } from '@/lib/market/listing-condition-read';
+
+const ListingConditionReadSection = dynamic(
+  () =>
+    import('@/components/market/listing-condition-read-section').then((m) => ({
+      default: m.ListingConditionReadSection,
+    })),
+  { ssr: false }
+);
 
 const ListingShoeAboutSections = dynamic(
   () =>
@@ -76,6 +85,8 @@ export default function ListingDetailClient() {
   const [inventorySizes, setInventorySizes] = useState<ListingSizeRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [shoeAbout, setShoeAbout] = useState<ShoeModelAbout | null>(null);
+  const [conditionRead, setConditionRead] = useState<ListingConditionRead | null>(null);
+  const [conditionAnalyzing, setConditionAnalyzing] = useState(false);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -95,6 +106,7 @@ export default function ListingDetailClient() {
       .then((d) => {
         setData(d);
         setShoeAbout((d.shoe_about as ShoeModelAbout | null) ?? null);
+        setConditionRead((d.condition_read as ListingConditionRead | null) ?? null);
         setFollowing(Boolean(d.following));
         setActiveImage(0);
         const sizes = (d.sizes as ListingSizeRow[] | undefined) ?? [];
@@ -152,6 +164,37 @@ export default function ListingDetailClient() {
       })
       .catch(() => {});
   }, [id, data?.listing?.brand, data?.listing?.model, data?.listing?.model_year, shoeAbout]);
+
+  useEffect(() => {
+    if (!data?.listing || conditionRead || conditionAnalyzing) return;
+    if (!data.viewer?.isSeller) return;
+    const wear = (data.listing.wear_state as string) || 'used';
+    if (wear !== 'used') return;
+    const imgs = (data.listing.market_listing_images as unknown[] | undefined) ?? [];
+    if (!imgs.length) return;
+    if (!String(data.listing.model ?? '').trim()) return;
+
+    setConditionAnalyzing(true);
+    void fetch('/api/market/ai/condition', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listingId: id, wear_state: 'used' }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.analysis) {
+          setConditionRead({
+            wrestle_score: Number(d.analysis.wrestle_score),
+            grade: String(d.analysis.grade),
+            breakdown: d.analysis.breakdown ?? {},
+            summary: d.analysis.summary ?? null,
+            listing_tip: d.analysis.listing_tip ?? null,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setConditionAnalyzing(false));
+  }, [id, data?.listing, data?.viewer?.isSeller, conditionRead, conditionAnalyzing]);
 
   const toggleFollow = async () => {
     if (!data || data.viewer?.isSeller) return;
@@ -601,6 +644,13 @@ export default function ListingDetailClient() {
               </p>
             ) : null}
 
+            {wearState === 'used' && isSeller && conditionAnalyzing && !conditionRead ? (
+              <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3 text-accent animate-pulse" />
+                AI assessing condition from photos…
+              </p>
+            ) : null}
+
             {offerCount > 0 && (!isCollection || collectionOffersOpen) ? (
               <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3">
                 <span className="text-sm text-muted-foreground">Already interested</span>
@@ -707,16 +757,45 @@ export default function ListingDetailClient() {
 
             <div className="hidden md:block pt-1">{!isCollection ? ctaBlock : null}</div>
 
-            {l.description ? (
-              <div className="rounded-xl border border-border bg-card p-4">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                  Seller description
-                </p>
-                <p className="text-sm whitespace-pre-line text-foreground/80 leading-relaxed">
-                  {sanitizeBuyerListingDescription(l.description as string)}
+            <div className="border-t border-accent/20 pt-6 space-y-4">
+              <div>
+                <h2 className="text-[10px] font-medium uppercase tracking-[0.15em] text-accent">
+                  This pair
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Description and condition for this exact shoe in {isSeller ? 'your' : "the seller's"}{' '}
+                  collection.
                 </p>
               </div>
-            ) : null}
+
+              {wearState === 'used' && conditionRead ? (
+                <ListingConditionReadSection read={conditionRead} />
+              ) : null}
+
+              {l.description ? (
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    Seller description
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mb-2">This listing only</p>
+                  <p className="text-sm whitespace-pre-line text-foreground/80 leading-relaxed">
+                    {sanitizeBuyerListingDescription(l.description as string)}
+                  </p>
+                </div>
+              ) : null}
+
+              {l.collector_notes ? (
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    Collector notes
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mb-2">Story behind this pair</p>
+                  <p className="text-sm whitespace-pre-line text-foreground/80 leading-relaxed">
+                    {String(l.collector_notes)}
+                  </p>
+                </div>
+              ) : null}
+            </div>
 
             <ListingSellerCard
               sellerId={sellerId}
@@ -724,17 +803,6 @@ export default function ListingDetailClient() {
               school={sellerSchool}
               stats={stats}
             />
-
-            {l.collector_notes ? (
-              <div className="rounded-xl border border-border bg-card p-4">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                  Collector notes
-                </p>
-                <p className="text-sm whitespace-pre-line text-foreground/80 leading-relaxed">
-                  {String(l.collector_notes)}
-                </p>
-              </div>
-            ) : null}
 
             {shoeAbout ? <ListingShoeAboutSections about={shoeAbout} /> : null}
 

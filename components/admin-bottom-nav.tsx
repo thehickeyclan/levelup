@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { LayoutDashboard, Gauge, Calendar, Star } from 'lucide-react';
+import { LayoutDashboard, Gauge, Calendar, Star, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type NavItem = {
@@ -32,6 +32,12 @@ const ITEMS: NavItem[] = [
     match: (section) => section === 'bookings',
   },
   {
+    href: '/activity',
+    label: 'Activity',
+    icon: Activity,
+    match: (_section, _sub, pathname) => pathname.startsWith('/activity'),
+  },
+  {
     href: '/admin?section=people&sub=coaches',
     label: 'Coaches',
     icon: Star,
@@ -39,7 +45,7 @@ const ITEMS: NavItem[] = [
   },
 ];
 
-/** Admin mobile: four primary destinations only. */
+/** Admin mobile: primary destinations including Activity. */
 export function AdminBottomNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();

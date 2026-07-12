@@ -68,6 +68,7 @@ function isYouthWrestlerRoute(pathname: string | null): boolean {
 function isAdminRoute(pathname: string | null): boolean {
   if (!pathname) return false;
   if (pathname === '/account' || pathname.startsWith('/account/')) return true;
+  if (pathname === '/activity' || pathname.startsWith('/activity/')) return true;
   return pathname === '/admin' || pathname.startsWith('/admin/');
 }
 

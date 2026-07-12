@@ -157,6 +157,23 @@ export async function fetchEligiblePhotoSessions(
     return rows.map((r) => toPhotoSessionOption(r, parts.get(r.id) ?? []));
   }
 
+  if (actor.role === 'admin') {
+    const { data } = await admin
+      .from('sessions')
+      .select(sessionSelect)
+      .eq('status', 'completed')
+      .gte('scheduled_datetime', sinceIso)
+      .order('scheduled_datetime', { ascending: false })
+      .limit(60);
+
+    const rows = (data ?? []) as CompletedSessionRow[];
+    const parts = await participantsBySession(
+      admin,
+      rows.map((r) => r.id)
+    );
+    return rows.map((r) => toPhotoSessionOption(r, parts.get(r.id) ?? []));
+  }
+
   let youthIds: string[] = [];
   if (actor.role === 'youth_wrestler') {
     youthIds = [actor.userId];
@@ -230,6 +247,21 @@ export async function assertCanPostPhotosToSession(
 
   if (actor.role === 'admin') {
     if (actor.coachId && actor.coachId === coachId) {
+      return { ok: true, session: { id: session.id, athlete_id: coachId }, actorParentId: null };
+    }
+    if (!actor.coachId) {
+      if (youthWrestlerId) {
+        const { data: part } = await admin
+          .from('session_participants')
+          .select('id')
+          .eq('session_id', sessionId)
+          .eq('youth_wrestler_id', youthWrestlerId)
+          .maybeSingle();
+
+        if (!part) {
+          return { ok: false, status: 400, error: 'This wrestler was not on that session roster' };
+        }
+      }
       return { ok: true, session: { id: session.id, athlete_id: coachId }, actorParentId: null };
     }
   }

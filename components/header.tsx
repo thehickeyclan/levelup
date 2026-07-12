@@ -351,6 +351,16 @@ export function Header() {
                   >
                     Dashboard
                   </Link>
+                  <Link
+                    href={activityNavHref('admin')}
+                    className={
+                      pathname.startsWith('/activity')
+                        ? 'text-accent font-semibold'
+                        : 'text-white hover:text-accent transition-colors font-medium'
+                    }
+                  >
+                    Activity
+                  </Link>
                   <button
                     type="button"
                     onClick={goToAdmin}

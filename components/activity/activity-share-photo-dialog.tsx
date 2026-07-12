@@ -115,6 +115,9 @@ export function ActivitySharePhotoDialog({
   const sessionLabel = (s: PhotoSession) => {
     const dt = formatEST(new Date(s.scheduled_datetime), 'EEE, MMM d · h:mm a');
     const type = getSessionTypeDisplay(s.session_type, s.session_mode).label;
+    if (role === 'admin') {
+      return `${dt} · ${type} · ${s.coachName} · ${s.facilityName}`;
+    }
     return `${dt} · ${type} · ${s.facilityName}`;
   };
 
@@ -193,8 +196,9 @@ export function ActivitySharePhotoDialog({
               </div>
             ) : sessions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No completed sessions yet. Mark a session complete first, then come back to share
-                photos.
+                {role === 'admin'
+                  ? 'No completed sessions in the last 90 days. Mark a session complete first, then come back to share photos.'
+                  : 'No completed sessions yet. Mark a session complete first, then come back to share photos.'}
               </p>
             ) : (
               <>

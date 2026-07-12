@@ -31,6 +31,7 @@ export const ColorwayValueTierSchema = z.enum(['common', 'uncommon', 'rare', 'gr
 
 export const ColorwayProfileSchema = z.object({
   name: z.string().min(1),
+  aliases: z.array(z.string().min(1)).max(8).optional(),
   availability: ColorwayAvailabilitySchema.default('unknown'),
   value_tier: ColorwayValueTierSchema.optional(),
   retail_anchor_cents: z.number().int().positive().optional(),

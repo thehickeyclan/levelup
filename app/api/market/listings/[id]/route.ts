@@ -19,6 +19,7 @@ import { normalizeMarketRarity } from '@/lib/market/rarity';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { fetchListingSizes, supportsMultiSizeInventory } from '@/lib/market/listing-sizes';
 import { feedListingToCatalog } from '@/lib/market/catalog-from-listing';
+import { fetchCatalogListingEnrichment } from '@/lib/market/catalog-listing-enrich';
 import { fetchShoeModelAbout } from '@/lib/market/shoe-model-content';
 import {
   extractListingConditionRead,
@@ -206,6 +207,16 @@ export async function GET(
           )
         : null;
 
+    const catalogEnrichment =
+      brand && model.length >= 2
+        ? await fetchCatalogListingEnrichment(
+            supabase,
+            brand,
+            model,
+            (listing.colorway as string | null) ?? null
+          )
+        : null;
+
     const conditionRead = publicListingConditionRead(
       extractListingConditionRead(listing, wearState),
       isOwner
@@ -217,6 +228,7 @@ export async function GET(
       seller: { ...seller, school: seller.school },
       sellerStats,
       shoe_about: shoeAbout,
+      colorway_aliases: catalogEnrichment?.colorway_aliases ?? [],
       condition_read: conditionRead,
       pending_offer_count: pendingOfferCount ?? 0,
       following,

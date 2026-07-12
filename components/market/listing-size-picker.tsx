@@ -1,10 +1,7 @@
 'use client';
 
 import type { ListingSizeRow } from '@/lib/market/listing-sizes';
-import {
-  formatMarketShoeSizeDual,
-  formatMarketShoeSizeDualLabel,
-} from '@/lib/market/listing-sizes';
+import { formatMarketShoeSizeDual, formatShoeSizeOptionLabel } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
 
 export function ListingSizePicker({
@@ -28,36 +25,38 @@ export function ListingSizePicker({
   }
 
   return (
-    <div className={cn('space-y-3', className)}>
-      <p className="text-sm text-muted-foreground">{formatMarketShoeSizeDualLabel(value)}</p>
-      <div className="grid grid-cols-3 gap-2">
-        {available.map((row) => {
-          const selected = value === row.size_us;
-          return (
-            <button
-              key={row.size_us}
-              type="button"
-              onClick={() => onChange(row.size_us)}
-              className={cn(
-                'min-h-11 rounded-md border px-2 py-2 text-xs font-medium text-center leading-tight transition-colors touch-manipulation',
-                selected
-                  ? 'border-foreground border-2 bg-background text-foreground'
-                  : 'border-border text-foreground hover:border-foreground/40'
-              )}
-            >
-              {formatMarketShoeSizeDual(row.size_us)}
-              {row.quantity > 1 ? (
-                <span className="block text-[10px] text-muted-foreground mt-0.5">
-                  ×{row.quantity}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-      <p className="text-[11px] text-muted-foreground leading-snug">
-        Men&apos;s / women&apos;s US sizes — same shoe, standard +1.5 conversion.
-      </p>
+    <div className={cn('space-y-2', className)}>
+      <label className="text-sm text-muted-foreground" htmlFor="listing-size-select">
+        Select size
+      </label>
+      <select
+        id="listing-size-select"
+        className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm h-11"
+        value={value ?? ''}
+        onChange={(e) => {
+          const next = Number(e.target.value);
+          if (Number.isFinite(next)) onChange(next);
+        }}
+      >
+        <option value="" disabled>
+          Choose men&apos;s / women&apos;s size
+        </option>
+        {available.map((row) => (
+          <option key={row.size_us} value={row.size_us}>
+            {formatShoeSizeOptionLabel(row.size_us)}
+            {row.quantity > 1 ? ` · ${row.quantity} in stock` : ''}
+          </option>
+        ))}
+      </select>
+      {value != null ? (
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          Selected: {formatMarketShoeSizeDual(value)} (men&apos;s / women&apos;s US)
+        </p>
+      ) : (
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          Men&apos;s and women&apos;s US sizes — standard +1.5 conversion.
+        </p>
+      )}
     </div>
   );
 }

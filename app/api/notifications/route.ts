@@ -9,6 +9,7 @@ import {
   resolveNotificationUserId,
   type NotificationRow,
 } from '@/lib/notification-audience';
+import { notificationRetentionCutoff } from '@/lib/notification-retention';
 
 async function loadAudienceContext(tenantSlug: string, authUserId: string) {
   const supabase = await createClient(tenantSlug);
@@ -36,11 +37,14 @@ export async function GET(req: NextRequest) {
     const queryDb =
       targetUserId !== user.id ? createAdminClient(tenant.slug) : supabase;
 
+    const retentionCutoff = notificationRetentionCutoff();
+
     if (countOnly) {
       let countQuery = queryDb
         .from('notifications')
         .select('id, type, read_at')
         .eq('user_id', targetUserId)
+        .gte('created_at', retentionCutoff)
         .order('created_at', { ascending: false })
         .limit(50);
       if (unreadOnly) countQuery = countQuery.is('read_at', null);
@@ -55,6 +59,7 @@ export async function GET(req: NextRequest) {
       .from('notifications')
       .select('id, type, title, body, data, read_at, created_at')
       .eq('user_id', targetUserId)
+      .gte('created_at', retentionCutoff)
       .order('created_at', { ascending: false })
       .limit(50);
     if (unreadOnly) query = query.is('read_at', null);

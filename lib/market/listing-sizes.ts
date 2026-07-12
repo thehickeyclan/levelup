@@ -52,7 +52,25 @@ export function formatMarketShoeSize(size: number | string | null | undefined): 
 }
 
 export function formatMarketShoeSizeFieldLabel(): string {
-  return `Size (${MARKET_SHOE_SIZE_UNIT})`;
+  return 'Size (men\'s US — women\'s shown in dropdown)';
+}
+
+/** Men's US sizes for wrestling retail; DB stores men's, women's = men + 1.5. */
+export const MARKET_MENS_SHOE_SIZES: number[] = (() => {
+  const sizes: number[] = [];
+  for (let s = 4; s <= 16; s += 0.5) {
+    sizes.push(Math.round(s * 10) / 10);
+  }
+  return sizes;
+})();
+
+export function formatShoeSizeOptionLabel(menSize: number): string {
+  return formatMarketShoeSizeDual(menSize);
+}
+
+export function menSizeFromFormValue(value: string | number | null | undefined): string {
+  const parsed = parseListingSizeUs(value);
+  return parsed != null ? String(parsed) : '';
 }
 
 export function supportsMultiSizeInventory(wearState: MarketWearState | string | null | undefined): boolean {

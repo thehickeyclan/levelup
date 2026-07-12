@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
     rarity: rarity ? normalizeMarketRarity(rarity) : null,
     collector_notes: catalog?.collector_notes ?? null,
     colorway: catalog?.colorway ?? null,
+    colorway_aliases: catalog?.colorway_aliases ?? [],
     upper_material: catalog?.upper_material ?? null,
     sole_description: catalog?.sole_description ?? null,
   });

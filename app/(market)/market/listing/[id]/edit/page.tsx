@@ -65,6 +65,7 @@ import {
   type SizeInventoryRow,
 } from '@/components/market/bnib-size-inventory-editor';
 import { supportsMultiSizeInventory, formatMarketShoeSizeFieldLabel } from '@/lib/market/listing-sizes';
+import { ShoeSizeSelect } from '@/components/market/shoe-size-select';
 
 const MAX_PHOTOS = 6;
 const BREAKDOWN_KEYS = ['sole', 'upper', 'midsole', 'laces'] as const;
@@ -1079,7 +1080,11 @@ export default function EditListingPage() {
           {!isBnibInventory ? (
             <div>
               <Label>{formatMarketShoeSizeFieldLabel()}</Label>
-              <Input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
+              <ShoeSizeSelect
+                className="mt-1"
+                value={form.size}
+                onChange={(size) => setForm({ ...form, size })}
+              />
               <UsedListingSizeNote className="mt-1.5" />
             </div>
           ) : null}

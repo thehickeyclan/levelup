@@ -1,5 +1,13 @@
 /** Remove internal AI/catalog scores from text shown to buyers. */
-export function sanitizeBuyerListingDescription(description: string | null | undefined): string {
+import {
+  modelNameImpliesAthleteEdition,
+  stripAthleteEditionFromDescription,
+} from '@/lib/market/catalog-display-text';
+
+export function sanitizeBuyerListingDescription(
+  description: string | null | undefined,
+  model?: string | null
+): string {
   let text = String(description ?? '').trim();
   if (!text) return text;
 
@@ -14,6 +22,10 @@ export function sanitizeBuyerListingDescription(description: string | null | und
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+
+  if (model && !modelNameImpliesAthleteEdition(model)) {
+    text = stripAthleteEditionFromDescription(text, model);
+  }
 
   return text;
 }

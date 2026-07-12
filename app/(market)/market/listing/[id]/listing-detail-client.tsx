@@ -16,6 +16,7 @@ import {
 } from '@/lib/market/listing-images';
 import { sellerCollectionFromLabel, resolveSellerDisplayName } from '@/lib/market/seller';
 import { formatListingColorLabel } from '@/lib/market/color-family';
+import { formatColorwayAlsoKnownAs } from '@/lib/market/shoe-id/colorway-profiles';
 import { RarityBadge } from '@/components/market/rarity-badge';
 import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-actions';
 import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
@@ -87,6 +88,7 @@ export default function ListingDetailClient() {
   const [shoeAbout, setShoeAbout] = useState<ShoeModelAbout | null>(null);
   const [conditionRead, setConditionRead] = useState<ListingConditionRead | null>(null);
   const [conditionAnalyzing, setConditionAnalyzing] = useState(false);
+  const [colorwayAliases, setColorwayAliases] = useState<string[]>([]);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -106,6 +108,7 @@ export default function ListingDetailClient() {
       .then((d) => {
         setData(d);
         setShoeAbout((d.shoe_about as ShoeModelAbout | null) ?? null);
+        setColorwayAliases((d.colorway_aliases as string[] | undefined) ?? []);
         setConditionRead((d.condition_read as ListingConditionRead | null) ?? null);
         setFollowing(Boolean(d.following));
         setActiveImage(0);
@@ -329,12 +332,14 @@ export default function ListingDetailClient() {
     l.color_family as string | null,
     l.colorway as string | null
   );
-  const sizeLabel =
-    inventorySizes.length > 0 && supportsMultiSizeInventory(wearState)
-      ? formatListingSizesLabel(inventorySizes)
-      : l.size != null
-        ? formatMarketShoeSizeDual(Number(l.size))
-        : null;
+  const colorwayAlsoKnownAs = formatColorwayAlsoKnownAs(colorwayAliases);
+  const sizeLabel = (() => {
+    if (supportsMultiSizeInventory(wearState)) {
+      if (inventorySizes.length > 0) return formatListingSizesLabel(inventorySizes);
+      return null;
+    }
+    return l.size != null ? formatMarketShoeSizeDual(Number(l.size)) : null;
+  })();
   const specChips = [
     l.model_year ? String(l.model_year) : null,
     sizeLabel,
@@ -373,7 +378,7 @@ export default function ListingDetailClient() {
     <div className="bg-card border border-border rounded-xl p-4 text-center">
       <p className="text-muted-foreground text-sm mb-1">Not for sale</p>
       <p className="text-muted-foreground text-xs">
-        Tap the heart to follow this pair — get updates if it goes up for sale, gets an offer, or sells.
+        Tap the heart to follow this pair — get notified when it goes on sale, gets a first offer, drops in price, or sells.
       </p>
     </div>
   );
@@ -637,6 +642,10 @@ export default function ListingDetailClient() {
               ))}
             </div>
 
+            {colorwayAlsoKnownAs ? (
+              <p className="text-xs text-muted-foreground">{colorwayAlsoKnownAs}</p>
+            ) : null}
+
             {aiAssisted ? (
               <p className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <Sparkles className="h-3 w-3 text-accent" />
@@ -772,7 +781,7 @@ export default function ListingDetailClient() {
                     Description
                   </p>
                   <p className="text-sm whitespace-pre-line text-foreground/80 leading-relaxed">
-                    {sanitizeBuyerListingDescription(l.description as string)}
+                    {sanitizeBuyerListingDescription(l.description as string, displayTitle)}
                   </p>
                 </div>
               ) : null}

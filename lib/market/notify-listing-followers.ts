@@ -13,11 +13,12 @@ export type ListingFollowNotifyEvent =
   | { type: 'listed_for_sale'; priceCents?: number | null }
   | { type: 'vault_open' }
   | { type: 'open_for_trade' }
-  | { type: 'collection_showcase' }
   | { type: 'sold' }
   | { type: 'traded' }
   | { type: 'new_offer'; pendingCount?: number }
-  | { type: 'price_update'; priceCents: number };
+  | { type: 'price_drop'; priceCents: number };
+
+const FOLLOWER_NOTIFY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 function listingTitle(listing: ListingMeta): string {
   return (
@@ -50,11 +51,6 @@ function eventCopy(
         notificationTitle: 'Open to trade',
         body: `${title} is open for trades`,
       };
-    case 'collection_showcase':
-      return {
-        notificationTitle: 'Back in a collection',
-        body: `${title} is back in a collection`,
-      };
     case 'sold':
       return {
         notificationTitle: 'Pair sold',
@@ -67,18 +63,22 @@ function eventCopy(
       };
     case 'new_offer':
       return {
-        notificationTitle: 'New offer',
-        body:
-          event.pendingCount && event.pendingCount > 1
-            ? `${event.pendingCount} offers on ${title} — someone just bid`
-            : `Someone made an offer on ${title}`,
+        notificationTitle: 'First offer',
+        body: `Someone made an offer on ${title}`,
       };
-    case 'price_update':
+    case 'price_drop':
       return {
-        notificationTitle: 'Price update',
+        notificationTitle: 'Price drop',
         body: `${title} is now $${(event.priceCents / 100).toFixed(0)}`,
       };
   }
+}
+
+function isMeaningfulPriceDrop(prevCents: number, nextCents: number): boolean {
+  if (nextCents >= prevCents) return false;
+  const dropCents = prevCents - nextCents;
+  if (dropCents >= 1000) return true;
+  return dropCents / prevCents >= 0.05;
 }
 
 export function detectListingFollowEvents(
@@ -94,8 +94,6 @@ export function detectListingFollowEvents(
       events.push({ type: 'vault_open' });
     } else if (next.listing_type === 'trade') {
       events.push({ type: 'open_for_trade' });
-    } else if (next.listing_type === 'collection') {
-      events.push({ type: 'collection_showcase' });
     }
   }
 
@@ -108,18 +106,29 @@ export function detectListingFollowEvents(
     prev.listing_type === next.listing_type &&
     next.listing_type === 'sell' &&
     next.status === 'active' &&
-    prev.price_cents !== next.price_cents &&
+    prev.price_cents != null &&
     next.price_cents != null &&
-    next.price_cents > 0
+    next.price_cents > 0 &&
+    isMeaningfulPriceDrop(prev.price_cents, next.price_cents)
   ) {
-    events.push({ type: 'price_update', priceCents: next.price_cents });
+    events.push({ type: 'price_drop', priceCents: next.price_cents });
   }
 
   return events;
 }
 
+function shouldNotifyFollower(
+  recentByUser: Map<string, Set<string>>,
+  followerId: string,
+  eventType: ListingFollowNotifyEvent['type']
+): boolean {
+  const seen = recentByUser.get(followerId);
+  return !seen?.has(eventType);
+}
+
 /**
  * In-app alerts for users following a specific pair (not the seller).
+ * High-signal only: sale mode changes, sold/traded, first offer, meaningful price drops.
  */
 export async function notifyListingFollowers(
   tenantSlug: string,
@@ -127,6 +136,10 @@ export async function notifyListingFollowers(
   event: ListingFollowNotifyEvent,
   opts?: { excludeUserIds?: string[] }
 ): Promise<number> {
+  if (event.type === 'new_offer' && (event.pendingCount ?? 0) > 1) {
+    return 0;
+  }
+
   let sent = 0;
   try {
     const admin = createAdminClient(tenantSlug);
@@ -138,13 +151,35 @@ export async function notifyListingFollowers(
     if (!follows?.length) return 0;
 
     const exclude = new Set([listing.seller_id, ...(opts?.excludeUserIds ?? [])]);
+    const followerIds = follows
+      .map((row) => row.follower_id as string)
+      .filter((id) => !exclude.has(id));
+    if (!followerIds.length) return 0;
+
+    const cooldownSince = new Date(Date.now() - FOLLOWER_NOTIFY_COOLDOWN_MS).toISOString();
+    const { data: recentRows } = await admin
+      .from('notifications')
+      .select('user_id, data')
+      .eq('type', 'market_listing_follow')
+      .in('user_id', followerIds)
+      .gte('created_at', cooldownSince);
+
+    const recentByUser = new Map<string, Set<string>>();
+    for (const row of recentRows ?? []) {
+      const data = (row.data ?? {}) as { listing_id?: string; event?: string };
+      if (data.listing_id !== listing.id || !data.event) continue;
+      const userId = row.user_id as string;
+      const set = recentByUser.get(userId) ?? new Set<string>();
+      set.add(data.event);
+      recentByUser.set(userId, set);
+    }
+
     const title = listingTitle(listing);
     const { notificationTitle, body } = eventCopy(title, event);
     const link = `/market/listing/${listing.id}`;
 
-    for (const row of follows) {
-      const followerId = row.follower_id as string;
-      if (exclude.has(followerId)) continue;
+    for (const followerId of followerIds) {
+      if (!shouldNotifyFollower(recentByUser, followerId, event.type)) continue;
 
       await createNotification(admin, {
         user_id: followerId,

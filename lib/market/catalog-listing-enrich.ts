@@ -5,6 +5,7 @@ import {
   legacyColorwaysToProfiles,
   matchColorwayProfile,
   parseColorwayProfiles,
+  resolveColorwayAliases,
 } from '@/lib/market/shoe-id/colorway-profiles';
 import { normalizeMarketRarity, type MarketRarity } from '@/lib/market/rarity';
 import { parseModelYearHint } from '@/lib/market/parse-model-year';
@@ -21,6 +22,7 @@ export type ListingEnrichment = {
   collector_notes?: string | null;
   upper_material?: string | null;
   sole_description?: string | null;
+  colorway_aliases?: string[];
 };
 
 /** Best catalog colorway name for a hint from vision / seller input. */
@@ -56,6 +58,7 @@ export function enrichmentFromCatalog(
     rarity,
     collector_notes: entry.collector_notes?.trim() || null,
     colorway: colorway || undefined,
+    colorway_aliases: resolveColorwayAliases(entry, colorwayHint || colorway),
     color_family: colorway ? inferColorFamilyFromColorway(colorway) || undefined : undefined,
     upper_material: entry.upper_material?.trim() || null,
     sole_description: entry.sole_description?.trim() || null,

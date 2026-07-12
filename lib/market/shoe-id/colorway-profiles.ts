@@ -12,6 +12,28 @@ export function normalizeColorwayName(name: string): string {
   return name.trim().toLowerCase();
 }
 
+function parseAliases(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const aliases: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (!trimmed) continue;
+    const key = normalizeColorwayName(trimmed);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    aliases.push(trimmed);
+  }
+  return aliases;
+}
+
+export function formatColorwayAlsoKnownAs(aliases: string[] | null | undefined): string | null {
+  if (!aliases?.length) return null;
+  const quoted = aliases.map((alias) => `"${alias}"`).join(', ');
+  return `Also known as: ${quoted}`;
+}
+
 export function parseColorwayProfiles(raw: unknown): ColorwayProfile[] {
   if (!Array.isArray(raw)) return [];
   const result: ColorwayProfile[] = [];
@@ -23,6 +45,7 @@ export function parseColorwayProfiles(raw: unknown): ColorwayProfile[] {
     const availability = row.availability as ColorwayProfile['availability'];
     result.push({
       name,
+      aliases: parseAliases(row.aliases),
       availability:
         availability === 'current_retail' ||
         availability === 'discontinued' ||
@@ -71,6 +94,15 @@ export function matchColorwayProfile(
   const hint = normalizeColorwayName(colorwayHint);
   const exact = profiles.find((p) => normalizeColorwayName(p.name) === hint);
   if (exact) return exact;
+
+  const byAlias = profiles.find((p) =>
+    p.aliases?.some((alias) => {
+      const normalized = normalizeColorwayName(alias);
+      return normalized === hint || hint.includes(normalized) || normalized.includes(hint);
+    })
+  );
+  if (byAlias) return byAlias;
+
   return (
     profiles.find(
       (p) =>
@@ -80,11 +112,26 @@ export function matchColorwayProfile(
   );
 }
 
+export function resolveColorwayAliases(
+  entry: {
+    colorway_profiles?: unknown;
+    colorways?: unknown[] | null;
+  },
+  colorwayHint?: string | null
+): string[] {
+  const profiles = parseColorwayProfiles(entry.colorway_profiles);
+  const legacy = legacyColorwaysToProfiles(entry.colorways);
+  const all = profiles.length ? profiles : legacy;
+  const matched = matchColorwayProfile(all, colorwayHint);
+  return matched?.aliases ?? [];
+}
+
 export function formatColorwayProfilesForContext(profiles: ColorwayProfile[] | null | undefined): string {
   if (!profiles?.length) return '—';
   return profiles
     .map((p) => {
       const bits = [`${p.name} [${p.availability}${p.value_tier ? `, ${p.value_tier}` : ''}]`];
+      if (p.aliases?.length) bits.push(`aka ${p.aliases.map((a) => `"${a}"`).join(', ')}`);
       if (p.retail_anchor_cents) bits.push(`retail $${Math.round(p.retail_anchor_cents / 100)}`);
       if (p.value_low_cents != null && p.value_high_cents != null) {
         bits.push(`collector $${Math.round(p.value_low_cents / 100)}–$${Math.round(p.value_high_cents / 100)}`);

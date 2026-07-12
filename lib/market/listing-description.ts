@@ -1,6 +1,7 @@
 import type { MarketWearState } from '@/lib/market/wear-state';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import { LISTING_DESCRIPTION_FORMAT } from '@/lib/market/ai/prompts';
+import { modelNameImpliesAthleteEdition } from '@/lib/market/catalog-display-text';
 
 export type ListingDescriptionInput = {
   brand: string;
@@ -94,6 +95,9 @@ export function buildListingAgentPrompt(input: ListingAgentPromptInput): string 
     input.listingType ? `Listing type: ${input.listingType}` : null,
     input.collectorNotes?.trim()
       ? `Catalog / collector notes (context only — do not paste into description): ${input.collectorNotes.trim()}`
+      : null,
+    !modelNameImpliesAthleteEdition(input.model)
+      ? 'This is a base retail model — do NOT describe it as a Jordan Oliver, David Taylor, or other athlete signature edition unless the model name says so.'
       : null,
   ].filter(Boolean) as string[];
 

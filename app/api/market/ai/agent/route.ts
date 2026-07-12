@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
   }
 
   let listingContext = '';
+  let listingModel: string | null = null;
   if (listingId) {
     const { data: listing } = await supabase
       .from('market_listings')
@@ -109,6 +110,8 @@ export async function POST(req: NextRequest) {
     if (!listing || listing.seller_id !== user!.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    listingModel = (listing.model as string | null)?.trim() || null;
 
     const { data: aiRow } = await admin
       .from('market_ai_analysis')
@@ -186,7 +189,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (response.has_draft && response.draft?.description) {
-    const clean = sanitizeBuyerListingDescription(response.draft.description);
+    const clean = sanitizeBuyerListingDescription(
+      response.draft.description,
+      listingModel ?? (response.draft.model as string | undefined)
+    );
     response = {
       ...response,
       draft: { ...response.draft, description: clean },

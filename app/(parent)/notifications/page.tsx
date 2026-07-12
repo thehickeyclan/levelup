@@ -15,6 +15,7 @@ import { Bell } from 'lucide-react';
 import { NotificationsClient } from './notifications-client';
 import { NotificationPreferencesForm } from '@/components/notification-preferences-form';
 import { parseNotificationPreferences } from '@/lib/notification-preferences';
+import { notificationRetentionCutoff } from '@/lib/notification-retention';
 
 export default async function NotificationsPage() {
   const headersList = await headers();
@@ -51,6 +52,7 @@ export default async function NotificationsPage() {
     .from('notifications')
     .select('id, type, title, body, data, read_at, created_at')
     .eq('user_id', targetUserId)
+    .gte('created_at', notificationRetentionCutoff())
     .order('created_at', { ascending: false })
     .limit(50);
 

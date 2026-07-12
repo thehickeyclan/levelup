@@ -1,3 +1,5 @@
+import { modelNameImpliesAthleteEdition } from '@/lib/market/catalog-display-text';
+
 export const CONDITION_SYSTEM_PROMPT = `You are a wrestling shoe condition expert for The Guild Market — a marketplace where parents buy shoes to WRESTLE, not display on a shelf.
 
 CALIBRATION (important): Grade like a wrestling parent, not a StockX collector. Most used listings have mat dirt, yellowed soles, and dingy white uppers — that is NORMAL and does not mean "heavy wear."
@@ -58,6 +60,7 @@ DO NOT include:
 - Bullet lists, section headers, or field labels (Size, Model, Condition, Details, Collector Notes)
 - Long collector-history essays or pasted catalog/collector notes
 - AI scores, pricing, or seller photo tips
+- Athlete signature / PE / Jordan Oliver language unless the model name explicitly includes that athlete or the colorway is a known signature release
 
 Wear state:
 - BNIB / new without box: unworn stock language only.
@@ -79,10 +82,10 @@ Return ONLY valid JSON: { "has_draft": boolean, "message"?: string, "draft"?: { 
 export const AI_DISCLAIMER = SELLER_AI_DISCLAIMER;
 
 /** Bump when about-spec copy rules change — triggers regen for catalog rows below this version. */
-export const SHOE_ABOUT_PROMPT_VERSION = 1;
+export const SHOE_ABOUT_PROMPT_VERSION = 2;
 
 /** Bump when history copy rules change — triggers one-time regen for catalog rows below this version. */
-export const SHOE_HISTORY_PROMPT_VERSION = 3;
+export const SHOE_HISTORY_PROMPT_VERSION = 4;
 
 export const SHOE_HISTORY_SYSTEM_PROMPT = `You are a wrestling shoe historian writing model history for The Guild Market.
 
@@ -96,6 +99,8 @@ Rules:
 - Close with one legacy line (generations, community use, collector status)
 - NEVER invent sole construction — if catalog says full/unisole/one-piece outsole, do NOT call it split sole
 - Only say "split sole" if catalog sole explicitly describes a split sole
+- NEVER describe athlete signature / PE editions (Jordan Oliver, David Taylor, etc.) unless the model name itself includes that athlete
+- Base retail models (e.g. "Combat Speed 4") are NOT athlete signature shoes — do not mention JO, PE, or signature colorways unless catalog explicitly identifies them
 - Do not copy sole type from example shoes — examples are for tone and length only
 - Do not write auction-catalog filler or nostalgic padding — stay tight and factual
 - Name the exact brand and model in the first sentence`;
@@ -128,6 +133,11 @@ export function buildShoeHistoryUserPrompt(input: {
       : '\n\nNo catalog sole data — describe role and community use; omit sole construction unless you are certain.';
 
   return `Write the model history paragraph for: ${input.brand} ${input.model}${contextBlock}
+${
+  !modelNameImpliesAthleteEdition(input.model)
+    ? '\nThis is a base retail model — do NOT describe Jordan Oliver, David Taylor, or other athlete signature editions unless the model name includes that athlete.'
+    : ''
+}
 
 Match this depth, length, and tone — not their sole details:
 

@@ -9,6 +9,10 @@ import {
 } from '@/lib/market/ai/prompts';
 import { findCatalogEntry } from '@/lib/market/shoe-id/catalog';
 import { parseModelYearHint } from '@/lib/market/parse-model-year';
+import {
+  modelNameImpliesAthleteEdition,
+  sanitizeCatalogDisplayText,
+} from '@/lib/market/catalog-display-text';
 
 export type ShoeModelAbout = {
   brand: string;
@@ -134,13 +138,13 @@ export function shoeModelAboutFromRow(
     brand,
     model,
     release_year: releaseYear,
-    shoe_type: (row.shoe_type as string | null)?.trim() || null,
-    upper_material: (row.upper_material as string | null)?.trim() || null,
-    sole_type: (row.sole_description as string | null)?.trim() || null,
-    closure_type: (row.closure_type as string | null)?.trim() || null,
-    fit_notes: (row.fit_notes as string | null)?.trim() || null,
-    notable_features: (row.notable_features as string | null)?.trim() || null,
-    history_text: (row.history_text as string | null)?.trim() || null,
+    shoe_type: sanitizeCatalogDisplayText(row.shoe_type as string | null),
+    upper_material: sanitizeCatalogDisplayText(row.upper_material as string | null),
+    sole_type: sanitizeCatalogDisplayText(row.sole_description as string | null),
+    closure_type: sanitizeCatalogDisplayText(row.closure_type as string | null),
+    fit_notes: sanitizeCatalogDisplayText(row.fit_notes as string | null),
+    notable_features: sanitizeCatalogDisplayText(row.notable_features as string | null),
+    history_text: sanitizeCatalogDisplayText(row.history_text as string | null),
     ai_generated: hasAiTimestamps && !verified,
     verified,
     source_notes: (row.source_notes as string | null)?.trim() || null,
@@ -176,7 +180,7 @@ async function generateAboutSpecs(
     .join('\n');
 
   const outcome = await callClaude(
-    'You are a wrestling shoe expert. Return JSON only — no preamble, no markdown. Be precise about sole construction — only use "split sole" when the model truly has separate heel and forefoot pods.',
+    'You are a wrestling shoe expert. Return JSON only — no preamble, no markdown. Be precise about sole construction — only use "split sole" when the model truly has separate heel and forefoot pods. All string values must be plain prose — no bullet lists or asterisks.',
     [
       {
         type: 'text',
@@ -230,13 +234,24 @@ function historyMentionsSplitSole(history: string): boolean {
   return /\bsplit[\s-]?sole\b/i.test(history);
 }
 
+function historyMentionsAthleteEdition(history: string, model: string): boolean {
+  if (modelNameImpliesAthleteEdition(model)) return false;
+  return /\b(jordan oliver|\bjo\b|signature edition|athlete signature|player exclusive|pe edition)\b/i.test(
+    history
+  );
+}
+
 function historyValidationError(
   history: string,
-  catalogEntry: Record<string, unknown> | null
+  catalogEntry: Record<string, unknown> | null,
+  model: string
 ): string | null {
   const sole = String(catalogEntry?.sole_description ?? '').trim();
   if (sole && !catalogSoleIsSplit(sole) && historyMentionsSplitSole(history)) {
     return `Catalog sole is "${sole}" — not a split sole. Rewrite without split sole.`;
+  }
+  if (historyMentionsAthleteEdition(history, model)) {
+    return `Model "${model}" is a base retail shoe — rewrite without Jordan Oliver, signature edition, or PE language.`;
   }
   if (wordCount(history) > 120) {
     return 'Too long — rewrite to 3–4 sentences and 70–110 words.';
@@ -293,10 +308,10 @@ async function generateValidatedHistoryParagraph(
   catalogEntry: Record<string, unknown> | null
 ): Promise<string> {
   let history = await generateHistoryParagraph(brand, model, year, catalogEntry);
-  const firstError = historyValidationError(history, catalogEntry);
+  const firstError = historyValidationError(history, catalogEntry, model);
   if (firstError) {
     history = await generateHistoryParagraph(brand, model, year, catalogEntry, firstError);
-    const secondError = historyValidationError(history, catalogEntry);
+    const secondError = historyValidationError(history, catalogEntry, model);
     if (secondError) {
       history = history
         .replace(/\bsplit[\s-]?sole\b/gi, 'full rubber outsole')

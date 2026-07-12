@@ -12,6 +12,8 @@ type Props = {
   steps: CoachMilestoneStep[];
   /** Index of the current / highlighted step (0-based). Steps before are done; at and after vary by tone. */
   activeStepIndex: number;
+  /** Optional hook before navigating to a step link (e.g. dismiss welcome gate). */
+  onStepNavigate?: (step: CoachMilestoneStep) => void;
   tips?: string[];
   tipsTitle?: string;
   footer?: ReactNode;
@@ -24,6 +26,7 @@ export function CoachMilestoneScreen({
   description,
   steps,
   activeStepIndex,
+  onStepNavigate,
   tips,
   tipsTitle = 'While you wait',
   footer,
@@ -78,6 +81,7 @@ export function CoachMilestoneScreen({
                   {step.href && !done ? (
                     <Link
                       href={step.href}
+                      onClick={() => onStepNavigate?.(step)}
                       className={cn(
                         'flex gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40',
                         current ? 'border-[#B89D60]/40 bg-[#B89D60]/5' : 'border-border'

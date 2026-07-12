@@ -10,6 +10,7 @@ import {
 import {
   COACH_WHILE_YOU_WAIT_TIPS,
   coachApprovedNextSteps,
+  type CoachMilestoneStep,
 } from '@/lib/coach-milestone-steps';
 
 type Props = {
@@ -28,7 +29,13 @@ export function CoachWelcomeClient({ coachId, firstName, bookingUrl }: Props) {
     if (!res.ok) throw new Error('Could not save progress');
   };
 
-  const goToDashboard = async () => {
+  const markSeenQuietly = () => {
+    void markSeen().catch(() => {
+      /* non-blocking — schedule must stay reachable */
+    });
+  };
+
+  const goToSchedule = async () => {
     setLoading(true);
     try {
       await markSeen();
@@ -37,6 +44,10 @@ export function CoachWelcomeClient({ coachId, firstName, bookingUrl }: Props) {
     } catch {
       setLoading(false);
     }
+  };
+
+  const onStepNavigate = (_step: CoachMilestoneStep) => {
+    markSeenQuietly();
   };
 
   const copyBookingLink = async () => {
@@ -55,10 +66,12 @@ export function CoachWelcomeClient({ coachId, firstName, bookingUrl }: Props) {
     <CoachMilestoneScreen
       icon={<CheckCircle2 className="h-8 w-8 text-[#B89D60]" aria-hidden />}
       title={firstName ? `You're in, ${firstName}!` : "You're approved!"}
-      description="Welcome to The Guild. Complete these steps so parents can find you and book — most coaches finish in under 15 minutes."
+      description="Welcome to The Guild. Finish setup when you can — you can always open Schedule to close out sessions or manage your calendar."
       steps={steps}
       activeStepIndex={0}
+      onStepNavigate={onStepNavigate}
       tips={[
+        'Schedule shows a Close out section at the top for past sessions waiting on you',
         ...COACH_WHILE_YOU_WAIT_TIPS.slice(1),
         'Your launch graphics and share tools are on your dashboard once a session is live',
       ]}
@@ -77,12 +90,12 @@ export function CoachWelcomeClient({ coachId, firstName, bookingUrl }: Props) {
             </button>
           </div>
           <CoachMilestoneFooterActions
-            primary={{ label: 'Start profile setup', href: '/onboarding' }}
-            secondary={{
-              label: loading ? 'Saving…' : 'Go to dashboard',
-              onClick: goToDashboard,
+            primary={{
+              label: loading ? 'Opening…' : 'Go to Schedule',
+              onClick: goToSchedule,
               disabled: loading,
             }}
+            secondary={{ label: 'Set up profile', href: '/onboarding' }}
           />
         </div>
       }

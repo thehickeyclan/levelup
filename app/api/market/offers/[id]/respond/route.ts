@@ -14,7 +14,7 @@ export async function POST(
 ) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, tenant, user } = ctx;
+  const { tenant, user } = ctx;
   const admin = createAdminClient(tenant.slug);
   const { id: offerId } = await params;
 
@@ -23,15 +23,20 @@ export async function POST(
     return NextResponse.json({ error: 'action must be accept or decline' }, { status: 400 });
   }
 
-  const { data: offer } = await supabase
+  // listing_id and trade_listing_id both FK market_listings — must disambiguate.
+  const { data: offer, error: offerErr } = await admin
     .from('market_offers')
     .select(`
       id, buyer_id, listing_id, status, offer_type, amount_cents, trade_listing_id, message,
-      market_listings(id, seller_id, title, brand, model, shipping_cents, condition, status)
+      market_listings!listing_id(id, seller_id, title, brand, model, shipping_cents, condition, status)
     `)
     .eq('id', offerId)
     .maybeSingle();
 
+  if (offerErr) {
+    console.error('offer respond lookup:', offerErr);
+    return NextResponse.json({ error: 'Could not load offer' }, { status: 500 });
+  }
   if (!offer) return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
 
   const listingRaw = offer.market_listings;

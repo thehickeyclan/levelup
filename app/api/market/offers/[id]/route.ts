@@ -9,7 +9,7 @@ export async function PATCH(
 ) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, tenant, user } = ctx;
+  const { tenant, user } = ctx;
   const admin = createAdminClient(tenant.slug);
   const { id } = await params;
 
@@ -18,12 +18,18 @@ export async function PATCH(
     return NextResponse.json({ error: 'action must be decline or accept' }, { status: 400 });
   }
 
-  const { data: offer } = await supabase
+  const { data: offer, error: offerErr } = await admin
     .from('market_offers')
-    .select('id, buyer_id, listing_id, status, offer_type, amount_cents, market_listings(seller_id, title, brand, model)')
+    .select(
+      'id, buyer_id, listing_id, status, offer_type, amount_cents, market_listings!listing_id(seller_id, title, brand, model)'
+    )
     .eq('id', id)
     .maybeSingle();
 
+  if (offerErr) {
+    console.error('offer patch lookup:', offerErr);
+    return NextResponse.json({ error: 'Could not load offer' }, { status: 500 });
+  }
   if (!offer) return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
 
   const listingRaw = offer.market_listings;

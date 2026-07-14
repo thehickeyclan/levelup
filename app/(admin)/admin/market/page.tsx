@@ -50,7 +50,7 @@ export default async function AdminMarketPage() {
       admin
         .from('market_offers')
         .select(
-          'id, offer_type, amount_cents, status, expires_at, buyer_id, trade_listing_id, market_listings(title, brand, model)'
+          'id, offer_type, amount_cents, status, expires_at, buyer_id, trade_listing_id, market_listings!listing_id(title, brand, model)'
         )
         .order('created_at', { ascending: false })
         .limit(100),

@@ -41,7 +41,10 @@ export async function GET(
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    if (post.trigger_type !== 'session_completed' || !post.session_id) {
+    if (
+      (post.trigger_type !== 'booking_confirmed' && post.trigger_type !== 'session_completed') ||
+      !post.session_id
+    ) {
       return NextResponse.json({ error: 'This post has no share graphic' }, { status: 400 });
     }
 

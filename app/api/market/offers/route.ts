@@ -21,12 +21,16 @@ export async function GET(req: NextRequest) {
 
   const mode = req.nextUrl.searchParams.get('mode') || 'incoming';
 
+  // listing_id and trade_listing_id both FK to market_listings — must name which.
+  const listingEmbed =
+    'market_listings!listing_id(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))';
+
   if (mode === 'sent') {
     const { data, error } = await supabase
       .from('market_offers')
       .select(`
         id, offer_type, amount_cents, message, status, created_at, expires_at, listing_id,
-        market_listings(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
+        ${listingEmbed}
       `)
       .eq('buyer_id', user!.id)
       .order('created_at', { ascending: false })
@@ -50,7 +54,7 @@ export async function GET(req: NextRequest) {
     .from('market_offers')
     .select(`
       id, offer_type, amount_cents, message, status, created_at, expires_at, listing_id, buyer_id,
-      market_listings(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
+      ${listingEmbed}
     `)
     .in('listing_id', listingIds)
     .order('created_at', { ascending: false })

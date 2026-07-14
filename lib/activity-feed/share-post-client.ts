@@ -199,7 +199,7 @@ export async function shareActivityPost(post: ActivityFeedPost): Promise<ShareAc
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const caption = buildActivityPostShareCaption(post, origin);
 
-  if (post.trigger_type === 'session_completed') {
+  if (post.trigger_type === 'booking_confirmed' || post.trigger_type === 'session_completed') {
     return shareSessionGraphic(post, caption);
   }
   if (post.trigger_type === 'photo_post') {

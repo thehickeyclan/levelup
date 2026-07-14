@@ -69,7 +69,7 @@ export function buildActivityPostShareCaption(post: ActivityFeedPost, origin: st
     return lines.join('\n');
   }
 
-  if (post.trigger_type === 'session_completed') {
+  if (post.trigger_type === 'booking_confirmed' || post.trigger_type === 'session_completed') {
     const sessionInput = sessionShareInput(post);
     if (sessionInput) {
       return buildCoachSessionShareMessage({

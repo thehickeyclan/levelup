@@ -68,6 +68,14 @@ export function Footer() {
                   FAQs
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/tournament-of-champions"
+                  className="block py-2.5 text-white/80 hover:text-accent transition-colors min-h-[44px] flex items-center"
+                >
+                  Tournament of Champions
+                </Link>
+              </li>
             </ul>
           </div>
           <div>

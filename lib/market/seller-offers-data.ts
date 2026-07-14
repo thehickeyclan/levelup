@@ -45,17 +45,22 @@ export async function fetchSellerOffers(
   const listingIds = (myListings ?? []).map((l) => l.id as string);
   if (!listingIds.length) return [];
 
+  // Disambiguate FK: listing_id and trade_listing_id both reference market_listings.
   let offerQuery = supabase
     .from('market_offers')
     .select(`
       id, listing_id, offer_type, amount_cents, message, status, created_at, buyer_id, trade_listing_id,
-      market_listings(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
+      market_listings!listing_id(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
     `)
     .in('listing_id', filterListingId ? [filterListingId] : listingIds)
     .order('created_at', { ascending: false })
     .limit(100);
 
-  const { data: offers } = await offerQuery;
+  const { data: offers, error: offersError } = await offerQuery;
+  if (offersError) {
+    console.error('fetchSellerOffers:', offersError);
+    return [];
+  }
   if (!offers?.length) return [];
 
   const buyerIds = [...new Set(offers.map((o) => o.buyer_id as string))];

@@ -6266,6 +6266,9 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
             <Link href="/admin/parent-announcements" className="block px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
               Parent home announcements
             </Link>
+            <Link href="/admin/tournament-volunteers" className="block px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Tournament volunteers
+            </Link>
           </div>
         </div>
       </aside>

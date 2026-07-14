@@ -39,10 +39,12 @@ export default async function MarketOffersPage({
   } = await supabase.auth.getUser();
   if (!user) return null;
 
+  const admin = createAdminClient(tenant.slug);
   const [groups, pendingOffers, messageUnread] = await Promise.all([
-    fetchSellerOffers(supabase, user.id, filterListingId ?? undefined),
+    // Admin client avoids RLS/embed surprises; still scoped to this seller in fetchSellerOffers.
+    fetchSellerOffers(admin, user.id, filterListingId ?? undefined),
     pendingOfferCount(tenant.slug, user.id),
-    getUnreadCount(createAdminClient(tenant.slug), user.id),
+    getUnreadCount(admin, user.id),
   ]);
 
   return (

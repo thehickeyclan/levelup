@@ -10,9 +10,9 @@ export type ActivityScopeOption = {
 const COMMUNITY: ActivityScopeOption = {
   scope: 'community',
   label: 'All Guild',
-  description: 'Sessions completed, photos shared, collection pairs, and milestones across Guild.',
+  description: 'Sessions booked, photos shared, collection pairs, and milestones across Guild.',
   emptyMessage:
-    'No activity yet. When sessions are marked complete, photos are shared, or collection pairs go live — they show up here.',
+    'No activity yet. When sessions are booked, photos are shared, or collection pairs go live — they show up here.',
 };
 
 function familyScope(label: string, description: string): ActivityScopeOption {
@@ -21,16 +21,16 @@ function familyScope(label: string, description: string): ActivityScopeOption {
     label,
     description,
     emptyMessage:
-      'No activity yet for your wrestlers. Completed sessions, milestones, photos, and reviews show up here.',
+      'No activity yet for your wrestlers. Booked sessions, milestones, photos, and reviews show up here.',
   };
 }
 
 const COACH_SCOPE: ActivityScopeOption = {
   scope: 'coach',
   label: 'My Sessions',
-  description: 'Activity on your sessions — completions, photos, milestones, and reviews.',
+  description: 'Activity on your sessions — bookings, photos, milestones, and reviews.',
   emptyMessage:
-    'No activity on your sessions yet. When wrestlers complete sessions or share photos, they show up here.',
+    'No activity on your sessions yet. When wrestlers book sessions or share photos, they show up here.',
 };
 
 /** Personal feed scope + copy for the signed-in role. */
@@ -42,10 +42,10 @@ export function personalActivityScopeOption(
     return COACH_SCOPE;
   }
   if (role === 'parent' || role === 'admin') {
-    return familyScope('My Family', 'Sessions, milestones, photos, and reviews from your wrestlers.');
+    return familyScope('My Family', 'Bookings, milestones, photos, and reviews from your wrestlers.');
   }
   if (role === 'youth_wrestler') {
-    return familyScope('My Training', 'Your completed sessions, milestones, photos, and reviews.');
+    return familyScope('My Training', 'Your booked sessions, milestones, photos, and reviews.');
   }
   return null;
 }

@@ -148,3 +148,98 @@ export async function fetchSellerOffers(
 
   return [...groups.values()];
 }
+
+export type BuyerOfferRow = {
+  id: string;
+  listing_id: string;
+  offer_type: string;
+  amount_cents: number | null;
+  message: string | null;
+  status: string;
+  created_at: string;
+  listing_title: string;
+  listing_brand: string;
+  listing_model: string;
+  listing_image_url: string | null;
+  trade_listing: SellerOfferTradeListing | null;
+  thread_id: string | null;
+  checkout_order_id: string | null;
+};
+
+/** Offers this buyer sent — for outbound status on /market/offers. */
+export async function fetchBuyerOffers(
+  supabase: SupabaseClient,
+  buyerId: string
+): Promise<BuyerOfferRow[]> {
+  const { data: offers, error } = await supabase
+    .from('market_offers')
+    .select(`
+      id, listing_id, offer_type, amount_cents, message, status, created_at, trade_listing_id,
+      accepted_order_id,
+      market_listings!listing_id(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
+    `)
+    .eq('buyer_id', buyerId)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('fetchBuyerOffers:', error);
+    return [];
+  }
+  if (!offers?.length) return [];
+
+  const tradeListingIds = [
+    ...new Set(offers.map((o) => o.trade_listing_id as string | null).filter(Boolean)),
+  ] as string[];
+  const offerIds = offers.map((o) => o.id as string);
+
+  const [{ data: tradeListings }, { data: offerThreads }] = await Promise.all([
+    tradeListingIds.length
+      ? supabase.from('market_listings').select(TRADE_LISTING_REVIEW_SELECT).in('id', tradeListingIds)
+      : Promise.resolve({ data: [] }),
+    offerIds.length
+      ? supabase.from('guild_threads').select('id, offer_id').in('offer_id', offerIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const tradeMap = new Map<string, SellerOfferTradeListing>();
+  for (const t of tradeListings ?? []) {
+    const review = mapTradeListingReview(t as Parameters<typeof mapTradeListingReview>[0]);
+    tradeMap.set(t.id as string, {
+      ...review,
+      primary_image_url: review.image_urls[0] ?? null,
+    });
+  }
+
+  const threadByOffer = new Map<string, string>();
+  for (const row of offerThreads ?? []) {
+    threadByOffer.set(row.offer_id as string, row.id as string);
+  }
+
+  return offers.map((o) => {
+    const listingRaw = o.market_listings;
+    const listing = (Array.isArray(listingRaw) ? listingRaw[0] : listingRaw) as {
+      title: string;
+      brand: string;
+      model: string;
+      market_listing_images?: { public_url: string; display_order: number }[];
+    } | null;
+    const tradeId = o.trade_listing_id as string | null;
+    return {
+      id: o.id as string,
+      listing_id: o.listing_id as string,
+      offer_type: o.offer_type as string,
+      amount_cents: o.amount_cents as number | null,
+      message: o.message as string | null,
+      status: o.status as string,
+      created_at: o.created_at as string,
+      listing_title: listing?.title ?? 'Listing',
+      listing_brand: listing?.brand ?? '',
+      listing_model: listing?.model ?? '',
+      listing_image_url: primaryListingImageUrl(listing?.market_listing_images ?? null),
+      trade_listing: tradeId ? tradeMap.get(tradeId) ?? null : null,
+      thread_id: threadByOffer.get(o.id as string) ?? null,
+      checkout_order_id: (o.accepted_order_id as string | null) ?? null,
+    };
+  });
+}

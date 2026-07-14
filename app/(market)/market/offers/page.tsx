@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
-import { fetchSellerOffers } from '@/lib/market/seller-offers-data';
+import { fetchBuyerOffers, fetchSellerOffers } from '@/lib/market/seller-offers-data';
 import { getUnreadCount } from '@/lib/guild-messaging';
 import { OffersInboxClient } from './offers-inbox-client';
 
@@ -40,21 +40,31 @@ export default async function MarketOffersPage({
   if (!user) return null;
 
   const admin = createAdminClient(tenant.slug);
-  const [groups, pendingOffers, messageUnread] = await Promise.all([
-    // Admin client avoids RLS/embed surprises; still scoped to this seller in fetchSellerOffers.
+  const [groups, sentOffers, pendingOffers, messageUnread] = await Promise.all([
+    // Admin client avoids RLS/embed surprises; still scoped per user in the fetch helpers.
     fetchSellerOffers(admin, user.id, filterListingId ?? undefined),
+    fetchBuyerOffers(admin, user.id),
     pendingOfferCount(tenant.slug, user.id),
     getUnreadCount(admin, user.id),
   ]);
+
+  const initialTab =
+    pendingOffers > 0 || filterListingId
+      ? 'received'
+      : sentOffers.length > 0 && groups.length === 0
+        ? 'sent'
+        : 'received';
 
   return (
     <Suspense fallback={<div className="p-4 text-muted-foreground">Loading…</div>}>
       <OffersInboxClient
         groups={groups}
+        sentOffers={sentOffers}
         filterListingId={filterListingId}
         pendingOffers={pendingOffers}
         currentUserId={user.id}
         messageUnread={messageUnread}
+        initialTab={initialTab}
       />
     </Suspense>
   );

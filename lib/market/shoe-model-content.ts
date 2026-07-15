@@ -11,6 +11,7 @@ import { findCatalogEntry } from '@/lib/market/shoe-id/catalog';
 import { parseModelYearHint } from '@/lib/market/parse-model-year';
 import {
   curatedCatalogHistory,
+  historyContradictsReleaseYear,
   historyMentionsAthleteEdition,
   sanitizeCatalogDisplayText,
   sanitizeCatalogHistoryText,
@@ -93,10 +94,14 @@ function aboutNeedsRegeneration(entry: Record<string, unknown> | null): boolean 
 function historyNeedsRegeneration(entry: Record<string, unknown> | null): boolean {
   if (!entry) return true;
   const text = String(entry.history_text ?? '').trim();
+  const brand = String(entry.brand ?? '').trim();
   const model = String(entry.model ?? '').trim();
   if (!text) return true;
+  if (curatedCatalogHistory(brand, model)) return false;
   if (hasProtectedCatalogHistory(entry)) return false;
   if (historyMentionsAthleteEdition(text, model)) return true;
+  const releaseYear = parseModelYearHint(null, (entry.years_produced as string | null) ?? null);
+  if (historyContradictsReleaseYear(text, releaseYear)) return true;
   if (isVerifiedCatalogEntry(entry)) return false;
   const version = Number(entry.history_prompt_version ?? 0);
   return version < SHOE_HISTORY_PROMPT_VERSION;
@@ -249,7 +254,8 @@ function historyMentionsSplitSole(history: string): boolean {
 function historyValidationError(
   history: string,
   catalogEntry: Record<string, unknown> | null,
-  model: string
+  model: string,
+  releaseYear: number | null
 ): string | null {
   const sole = String(catalogEntry?.sole_description ?? '').trim();
   if (sole && !catalogSoleIsSplit(sole) && historyMentionsSplitSole(history)) {
@@ -257,6 +263,9 @@ function historyValidationError(
   }
   if (historyMentionsAthleteEdition(history, model)) {
     return `Model "${model}" is a base retail shoe — rewrite without Jordan Oliver, signature edition, or PE language.`;
+  }
+  if (historyContradictsReleaseYear(history, releaseYear)) {
+    return `Release year is ${releaseYear} — rewrite so any introduction year matches ${releaseYear}. Do not invent a different year.`;
   }
   if (wordCount(history) > 120) {
     return 'Too long — rewrite to 3–4 sentences and 70–110 words.';
@@ -312,25 +321,32 @@ async function generateValidatedHistoryParagraph(
   year: number | null,
   catalogEntry: Record<string, unknown> | null
 ): Promise<string> {
+  const curated = curatedCatalogHistory(brand, model);
+  if (curated) return curated;
+
   let history = await generateHistoryParagraph(brand, model, year, catalogEntry);
-  const firstError = historyValidationError(history, catalogEntry, model);
+  const firstError = historyValidationError(history, catalogEntry, model, year);
   if (firstError) {
     history = await generateHistoryParagraph(brand, model, year, catalogEntry, firstError);
-    const secondError = historyValidationError(history, catalogEntry, model);
+    const secondError = historyValidationError(history, catalogEntry, model, year);
     if (secondError) {
       history = stripAthleteEditionFromDescription(history, model)
         .replace(/\bsplit[\s-]?sole\b/gi, 'full rubber outsole')
         .replace(/\s{2,}/g, ' ')
         .trim();
-      if (historyMentionsAthleteEdition(history, model)) {
-        const curated = curatedCatalogHistory(brand, model);
-        if (curated) history = curated;
+      if (
+        historyMentionsAthleteEdition(history, model) ||
+        historyContradictsReleaseYear(history, year)
+      ) {
+        if (curatedCatalogHistory(brand, model)) {
+          history = curatedCatalogHistory(brand, model)!;
+        }
       }
     }
   }
-  if (historyMentionsAthleteEdition(history, model)) {
-    const curated = curatedCatalogHistory(brand, model);
-    if (curated) history = curated;
+  if (historyMentionsAthleteEdition(history, model) || historyContradictsReleaseYear(history, year)) {
+    const fallback = curatedCatalogHistory(brand, model);
+    if (fallback) history = fallback;
   }
   return history;
 }

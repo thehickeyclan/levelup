@@ -85,7 +85,7 @@ export const AI_DISCLAIMER = SELLER_AI_DISCLAIMER;
 export const SHOE_ABOUT_PROMPT_VERSION = 2;
 
 /** Bump when history copy rules change — triggers one-time regen for catalog rows below this version. */
-export const SHOE_HISTORY_PROMPT_VERSION = 4;
+export const SHOE_HISTORY_PROMPT_VERSION = 5;
 
 export const SHOE_HISTORY_SYSTEM_PROMPT = `You are a wrestling shoe historian writing model history for The Guild Market.
 
@@ -94,6 +94,7 @@ Write factual, specific model history in the voice of a knowledgeable collector.
 Rules:
 - Exactly 3–4 sentences, 70–110 words total — never longer
 - Open with when introduced or the shoe's role (entry-level, iconic, etc.)
+- If a listing year or catalog years-produced value is provided, the introduction year MUST match it — never invent a different year or decade
 - Include 1–2 concrete design details (sole, upper, fit) using ONLY catalog facts when provided
 - Name who it was built for (youth, high school, elite) when accurate
 - Close with one legacy line (generations, community use, collector status)

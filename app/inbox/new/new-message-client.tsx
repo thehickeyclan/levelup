@@ -241,6 +241,9 @@ export function NewMessageClient({
                             <div className="min-w-0 flex-1">
                               <p className="font-medium truncate">{y.name}</p>
                               <p className="text-xs text-muted-foreground">Athlete</p>
+                              <p className="text-xs text-muted-foreground">
+                                Linked guardians can see this conversation.
+                              </p>
                             </div>
                           </button>
                         </li>

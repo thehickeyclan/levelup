@@ -6,10 +6,12 @@ import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { formatEST } from '@/lib/format-date';
 import { getThreadUnreadCount, MARKET_THREAD_TYPES } from '@/lib/guild-messaging';
 import { MESSAGES_HOME_PATH } from '@/lib/in-app-messaging';
+import { migrateLegacyCoachInquiriesForUser } from '@/lib/guild-coach-inquiry';
 
 const THREAD_ICONS: Record<string, string> = {
   trade: '📦',
   order: '🛒',
+  dispute: '⚠️',
   offer: '💬',
   listing_qa: '❓',
   session: '🎯',
@@ -26,6 +28,8 @@ function threadLabel(threadType: string, title: string | null): string {
       return `${prefix} Trade`;
     case 'order':
       return `${prefix} Order`;
+    case 'dispute':
+      return `${prefix} Marketplace dispute`;
     case 'offer':
       return `${prefix} Offer`;
     case 'listing_qa':
@@ -57,6 +61,7 @@ export async function GET() {
   const isCoach = userRole === 'coach';
 
   const admin = createAdminClient(tenant.slug);
+  await migrateLegacyCoachInquiriesForUser(admin, tenant.slug, user.id);
 
   const { data: threads, error: threadsError } = await admin
     .from('guild_threads')

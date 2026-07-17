@@ -18,6 +18,8 @@ const PATCH_KEYS: (keyof NotificationPreferences)[] = [
   'new_sessions_push',
   'reminders_push',
   'confirmations_push',
+  'messaging_sms',
+  'messaging_push',
 ];
 
 export async function GET() {
@@ -80,6 +82,7 @@ export async function PATCH(req: NextRequest) {
       prefs = patchNotificationPreferences(prefs, {
         sms_opted_out: false,
         new_sessions_sms: true,
+        messaging_sms: true,
       });
     } else {
       const patch: Partial<NotificationPreferences> = {};

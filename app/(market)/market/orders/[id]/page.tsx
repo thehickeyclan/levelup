@@ -53,6 +53,8 @@ export default function MarketOrderDetailPage() {
   const [receiving, setReceiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanNote, setScanNote] = useState<string | null>(null);
+  const [disputeThreadId, setDisputeThreadId] = useState<string | null>(null);
+  const [openingDispute, setOpeningDispute] = useState(false);
 
   const load = () => {
     fetch(`/api/market/orders/${orderId}`)
@@ -139,6 +141,27 @@ export default function MarketOrderDetailPage() {
       setError(e instanceof Error ? e.message : 'Failed');
     } finally {
       setReceiving(false);
+    }
+  };
+
+  const openDispute = async () => {
+    const details = window.prompt('Tell Guild staff what went wrong with this order.');
+    if (details === null) return;
+    setOpeningDispute(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/market/orders/${orderId}/dispute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ details }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not open dispute');
+      setDisputeThreadId(data.threadId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not open dispute');
+    } finally {
+      setOpeningDispute(false);
     }
   };
 
@@ -281,6 +304,25 @@ export default function MarketOrderDetailPage() {
           />
         </div>
       ) : null}
+
+      <div className="rounded-lg border border-border p-4 space-y-2">
+        <p className="text-sm font-medium">Problem with this order?</p>
+        <p className="text-xs text-muted-foreground">
+          Open a private dispute record for Guild staff while keeping communication attached to the order.
+        </p>
+        <Button variant="outline" onClick={() => void openDispute()} disabled={openingDispute}>
+          {openingDispute ? 'Opening…' : 'Open a dispute'}
+        </Button>
+        {disputeThreadId && order.viewer_id ? (
+          <MessageThread
+            threadId={disputeThreadId}
+            currentUserId={order.viewer_id}
+            placeholder="Add details about this dispute…"
+            maxHeight="320px"
+            showSenderName
+          />
+        ) : null}
+      </div>
 
       <Link href={`/market/listing/${order.listing_id}`} className="text-sm text-accent hover:underline block">
         View listing

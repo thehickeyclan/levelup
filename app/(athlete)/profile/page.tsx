@@ -298,7 +298,7 @@ export default function ProfilePage() {
       <div className="flex flex-wrap items-center gap-4 mb-6">
         <BackLink fallbackHref="/athlete-dashboard" label="Back to Schedule" />
         {IN_APP_MESSAGING_ENABLED ? (
-          <Link href="/inbox" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/messages" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
             Inbox
           </Link>
         ) : (
@@ -752,4 +752,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

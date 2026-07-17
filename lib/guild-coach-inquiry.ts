@@ -60,10 +60,46 @@ export async function ensureCoachInquiryThread(
   parentId: string,
   coachUserId: string
 ): Promise<string> {
-  const existing = await findCoachInquiryThreadId(supabase, parentId, coachUserId);
-  if (existing) return existing;
+  const participantIds = new Set([parentId, coachUserId]);
+  const { data: recipientUser } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', parentId)
+    .maybeSingle();
 
-  const participants = [parentId, coachUserId];
+  // Coach-to-youth conversations always include every linked guardian account.
+  if (recipientUser?.role === 'youth_wrestler') {
+    const [{ data: youth }, { data: guardianLinks }] = await Promise.all([
+      supabase.from('youth_wrestlers').select('parent_id').eq('id', parentId).maybeSingle(),
+      supabase
+        .from('youth_wrestler_parents')
+        .select('parent_id')
+        .eq('youth_wrestler_id', parentId),
+    ]);
+    if (youth?.parent_id) participantIds.add(youth.parent_id as string);
+    for (const link of guardianLinks ?? []) {
+      if (link.parent_id) participantIds.add(link.parent_id as string);
+    }
+  }
+
+  const existing = await findCoachInquiryThreadId(supabase, parentId, coachUserId);
+  if (existing) {
+    const { data: thread } = await supabase
+      .from('guild_threads')
+      .select('participant_ids')
+      .eq('id', existing)
+      .maybeSingle();
+    const merged = [...new Set([
+      ...((thread?.participant_ids as string[] | undefined) ?? []),
+      ...participantIds,
+    ])];
+    if (merged.length !== ((thread?.participant_ids as string[] | undefined) ?? []).length) {
+      await supabase.from('guild_threads').update({ participant_ids: merged }).eq('id', existing);
+    }
+    return existing;
+  }
+
+  const participants = [...participantIds];
   const baseInsert = {
     thread_type: 'coach_inquiry' as const,
     tenant_slug: tenantSlug,
@@ -130,6 +166,37 @@ export async function migrateLegacyCoachInquiriesToGuild(
       read_by: [row.sender_id as string],
       created_at: row.created_at,
     });
+  }
+}
+
+/**
+ * Make legacy DMs visible in the unified inbox before it is queried.
+ * This is idempotent and allows the old coach_inquiries UI/API to stay retired
+ * without hiding conversations that have not previously been opened.
+ */
+export async function migrateLegacyCoachInquiriesForUser(
+  admin: SupabaseClient,
+  tenantSlug: string,
+  userId: string
+): Promise<void> {
+  const { data: legacy, error } = await admin
+    .from('coach_inquiries')
+    .select('parent_id, athlete_id')
+    .or(`parent_id.eq.${userId},athlete_id.eq.${userId}`);
+
+  // The legacy table may not exist on newer clean installations.
+  if (error || !legacy?.length) return;
+
+  const pairs = new Map<string, { parentId: string; coachId: string }>();
+  for (const row of legacy) {
+    const parentId = row.parent_id as string;
+    const coachId = row.athlete_id as string;
+    if (parentId && coachId) pairs.set(`${parentId}:${coachId}`, { parentId, coachId });
+  }
+
+  for (const { parentId, coachId } of pairs.values()) {
+    const threadId = await ensureCoachInquiryThread(admin, tenantSlug, parentId, coachId);
+    await migrateLegacyCoachInquiriesToGuild(admin, threadId, parentId, coachId);
   }
 }
 

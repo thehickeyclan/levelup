@@ -21,6 +21,13 @@ export async function POST(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  await markThreadRead(supabase, threadId, user.id);
+  const { data: thread } = await supabase
+    .from('guild_threads')
+    .select('id')
+    .eq('id', threadId)
+    .maybeSingle();
+  if (!thread) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  await markThreadRead(supabase, threadId);
   return NextResponse.json({ success: true });
 }

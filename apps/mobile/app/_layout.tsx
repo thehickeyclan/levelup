@@ -25,6 +25,13 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    const initialResponse = Notifications.getLastNotificationResponse();
+    if (initialResponse) {
+      const data = initialResponse.notification.request.content.data as Record<string, unknown>;
+      const href = getNotificationDeepLink(data);
+      if (href) router.push(href as never);
+    }
+
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, unknown>;
       const href = getNotificationDeepLink(data);

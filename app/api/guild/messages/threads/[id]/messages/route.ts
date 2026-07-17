@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantFromRequestHeaders } from '@/config/tenants';
-import { sendGuildMessage } from '@/lib/guild-messaging';
+import { sendGuildMessage, type GuildMessageDeliveryChannel } from '@/lib/guild-messaging';
 
 export async function POST(
   req: NextRequest,
@@ -20,7 +20,14 @@ export async function POST(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const body = (await req.json().catch(() => ({}))) as { body?: string; link?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    body?: string;
+    link?: string;
+    deliveryChannel?: GuildMessageDeliveryChannel;
+  };
+  if (body.deliveryChannel && body.deliveryChannel !== 'in_app' && body.deliveryChannel !== 'sms') {
+    return NextResponse.json({ error: 'Invalid delivery channel' }, { status: 400 });
+  }
   const admin = createAdminClient(tenant.slug);
 
   try {
@@ -29,6 +36,7 @@ export async function POST(
       senderId: user.id,
       body: body.body ?? '',
       link: body.link,
+      deliveryChannel: body.deliveryChannel ?? 'in_app',
     });
     return NextResponse.json({ message });
   } catch (e) {

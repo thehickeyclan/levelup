@@ -3,12 +3,16 @@ import { createNotification } from '@/lib/notifications';
 import { formatSellerDisplayName } from '@/lib/market/seller';
 import { normalizePhone, sendSms } from '@/lib/twilio';
 import { MESSAGES_HOME_PATH } from '@/lib/in-app-messaging';
+import { parseNotificationPreferences } from '@/lib/notification-preferences';
+
+export type GuildMessageDeliveryChannel = 'in_app' | 'sms';
 
 export type GuildThreadType =
   | 'listing_qa'
   | 'offer'
   | 'trade'
   | 'order'
+  | 'dispute'
   | 'session'
   | 'coach_inquiry'
   | 'session_change'
@@ -37,7 +41,30 @@ export const MARKET_THREAD_TYPES = new Set<GuildThreadType>([
   'offer',
   'trade',
   'order',
+  'dispute',
 ]);
+
+async function isEitherUserBlocked(
+  admin: SupabaseClient,
+  firstUserId: string,
+  secondUserId: string
+): Promise<boolean> {
+  const [{ data: first }, { data: second }] = await Promise.all([
+    admin
+      .from('guild_message_blocks')
+      .select('blocker_id')
+      .eq('blocker_id', firstUserId)
+      .eq('blocked_id', secondUserId)
+      .maybeSingle(),
+    admin
+      .from('guild_message_blocks')
+      .select('blocker_id')
+      .eq('blocker_id', secondUserId)
+      .eq('blocked_id', firstUserId)
+      .maybeSingle(),
+  ]);
+  return Boolean(first || second);
+}
 
 async function resolveSenderProfiles(
   nameLookup: SupabaseClient,
@@ -189,12 +216,10 @@ export async function findThreadIdByContext(
 
 export async function markThreadRead(
   supabase: SupabaseClient,
-  threadId: string,
-  userId: string
+  threadId: string
 ): Promise<void> {
   await supabase.rpc('mark_thread_read', {
     p_thread_id: threadId,
-    p_user_id: userId,
   });
 }
 
@@ -278,6 +303,8 @@ function notificationTypeForThread(threadType: GuildThreadType): string {
       return 'market_trade_message';
     case 'order':
       return 'market_order_message';
+    case 'dispute':
+      return 'market_dispute_message';
     case 'session':
       return 'session_message';
     case 'coach_inquiry':
@@ -299,50 +326,52 @@ export async function notifyGuildMessageRecipients(
     participantIds: string[];
     link?: string;
     listingTitle?: string;
-    smsFirstMessageOnly?: boolean;
+    deliveryChannel?: GuildMessageDeliveryChannel;
   }
-): Promise<void> {
+): Promise<number> {
   const recipients = opts.participantIds.filter((id) => id !== opts.senderId);
-  if (!recipients.length) return;
-
-  let isFirstMessage = false;
-  if (opts.smsFirstMessageOnly) {
-    const { count } = await admin
-      .from('guild_messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('thread_id', opts.threadId);
-    isFirstMessage = (count ?? 0) <= 1;
-  }
+  if (!recipients.length) return 0;
 
   const preview = opts.body.length > 80 ? `${opts.body.slice(0, 77)}...` : opts.body;
   const notifType = notificationTypeForThread(opts.threadType);
 
+  let smsRecipients = 0;
   for (const userId of recipients) {
+    if (await isEitherUserBlocked(admin, opts.senderId, userId)) continue;
+    const { data: userRow } = await admin
+      .from('users')
+      .select('phone, first_name, notification_preferences')
+      .eq('id', userId)
+      .maybeSingle();
+    const preferences = parseNotificationPreferences(userRow?.notification_preferences);
+
     await createNotification(admin, {
       user_id: userId,
       type: notifType,
       title: opts.listingTitle ? `New message · ${opts.listingTitle}` : 'New message',
       body: preview,
-      data: { thread_id: opts.threadId, link: opts.link ?? `${MESSAGES_HOME_PATH}?thread=${opts.threadId}` },
+      data: {
+        thread_id: opts.threadId,
+        link: opts.link ?? `${MESSAGES_HOME_PATH}?thread=${opts.threadId}`,
+        delivery_channel: opts.deliveryChannel ?? 'in_app',
+      },
+      skipPush: opts.deliveryChannel === 'sms' || !preferences.messaging_push,
     });
 
-    if (opts.smsFirstMessageOnly && isFirstMessage) {
-      const { data: userRow } = await admin
-        .from('users')
-        .select('phone, first_name')
-        .eq('id', userId)
-        .maybeSingle();
+    if (opts.deliveryChannel === 'sms') {
       const phone = normalizePhone(userRow?.phone as string | null | undefined);
-      if (phone) {
-        void sendSms(phone, `New Guild message: ${preview}`, {
+      if (phone && preferences.messaging_sms && !preferences.sms_opted_out) {
+        const sent = await sendSms(phone, `New Guild message: ${preview}`, {
           admin,
           messageType: notifType,
           recipientId: userId,
           recipientLabel: userRow?.first_name as string | undefined,
         });
+        if (sent) smsRecipients += 1;
       }
     }
   }
+  return smsRecipients;
 }
 
 export async function sendGuildMessage(
@@ -354,8 +383,9 @@ export async function sendGuildMessage(
     body: string;
     link?: string;
     listingTitle?: string;
+    deliveryChannel?: GuildMessageDeliveryChannel;
   }
-): Promise<GuildMessageRow> {
+): Promise<GuildMessageRow & { delivery_channel: GuildMessageDeliveryChannel; sms_recipients: number }> {
   const trimmed = opts.body.trim();
   if (!trimmed || trimmed.length > 1000) {
     throw new Error('Message must be 1–1000 characters');
@@ -373,6 +403,14 @@ export async function sendGuildMessage(
   const isPublic = Boolean(thread.is_public);
   if (!isPublic && !participants.includes(opts.senderId)) {
     throw new Error('Forbidden');
+  }
+
+  if (thread.thread_type === 'coach_inquiry') {
+    for (const participantId of participants) {
+      if (participantId !== opts.senderId && await isEitherUserBlocked(admin, opts.senderId, participantId)) {
+        throw new Error('Messaging is unavailable for this conversation');
+      }
+    }
   }
 
   const { data: inserted, error } = await supabase
@@ -395,7 +433,8 @@ export async function sendGuildMessage(
       .eq('id', opts.threadId);
   }
 
-  await notifyGuildMessageRecipients(admin, {
+  const deliveryChannel = opts.deliveryChannel ?? 'in_app';
+  const smsRecipients = await notifyGuildMessageRecipients(admin, {
     threadId: opts.threadId,
     threadType: thread.thread_type as GuildThreadType,
     senderId: opts.senderId,
@@ -403,7 +442,7 @@ export async function sendGuildMessage(
     participantIds: mergedParticipants,
     link: opts.link,
     listingTitle: opts.listingTitle,
-    smsFirstMessageOnly: true,
+    deliveryChannel,
   });
 
   return {
@@ -413,6 +452,8 @@ export async function sendGuildMessage(
     body: inserted.body as string,
     read_by: (inserted.read_by as string[]) ?? [],
     created_at: inserted.created_at as string,
+    delivery_channel: deliveryChannel,
+    sms_recipients: smsRecipients,
   };
 }
 

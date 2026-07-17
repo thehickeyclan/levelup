@@ -280,10 +280,10 @@ export function WorkspaceClient({
         </CardHeader>
         {IN_APP_MESSAGING_ENABLED ? (
           <CardContent>
-            <Link href="/inbox">
+            <Link href="/messages">
               <Button variant="outline" className="gap-2">
                 <MessageCircle className="h-4 w-4" />
-                Open Community
+                Open Messages
               </Button>
             </Link>
           </CardContent>

@@ -5,6 +5,8 @@ export type NotificationPreferences = {
   new_sessions_push: boolean;
   reminders_push: boolean;
   confirmations_push: boolean;
+  messaging_sms: boolean;
+  messaging_push: boolean;
   sms_opted_out: boolean;
 };
 
@@ -15,6 +17,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   new_sessions_push: true,
   reminders_push: true,
   confirmations_push: true,
+  messaging_sms: true,
+  messaging_push: true,
   sms_opted_out: false,
 };
 
@@ -25,6 +29,8 @@ const BOOL_KEYS: (keyof NotificationPreferences)[] = [
   'new_sessions_push',
   'reminders_push',
   'confirmations_push',
+  'messaging_sms',
+  'messaging_push',
   'sms_opted_out',
 ];
 

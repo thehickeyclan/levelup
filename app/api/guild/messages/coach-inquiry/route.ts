@@ -41,10 +41,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const { data: caller } = await supabase.from('users').select('role').eq('id', user.id).single();
+  const callerRole = caller?.role;
+
+  if (body.coachUserId) {
+    if (callerRole !== 'parent' && callerRole !== 'youth_wrestler' && callerRole !== 'admin') {
+      return NextResponse.json({ error: 'Only parents and athletes can start a coach conversation' }, { status: 403 });
+    }
+    const { data: coach } = await supabase
+      .from('athletes')
+      .select('id, active')
+      .eq('id', coachUserId)
+      .maybeSingle();
+    if (!coach?.id || coach.active === false) {
+      return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
+    }
+  } else if (body.parentId) {
+    if (callerRole !== 'coach' && callerRole !== 'admin') {
+      return NextResponse.json({ error: 'Only coaches can start this conversation' }, { status: 403 });
+    }
+  }
+
   // Coach initiating a DM: only parents/kids from their session history (ever)
   if (body.parentId && user.id === coachUserId) {
-    const { data: roleRow } = await supabase.from('users').select('role').eq('id', user.id).single();
-    if (roleRow?.role === 'coach' || roleRow?.role === 'admin') {
+    if (callerRole === 'coach' || callerRole === 'admin') {
       const admin = createAdminClient(tenant.slug);
       const allowed = await coachMayMessageUser(admin, coachUserId, parentId);
       if (!allowed) {

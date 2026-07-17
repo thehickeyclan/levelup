@@ -11,6 +11,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 import { colors, typography } from '@/lib/theme';
+import { useAuth } from '@/lib/auth';
 
 type Thread = {
   id: string;
@@ -25,6 +26,7 @@ type Thread = {
 
 export default function InboxScreen() {
   const router = useRouter();
+  const { role } = useAuth();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +75,22 @@ export default function InboxScreen() {
       }
       ListHeaderComponent={
         <View style={{ marginBottom: 16 }}>
-          <Text style={styles.kicker}>MESSAGES</Text>
-          <Text style={styles.heading}>Inbox</Text>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.kicker}>MESSAGES</Text>
+              <Text style={styles.heading}>Inbox</Text>
+            </View>
+            {role === 'parent' || role === 'youth_wrestler' || role === 'coach' || role === 'admin' ? (
+              <Pressable
+                style={styles.newButton}
+                onPress={() => router.push('/new-message')}
+                accessibilityRole="button"
+                accessibilityLabel="Start a new conversation"
+              >
+                <Text style={styles.newButtonText}>New</Text>
+              </Pressable>
+            ) : null}
+          </View>
           <Text style={styles.sub}>Session and market conversations.</Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
@@ -111,9 +127,20 @@ const styles = StyleSheet.create({
   },
   list: { padding: 20, paddingBottom: 40 },
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   sub: { ...typography.body, color: colors.textMuted, marginTop: 6, fontSize: 14 },
   error: { color: colors.danger, marginTop: 8, fontFamily: 'Inter_400Regular' },
+  newButton: {
+    minHeight: 44,
+    minWidth: 68,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newButtonText: { ...typography.bodyBold, color: colors.background, fontSize: 13 },
   row: {
     paddingVertical: 16,
     borderBottomWidth: 1,

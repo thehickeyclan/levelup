@@ -16,7 +16,11 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
-    if (userData?.role !== 'parent' && userData?.role !== 'admin') {
+    if (
+      userData?.role !== 'parent' &&
+      userData?.role !== 'youth_wrestler' &&
+      userData?.role !== 'admin'
+    ) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

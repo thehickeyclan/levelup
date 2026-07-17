@@ -19,7 +19,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "associatedDomains": [
         "applinks:www.wrestlingguild.com",
@@ -54,9 +55,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+        "projectId": "a0471b8e-141c-4690-9c3f-ca16fdc77cd0"
       }
     },
-    "owner": "wrestlingguild"
+    "owner": "wrestling-guild"
   }
 }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logMessage } from './message-log';
+import { sendExpoPushToUser } from './expo-push';
 
 type InsertNotification = {
   user_id: string;
@@ -10,11 +11,13 @@ type InsertNotification = {
   /** Optional: for logging purposes */
   sessionId?: string | null;
   coachId?: string | null;
+  /** Skip device push (rare). Default false. */
+  skipPush?: boolean;
 };
 
 /**
  * Insert a notification for a user. Use admin client so we can notify any user (e.g. coach when parent books).
- * Also logs to message_log for admin visibility.
+ * Also logs to message_log and sends Expo push when the user has registered device tokens.
  */
 export async function createNotification(
   admin: SupabaseClient,
@@ -27,8 +30,7 @@ export async function createNotification(
     body: payload.body ?? null,
     data: payload.data ?? {},
   });
-  
-  // Log the notification
+
   void logMessage(admin, {
     channel: 'notification',
     recipientId: payload.user_id,
@@ -40,4 +42,15 @@ export async function createNotification(
     status: 'sent',
     metadata: payload.data ?? {},
   });
+
+  if (!payload.skipPush) {
+    void sendExpoPushToUser(admin, payload.user_id, {
+      title: payload.title,
+      body: payload.body,
+      data: {
+        type: payload.type,
+        ...(payload.data ?? {}),
+      },
+    });
+  }
 }

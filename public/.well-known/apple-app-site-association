@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.wrestlingguild.app",
+        "paths": [
+          "/book/*",
+          "/bookings",
+          "/bookings/*",
+          "/notifications",
+          "/market/*",
+          "/messages/*",
+          "/guild-messages",
+          "/inbox",
+          "/inbox/*"
+        ]
+      }
+    ]
+  }
+}

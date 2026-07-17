@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { ensureCoachInquiryThread } from '@/lib/guild-coach-inquiry';
+import { coachMayMessageUser } from '@/lib/coach-message-contacts';
 
 /** POST { coachUserId } (parent) or { parentId } (coach) — open/create DM thread. */
 export async function POST(req: NextRequest) {
@@ -38,6 +39,24 @@ export async function POST(req: NextRequest) {
 
   if (user.id !== parentId && user.id !== coachUserId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  // Coach initiating a DM: only parents/kids from their session history (ever)
+  if (body.parentId && user.id === coachUserId) {
+    const { data: roleRow } = await supabase.from('users').select('role').eq('id', user.id).single();
+    if (roleRow?.role === 'coach' || roleRow?.role === 'admin') {
+      const admin = createAdminClient(tenant.slug);
+      const allowed = await coachMayMessageUser(admin, coachUserId, parentId);
+      if (!allowed) {
+        return NextResponse.json(
+          {
+            error:
+              'You can only message parents and athletes who have registered for your sessions.',
+          },
+          { status: 403 }
+        );
+      }
+    }
   }
 
   try {

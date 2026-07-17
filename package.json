@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "geocode:facilities": "npx tsx scripts/geocode-facilities-for-map.ts",
     "geocode:facilities:dry-run": "npx tsx scripts/geocode-facilities-for-map.ts --dry-run",
-    "coach:status": "npx tsx scripts/coach-application-status.ts"
+    "coach:status": "npx tsx scripts/coach-application-status.ts",
+    "mobile": "npm --prefix apps/mobile start",
+    "mobile:ios": "npm --prefix apps/mobile run ios"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

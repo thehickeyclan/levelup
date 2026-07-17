@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getTenantByDomain } from '@/config/tenants';
+import { getTenantFromRequestHeaders } from '@/config/tenants';
 import {
   filterNotificationsForAudience,
   readNotificationAudienceFromCookies,
@@ -21,8 +21,7 @@ async function loadAudienceContext(tenantSlug: string, authUserId: string) {
 export async function GET(req: NextRequest) {
   try {
     const headersList = await headers();
-    const host = headersList.get('host') || '';
-    const tenant = getTenantByDomain(host);
+    const tenant = getTenantFromRequestHeaders(headersList);
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     const supabase = await createClient(tenant.slug);
     const { data: { user } } = await supabase.auth.getUser();
@@ -79,8 +78,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const headersList = await headers();
-    const host = headersList.get('host') || '';
-    const tenant = getTenantByDomain(host);
+    const tenant = getTenantFromRequestHeaders(headersList);
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     const supabase = await createClient(tenant.slug);
     const { data: { user } } = await supabase.auth.getUser();

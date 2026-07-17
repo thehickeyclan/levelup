@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { getTenantByDomain } from '@/config/tenants';
+import { getTenantFromRequestHeaders } from '@/config/tenants';
 
 export async function requireMarketUser() {
   const headersList = await headers();
-  const host = headersList.get('host') || '';
-  const tenant = getTenantByDomain(host);
+  const tenant = getTenantFromRequestHeaders(headersList);
   if (!tenant) {
     return { error: NextResponse.json({ error: 'Tenant not found' }, { status: 404 }) };
   }

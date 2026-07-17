@@ -12,6 +12,13 @@ import { SchoolLogo } from '@/components/school-logo';
 
 type Coach = { id: string; firstName: string; lastName: string; school: string; photoUrl?: string };
 type Follow = { coachId: string; coach: Coach | null };
+type MessageContact = {
+  id: string;
+  kind: 'parent' | 'youth';
+  name: string;
+  email?: string;
+  kids?: string[];
+};
 
 function CoachRow({
   coach,
@@ -63,19 +70,32 @@ export function NewMessageClient({
   const router = useRouter();
   const [follows, setFollows] = useState<Follow[]>([]);
   const [allCoaches, setAllCoaches] = useState<Coach[]>([]);
-  const [parents, setParents] = useState<Array<{ id: string; name: string; email?: string }>>([]);
+  const [contacts, setContacts] = useState<MessageContact[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [coachSearch, setCoachSearch] = useState('');
   const isParentView = role === 'parent' || role === 'admin';
 
   useEffect(() => {
     if (!isParentView) {
-      // Athlete: load parents they have sessions with
-      Promise.all([
-        fetch('/api/inbox/parents-for-athlete').then((r) => r.json()),
-      ])
-        .then(([parentsRes]) => {
-          if (parentsRes.parents) setParents(parentsRes.parents);
+      // Coach: only parents/kids who have ever been on this coach's sessions
+      fetch('/api/inbox/parents-for-athlete')
+        .then((r) => r.json())
+        .then((res) => {
+          if (Array.isArray(res.contacts)) setContacts(res.contacts);
+          else if (Array.isArray(res.parents)) {
+            setContacts(
+              res.parents.map(
+                (p: { id: string; name: string; email?: string; kids?: string[] }) => ({
+                  id: p.id,
+                  kind: 'parent' as const,
+                  name: p.name,
+                  email: p.email,
+                  kids: p.kids,
+                })
+              )
+            );
+          }
         })
         .catch(() => {})
         .finally(() => setLoading(false));
@@ -124,6 +144,18 @@ export function NewMessageClient({
   };
 
   if (!isParentView) {
+    const q = contactSearch.trim().toLowerCase();
+    const filtered = q
+      ? contacts.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            (c.email && c.email.toLowerCase().includes(q)) ||
+            (c.kids ?? []).some((k) => k.toLowerCase().includes(q))
+        )
+      : contacts;
+    const parents = filtered.filter((c) => c.kind === 'parent');
+    const youth = filtered.filter((c) => c.kind === 'youth');
+
     return (
       <div className="space-y-6 max-w-lg">
         <CoachSessionMessagePanel />
@@ -131,37 +163,92 @@ export function NewMessageClient({
           <CardContent className="pt-6 space-y-4">
             <h2 className="font-semibold flex items-center gap-2">
               <MessageCircle className="h-4 w-4" />
-              Message a parent
+              Message a parent or athlete
             </h2>
             <p className="text-sm text-muted-foreground">
-              Start a direct message with a parent you have sessions with.
+              Only families who have registered for your sessions (past or upcoming) — not other
+              coaches.
             </p>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by parent, kid, or email…"
+                value={contactSearch}
+                onChange={(e) => setContactSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
             {loading ? (
               <div className="flex justify-center py-6">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : parents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No parents to message yet. Sessions and workspaces will appear here.</p>
+            ) : filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No parents or athletes to message yet. Once someone books or joins your session,
+                they&apos;ll appear here.
+              </p>
             ) : (
-              <ul className="space-y-2">
-                {parents.map((p) => (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleParentClick(p.id)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 text-left transition-colors"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <MessageCircle className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">{p.name}</p>
-                        {p.email && <p className="text-xs text-muted-foreground truncate">{p.email}</p>}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-4 max-h-[50vh] overflow-y-auto">
+                {parents.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Parents
+                    </p>
+                    <ul className="space-y-2">
+                      {parents.map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleParentClick(p.id)}
+                            className="w-full flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 text-left transition-colors"
+                          >
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                              <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium truncate">{p.name}</p>
+                              {p.kids?.length ? (
+                                <p className="text-xs text-muted-foreground truncate">
+                                  Kids: {p.kids.join(', ')}
+                                </p>
+                              ) : null}
+                              {p.email ? (
+                                <p className="text-xs text-muted-foreground truncate">{p.email}</p>
+                              ) : null}
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {youth.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Athletes with accounts
+                    </p>
+                    <ul className="space-y-2">
+                      {youth.map((y) => (
+                        <li key={y.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleParentClick(y.id)}
+                            className="w-full flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 text-left transition-colors"
+                          >
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                              <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium truncate">{y.name}</p>
+                              <p className="text-xs text-muted-foreground">Athlete</p>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             )}
           </CardContent>
         </Card>

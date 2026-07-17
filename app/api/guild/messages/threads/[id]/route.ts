@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getTenantByDomain } from '@/config/tenants';
+import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { getThreadUnreadCount } from '@/lib/guild-messaging';
 
 async function canAccessThread(
@@ -27,8 +27,7 @@ export async function GET(
 ) {
   const { id: threadId } = await params;
   const headersList = await headers();
-  const host = headersList.get('host') || '';
-  const tenant = getTenantByDomain(host);
+  const tenant = getTenantFromRequestHeaders(headersList);
   if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
 
   const supabase = await createClient(tenant.slug);

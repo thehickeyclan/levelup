@@ -14,12 +14,16 @@ type AuthContextValue = {
   isCoachView: boolean;
   previewCoachView: boolean;
   setPreviewCoachView: (on: boolean) => void;
+  /** Coach/admin only: browse the app as a parent (mirrors web view-as). */
+  previewParentView: boolean;
+  setPreviewParentView: (on: boolean) => void;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
 const PREVIEW_KEY = 'guild.previewCoachView';
+const PREVIEW_PARENT_KEY = 'guild.previewParentView';
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function fetchRole(userId: string): Promise<AppRole | null> {
@@ -31,17 +35,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [previewCoachView, setPreviewCoachViewState] = useState(false);
+  const [previewParentView, setPreviewParentViewState] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      const [{ data }, previewRaw] = await Promise.all([
+      const [{ data }, previewRaw, previewParentRaw] = await Promise.all([
         supabase.auth.getSession(),
         AsyncStorage.getItem(PREVIEW_KEY),
+        AsyncStorage.getItem(PREVIEW_PARENT_KEY),
       ]);
       if (!mounted) return;
       setPreviewCoachViewState(previewRaw === '1');
+      setPreviewParentViewState(previewParentRaw === '1');
       setSession(data.session);
       if (data.session?.user) {
         setRole(await fetchRole(data.session.user.id));
@@ -72,11 +79,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       user: session?.user ?? null,
       role,
-      isCoachView: isCoachRole || previewCoachView,
+      isCoachView: (isCoachRole && !previewParentView) || previewCoachView,
       previewCoachView,
       setPreviewCoachView: (on: boolean) => {
         setPreviewCoachViewState(on);
         void AsyncStorage.setItem(PREVIEW_KEY, on ? '1' : '0');
+      },
+      previewParentView,
+      setPreviewParentView: (on: boolean) => {
+        setPreviewParentViewState(on);
+        void AsyncStorage.setItem(PREVIEW_PARENT_KEY, on ? '1' : '0');
       },
       loading,
       async signIn(email, password) {
@@ -95,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRole(null);
       },
     };
-  }, [session, role, previewCoachView, loading]);
+  }, [session, role, previewCoachView, previewParentView, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CoachHomeScreen } from '@/components/coach-home';
 import { GuildLogo } from '@/components/guild-logo';
+import { ReviewPromptCard, usePendingReviews } from '@/components/review-prompts';
 import { useAuth } from '@/lib/auth';
 import { useNotificationRealtime } from '@/lib/use-notification-realtime';
 import { colors, typography } from '@/lib/theme';
@@ -9,6 +10,7 @@ import { colors, typography } from '@/lib/theme';
 export default function HomeScreen() {
   const { user, isCoachView } = useAuth();
   const { unreadCount } = useNotificationRealtime();
+  const { prompts, refresh } = usePendingReviews();
   const router = useRouter();
 
   if (isCoachView) return <CoachHomeScreen />;
@@ -32,6 +34,10 @@ export default function HomeScreen() {
       >
         <Text style={styles.secondaryCtaText}>Book a private</Text>
       </Pressable>
+
+      {prompts.map((p) => (
+        <ReviewPromptCard key={p.sessionId} prompt={p} onDone={() => void refresh()} />
+      ))}
 
       <View style={styles.linkStack}>
         <Pressable style={styles.linkRow} onPress={() => router.push('/notifications')}>

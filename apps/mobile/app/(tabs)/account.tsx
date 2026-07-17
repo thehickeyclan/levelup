@@ -7,7 +7,15 @@ import { registerForPushNotifications } from '@/lib/push';
 import { colors, typography } from '@/lib/theme';
 
 export default function AccountScreen() {
-  const { user, role, previewCoachView, setPreviewCoachView, signOut } = useAuth();
+  const {
+    user,
+    role,
+    previewCoachView,
+    setPreviewCoachView,
+    previewParentView,
+    setPreviewParentView,
+    signOut,
+  } = useAuth();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
@@ -57,7 +65,19 @@ export default function AccountScreen() {
             {previewCoachView ? 'Exit coach preview' : 'Preview coach view'}
           </Text>
         </Pressable>
-      ) : null}
+      ) : (
+        <Pressable
+          style={previewParentView ? styles.button : styles.buttonSecondary}
+          onPress={() => {
+            setPreviewParentView(!previewParentView);
+            router.replace('/(tabs)');
+          }}
+        >
+          <Text style={previewParentView ? styles.buttonText : styles.buttonSecondaryText}>
+            {previewParentView ? 'Exit parent preview' : 'Preview parent view'}
+          </Text>
+        </Pressable>
+      )}
 
       <Pressable style={styles.button} onPress={() => router.push('/notifications')}>
         <Text style={styles.buttonText}>View alerts</Text>

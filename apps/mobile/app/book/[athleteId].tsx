@@ -27,8 +27,8 @@ export default function BookPrivateScreen() {
       <Text style={styles.kicker}>PRIVATE</Text>
       <Text style={styles.title}>Book a private</Text>
       <Text style={styles.body}>
-        Choose your wrestler, time, and facility, then pay securely. Prefer a group? Join an open
-        small group from Train — that&apos;s the main product.
+        Choose your wrestler, time, and facility, then pay securely. You can also explore open small
+        groups from Train.
       </Text>
       <Pressable style={styles.button} onPress={() => void openBooking()} disabled={opening}>
         <Text style={styles.buttonText}>{opening ? 'Opening…' : 'Continue to booking'}</Text>

@@ -93,7 +93,7 @@ export default function FindScreen() {
         <Text style={styles.kicker}>TRAINING</Text>
         <Text style={styles.heading}>Find training</Text>
         <Text style={styles.sub}>
-          Small groups are the main way to train — join an open session, or book a private.
+          Join an open small group or book private training with a Guild coach.
         </Text>
 
         <View style={styles.segment}>

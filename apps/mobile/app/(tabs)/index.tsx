@@ -21,8 +21,7 @@ export default function HomeScreen() {
       <Text style={styles.brand}>THE GUILD</Text>
       <Text style={styles.title}>Train with{'\n'}elite coaches.</Text>
       <Text style={styles.body}>
-        Small groups are the main product — join an open session, get alerts instantly, stay in the
-        conversation.
+        Join an open session, train with experienced coaches, and stay connected with your team.
       </Text>
 
       <Pressable style={styles.primaryCta} onPress={() => router.push('/(tabs)/find')}>

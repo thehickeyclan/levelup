@@ -57,15 +57,16 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="find"
         options={{
-          title: isCoachView ? 'Create' : 'Train',
+          title: isCoachView ? 'Create' : 'Explore',
           href: isCoachView ? null : undefined,
-          tabBarIcon: ({ focused }) => <TabLabel label="Train" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabLabel label="Explore" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
           title: isCoachView ? 'Schedule' : 'Bookings',
+          href: isCoachView ? undefined : null,
           tabBarIcon: ({ focused }) => (
             <TabLabel label={isCoachView ? 'Schedule' : 'Bookings'} focused={focused} />
           ),
@@ -88,8 +89,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="account"
         options={{
-          title: 'Account',
-          tabBarIcon: ({ focused }) => <TabLabel label="Account" focused={focused} />,
+          title: 'More',
+          tabBarIcon: ({ focused }) => <TabLabel label="More" focused={focused} />,
         }}
       />
     </Tabs>

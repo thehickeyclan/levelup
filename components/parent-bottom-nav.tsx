@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, Home, Users, Tag, ShoppingCart, User } from 'lucide-react';
+import { Activity, Home, Users, Tag, Menu } from 'lucide-react';
 import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
 import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cart-context';
@@ -13,8 +13,20 @@ const ITEMS: readonly { href: string; label: string; icon: typeof Home; showBadg
   { href: activityNavHref('parent'), label: 'Activity', icon: Activity },
   { href: '/training', label: 'Training', icon: Users },
   { href: '/market', label: 'Market', icon: Tag },
-  { href: '/cart', label: 'Cart', icon: ShoppingCart, showBadge: true },
-  { href: '/account', label: 'Account', icon: User },
+  { href: '/more', label: 'More', icon: Menu, showBadge: true },
+];
+
+const MORE_ROUTES = [
+  '/more',
+  '/cart',
+  '/account',
+  '/bookings',
+  '/inbox',
+  '/messages',
+  '/notifications',
+  '/my-wrestlers',
+  '/my-coaches',
+  '/wallet',
 ];
 
 export function ParentBottomNav() {
@@ -31,6 +43,8 @@ export function ParentBottomNav() {
         const isActive =
           href.startsWith('/activity')
             ? pathname.startsWith('/activity')
+            : href === '/more'
+              ? MORE_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
             : pathname === href ||
               (href !== '/dashboard' && pathname.startsWith(href));
         return (

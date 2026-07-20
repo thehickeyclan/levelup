@@ -10,6 +10,7 @@ export default function AccountScreen() {
   const {
     user,
     role,
+    isCoachView,
     previewCoachView,
     setPreviewCoachView,
     previewParentView,
@@ -48,10 +49,28 @@ export default function AccountScreen() {
   return (
     <View style={styles.container}>
       <GuildLogo size={72} variant="mark" />
-      <Text style={styles.kicker}>ACCOUNT</Text>
-      <Text style={styles.heading}>You</Text>
+      <Text style={styles.kicker}>MORE</Text>
+      <Text style={styles.heading}>Account & activity</Text>
       <Text style={styles.meta}>{user?.email}</Text>
       <Text style={styles.meta}>Role: {role ?? '…'}</Text>
+
+      {!isCoachView ? (
+        <Pressable style={styles.menuRow} onPress={() => router.push('/(tabs)/bookings')}>
+          <View>
+            <Text style={styles.menuTitle}>My training</Text>
+            <Text style={styles.menuMeta}>Upcoming and past sessions</Text>
+          </View>
+          <Text style={styles.menuArrow}>›</Text>
+        </Pressable>
+      ) : null}
+
+      <Pressable style={styles.menuRow} onPress={() => router.push('/notifications')}>
+        <View>
+          <Text style={styles.menuTitle}>Alerts</Text>
+          <Text style={styles.menuMeta}>Bookings and session updates</Text>
+        </View>
+        <Text style={styles.menuArrow}>›</Text>
+      </Pressable>
 
       {!isRealCoach ? (
         <Pressable
@@ -79,9 +98,6 @@ export default function AccountScreen() {
         </Pressable>
       )}
 
-      <Pressable style={styles.button} onPress={() => router.push('/notifications')}>
-        <Text style={styles.buttonText}>View alerts</Text>
-      </Pressable>
       <Pressable style={styles.buttonSecondary} onPress={() => void onEnablePush()} disabled={busy}>
         {busy ? (
           <ActivityIndicator color={colors.accent} />
@@ -103,6 +119,18 @@ const styles = StyleSheet.create({
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginTop: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   meta: { ...typography.body, color: colors.textSecondary, fontSize: 14 },
+  menuRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 12,
+  },
+  menuTitle: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
+  menuMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 3 },
+  menuArrow: { ...typography.body, color: colors.accent, fontSize: 26 },
   button: {
     backgroundColor: colors.accent,
     borderRadius: 4,

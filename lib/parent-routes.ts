@@ -23,6 +23,7 @@ const PARENT_ROUTES = [
   '/wallet',
   '/checkout',
   '/market',
+  '/more',
   '/coaches',
   '/requirements',
   '/how-it-works',

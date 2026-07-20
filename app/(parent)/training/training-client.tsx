@@ -23,7 +23,7 @@ interface AthleteWithNext extends Athlete {
 
 const TABS: { id: TabId; label: string; description: string }[] = [
   { id: 'coaches', label: 'Book a coach', description: 'Pick a coach and book on their calendar' },
-  { id: 'sessions', label: 'Open sessions', description: 'Join posted partner & group spots' },
+  { id: 'sessions', label: 'Sessions', description: 'Browse posted partner and group sessions' },
 ];
 
 type Props = {
@@ -114,12 +114,7 @@ export function TrainingClient({
 
   return (
     <>
-      <div className="mb-6 space-y-3">
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          <span className="text-foreground font-medium">Book a coach</span> anytime on their calendar, or{' '}
-          <span className="text-foreground font-medium">browse open sessions</span> to join a spot already posted.
-          Registered athletes show age, weight, and skill level.
-        </p>
+      <div className="mb-5">
         <div className="flex flex-wrap gap-2">
           {TABS.map((t) => (
             <button

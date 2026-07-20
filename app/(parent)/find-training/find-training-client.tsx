@@ -24,7 +24,7 @@ import {
   getEffectiveFilledCount,
   isSessionOpenForParentBrowse,
 } from '@/lib/sessions';
-import { SessionRosterList, WrestlerFitLegend } from '@/components/session-roster-badges';
+import { SessionRosterList } from '@/components/session-roster-badges';
 import type { SessionRosterParticipant } from '@/lib/wrestler-roster-display';
 
 type Facility = { id: string; name?: string; school?: string; address?: string | null };
@@ -107,6 +107,7 @@ export function FindTrainingClient({
   const [dateOpen, setDateOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
+  const [sessionList, setSessionList] = useState<'available' | 'full'>('available');
   const [sessionRosters, setSessionRosters] = useState<Record<string, SessionRosterParticipant[]>>({});
 
   // Fetch participant rosters from API (bypasses RLS)
@@ -139,7 +140,7 @@ export function FindTrainingClient({
   // Filter sessions client-side
   // Hide invite-only sessions that are FULL (no value showing something user can't access)
   // Show invite-only sessions with spots (creates FOMO/social proof)
-  const openSessions = initialSessions.filter((s) => {
+  const filteredSessions = initialSessions.filter((s) => {
     const isInviteOnly = (s as { join_policy?: string | null }).join_policy === 'invite_only';
     const max = s.max_participants ?? 1;
     const current = getEffectiveFilledCount(s);
@@ -171,6 +172,13 @@ export function FindTrainingClient({
 
     return true;
   });
+
+  const availableSessions = filteredSessions.filter((s) => {
+    const isInviteOnly = s.join_policy === 'invite_only';
+    return !isInviteOnly && isSessionOpenForParentBrowse(s);
+  });
+  const fullSessions = filteredSessions.filter((s) => !isSessionOpenForParentBrowse(s));
+  const visibleSessions = sessionList === 'available' ? availableSessions : fullSessions;
 
   const filteredRequestCoaches = useMemo(() => {
     if (searchBasePath !== '/training' || requestSessionCoaches.length === 0) return [];
@@ -386,7 +394,11 @@ export function FindTrainingClient({
             <div className="flex-1 min-w-0 sm:hidden">
               <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                 <SessionTypeBadge sessionType={session.session_type} sessionMode={session.session_mode} />
-                {(session as { join_policy?: string | null }).join_policy === 'invite_only' ? (
+                {openSlots <= 0 ? (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+                    Full
+                  </span>
+                ) : (session as { join_policy?: string | null }).join_policy === 'invite_only' ? (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-400 border border-amber-700/50">
                     Invite Only
                   </span>
@@ -428,7 +440,11 @@ export function FindTrainingClient({
             {/* Type & Focus & Join Policy */}
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <SessionTypeBadge sessionType={session.session_type} sessionMode={session.session_mode} />
-              {(session as { join_policy?: string | null }).join_policy === 'invite_only' ? (
+              {openSlots <= 0 ? (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+                  Full
+                </span>
+              ) : (session as { join_policy?: string | null }).join_policy === 'invite_only' ? (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-400 border border-amber-700/50">
                   Invite Only
                 </span>
@@ -499,12 +515,16 @@ export function FindTrainingClient({
             </div>
 
             {current > 0 && (
-              <SessionRosterList
-                participants={sessionRosters[session.id] ?? []}
-                label="Registered"
-                className="mt-2"
-                emptyFallback={`${current} registered — athlete details loading…`}
-              />
+              <details className="mt-2 text-xs text-muted-foreground">
+                <summary className="cursor-pointer select-none py-1">
+                  View {current} registered athlete{current !== 1 ? 's' : ''}
+                </summary>
+                <SessionRosterList
+                  participants={sessionRosters[session.id] ?? []}
+                  className="mt-2"
+                  emptyFallback="Athlete details loading…"
+                />
+              </details>
             )}
           </div>
 
@@ -548,12 +568,16 @@ export function FindTrainingClient({
             </div>
 
             {current > 0 && (
-              <SessionRosterList
-                participants={sessionRosters[session.id] ?? []}
-                label="Registered"
-                className="mt-2"
-                emptyFallback={`${current} registered — athlete details loading…`}
-              />
+              <details className="mt-2 text-xs text-muted-foreground">
+                <summary className="cursor-pointer select-none py-1">
+                  View {current} registered athlete{current !== 1 ? 's' : ''}
+                </summary>
+                <SessionRosterList
+                  participants={sessionRosters[session.id] ?? []}
+                  className="mt-2"
+                  emptyFallback="Athlete details loading…"
+                />
+              </details>
             )}
           </div>
 
@@ -725,11 +749,6 @@ export function FindTrainingClient({
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-zinc-500 leading-relaxed -mx-4 px-4">
-        <span className="font-medium text-zinc-400">Session types:</span> Private — one athlete with the coach. Partner
-        — two athletes with the same coach (you need a second wrestler). Small group — coach with several athletes;
-        spots are limited per session.
-      </p>
       {/* Filter Bar */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
         {/* Date Picker */}
@@ -1026,36 +1045,59 @@ export function FindTrainingClient({
       )}
 
       {/* Results Header */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-zinc-400">
-            {openSessions.length} public session{openSessions.length !== 1 ? 's' : ''} you can join
-            {defaultRangeLabel && !date && <span className="text-zinc-500"> · {defaultRangeLabel}</span>}
-          </p>
+      <div className="flex items-center justify-between gap-3 border-b border-zinc-800">
+        <div className="flex min-w-0 gap-5">
+          <button
+            type="button"
+            onClick={() => setSessionList('available')}
+            className={cn(
+              'border-b-2 px-0 py-3 text-sm font-medium transition-colors',
+              sessionList === 'available'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-zinc-500'
+            )}
+          >
+            Available ({availableSessions.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSessionList('full')}
+            className={cn(
+              'border-b-2 px-0 py-3 text-sm font-medium transition-colors',
+              sessionList === 'full'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-zinc-500'
+            )}
+          >
+            Full ({fullSessions.length})
+          </button>
         </div>
-        <WrestlerFitLegend />
+        {defaultRangeLabel && !date ? (
+          <span className="shrink-0 text-xs text-zinc-600">{defaultRangeLabel}</span>
+        ) : null}
       </div>
 
       {/* Sessions List */}
-      {openSessions.length > 0 ? (
+      {visibleSessions.length > 0 ? (
         <div className="space-y-3">
-          {openSessions.map((session) => (
+          {visibleSessions.map((session) => (
             <SessionCard key={session.id} session={session} />
           ))}
         </div>
       ) : (
-        <div className="py-16 text-center">
+        <div className="py-12 text-center">
           <Calendar className="h-12 w-12 mx-auto mb-4 text-zinc-700" />
-          <p className="text-zinc-400 mb-2">No public sessions match</p>
+          <p className="text-zinc-400 mb-2">
+            {sessionList === 'available' ? 'No available sessions' : 'No full sessions'}
+          </p>
           <p className="text-sm text-zinc-500">
             {hasActiveFilters ? 'Try adjusting your filters.' : 'Try another day or time, or book directly with a coach.'}
           </p>
-          <p className="text-sm text-zinc-500 mt-4 max-w-md mx-auto">
-            <Link href="/browse" className="text-accent hover:underline">
+          {sessionList === 'available' ? (
+            <Link href="/browse" className="mt-4 inline-block text-sm text-accent hover:underline">
               Browse coaches
-            </Link>{' '}
-            to book from their availability—what you see here are only join-in sessions coaches have posted.
-          </p>
+            </Link>
+          ) : null}
         </div>
       )}
 

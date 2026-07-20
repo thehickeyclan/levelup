@@ -14,7 +14,7 @@ import {
   type CoachCreateSessionType,
 } from '@/lib/coach-session-pricing';
 import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
-import { COACH_REVENUE_FRACTION } from '@/lib/pricing';
+import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
 
 /**
@@ -128,7 +128,9 @@ export async function POST(req: NextRequest) {
         : `Coach not found for that id (no matching users row). Refresh and pick the coach again.${mismatchHint}`;
       return NextResponse.json({ error: errorMsg }, { status: 404 });
     }
-    const coachPayoutRate = (athlete as { payout_rate?: number }).payout_rate ?? COACH_REVENUE_FRACTION;
+    const coachPayoutRate = normalizeCoachRevenueShareRate(
+      (athlete as { payout_rate?: number }).payout_rate
+    );
 
     const sessionTypeKey = (sessionType || 'small_group') as CoachCreateSessionType;
     const defaultPrice = await getRecommendedPricePerParticipant(admin, athleteId, sessionTypeKey);

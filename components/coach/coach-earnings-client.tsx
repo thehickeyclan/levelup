@@ -80,9 +80,7 @@ export function CoachEarningsClient({
   pendingPayoutAmount = 0,
   pendingPayoutSessionCount = 0,
 }: Props) {
-  const payoutPercentDisplay = coachRevenueSharePercentDisplay(
-    payoutRate !== 0.8 ? payoutRate : null
-  );
+  const payoutPercentDisplay = coachRevenueSharePercentDisplay(payoutRate);
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 pb-4">
@@ -170,9 +168,6 @@ export function CoachEarningsClient({
           You earn{' '}
           <span className="font-medium text-foreground">{payoutPercentDisplay}%</span>
           of each session&apos;s total price
-          {payoutRate >= 0.9 ? (
-            <span className="ml-1 font-medium text-accent">(Founding Coach)</span>
-          ) : null}
           .
         </p>
         {pendingPayoutSessionCount > 0 ? (

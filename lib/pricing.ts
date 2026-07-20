@@ -5,21 +5,12 @@
 export const COACH_REVENUE_FRACTION = 0.8;
 export const GUILD_REVENUE_FRACTION = 1 - COACH_REVENUE_FRACTION;
 
-/** Legacy DB values near 5/6 (~83.33%) from an older split; treat as standard 80%. */
-const LEGACY_COACH_SHARE_BAND_MIN = 0.831;
-const LEGACY_COACH_SHARE_BAND_MAX = 0.835;
-
 /**
- * Normalize stored coach share for display and payout math. Maps legacy ~83.33% to 80%.
- * Does not change intentional overrides (e.g. founding coaches at 90%).
+ * Coach payout is platform-wide and cannot be overridden per coach or session.
+ * The argument remains for compatibility with callers reading legacy DB columns.
  */
-export function normalizeCoachRevenueShareRate(rate: number | null | undefined): number {
-  const r =
-    rate != null && !Number.isNaN(Number(rate)) ? Number(rate) : COACH_REVENUE_FRACTION;
-  if (r >= LEGACY_COACH_SHARE_BAND_MIN && r <= LEGACY_COACH_SHARE_BAND_MAX) {
-    return COACH_REVENUE_FRACTION;
-  }
-  return r;
+export function normalizeCoachRevenueShareRate(_rate: number | null | undefined): number {
+  return COACH_REVENUE_FRACTION;
 }
 
 /** Whole percent for UI labels (e.g. 80). */

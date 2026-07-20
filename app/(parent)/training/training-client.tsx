@@ -22,8 +22,16 @@ interface AthleteWithNext extends Athlete {
 }
 
 const TABS: { id: TabId; label: string; description: string }[] = [
-  { id: 'coaches', label: 'Book a coach', description: 'Pick a coach and book on their calendar' },
-  { id: 'sessions', label: 'Sessions', description: 'Browse posted partner and group sessions' },
+  {
+    id: 'sessions',
+    label: 'Available now',
+    description: 'Join a partner or small-group session already scheduled',
+  },
+  {
+    id: 'coaches',
+    label: 'Request training',
+    description: 'Choose a coach for a private, partner, or new small group',
+  },
 ];
 
 type Props = {
@@ -65,13 +73,6 @@ type Props = {
   availabilitySessionType?: string;
   coachIdsWithPublicOpen?: string[];
   serviceTypesByCoach?: Record<string, string[]>;
-  requestSessionCoaches?: Array<{
-    id: string;
-    first_name?: string;
-    last_name?: string;
-    school?: string;
-    photo_url?: string | null;
-  }>;
   /** Facilities that have at least one active coach (coach_facilities); sorted by name. */
   coachFilterLocations?: Array<{ id: string; name: string }>;
   /** When a facility is selected, these coach ids match that location. */
@@ -97,7 +98,6 @@ export function TrainingClient({
   availabilitySessionType = 'all',
   coachIdsWithPublicOpen = [],
   serviceTypesByCoach = {},
-  requestSessionCoaches = [],
   coachFilterLocations = [],
   coachIdsByFacilityId = {},
   coachDateFilterData,
@@ -114,21 +114,32 @@ export function TrainingClient({
 
   return (
     <>
-      <div className="mb-5">
-        <div className="flex flex-wrap gap-2">
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-foreground">Train your way</h2>
+        <p className="mt-1 text-sm text-zinc-400">
+          Join a scheduled session or ask a coach to create training that works for you.
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setActiveTab(t.id)}
               title={t.description}
-              className={`min-h-[44px] px-5 py-2.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+              className={`min-h-[76px] rounded-xl border px-3 py-3 text-left transition-all touch-manipulation ${
                 activeTab === t.id
-                  ? 'bg-accent text-black'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                  ? 'border-accent bg-accent text-black'
+                  : 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700'
               }`}
             >
-              {t.label}
+              <span className="block text-sm font-semibold">{t.label}</span>
+              <span
+                className={`mt-1 block text-xs leading-snug ${
+                  activeTab === t.id ? 'text-black/70' : 'text-zinc-500'
+                }`}
+              >
+                {t.description}
+              </span>
             </button>
           ))}
         </div>
@@ -145,11 +156,8 @@ export function TrainingClient({
           coaches={coaches}
           searchBasePath="/training"
           defaultRangeLabel="Next 14 days"
-          preselectedWrestlerId={preselectedWrestlerId}
           parentWrestlerIds={parentWrestlerIds}
           initialSessionType={availabilitySessionType}
-          requestSessionCoaches={requestSessionCoaches}
-          serviceTypesByCoach={serviceTypesByCoach}
         />
       )}
 

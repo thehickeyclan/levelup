@@ -26,6 +26,7 @@ import { Bell, Mail, User } from 'lucide-react';
 import { useTenant } from '@/components/theme-provider';
 import { BrandLogo } from '@/components/brand-logo';
 import { CartDropdown } from '@/components/cart-dropdown';
+import { ParentHeaderCart } from '@/components/parent-header-cart';
 import { createClient } from '@/lib/supabase/client';
 import { CoachHeaderMobile } from '@/components/coach-header-mobile';
 import { PublicHeaderMobile } from '@/components/public-header-mobile';
@@ -160,6 +161,11 @@ export function Header() {
           {user ? (
             <>
             <div className="flex items-center gap-2 shrink-0 ml-auto">
+              {effectiveRole === 'parent' && (
+                <div className="md:hidden">
+                  <ParentHeaderCart />
+                </div>
+              )}
               {effectiveRole === 'coach' && (
                 <div className="md:hidden">
                   <CoachHeaderMobile onSignOut={handleSignOut} />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -57,14 +57,6 @@ type SessionRow = {
 
 type CoachOption = { id: string; first_name?: string; last_name?: string; school?: string };
 
-type RequestCoachRow = {
-  id: string;
-  first_name?: string;
-  last_name?: string;
-  school?: string;
-  photo_url?: string | null;
-};
-
 export function FindTrainingClient({
   facilities,
   initialSessions,
@@ -75,11 +67,8 @@ export function FindTrainingClient({
   coaches = [],
   searchBasePath = '/find-training',
   defaultRangeLabel,
-  preselectedWrestlerId = '',
   parentWrestlerIds = [],
   initialSessionType = 'all',
-  requestSessionCoaches = [],
-  serviceTypesByCoach = {},
 }: {
   facilities: Facility[];
   initialSessions: SessionRow[];
@@ -90,11 +79,8 @@ export function FindTrainingClient({
   coaches?: CoachOption[];
   searchBasePath?: string;
   defaultRangeLabel?: string;
-  preselectedWrestlerId?: string;
   parentWrestlerIds?: string[];
   initialSessionType?: string;
-  requestSessionCoaches?: RequestCoachRow[];
-  serviceTypesByCoach?: Record<string, string[]>;
 }) {
   const router = useRouter();
   const { addItem, removeItem, isInCart, items } = useCart();
@@ -180,19 +166,6 @@ export function FindTrainingClient({
   });
   const fullSessions = filteredSessions.filter((s) => !isSessionOpenForParentBrowse(s));
   const visibleSessions = sessionList === 'available' ? availableSessions : fullSessions;
-
-  const filteredRequestCoaches = useMemo(() => {
-    if (searchBasePath !== '/training' || requestSessionCoaches.length === 0) return [];
-    return requestSessionCoaches.filter((c) => {
-      const types = serviceTypesByCoach[c.id] ?? [];
-      if (sessionType === 'all') return true;
-      if (sessionType === 'group') return types.includes('small_group');
-      if (sessionType === 'partner_private') {
-        return types.includes('private') || types.includes('partner');
-      }
-      return types.includes(sessionType);
-    });
-  }, [searchBasePath, requestSessionCoaches, serviceTypesByCoach, sessionType]);
 
   const applyFilters = (overrides?: { type?: string; coachId?: string }) => {
     const params = new URLSearchParams();
@@ -1087,8 +1060,21 @@ export function FindTrainingClient({
       {/* Sessions List */}
       {visibleSessions.length > 0 ? (
         <div className="space-y-3">
-          {visibleSessions.map((session) => (
-            <SessionCard key={session.id} session={session} />
+          {visibleSessions.map((session, index) => (
+            <div key={session.id} className="space-y-3">
+              <SessionCard session={session} />
+              {sessionList === 'available' && index === Math.min(1, visibleSessions.length - 1) ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-accent/25 bg-accent/5 p-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Don&apos;t see the right time?</p>
+                    <p className="mt-0.5 text-xs text-zinc-400">Request a private, partner, or new small group.</p>
+                  </div>
+                  <Button asChild className="min-h-[44px] shrink-0 bg-accent px-3 text-black hover:bg-accent-hover">
+                    <Link href="/training?tab=coaches">Request</Link>
+                  </Button>
+                </div>
+              ) : null}
+            </div>
           ))}
         </div>
       ) : (
@@ -1101,64 +1087,13 @@ export function FindTrainingClient({
             {hasActiveFilters ? 'Try adjusting your filters.' : 'Try another day or time, or book directly with a coach.'}
           </p>
           {sessionList === 'available' ? (
-            <Link href="/browse" className="mt-4 inline-block text-sm text-accent hover:underline">
-              Browse coaches
+            <Link href="/training?tab=coaches" className="mt-4 inline-block text-sm text-accent hover:underline">
+              Request training
             </Link>
           ) : null}
         </div>
       )}
 
-      {filteredRequestCoaches.length > 0 && (
-        <section className="mt-8 pt-6 border-t border-zinc-800" aria-label="Book private or partner">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500 mb-3">
-            Book private or partner
-          </h3>
-          <p className="text-sm text-zinc-400 mb-4">
-            These coaches publish availability for one-on-one or partner work—a public join-in session above is never
-            required.
-          </p>
-          <div className="space-y-3">
-            {filteredRequestCoaches.map((c) => {
-              const name = [c.first_name, c.last_name].filter(Boolean).join(' ').trim() || 'Coach';
-              const bookHref = preselectedWrestlerId
-                ? `/book/${c.id}?youthWrestlerId=${encodeURIComponent(preselectedWrestlerId)}`
-                : `/book/${c.id}`;
-              return (
-                <div
-                  key={c.id}
-                  className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"
-                >
-                  <Link href={`/athlete/${c.id}`} className="shrink-0">
-                    <ProfileImage
-                      src={c.photo_url}
-                      alt={name}
-                      className="w-14 h-14"
-                      fallbackIconClassName="h-6 w-6 text-muted-foreground"
-                    />
-                  </Link>
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/athlete/${c.id}`} className="font-medium text-foreground hover:underline truncate block">
-                      {name}
-                    </Link>
-                    {c.school ? (
-                      <span className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
-                        <SchoolLogo school={c.school} size="sm" />
-                        {c.school}
-                      </span>
-                    ) : null}
-                  </div>
-                  <Button
-                    className="shrink-0 min-h-[44px] bg-accent hover:bg-accent-hover text-black font-semibold text-sm"
-                    asChild
-                  >
-                    <Link href={bookHref}>See availability</Link>
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

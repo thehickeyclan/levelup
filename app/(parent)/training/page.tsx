@@ -447,25 +447,6 @@ export default async function TrainingPage({
   }
   const coachIdsWithPublicOpen = [...coachHasBookablePublicSession].sort();
 
-  const { data: weeklyAvailIds } = athleteIds.length
-    ? await supabase.from('athlete_availability').select('athlete_id').in('athlete_id', athleteIds)
-    : { data: [] };
-  const weeklyAvailSet = new Set(
-    (weeklyAvailIds ?? []).map((r: { athlete_id: string }) => r.athlete_id)
-  );
-  const { data: datedSlotIds } = athleteIds.length
-    ? await supabase
-        .from('athlete_availability_slots')
-        .select('athlete_id')
-        .in('athlete_id', athleteIds)
-        .gte('slot_date', todayEastern)
-    : { data: [] };
-  const datedAvailSet = new Set(
-    (datedSlotIds ?? []).map((r: { athlete_id: string }) => r.athlete_id)
-  );
-  const hasRealSchedulingAvailability = (coachId: string) =>
-    weeklyAvailSet.has(coachId) || datedAvailSet.has(coachId);
-
   const { data: svcRows } = athleteIds.length
     ? await admin
         .from('athlete_services')
@@ -499,21 +480,6 @@ export default async function TrainingPage({
     productRows: productSlugRows,
   });
 
-  let requestSessionCoaches = athletesMerged
-    .filter(
-      (a) => hasRealSchedulingAvailability(a.id) && !coachHasBookablePublicSession.has(a.id)
-    )
-    .map((a) => ({
-      id: a.id,
-      first_name: a.first_name,
-      last_name: a.last_name,
-      school: a.school,
-      photo_url: a.photo_url,
-    }));
-  if (sp.coach && sp.coach !== 'all') {
-    requestSessionCoaches = requestSessionCoaches.filter((c) => c.id === sp.coach);
-  }
-
   return (
     <div className="min-h-screen pb-24">
       <div className="px-4 pt-6 pb-4">
@@ -536,7 +502,6 @@ export default async function TrainingPage({
         availabilitySessionType={sp.type ?? 'all'}
         coachIdsWithPublicOpen={coachIdsWithPublicOpen}
         serviceTypesByCoach={serviceTypesByCoach}
-        requestSessionCoaches={requestSessionCoaches}
         coachFilterLocations={coachFilterLocations}
         coachIdsByFacilityId={coachIdsByFacilityId}
         coachDateFilterData={coachDateFilterData}

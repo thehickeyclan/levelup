@@ -5,15 +5,14 @@ import { usePathname } from 'next/navigation';
 import { Activity, Home, Users, Tag, Menu } from 'lucide-react';
 import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
 import { cn } from '@/lib/utils';
-import { useCart } from '@/lib/cart-context';
 
 /** Parent mobile bottom nav with gold active states. */
-const ITEMS: readonly { href: string; label: string; icon: typeof Home; showBadge?: boolean }[] = [
+const ITEMS: readonly { href: string; label: string; icon: typeof Home }[] = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: activityNavHref('parent'), label: 'Activity', icon: Activity },
   { href: '/training', label: 'Training', icon: Users },
   { href: '/market', label: 'Market', icon: Tag },
-  { href: '/more', label: 'More', icon: Menu, showBadge: true },
+  { href: '/more', label: 'More', icon: Menu },
 ];
 
 const MORE_ROUTES = [
@@ -31,15 +30,12 @@ const MORE_ROUTES = [
 
 export function ParentBottomNav() {
   const pathname = usePathname();
-  const { items: cartItems } = useCart();
-  const cartCount = cartItems.length;
-
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-border/50 bg-black/95 backdrop-blur-xl supports-[backdrop-filter]:bg-black/90 pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label="Main navigation"
     >
-      {ITEMS.map(({ href, label, icon: Icon, showBadge }) => {
+      {ITEMS.map(({ href, label, icon: Icon }) => {
         const isActive =
           href.startsWith('/activity')
             ? pathname.startsWith('/activity')
@@ -74,11 +70,6 @@ export function ParentBottomNav() {
                 strokeWidth={isActive ? 2.5 : 2}
                 aria-hidden 
               />
-              {showBadge && cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-accent text-black text-[10px] font-bold px-1">
-                  {cartCount > 9 ? '9+' : cartCount}
-                </span>
-              )}
             </div>
             <span className={cn(
               "mt-1 transition-all duration-200",

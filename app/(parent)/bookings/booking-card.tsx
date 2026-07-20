@@ -31,6 +31,7 @@ import { SessionPhonesCopyButtons } from '@/components/session-phones-copy-butto
 import { CoachTextGroupDialog } from '@/components/coach-text-group-dialog';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 import { AddToCalendarButton } from '@/components/add-to-calendar-button';
+import { trackProductEvent } from '@/lib/product-analytics';
 import { SessionContactsPanel } from '@/components/session-contacts-panel';
 import {
   Dialog,
@@ -549,6 +550,12 @@ export function BookingCard({
                     `/training?tab=sessions&coach=${session.coach.id}` +
                     (session.facility_id ? `&location=${session.facility_id}` : '') +
                     (session.primaryWrestlerId ? `&wrestler=${session.primaryWrestlerId}` : '')
+                  }
+                  onClick={() =>
+                    trackProductEvent('parent_book_again_clicked', {
+                      coachId: session.coach.id,
+                      priorSessionType: session.session_type ?? 'unknown',
+                    })
                   }
                   className="inline-flex"
                 >

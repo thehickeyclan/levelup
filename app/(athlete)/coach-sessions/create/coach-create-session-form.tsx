@@ -17,6 +17,7 @@ import { Check, Plus, X, Share2, ChevronDown, ChevronUp, MapPin, ExternalLink } 
 import { formatEST } from '@/lib/format-date';
 import type { CoachCreateSessionType } from '@/lib/coach-session-pricing';
 import { COACH_SESSION_FALLBACK_USD } from '@/lib/coach-session-pricing';
+import { trackProductEvent } from '@/lib/product-analytics';
 import {
   CoachNewLocationDialog,
   type CoachLocationOption,
@@ -226,6 +227,12 @@ export function CoachCreateSessionForm({
           scheduledDatetime: data.scheduledDatetime,
           maxParticipants: data.maxParticipants,
           pricePerParticipant: data.pricePerParticipant,
+        });
+        trackProductEvent('coach_session_created', {
+          sessionType,
+          joinPolicy,
+          maxParticipants: Number(data.maxParticipants ?? maxParticipants),
+          source: 'coach_create_form',
         });
       }
       

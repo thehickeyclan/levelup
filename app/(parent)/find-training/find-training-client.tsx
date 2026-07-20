@@ -26,6 +26,7 @@ import {
 } from '@/lib/sessions';
 import { SessionRosterList } from '@/components/session-roster-badges';
 import type { SessionRosterParticipant } from '@/lib/wrestler-roster-display';
+import { trackProductEvent } from '@/lib/product-analytics';
 
 type Facility = { id: string; name?: string; school?: string; address?: string | null };
 type SessionRow = {
@@ -361,6 +362,12 @@ export function FindTrainingClient({
       e.stopPropagation();
       if (cartQty >= maxCartQty) return;
       addItem({ ...buildCartPayload(), lineId: crypto.randomUUID() });
+      trackProductEvent('training_session_added_to_cart', {
+        sessionType: session.session_type ?? 'unknown',
+        coachId: coachData?.id ?? session.athlete_id,
+        facilityId: session.facility_id,
+        openSpots: openSlots,
+      });
     };
 
     const handleRemoveOne = (e: React.MouseEvent) => {

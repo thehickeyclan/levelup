@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,17 +12,24 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   fetchActiveCoaches,
+  fetchFamilyBookings,
   fetchOpenSmallGroupSessions,
+  sessionTypeLabel,
+  type MobileBooking,
   type MobileCoach,
   type OpenSmallGroupSession,
 } from '@/lib/parent-data';
 import { colors, typography } from '@/lib/theme';
+import { useAuth } from '@/lib/auth';
+import { statusLabel } from '@/components/session-detail-view';
 
-type Tab = 'groups' | 'coaches';
+type Tab = 'available' | 'request' | 'mine';
 
 function parseTab(raw: string | string[] | undefined): Tab {
   const v = Array.isArray(raw) ? raw[0] : raw;
-  return v === 'coaches' || v === 'privates' ? 'coaches' : 'groups';
+  if (v === 'groups' || v === 'available') return 'available';
+  if (v === 'mine' || v === 'bookings') return 'mine';
+  return 'request';
 }
 
 function formatWhen(iso: string) {
@@ -48,28 +55,47 @@ function formatPrice(session: OpenSmallGroupSession) {
 
 export default function FindScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>(() => parseTab(params.tab));
   const [sessions, setSessions] = useState<OpenSmallGroupSession[]>([]);
   const [coaches, setCoaches] = useState<MobileCoach[]>([]);
+  const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [groupList, coachList] = await Promise.all([
+      const [groupList, coachList, bookingList] = await Promise.all([
         fetchOpenSmallGroupSessions(),
         fetchActiveCoaches(),
+        user ? fetchFamilyBookings(user.id) : Promise.resolve([]),
       ]);
       setSessions(groupList);
       setCoaches(coachList);
+      setBookings(bookingList);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load training');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
+
+  const upcomingBookings = useMemo(
+    () =>
+      bookings
+        .filter(
+          (booking) =>
+            !['completed', 'cancelled', 'no-show'].includes(booking.status) &&
+            new Date(booking.scheduled_datetime).getTime() >= Date.now()
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.scheduled_datetime).getTime() - new Date(b.scheduled_datetime).getTime()
+        ),
+    [bookings]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -91,42 +117,50 @@ export default function FindScreen() {
     <View style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.kicker}>TRAINING</Text>
-        <Text style={styles.heading}>Find training</Text>
+        <Text style={styles.heading}>Training</Text>
         <Text style={styles.sub}>
-          Join an open small group or book private training with a Guild coach.
+          Join an open session or ask a coach to create private, partner, or small-group training.
         </Text>
 
         <View style={styles.segment}>
           <Pressable
-            style={[styles.segmentBtn, tab === 'groups' && styles.segmentBtnActive]}
+            style={[styles.segmentBtn, tab === 'available' && styles.segmentBtnActive]}
             onPress={() => {
-              setTab('groups');
-              router.setParams({ tab: 'groups' });
+              setTab('available');
+              router.setParams({ tab: 'available' });
             }}
           >
-            <Text style={[styles.segmentText, tab === 'groups' && styles.segmentTextActive]}>
-              Small groups
+            <Text style={[styles.segmentText, tab === 'available' && styles.segmentTextActive]}>
+              Available
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.segmentBtn, tab === 'coaches' && styles.segmentBtnActive]}
+            style={[styles.segmentBtn, tab === 'request' && styles.segmentBtnActive]}
             onPress={() => {
-              setTab('coaches');
-              router.setParams({ tab: 'coaches' });
+              setTab('request');
+              router.setParams({ tab: 'request' });
             }}
           >
-            <Text style={[styles.segmentText, tab === 'coaches' && styles.segmentTextActive]}>
-              Privates
+            <Text style={[styles.segmentText, tab === 'request' && styles.segmentTextActive]}>
+              Request
             </Text>
           </Pressable>
-          <Pressable style={styles.segmentBtn} onPress={() => router.push('/coach-map')}>
-            <Text style={styles.segmentText}>Map</Text>
+          <Pressable
+            style={[styles.segmentBtn, tab === 'mine' && styles.segmentBtnActive]}
+            onPress={() => {
+              setTab('mine');
+              router.setParams({ tab: 'mine' });
+            }}
+          >
+            <Text style={[styles.segmentText, tab === 'mine' && styles.segmentTextActive]}>
+              My Training
+            </Text>
           </Pressable>
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
 
-      {tab === 'groups' ? (
+      {tab === 'available' ? (
         <FlatList
           data={sessions}
           keyExtractor={(item) => item.id}
@@ -180,7 +214,7 @@ export default function FindScreen() {
             </Text>
           }
         />
-      ) : (
+      ) : tab === 'request' ? (
         <FlatList
           data={coaches}
           keyExtractor={(item) => item.id}
@@ -216,6 +250,40 @@ export default function FindScreen() {
             </Pressable>
           )}
           ListEmptyComponent={<Text style={styles.empty}>No coaches available right now.</Text>}
+        />
+      ) : (
+        <FlatList
+          data={upcomingBookings}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />
+          }
+          renderItem={({ item }) => (
+            <Pressable style={styles.card} onPress={() => router.push(`/booking/${item.id}`)}>
+              <View style={styles.bookingTop}>
+                <Text style={styles.cardKicker}>{sessionTypeLabel(item.session_type).toUpperCase()}</Text>
+                <Text style={styles.bookingStatus}>{statusLabel(item.status)}</Text>
+              </View>
+              <Text style={styles.cardTitle}>
+                {item.focus_area?.trim() ||
+                  (item.coach ? `${item.coach.first_name} ${item.coach.last_name}` : 'Training')}
+              </Text>
+              <Text style={styles.cardMeta}>{formatWhen(item.scheduled_datetime)}</Text>
+              {item.facility?.name ? <Text style={styles.cardMeta}>{item.facility.name}</Text> : null}
+            </Pressable>
+          )}
+          ListEmptyComponent={
+            <View>
+              <Text style={styles.empty}>No upcoming training.</Text>
+              <Pressable
+                style={styles.historyLink}
+                onPress={() => router.push({ pathname: '/(tabs)/bookings', params: { view: 'past' } })}
+              >
+                <Text style={styles.cta}>View training history</Text>
+              </Pressable>
+            </View>
+          }
         />
       )}
     </View>
@@ -279,6 +347,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  bookingTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  bookingStatus: { ...typography.bodySemi, color: colors.success, fontSize: 12 },
+  historyLink: { minHeight: 48, justifyContent: 'center', marginTop: 12 },
   price: { ...typography.bodyBold, color: colors.accent, fontSize: 14 },
   row: {
     flexDirection: 'row',

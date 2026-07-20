@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -57,6 +57,15 @@ export function CoachHomeScreen() {
   );
 
   const isPreviewOnly = previewCoachView && role !== 'coach' && role !== 'admin';
+  const coachSummary = useMemo(() => {
+    const booked = sessions.reduce((sum, session) => sum + (session.current_participants ?? 0), 0);
+    const openSpots = sessions.reduce(
+      (sum, session) =>
+        sum + Math.max(0, (session.max_participants ?? 0) - (session.current_participants ?? 0)),
+      0
+    );
+    return { booked, openSpots };
+  }, [sessions]);
 
   return (
     <FlatList
@@ -75,9 +84,9 @@ export function CoachHomeScreen() {
         <View style={styles.header}>
           <GuildLogo size={120} />
           <Text style={styles.brand}>THE GUILD</Text>
-          <Text style={styles.title}>Coach home</Text>
+          <Text style={styles.title}>Grow your training business.</Text>
           <Text style={styles.body}>
-            Your schedule, alerts, and messages — open Guild before every session.
+            Publish availability, fill private and small-group sessions, and manage every athlete in one place.
           </Text>
           {isPreviewOnly ? (
             <Text style={styles.previewNote}>
@@ -89,24 +98,48 @@ export function CoachHomeScreen() {
 
           <Pressable
             style={styles.primaryCta}
-            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/athlete-dashboard`)}
+            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/coach-sessions/create`)}
           >
-            <Text style={styles.primaryCtaText}>Open full coach dashboard</Text>
+            <Text style={styles.primaryCtaText}>Create a session</Text>
           </Pressable>
           <Pressable
             style={styles.secondaryCta}
-            onPress={() =>
-              void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/coach-sessions/create?type=small_group`)
-            }
+            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/availability`)}
           >
-            <Text style={styles.secondaryCtaText}>Create small group</Text>
+            <Text style={styles.secondaryCtaText}>Set availability</Text>
           </Pressable>
 
-          <Pressable style={styles.linkRow} onPress={() => router.push('/notifications')}>
-            <Text style={styles.linkTitle}>
-              Alerts{unreadCount > 0 ? ` · ${unreadCount}` : ''}
-            </Text>
-            <Text style={styles.linkMeta}>Bookings & messages</Text>
+          <View style={styles.metrics}>
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{sessions.length}</Text>
+              <Text style={styles.metricLabel}>Upcoming</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{coachSummary.booked}</Text>
+              <Text style={styles.metricLabel}>Athletes</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{coachSummary.openSpots}</Text>
+              <Text style={styles.metricLabel}>Open spots</Text>
+            </View>
+          </View>
+
+          <View style={styles.quickLinks}>
+            <Pressable style={styles.quickLink} onPress={() => router.push('/(tabs)/inbox')}>
+              <Text style={styles.linkTitle}>Messages</Text>
+              <Text style={styles.linkMeta}>Parents & athletes</Text>
+            </Pressable>
+            <Pressable style={styles.quickLink} onPress={() => router.push('/notifications')}>
+              <Text style={styles.linkTitle}>Alerts{unreadCount > 0 ? ` · ${unreadCount}` : ''}</Text>
+              <Text style={styles.linkMeta}>Bookings & updates</Text>
+            </Pressable>
+          </View>
+
+          <Pressable
+            style={styles.dashboardLink}
+            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/athlete-dashboard`)}
+          >
+            <Text style={styles.dashboardLinkText}>Open earnings & full dashboard ›</Text>
           </Pressable>
 
           <Text style={styles.section}>Upcoming sessions</Text>
@@ -118,9 +151,7 @@ export function CoachHomeScreen() {
       renderItem={({ item }) => (
         <Pressable
           style={styles.card}
-          onPress={() =>
-            void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/athlete-dashboard?tab=upcoming`)
-          }
+          onPress={() => router.push(`/session/${item.id}`)}
         >
           <Text style={styles.typeLabel}>{sessionTypeLabel(item.session_type)}</Text>
           <Text style={styles.cardTitle}>{coachSessionTitle(item)}</Text>
@@ -214,13 +245,29 @@ const styles = StyleSheet.create({
     color: colors.accent,
     letterSpacing: 0.4,
   },
-  linkRow: {
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+  metrics: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  metric: {
+    flex: 1,
+    minHeight: 76,
+    justifyContent: 'center',
+    padding: 10,
+    borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 20,
+    backgroundColor: colors.surface,
   },
+  metricValue: { ...typography.display, color: colors.text, fontSize: 24 },
+  metricLabel: { ...typography.body, color: colors.textSecondary, fontSize: 11, marginTop: 3 },
+  quickLinks: { flexDirection: 'row', gap: 8 },
+  quickLink: {
+    flex: 1,
+    minHeight: 68,
+    justifyContent: 'center',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dashboardLink: { minHeight: 48, justifyContent: 'center', marginBottom: 12 },
+  dashboardLinkText: { ...typography.bodySemi, color: colors.accent, fontSize: 14 },
   linkTitle: { ...typography.bodySemi, fontSize: 16, color: colors.text },
   linkMeta: { ...typography.body, fontSize: 13, color: colors.textSecondary, marginTop: 4 },
   section: {

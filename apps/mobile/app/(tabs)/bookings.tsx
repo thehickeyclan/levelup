@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
   RefreshControl,
   SectionList,
@@ -8,11 +9,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { statusLabel } from '@/components/session-detail-view';
 import { fetchFamilyBookings, sessionTypeLabel, type MobileBooking } from '@/lib/parent-data';
 import { colors, typography } from '@/lib/theme';
+import { coachSessionTitle, fetchCoachUpcomingSessions, type CoachSessionRow } from '@/lib/coach-data';
 
 const ENDED_STATUSES = new Set(['completed', 'cancelled', 'no-show']);
 
@@ -38,7 +40,75 @@ function statusColor(status: string): string {
 }
 
 export default function BookingsScreen() {
+  const { isCoachView } = useAuth();
+  return isCoachView ? <CoachScheduleScreen /> : <ParentBookingsScreen />;
+}
+
+function CoachScheduleScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [sessions, setSessions] = useState<CoachSessionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    setError(null);
+    try {
+      setSessions(await fetchCoachUpcomingSessions(user.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load schedule');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      void load();
+    }, [load])
+  );
+
+  return (
+    <FlatList
+      style={styles.screen}
+      data={sessions}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.list}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />}
+      ListHeaderComponent={
+        <View style={{ marginBottom: 12 }}>
+          <Text style={styles.kicker}>COACH</Text>
+          <Text style={styles.heading}>Schedule</Text>
+          <Text style={styles.scheduleIntro}>Upcoming sessions, athletes, and open capacity.</Text>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+        </View>
+      }
+      renderItem={({ item }) => (
+        <Pressable style={styles.card} onPress={() => router.push(`/session/${item.id}`)}>
+          <View style={styles.cardTop}>
+            <Text style={styles.typeLabel}>{sessionTypeLabel(item.session_type).toUpperCase()}</Text>
+            <Text style={[styles.status, { color: colors.success }]}>Scheduled</Text>
+          </View>
+          <Text style={styles.title}>{coachSessionTitle(item)}</Text>
+          <Text style={styles.meta}>{formatWhen(item.scheduled_datetime)}</Text>
+          {item.facilities?.name ? <Text style={styles.meta}>{item.facilities.name}</Text> : null}
+          {item.max_participants != null ? (
+            <Text style={styles.meta}>{item.current_participants ?? 0}/{item.max_participants} athletes</Text>
+          ) : null}
+        </Pressable>
+      )}
+      ListEmptyComponent={
+        !loading ? <Text style={styles.empty}>No upcoming sessions. Create one from Coach Home.</Text> : null
+      }
+    />
+  );
+}
+
+function ParentBookingsScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ view?: string }>();
   const { user } = useAuth();
   const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,10 +152,13 @@ export default function BookingsScreen() {
           new Date(b.scheduled_datetime).getTime() - new Date(a.scheduled_datetime).getTime()
       );
     const out: { title: string; data: MobileBooking[] }[] = [];
-    if (upcoming.length > 0) out.push({ title: 'Upcoming', data: upcoming });
-    if (past.length > 0) out.push({ title: 'Past', data: past });
+    if (params.view === 'past') {
+      if (past.length > 0) out.push({ title: 'Past', data: past });
+    } else if (upcoming.length > 0) {
+      out.push({ title: 'Upcoming', data: upcoming });
+    }
     return out;
-  }, [bookings]);
+  }, [bookings, params.view]);
 
   if (loading && bookings.length === 0) {
     return (
@@ -111,8 +184,8 @@ export default function BookingsScreen() {
       }
       ListHeaderComponent={
         <View style={{ marginBottom: 8 }}>
-          <Text style={styles.kicker}>SCHEDULE</Text>
-          <Text style={styles.heading}>My bookings</Text>
+          <Text style={styles.kicker}>{params.view === 'past' ? 'HISTORY' : 'MY TRAINING'}</Text>
+          <Text style={styles.heading}>{params.view === 'past' ? 'Training history' : 'Upcoming'}</Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
       }
@@ -142,7 +215,9 @@ export default function BookingsScreen() {
       )}
       ListEmptyComponent={
         <Text style={styles.empty}>
-          No bookings yet. Join a small group or book a private from Train.
+          {params.view === 'past'
+            ? 'No past sessions yet.'
+            : 'No upcoming training. Choose Available or Request to get started.'}
         </Text>
       }
     />
@@ -160,6 +235,7 @@ const styles = StyleSheet.create({
   list: { padding: 20, paddingBottom: 40 },
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
+  scheduleIntro: { ...typography.body, color: colors.textMuted, marginTop: 6, fontSize: 14 },
   sectionTitle: {
     ...typography.brand,
     fontSize: 12,

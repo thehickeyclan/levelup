@@ -48,7 +48,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: isCoachView ? 'Home' : 'Training',
+          href: isCoachView ? undefined : null,
           tabBarIcon: ({ focused }) => <TabLabel label="Home" focused={focused} />,
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.accent, color: colors.black },
@@ -57,9 +58,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="find"
         options={{
-          title: isCoachView ? 'Create' : 'Explore',
+          title: isCoachView ? 'Create' : 'Training',
           href: isCoachView ? null : undefined,
-          tabBarIcon: ({ focused }) => <TabLabel label="Explore" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabLabel label="Training" focused={focused} />,
         }}
       />
       <Tabs.Screen

@@ -15,21 +15,23 @@ import { useAuth } from '@/lib/auth';
 import { colors, typography } from '@/lib/theme';
 
 export default function LoginScreen() {
-  const { session, signIn, loading: authLoading } = useAuth();
+  const { session, role, signIn, loading: authLoading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!authLoading && session) return <Redirect href="/(tabs)" />;
+  if (!authLoading && session) {
+    return <Redirect href={role === 'coach' || role === 'admin' ? '/(tabs)' : '/(tabs)/find'} />;
+  }
 
   async function onSubmit() {
     setError(null);
     setSubmitting(true);
     try {
-      await signIn(email, password);
-      router.replace('/(tabs)');
+      const nextRole = await signIn(email, password);
+      router.replace(nextRole === 'coach' || nextRole === 'admin' ? '/(tabs)' : '/(tabs)/find');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not sign in');
     } finally {

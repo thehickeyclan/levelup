@@ -55,10 +55,13 @@ export default function AccountScreen() {
       <Text style={styles.meta}>Role: {role ?? '…'}</Text>
 
       {!isCoachView ? (
-        <Pressable style={styles.menuRow} onPress={() => router.push('/(tabs)/bookings')}>
+        <Pressable
+          style={styles.menuRow}
+          onPress={() => router.push({ pathname: '/(tabs)/bookings', params: { view: 'past' } })}
+        >
           <View>
-            <Text style={styles.menuTitle}>My training</Text>
-            <Text style={styles.menuMeta}>Upcoming and past sessions</Text>
+            <Text style={styles.menuTitle}>Training history</Text>
+            <Text style={styles.menuMeta}>Past sessions and reviews</Text>
           </View>
           <Text style={styles.menuArrow}>›</Text>
         </Pressable>
@@ -88,8 +91,9 @@ export default function AccountScreen() {
         <Pressable
           style={previewParentView ? styles.button : styles.buttonSecondary}
           onPress={() => {
-            setPreviewParentView(!previewParentView);
-            router.replace('/(tabs)');
+            const enteringParentView = !previewParentView;
+            setPreviewParentView(enteringParentView);
+            router.replace(enteringParentView ? '/(tabs)/find' : '/(tabs)');
           }}
         >
           <Text style={previewParentView ? styles.buttonText : styles.buttonSecondaryText}>

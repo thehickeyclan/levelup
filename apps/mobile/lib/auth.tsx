@@ -18,7 +18,7 @@ type AuthContextValue = {
   previewParentView: boolean;
   setPreviewParentView: (on: boolean) => void;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<AppRole | null>;
   signOut: () => Promise<void>;
 };
 
@@ -97,8 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           password,
         });
         if (error) throw error;
-        if (data.user) setRole(await fetchRole(data.user.id));
+        const nextRole = data.user ? await fetchRole(data.user.id) : null;
+        if (data.user) setRole(nextRole);
         await registerForPushNotifications();
+        return nextRole;
       },
       async signOut() {
         await unregisterPushToken();

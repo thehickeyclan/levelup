@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { colors } from '@/lib/theme';
 
 export default function Index() {
-  const { session, loading } = useAuth();
+  const { session, loading, isCoachView } = useAuth();
 
   if (loading) {
     return (
@@ -25,5 +25,5 @@ export default function Index() {
   }
 
   if (!session) return <Redirect href="/(auth)/login" />;
-  return <Redirect href="/(tabs)" />;
+  return <Redirect href={isCoachView ? '/(tabs)' : '/(tabs)/find'} />;
 }

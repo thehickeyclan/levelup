@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { FindTrainingClient } from '@/app/(parent)/find-training/find-training-client';
 import { TrainingCoachesGrid } from '@/app/(parent)/training/training-coaches-grid';
 import type { Athlete } from '@/types';
@@ -15,7 +15,7 @@ function mapUrlTypeToCoachFilter(t: string): CoachSessionTypeFilter {
   return 'all';
 }
 
-type TabId = 'sessions' | 'coaches';
+type TabId = 'sessions' | 'coaches' | 'mine';
 
 interface AthleteWithNext extends Athlete {
   nextAvailable?: { slot_date: string; start_time: string } | null;
@@ -31,6 +31,11 @@ const TABS: { id: TabId; label: string; description: string }[] = [
     id: 'coaches',
     label: 'Request training',
     description: 'Choose a coach for a private, partner, or new small group',
+  },
+  {
+    id: 'mine',
+    label: 'My Training',
+    description: 'See upcoming and past sessions',
   },
 ];
 
@@ -81,6 +86,7 @@ type Props = {
   coachDateFilterBounds: { minYmd: string; maxYmd: string };
   /** Server-fetched so coach grid sort matches before client follow fetch completes. */
   initialFollowedCoachIds?: string[];
+  myTrainingContent: ReactNode;
 };
 
 export function TrainingClient({
@@ -103,8 +109,9 @@ export function TrainingClient({
   coachDateFilterData,
   coachDateFilterBounds,
   initialFollowedCoachIds = [],
+  myTrainingContent,
 }: Props) {
-  const tab = (initialTab === 'sessions' ? 'sessions' : 'coaches') as TabId;
+  const tab = (initialTab === 'sessions' || initialTab === 'mine' ? initialTab : 'coaches') as TabId;
   const [activeTab, setActiveTab] = useState<TabId>(tab);
 
   // Sync tab state when URL changes (e.g. "View their group sessions" → ?tab=sessions&coach=xxx)
@@ -119,30 +126,26 @@ export function TrainingClient({
         <p className="mt-1 text-sm text-zinc-400">
           Join a scheduled session or ask a coach to create training that works for you.
         </p>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setActiveTab(t.id)}
               title={t.description}
-              className={`min-h-[76px] rounded-xl border px-3 py-3 text-left transition-all touch-manipulation ${
+              className={`min-h-[56px] rounded-xl border px-2 py-3 text-center transition-all touch-manipulation ${
                 activeTab === t.id
                   ? 'border-accent bg-accent text-black'
                   : 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700'
               }`}
             >
-              <span className="block text-sm font-semibold">{t.label}</span>
-              <span
-                className={`mt-1 block text-xs leading-snug ${
-                  activeTab === t.id ? 'text-black/70' : 'text-zinc-500'
-                }`}
-              >
-                {t.description}
-              </span>
+              <span className="block text-xs font-semibold sm:text-sm">{t.label}</span>
             </button>
           ))}
         </div>
+        <p className="mt-2 text-xs text-zinc-500">
+          {TABS.find((item) => item.id === activeTab)?.description}
+        </p>
       </div>
 
       {activeTab === 'sessions' && (
@@ -176,6 +179,8 @@ export function TrainingClient({
           initialFacilityId={availabilityLocation}
         />
       )}
+
+      {activeTab === 'mine' && myTrainingContent}
     </>
   );
 }

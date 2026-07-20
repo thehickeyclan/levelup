@@ -416,7 +416,6 @@ export function Header() {
                     </>
                   )}
                   <Link href="/training" className="text-white hover:text-accent transition-colors font-medium">Training</Link>
-                  <Link href="/bookings" className="text-white hover:text-accent transition-colors font-medium">My Training</Link>
                   <Link
                     href={activityNavHref('parent')}
                     className={

@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import {
-  Activity,
   Bell,
-  CalendarDays,
   ChevronRight,
   CircleDollarSign,
   HeartHandshake,
@@ -15,7 +13,6 @@ const SECTIONS = [
   {
     label: 'Training',
     links: [
-      { href: '/bookings', label: 'My training', detail: 'Upcoming and past sessions', icon: CalendarDays },
       { href: '/my-wrestlers', label: 'My wrestlers', detail: 'Profiles and training details', icon: UsersRound },
       { href: '/my-coaches', label: 'My coaches', detail: 'Coaches you follow', icon: HeartHandshake },
     ],
@@ -23,7 +20,6 @@ const SECTIONS = [
   {
     label: 'Communication',
     links: [
-      { href: '/activity?audience=parent', label: 'Activity', detail: 'Guild updates and new sessions', icon: Activity },
       { href: '/inbox', label: 'Inbox', detail: 'Coaches, sessions, and Market', icon: MessageSquare },
       { href: '/notifications', label: 'Alerts', detail: 'Booking and session updates', icon: Bell },
     ],

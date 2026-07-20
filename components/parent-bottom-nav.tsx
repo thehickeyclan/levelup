@@ -2,23 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, Menu, ShoppingCart, Tag, Users } from 'lucide-react';
+import { Activity, Menu, ShoppingCart, Tag, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cart-context';
+import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
 
 /** Parent mobile bottom nav with gold active states. */
 const ITEMS: readonly { href: string; label: string; icon: typeof Users; showCartBadge?: boolean }[] = [
   { href: '/training', label: 'Training', icon: Users },
-  { href: '/bookings', label: 'My Training', icon: CalendarDays },
-  { href: '/cart', label: 'Cart', icon: ShoppingCart, showCartBadge: true },
+  { href: activityNavHref('parent'), label: 'Activity', icon: Activity },
   { href: '/market', label: 'Market', icon: Tag },
+  { href: '/cart', label: 'Cart', icon: ShoppingCart, showCartBadge: true },
   { href: '/more', label: 'More', icon: Menu },
 ];
 
 const MORE_ROUTES = [
   '/more',
   '/account',
-  '/activity',
   '/inbox',
   '/messages',
   '/notifications',
@@ -36,13 +36,16 @@ export function ParentBottomNav() {
       aria-label="Main navigation"
     >
       {ITEMS.map(({ href, label, icon: Icon, showCartBadge }) => {
+        const baseHref = href.split('?')[0];
         const isActive =
           href === '/training' && pathname === '/dashboard'
             ? true
             : href === '/more'
               ? MORE_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
-            : pathname === href ||
-              (href !== '/dashboard' && pathname.startsWith(href));
+            : baseHref === '/activity'
+              ? pathname.startsWith('/activity')
+              : pathname === baseHref ||
+                (baseHref !== '/dashboard' && pathname.startsWith(baseHref));
         return (
           <Link
             key={href}

@@ -9,6 +9,7 @@ import { APP_TIMEZONE, formatEST } from '@/lib/format-date';
 import type { CoachDateFilterData } from '@/lib/training-coach-date-filter';
 import { Athlete } from '@/types';
 import { TrainingClient } from './training-client';
+import { ParentBookingsContent } from '@/app/(parent)/bookings/parent-bookings-content';
 import {
   fetchCoachReviewStatsMap,
   mergeCoachReviewStatsIntoAthlete,
@@ -22,6 +23,7 @@ import {
 } from '@/lib/sessions';
 import { isBookingCheckoutShellSession, isOpenSessionStatus } from '@/lib/session-checkout-shell';
 import { buildServiceTypesByCoach } from '@/lib/coach-offered-session-types';
+import Link from 'next/link';
 
 export const metadata = {
   title: 'Training | The Guild',
@@ -64,7 +66,7 @@ export default async function TrainingPage({
   searchParams: Promise<{ tab?: string; date?: string; time?: string; location?: string; coach?: string; wrestler?: string; type?: string }>;
 }) {
   const sp = await searchParams;
-  const tab = sp.tab === 'sessions' ? 'sessions' : 'coaches';
+  const tab = sp.tab === 'sessions' || sp.tab === 'mine' ? sp.tab : 'coaches';
 
   const headersList = await headers();
   const host = headersList.get('host') || '';
@@ -507,6 +509,22 @@ export default async function TrainingPage({
         coachDateFilterData={coachDateFilterData}
         coachDateFilterBounds={coachDateFilterBounds}
         initialFollowedCoachIds={initialFollowedCoachIds}
+        myTrainingContent={
+          user ? (
+            <ParentBookingsContent />
+          ) : (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-5 py-10 text-center">
+              <h2 className="text-lg font-semibold text-white">Sign in to see your training</h2>
+              <p className="mt-1 text-sm text-zinc-400">View upcoming sessions and your training history.</p>
+              <Link
+                href="/login?redirect=%2Ftraining%3Ftab%3Dmine"
+                className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-6 text-sm font-semibold text-black"
+              >
+                Sign in
+              </Link>
+            </div>
+          )
+        }
       />
       </div>
     </div>

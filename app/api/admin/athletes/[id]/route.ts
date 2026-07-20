@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { hasMinPhoneDigits } from '@/lib/phone';
 import { normalizeUsZipCode } from '@/lib/us-zip';
+import { announceDiscoverableCoach } from '@/lib/announce-discoverable-coach';
 
 async function requireAdmin(tenantSlug: string) {
   const supabase = await createClient(tenantSlug);
@@ -175,6 +176,14 @@ export async function PATCH(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     if (!athlete) return NextResponse.json({ error: 'Athlete not found' }, { status: 404 });
+
+    if (
+      body.active === true ||
+      body.facility_id !== undefined ||
+      body.secondary_facility_id !== undefined
+    ) {
+      await announceDiscoverableCoach(admin, id);
+    }
 
     const { data: userAfter } = await admin.from('users').select('phone, zip_code').eq('id', id).maybeSingle();
     return NextResponse.json({

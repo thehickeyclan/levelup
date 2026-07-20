@@ -48,8 +48,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: isCoachView ? 'Home' : 'Training',
-          href: isCoachView ? undefined : null,
+          title: 'Home',
           tabBarIcon: ({ focused }) => <TabLabel label="Home" focused={focused} />,
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.accent, color: colors.black },

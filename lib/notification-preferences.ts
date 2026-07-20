@@ -7,6 +7,7 @@ export type NotificationPreferences = {
   confirmations_push: boolean;
   messaging_sms: boolean;
   messaging_push: boolean;
+  nearby_coaches_push: boolean;
   sms_opted_out: boolean;
 };
 
@@ -19,6 +20,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   confirmations_push: true,
   messaging_sms: true,
   messaging_push: true,
+  nearby_coaches_push: false,
   sms_opted_out: false,
 };
 
@@ -31,6 +33,7 @@ const BOOL_KEYS: (keyof NotificationPreferences)[] = [
   'confirmations_push',
   'messaging_sms',
   'messaging_push',
+  'nearby_coaches_push',
   'sms_opted_out',
 ];
 

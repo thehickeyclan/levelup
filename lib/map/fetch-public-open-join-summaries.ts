@@ -2,17 +2,18 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getEffectiveFilledCount, isSessionOpenForParentBrowse } from '@/lib/sessions';
 import { formatEST } from '@/lib/format-date';
 
-/** One table row per bookable public join-in session (not collapsed per coach). */
+/** One table row per upcoming scheduled session (not collapsed per coach). */
 export type PublicOpenJoinSessionRow = {
   sessionId: string;
   coachId: string;
   coachName: string;
-  kind: 'Partner' | 'Small group';
+  kind: 'Private' | 'Partner' | 'Small group';
   scheduledAt: string;
   facilityName: string;
   /** Capacity context: athletes already booked vs room left. */
   openingsLabel: string;
   openSlots: number;
+  isJoinable: boolean;
   sessionType: string | null;
   pricePerParticipant: number | null;
 };
@@ -52,19 +53,20 @@ type SessionRow = {
   session_participants?: unknown[] | null;
 };
 
-function labelKind(session_type: string | null, session_mode: string | null): 'Partner' | 'Small group' {
+function labelKind(session_type: string | null, session_mode: string | null): 'Private' | 'Partner' | 'Small group' {
   const sm = (session_mode ?? '').toLowerCase();
   const st = (session_type ?? '').toLowerCase();
+  if (sm === 'private' || st === '1-on-1' || st === 'private') return 'Private';
   if (sm === 'partner-open' || st === '2-athlete' || st === 'partner') return 'Partner';
   return 'Small group';
 }
 
-function openingsLabelFromSession(s: SessionRow): string {
+function openingsLabelFromSession(s: SessionRow, kind: PublicOpenJoinSessionRow['kind']): string {
   const max = s.max_participants;
   const filled = getEffectiveFilledCount(s);
   if (max != null && max > 0) {
     const open = max - filled;
-    if (open <= 0) return '';
+    if (open <= 0) return kind === 'Private' ? 'Booked' : `Full · ${filled}/${max}`;
     return `${filled} booked · ${open} open`;
   }
   if (filled >= 1) {
@@ -98,7 +100,7 @@ export type PublicOpenJoinSummariesResult = {
   };
 };
 
-/** Public join-in sessions (open partner + small group) for marketing / home table. Service role on server only. */
+/** Upcoming scheduled training for the marketing/home table. Service role on server only. */
 export async function fetchPublicOpenJoinSummaries(
   tenantSlug: string,
   options?: { daysAhead?: number; /** Max table rows (sessions), not unique coaches. */ maxCoaches?: number }
@@ -112,40 +114,17 @@ export async function fetchPublicOpenJoinSummaries(
   const from = now.toISOString();
   const to = until.toISOString();
 
-  const [groupRes, partnerRes] = await Promise.all([
-    admin
-      .from('sessions')
-      .select(SESSION_SELECT)
-      .eq('status', 'scheduled')
-      .eq('join_policy', 'public')
-      .gte('scheduled_datetime', from)
-      .lte('scheduled_datetime', to)
-      .in('session_type', ['group', 'small_group', '2-athlete'])
-      .order('scheduled_datetime', { ascending: true }),
-    admin
-      .from('sessions')
-      .select(SESSION_SELECT)
-      .eq('status', 'scheduled')
-      .eq('join_policy', 'public')
-      .gte('scheduled_datetime', from)
-      .lte('scheduled_datetime', to)
-      .eq('session_mode', 'partner-open')
-      .order('scheduled_datetime', { ascending: true }),
-  ]);
+  const sessionsRes = await admin
+    .from('sessions')
+    .select(SESSION_SELECT)
+    .eq('status', 'scheduled')
+    .gte('scheduled_datetime', from)
+    .lte('scheduled_datetime', to)
+    .order('scheduled_datetime', { ascending: true });
 
-  if (groupRes.error) console.error('[fetchPublicOpenJoinSummaries] group', groupRes.error);
-  if (partnerRes.error) console.error('[fetchPublicOpenJoinSummaries] partner', partnerRes.error);
-
-  const raw = [...(groupRes.data ?? []), ...(partnerRes.data ?? [])] as SessionRow[];
-  const seen = new Set<string>();
-  const merged: SessionRow[] = [];
-  for (const r of raw) {
-    if (seen.has(r.id)) continue;
-    seen.add(r.id);
-    merged.push(r);
-  }
-
-  const open = merged.filter((s) => isSessionOpenForParentBrowse(s));
+  if (sessionsRes.error) console.error('[fetchPublicOpenJoinSummaries]', sessionsRes.error);
+  const scheduled = (sessionsRes.data ?? []) as SessionRow[];
+  const open = scheduled.filter((s) => isSessionOpenForParentBrowse(s));
 
   const todayYmd = formatEST(new Date(), 'yyyy-MM-dd');
   const sessionYmd = (s: SessionRow) => formatEST(s.scheduled_datetime, 'yyyy-MM-dd');
@@ -160,12 +139,11 @@ export async function fetchPublicOpenJoinSummaries(
   }
 
   const out: PublicOpenJoinSessionRow[] = [];
-  for (const s of open) {
+  for (const s of scheduled) {
     const coachId = s.athlete_id;
     if (!coachId) continue;
     const kind = labelKind(s.session_type, s.session_mode);
-    const label = openingsLabelFromSession(s);
-    if (!label) continue;
+    const label = openingsLabelFromSession(s, kind);
     const max = s.max_participants ?? 1;
     const filled = getEffectiveFilledCount(s);
     out.push({
@@ -177,6 +155,7 @@ export async function fetchPublicOpenJoinSummaries(
       facilityName: facilityNameFromSession(s),
       openingsLabel: label,
       openSlots: Math.max(0, max - filled),
+      isJoinable: isSessionOpenForParentBrowse(s),
       sessionType: s.session_type,
       pricePerParticipant:
         typeof s.price_per_participant === 'number' ? s.price_per_participant : null,

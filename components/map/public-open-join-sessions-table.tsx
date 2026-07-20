@@ -44,12 +44,12 @@ export async function PublicOpenJoinSessionsTable({
       className="mt-10 scroll-mt-24 rounded-xl border border-accent/25 bg-black/50 px-4 py-6 md:px-6"
     >
       <h3 className="font-serif text-lg font-bold uppercase tracking-wide text-accent md:text-xl">
-        Open sessions — join now
+        Upcoming training
       </h3>
       <div className="mt-2 max-w-2xl space-y-2 text-sm text-white/70">
         <p>
-          Each row is a specific posted session that already has at least one athlete booked and still has room—you are
-          joining that existing signup, not opening a brand-new slot from scratch.
+          See the complete upcoming schedule. Sessions with open spots can be added now; full and booked private
+          sessions are shown for clarity.
         </p>
         <p>
           For a fresh private or partner booking on your own schedule, start from a coach on the map above (or Training
@@ -59,7 +59,7 @@ export async function PublicOpenJoinSessionsTable({
 
       {rows.length === 0 ? (
         <p className="mt-6 text-sm text-white/50">
-          No matching open spots in the next few weeks.{' '}
+          No matching sessions in the next few weeks.{' '}
           <Link href="/signup" className="text-accent underline-offset-2 hover:underline">
             Create an account
           </Link>{' '}
@@ -73,7 +73,8 @@ export async function PublicOpenJoinSessionsTable({
         <>
           <div className="mt-5 space-y-1">
             <p className="text-sm font-semibold text-white/90">
-              {todayCount === 1 ? '1 open session available today' : `${todayCount} open sessions available today`}
+              {rows.length === 1 ? '1 upcoming session' : `${rows.length} upcoming sessions`}
+              {todayCount > 0 ? ` · ${todayCount} open today` : ''}
             </p>
             <p className="text-xs text-white/45">Updates as coaches add spots.</p>
           </div>
@@ -92,6 +93,7 @@ export async function PublicOpenJoinSessionsTable({
               <tbody>
                 {rows.map((r) => {
                   const isPartner = r.kind === 'Partner';
+                  const isPrivate = r.kind === 'Private';
                   return (
                     <tr key={r.sessionId} className="border-b border-white/[0.06] last:border-0">
                       <td className="px-3 py-3">
@@ -106,24 +108,32 @@ export async function PublicOpenJoinSessionsTable({
                         <Badge
                           variant="outline"
                           className={
-                            isPartner
+                            isPrivate
+                              ? 'border-amber-500/50 bg-amber-500/10 text-amber-200'
+                              : isPartner
                               ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-200'
                               : 'border-violet-500/50 bg-violet-500/10 text-violet-200'
                           }
                         >
-                          {isPartner ? 'Partner' : 'Small group'}
+                          {r.kind}
                         </Badge>
                       </td>
                       <td className="max-w-[11rem] px-3 py-3 text-white/70">{r.openingsLabel}</td>
                       <td className="px-3 py-3 text-white/80">{formatEST(r.scheduledAt, 'EEE MMM d · h:mm a')}</td>
                       <td className="px-3 py-3 text-white/65">{r.facilityName}</td>
                       <td className="px-3 py-3 text-right align-middle">
-                        <PublicOpenJoinSessionCartAction
-                          row={r}
-                          isLoggedIn={isLoggedIn}
-                          parentWrestlerIds={parentWrestlerIds}
-                          loginReturnPath={loginReturnPath}
-                        />
+                        {r.isJoinable ? (
+                          <PublicOpenJoinSessionCartAction
+                            row={r}
+                            isLoggedIn={isLoggedIn}
+                            parentWrestlerIds={parentWrestlerIds}
+                            loginReturnPath={loginReturnPath}
+                          />
+                        ) : (
+                          <span className="whitespace-nowrap text-xs font-semibold text-white/40">
+                            {isPrivate ? 'Private' : 'Full'}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

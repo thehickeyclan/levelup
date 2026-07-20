@@ -75,5 +75,6 @@ export function getNotificationDeepLink(data: Record<string, unknown> | undefine
   if (typeof data.listing_id === 'string') return `/listing/${data.listing_id}`;
   if (typeof data.offer_id === 'string') return '/(tabs)/inbox';
   if (typeof data.order_id === 'string') return `/order/${data.order_id}`;
+  if (typeof data.coach_id === 'string') return `/coach/${data.coach_id}`;
   return '/notifications';
 }

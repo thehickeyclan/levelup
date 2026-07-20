@@ -29,7 +29,8 @@ function parseTab(raw: string | string[] | undefined): Tab {
   const v = Array.isArray(raw) ? raw[0] : raw;
   if (v === 'groups' || v === 'available') return 'available';
   if (v === 'mine' || v === 'bookings') return 'mine';
-  return 'request';
+  if (v === 'request' || v === 'coaches') return 'request';
+  return 'available';
 }
 
 function formatWhen(iso: string) {
@@ -179,33 +180,46 @@ export default function FindScreen() {
                 : null;
             const price = formatPrice(item);
             return (
-              <Pressable style={styles.card} onPress={() => router.push(`/session/${item.id}`)}>
-                <Text style={styles.cardKicker}>SMALL GROUP</Text>
-                <Text style={styles.cardTitle}>
-                  {item.focus_area?.trim() ||
-                    (item.coach
-                      ? `${item.coach.first_name} ${item.coach.last_name}`
-                      : 'Open session')}
-                </Text>
-                <Text style={styles.cardMeta}>{formatWhen(item.scheduled_datetime)}</Text>
-                {item.coach && item.focus_area?.trim() ? (
-                  <Text style={styles.cardMeta}>
-                    {item.coach.first_name} {item.coach.last_name}
-                    {item.coach.school ? ` · ${item.coach.school}` : ''}
-                  </Text>
-                ) : item.coach?.school ? (
-                  <Text style={styles.cardMeta}>{item.coach.school}</Text>
+              <View style={styles.card}>
+                {item.coach ? (
+                  <Pressable
+                    style={styles.sessionCoach}
+                    onPress={() => router.push(`/coach/${item.coach!.id}`)}
+                    accessibilityRole="link"
+                    accessibilityLabel={`View ${item.coach.first_name} ${item.coach.last_name}'s coach profile`}
+                  >
+                    {item.coach.photo_url ? (
+                      <Image source={{ uri: item.coach.photo_url }} style={styles.sessionCoachAvatar} />
+                    ) : (
+                      <View style={[styles.sessionCoachAvatar, styles.avatarPlaceholder]}>
+                        <Text style={styles.sessionCoachLetter}>{item.coach.first_name?.[0] ?? '?'}</Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sessionCoachName}>
+                        {item.coach.first_name} {item.coach.last_name}
+                      </Text>
+                      {item.coach.school ? (
+                        <Text style={styles.sessionCoachSchool}>{item.coach.school}</Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.profileLink}>Profile →</Text>
+                  </Pressable>
                 ) : null}
-                {item.facility?.name ? (
-                  <Text style={styles.cardMeta}>{item.facility.name}</Text>
-                ) : null}
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cta}>
-                    {spots != null ? `${spots} spot${spots === 1 ? '' : 's'} left` : 'Join'}
-                  </Text>
-                  {price ? <Text style={styles.price}>{price}</Text> : null}
-                </View>
-              </Pressable>
+
+                <Pressable style={styles.sessionDetails} onPress={() => router.push(`/session/${item.id}`)}>
+                  <Text style={styles.cardKicker}>SMALL GROUP</Text>
+                  <Text style={styles.cardTitle}>{item.focus_area?.trim() || 'Small-group training'}</Text>
+                  <Text style={styles.cardMeta}>{formatWhen(item.scheduled_datetime)}</Text>
+                  {item.facility?.name ? <Text style={styles.cardMeta}>{item.facility.name}</Text> : null}
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.cta}>
+                      {spots != null ? `${spots} spot${spots === 1 ? '' : 's'} left` : 'Join'}
+                    </Text>
+                    {price ? <Text style={styles.price}>{price}</Text> : null}
+                  </View>
+                </Pressable>
+              </View>
             );
           }}
           ListEmptyComponent={
@@ -339,6 +353,33 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginBottom: 6,
   },
+  sessionCoach: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingBottom: 12,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  sessionCoachAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  sessionCoachLetter: { ...typography.bodyBold, color: colors.accent, fontSize: 15 },
+  sessionCoachName: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
+  sessionCoachSchool: {
+    ...typography.body,
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  profileLink: { ...typography.bodyBold, color: colors.accent, fontSize: 11 },
+  sessionDetails: { minHeight: 100 },
   cardTitle: { ...typography.bodySemi, fontSize: 17, color: colors.text },
   cardMeta: { ...typography.body, color: colors.textSecondary, marginTop: 4, fontSize: 13 },
   cardFooter: {

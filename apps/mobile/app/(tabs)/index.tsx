@@ -1,11 +1,10 @@
-import { Redirect } from 'expo-router';
 import { CoachHomeScreen } from '@/components/coach-home';
+import { ParentHomeScreen } from '@/components/parent-home';
 import { useAuth } from '@/lib/auth';
 
-/** Coach home. Parent mode always enters the combined Training experience. */
+/** Role-aware Home: parent discovery and booking; coach operations and growth. */
 export default function HomeScreen() {
   const { isCoachView } = useAuth();
 
-  if (!isCoachView) return <Redirect href="/(tabs)/find" />;
-  return <CoachHomeScreen />;
+  return isCoachView ? <CoachHomeScreen /> : <ParentHomeScreen />;
 }

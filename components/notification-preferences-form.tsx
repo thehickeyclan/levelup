@@ -132,6 +132,7 @@ export function NotificationPreferencesForm({
         </h2>
         <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl overflow-hidden divide-y divide-zinc-800/50">
           {row('New sessions from coaches I follow', 'new_sessions_push')}
+          {row('New coaches near my home ZIP', 'nearby_coaches_push')}
           {row('Session reminders', 'reminders_push')}
           {row('Booking confirmations', 'confirmations_push')}
           {row('New Guild messages', 'messaging_push')}

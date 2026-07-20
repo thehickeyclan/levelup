@@ -27,6 +27,9 @@ export function coachDisplayName(post: ActivityFeedPost): string {
 
 export function activityPostHeadline(post: ActivityFeedPost): string {
   const name = wrestlerDisplayName(post);
+  if (post.trigger_type === 'coach_joined') {
+    return `${coachDisplayName(post)} joined The Wrestling Guild`;
+  }
   if (post.trigger_type === 'session_created') {
     return `${coachDisplayName(post)} created a new session`;
   }
@@ -63,6 +66,8 @@ export function activityPostSubline(post: ActivityFeedPost): string | null {
     if (!ms?.milestone) return null;
     return `🏆 ${milestoneLabelForKey(ms.milestone)}`;
   }
+
+  if (post.trigger_type === 'coach_joined') return post.caption?.trim() || null;
 
   const session = first(post.sessions);
   if (!session) return null;
@@ -102,7 +107,7 @@ export function activityPostAvatarUrl(post: ActivityFeedPost): string | null {
   if (isMarketListingActivityPost(post.trigger_type)) {
     return post.seller_photo_url?.trim() || null;
   }
-  if (post.trigger_type === 'session_created') {
+  if (post.trigger_type === 'session_created' || post.trigger_type === 'coach_joined') {
     const coach = first(post.athletes);
     return coach?.photo_url?.trim() || null;
   }
@@ -111,7 +116,7 @@ export function activityPostAvatarUrl(post: ActivityFeedPost): string | null {
 }
 
 export function activityPostCoachAvatarUrl(post: ActivityFeedPost): string | null {
-  if (post.trigger_type === 'session_created') return null;
+  if (post.trigger_type === 'session_created' || post.trigger_type === 'coach_joined') return null;
   const coach = first(post.athletes);
   return coach?.photo_url?.trim() || null;
 }

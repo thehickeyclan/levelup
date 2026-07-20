@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { GuildLogo } from '@/components/guild-logo';
 import { useAuth } from '@/lib/auth';
 import { registerForPushNotifications } from '@/lib/push';
 import { colors, typography } from '@/lib/theme';
+import { apiFetch } from '@/lib/api';
 
 export default function AccountScreen() {
   const {
@@ -20,8 +21,36 @@ export default function AccountScreen() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
+  const [nearbyCoachAlerts, setNearbyCoachAlerts] = useState(false);
+  const [savingNearby, setSavingNearby] = useState(false);
 
   const isRealCoach = role === 'coach' || role === 'admin';
+
+  useEffect(() => {
+    if (isCoachView) return;
+    void apiFetch<{ preferences?: { nearby_coaches_push?: boolean } }>(
+      '/api/account/notification-preferences'
+    )
+      .then((data) => setNearbyCoachAlerts(data.preferences?.nearby_coaches_push === true))
+      .catch(() => undefined);
+  }, [isCoachView]);
+
+  async function onToggleNearby(value: boolean) {
+    const previous = nearbyCoachAlerts;
+    setNearbyCoachAlerts(value);
+    setSavingNearby(true);
+    try {
+      await apiFetch('/api/account/notification-preferences', {
+        method: 'PATCH',
+        body: JSON.stringify({ nearby_coaches_push: value }),
+      });
+      if (value) await registerForPushNotifications();
+    } catch {
+      setNearbyCoachAlerts(previous);
+    } finally {
+      setSavingNearby(false);
+    }
+  }
 
   async function onEnablePush() {
     setBusy(true);
@@ -74,6 +103,21 @@ export default function AccountScreen() {
         </View>
         <Text style={styles.menuArrow}>›</Text>
       </Pressable>
+
+      {!isCoachView ? (
+        <View style={styles.menuRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.menuTitle}>Nearby coach alerts</Text>
+            <Text style={styles.menuMeta}>New coaches within about 50 miles of your ZIP</Text>
+          </View>
+          <Switch
+            value={nearbyCoachAlerts}
+            disabled={savingNearby}
+            trackColor={{ true: colors.accent }}
+            onValueChange={(value) => void onToggleNearby(value)}
+          />
+        </View>
+      ) : null}
 
       {!isRealCoach ? (
         <Pressable

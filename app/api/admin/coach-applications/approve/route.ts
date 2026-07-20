@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { sendCoachApplicationApproved } from '@/lib/email/coach-application-emails';
 import { getRequestBaseUrl } from '@/lib/request-base-url';
+import { announceDiscoverableCoach } from '@/lib/announce-discoverable-coach';
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,6 +65,8 @@ export async function POST(req: NextRequest) {
     if (updateError) {
       return NextResponse.json({ error: `Failed to approve: ${updateError.message}` }, { status: 500 });
     }
+
+    await announceDiscoverableCoach(admin, coachId);
 
     const { data: coachUser } = await admin
       .from('users')

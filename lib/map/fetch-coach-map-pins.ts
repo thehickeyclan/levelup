@@ -7,7 +7,7 @@ export type SessionKind = 'private' | 'partner' | 'small_group';
 /** Why the map might show zero pins (for empty-state copy). */
 export type CoachMapStats = {
   facilitiesWithCoordinates: number;
-  /** Coaches whose primary facility (`athletes.facility_id`) has latitude/longitude. */
+  /** Coaches with at least one assigned facility that has latitude/longitude. */
   coachesLinkedToGeocodedFacilities: number;
 };
 
@@ -101,7 +101,7 @@ export async function fetchCoachMapPins(
   const { data: coaches, error: coachErr } = await admin
     .from('athletes')
     .select(
-      'id, first_name, last_name, photo_url, school, year, weight_class, average_rating, review_count, facility_id'
+      'id, first_name, last_name, photo_url, school, year, weight_class, average_rating, review_count, facility_id, secondary_facility_id'
     )
     .neq('status', 'rejected')
     .neq('status', 'suspended')
@@ -115,12 +115,13 @@ export async function fetchCoachMapPins(
   const skipTableErr = (err: { message?: string; code?: string } | null) =>
     err && (err.message?.includes('does not exist') || err.code === '42P01');
 
-  /** Pins use primary facility only (`athletes.facility_id`). Secondary / coach_facilities still apply on Training & booking. */
   let coachesLinkedToGeocodedFacilities = 0;
   const coachIds: string[] = [];
   for (const c of coaches ?? []) {
-    const pid = c.facility_id as string | null | undefined;
-    if (pid && facilityIds.has(pid)) {
+    const assignedIds = [c.facility_id, c.secondary_facility_id].filter(
+      (id): id is string => typeof id === 'string' && id.length > 0
+    );
+    if (assignedIds.some((id) => facilityIds.has(id))) {
       coachesLinkedToGeocodedFacilities += 1;
       coachIds.push(c.id as string);
     }
@@ -259,6 +260,10 @@ export async function fetchCoachMapPins(
 
     const primaryId = c.facility_id as string | null | undefined;
     if (primaryId && facilityIds.has(primaryId)) addPin(primaryId);
+    const secondaryId = c.secondary_facility_id as string | null | undefined;
+    if (secondaryId && secondaryId !== primaryId && facilityIds.has(secondaryId)) {
+      addPin(secondaryId);
+    }
   }
 
   const cities = Array.from(citySet).sort((a, b) => a.localeCompare(b));

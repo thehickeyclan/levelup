@@ -146,12 +146,32 @@ export async function PATCH(
       if (userErr) return NextResponse.json({ error: userErr.message }, { status: 500 });
     }
 
-    const { data: athlete, error } = await admin
+    let { data: athlete, error } = await admin
       .from('athletes')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
+
+    // Some deployments can briefly trail optional share-graphic migrations.
+    // Do not block core coach edits (locations, contact info, status) because
+    // those presentation-only columns are missing from PostgREST's cache.
+    if (
+      error &&
+      /share_photo_(?:scale|offset_x|offset_y)/i.test(error.message)
+    ) {
+      delete updates.share_photo_scale;
+      delete updates.share_photo_offset_x;
+      delete updates.share_photo_offset_y;
+      const retry = await admin
+        .from('athletes')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      athlete = retry.data;
+      error = retry.error;
+    }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     if (!athlete) return NextResponse.json({ error: 'Athlete not found' }, { status: 404 });

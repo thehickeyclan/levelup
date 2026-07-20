@@ -3608,7 +3608,80 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
                 </div>
 
                 <Card className="overflow-hidden">
-                  <div className="overflow-x-auto">
+                  <div className="md:hidden">
+                    {coachPayouts.length === 0 ? (
+                      <div className="px-5 py-10 text-center text-muted-foreground">
+                        <Wallet className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                        <p className="font-medium">No payouts due</p>
+                        <p className="mx-auto mt-2 max-w-xs text-xs leading-relaxed">
+                          Completed sessions with parent payment and no payout date appear here. Coaches should
+                          mark sessions complete; then pay from Guild and click Mark paid.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {coachPayouts.map((p) => (
+                          <div key={p.athlete_id} className="space-y-4 p-4">
+                            <div className="min-w-0">
+                              <p className="font-medium leading-tight">{p.name}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {p.school || 'School not provided'}
+                                {p.session_count > 0
+                                  ? ` · ${p.session_count} session${p.session_count !== 1 ? 's' : ''}`
+                                  : ''}
+                              </p>
+                            </div>
+
+                            <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
+                              {p.venmo_handle ? (
+                                <p className="break-all">
+                                  <span className="text-muted-foreground">Venmo: </span>
+                                  <span className="font-medium">{p.venmo_handle}</span>
+                                </p>
+                              ) : null}
+                              {p.zelle_email ? (
+                                <p className="break-all">
+                                  <span className="text-muted-foreground">Zelle: </span>
+                                  <span className="font-medium">{p.zelle_email}</span>
+                                </p>
+                              ) : null}
+                              {!p.venmo_handle && !p.zelle_email ? (
+                                <p className="text-xs text-muted-foreground">No payment info</p>
+                              ) : null}
+                            </div>
+
+                            <div className="flex items-end gap-3">
+                              <div className="min-w-0 flex-1">
+                                <Label className="text-xs text-muted-foreground">Payout amount</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  className="mt-1 h-10 w-full text-right"
+                                  value={payoutTotalByAthlete[p.athlete_id] ?? p.amount.toFixed(2)}
+                                  onChange={(e) =>
+                                    setPayoutTotalByAthlete((prev) => ({
+                                      ...prev,
+                                      [p.athlete_id]: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </div>
+                              <CoachPayoutMarkPaidButton
+                                athleteId={p.athlete_id}
+                                defaultAmount={p.amount}
+                                amountOverride={payoutTotalByAthlete[p.athlete_id]}
+                                markingAthleteId={markingAthleteId}
+                                setMarkingAthleteId={setMarkingAthleteId}
+                                className="h-10 shrink-0"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
                     <table className="w-full text-sm">
                       <thead className="bg-muted/50">
                         <tr>

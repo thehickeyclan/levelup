@@ -11,7 +11,11 @@ import { isSessionOpenForRegistrationPayment } from '@/lib/session-payment-open'
 import { BookingCard, type BookingSession } from './booking-card';
 import { BookingsTabsClient } from './bookings-tabs-client';
 
-export async function ParentBookingsContent() {
+export async function ParentBookingsContent({
+  view = 'upcoming',
+}: {
+  view?: 'upcoming' | 'past';
+}) {
   const headersList = await headers();
   const host = headersList.get('host') || '';
   const tenant = getTenantByDomain(host);
@@ -293,6 +297,8 @@ export async function ParentBookingsContent() {
         thisMonth={thisMonthSessions}
         later={laterSessions}
         closed={pastSessions}
+        initialTab={view}
+        showTabControls={false}
       />
     </div>
   );

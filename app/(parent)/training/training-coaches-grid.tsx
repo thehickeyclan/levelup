@@ -10,7 +10,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar as CalendarGrid } from '@/components/ui/calendar';
-import { Calendar, Heart } from 'lucide-react';
+import { Calendar, Heart, SlidersHorizontal } from 'lucide-react';
 import { ProfileImage } from '@/components/profile-image';
 import { SchoolLogo } from '@/components/school-logo';
 import { StarRating } from '@/components/star-rating';
@@ -96,6 +96,7 @@ export function TrainingCoachesGrid({
   const [sessionType, setSessionType] = useState<CoachSessionTypeFilter>(initialSessionType);
   const [availableOnly, setAvailableOnly] = useState(false);
   const [filterDate, setFilterDate] = useState<string>('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     setSessionType(initialSessionType);
@@ -209,7 +210,19 @@ export function TrainingCoachesGrid({
 
   return (
     <div className="space-y-4">
-      <div className="-mx-1 sm:mx-0">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-zinc-400">Choose a coach to request training</p>
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((open) => !open)}
+          className="flex min-h-11 items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-4 text-sm font-medium text-zinc-300"
+          aria-expanded={filtersOpen}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          Filters{filtersActive ? ' · On' : ''}
+        </button>
+      </div>
+      {filtersOpen && <div className="-mx-1 sm:mx-0">
         <div
           className="flex snap-x snap-mandatory items-center gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden"
           role="toolbar"
@@ -381,7 +394,7 @@ export function TrainingCoachesGrid({
           </button>
         ) : null}
         </div>
-      </div>
+      </div>}
 
       {showDateEmpty ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-6 text-center">

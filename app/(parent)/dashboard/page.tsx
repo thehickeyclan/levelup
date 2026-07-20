@@ -43,6 +43,12 @@ export default async function HomePage() {
   const viewAsCookie = cookieStore.get(VIEW_AS_COOKIE_NAME)?.value;
   const adminPreviewAsParent = isAdmin && viewAsCookie === 'parent';
 
+  // Training is the parent home. Keep /dashboard as a compatibility route for
+  // older links and saved admin preview sessions so they land in discovery.
+  if (userData?.role === 'parent' || adminPreviewAsParent) {
+    redirect('/training');
+  }
+
   if (isAdmin && !adminPreviewAsParent) {
     redirect('/admin');
   }

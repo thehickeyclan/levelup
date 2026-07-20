@@ -63,7 +63,7 @@ type SessionRow = {
 export default async function TrainingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; date?: string; time?: string; location?: string; coach?: string; wrestler?: string; type?: string }>;
+  searchParams: Promise<{ tab?: string; history?: string; date?: string; time?: string; location?: string; coach?: string; wrestler?: string; type?: string }>;
 }) {
   const sp = await searchParams;
   const tab = sp.tab === 'sessions' || sp.tab === 'mine' ? sp.tab : 'coaches';
@@ -511,7 +511,7 @@ export default async function TrainingPage({
         initialFollowedCoachIds={initialFollowedCoachIds}
         myTrainingContent={
           user ? (
-            <ParentBookingsContent />
+            <ParentBookingsContent view={sp.history === 'past' ? 'past' : 'upcoming'} />
           ) : (
             <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-5 py-10 text-center">
               <h2 className="text-lg font-semibold text-white">Sign in to see your training</h2>

@@ -93,6 +93,7 @@ export function FindTrainingClient({
   const [durationFilter, setDurationFilter] = useState<'any' | '60' | '90' | '120'>('any');
   const [dateOpen, setDateOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showQuickFilters, setShowQuickFilters] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
   const [sessionList, setSessionList] = useState<'available' | 'full'>('available');
   const [sessionRosters, setSessionRosters] = useState<Record<string, SessionRosterParticipant[]>>({});
@@ -729,8 +730,20 @@ export function FindTrainingClient({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-zinc-400">Browse upcoming sessions</p>
+        <button
+          type="button"
+          onClick={() => setShowQuickFilters((open) => !open)}
+          className="flex min-h-11 items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-4 text-sm font-medium text-zinc-300"
+          aria-expanded={showQuickFilters}
+        >
+          <Filter className="h-4 w-4" />
+          Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+        </button>
+      </div>
       {/* Filter Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+      {showQuickFilters && <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
         {/* Date Picker */}
         <Popover open={dateOpen} onOpenChange={setDateOpen}>
           <PopoverTrigger asChild>
@@ -939,7 +952,7 @@ export function FindTrainingClient({
             Clear
           </button>
         )}
-      </div>
+      </div>}
 
       {/* Filter Sheet/Modal */}
       {showFilters && (

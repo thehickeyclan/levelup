@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {
   Bell,
+  History,
   ChevronRight,
   CircleDollarSign,
   HeartHandshake,
@@ -13,6 +14,7 @@ const SECTIONS = [
   {
     label: 'Training',
     links: [
+      { href: '/training?tab=mine&history=past', label: 'Training history', detail: 'Past sessions and reviews', icon: History },
       { href: '/my-wrestlers', label: 'My wrestlers', detail: 'Profiles and training details', icon: UsersRound },
       { href: '/my-coaches', label: 'My coaches', detail: 'Coaches you follow', icon: HeartHandshake },
     ],

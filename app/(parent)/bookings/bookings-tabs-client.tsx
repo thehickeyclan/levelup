@@ -14,13 +14,17 @@ export function BookingsTabsClient({
   thisMonth,
   later,
   closed,
+  initialTab = 'upcoming',
+  showTabControls = true,
 }: {
   thisWeek: BookingSession[];
   thisMonth: BookingSession[];
   later: BookingSession[];
   closed: BookingSession[];
+  initialTab?: TabId;
+  showTabControls?: boolean;
 }) {
-  const [activeTab, setActiveTab] = useState<TabId>('upcoming');
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const hasUpcoming = thisWeek.length > 0 || thisMonth.length > 0 || later.length > 0;
 
   // One card per coach awaiting a first review (same as parent home)
@@ -43,7 +47,7 @@ export function BookingsTabsClient({
   return (
     <div className="min-h-screen">
       {/* Pill Tabs */}
-      <div className="flex gap-2 mb-6">
+      {showTabControls && <div className="flex gap-2 mb-6">
         <button
           type="button"
           onClick={() => setActiveTab('upcoming')}
@@ -73,7 +77,7 @@ export function BookingsTabsClient({
             </span>
           )}
         </button>
-      </div>
+      </div>}
 
       {/* Upcoming Tab */}
       {activeTab === 'upcoming' && (

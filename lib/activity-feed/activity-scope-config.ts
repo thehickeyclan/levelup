@@ -10,9 +10,9 @@ export type ActivityScopeOption = {
 const COMMUNITY: ActivityScopeOption = {
   scope: 'community',
   label: 'All Guild',
-  description: 'Sessions booked, photos shared, collection pairs, and milestones across Guild.',
+  description: 'New sessions, bookings, photos, collection pairs, and milestones across Guild.',
   emptyMessage:
-    'No activity yet. When sessions are booked, photos are shared, or collection pairs go live — they show up here.',
+    'No activity yet. New sessions, bookings, photos, and collection pairs will show up here.',
 };
 
 function familyScope(label: string, description: string): ActivityScopeOption {
@@ -28,9 +28,9 @@ function familyScope(label: string, description: string): ActivityScopeOption {
 const COACH_SCOPE: ActivityScopeOption = {
   scope: 'coach',
   label: 'My Sessions',
-  description: 'Activity on your sessions — bookings, photos, milestones, and reviews.',
+  description: 'Your new sessions, bookings, photos, milestones, and reviews.',
   emptyMessage:
-    'No activity on your sessions yet. When wrestlers book sessions or share photos, they show up here.',
+    'No activity yet. New sessions, bookings, and shared photos will show up here.',
 };
 
 /** Personal feed scope + copy for the signed-in role. */

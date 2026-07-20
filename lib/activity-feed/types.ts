@@ -1,6 +1,7 @@
 import type { ActivityKudosByReaction, ActivityReactionId } from '@/lib/activity-feed/kudos-reactions';
 
 export type ActivityTriggerType =
+  | 'session_created'
   | 'session_completed'
   | 'milestone_hit'
   | 'photo_post'

@@ -27,6 +27,9 @@ export function coachDisplayName(post: ActivityFeedPost): string {
 
 export function activityPostHeadline(post: ActivityFeedPost): string {
   const name = wrestlerDisplayName(post);
+  if (post.trigger_type === 'session_created') {
+    return `${coachDisplayName(post)} created a new session`;
+  }
   if (post.trigger_type === 'milestone_hit') return `${name} hit a milestone!`;
   if (post.trigger_type === 'booking_confirmed') return `${name} booked a session`;
   if (post.trigger_type === 'session_completed') return `${name} booked a session`;
@@ -74,7 +77,9 @@ export function activityPostSubline(post: ActivityFeedPost): string | null {
     : `${formatEST(dt, 'EEE, MMM d')} at ${formatEST(dt, 'h:mm a')}`;
   const dur = session.duration_minutes ? ` · ${session.duration_minutes} min` : '';
 
-  const parts = [`${typeLabel} with ${coach}`];
+  const parts = [
+    post.trigger_type === 'session_created' ? typeLabel : `${typeLabel} with ${coach}`,
+  ];
   if (facility) parts.push(facility);
   parts.push(`${when}${dur}`);
   return parts.join(' · ');
@@ -97,11 +102,16 @@ export function activityPostAvatarUrl(post: ActivityFeedPost): string | null {
   if (isMarketListingActivityPost(post.trigger_type)) {
     return post.seller_photo_url?.trim() || null;
   }
+  if (post.trigger_type === 'session_created') {
+    const coach = first(post.athletes);
+    return coach?.photo_url?.trim() || null;
+  }
   const yw = first(post.youth_wrestlers);
   return yw?.photo_url?.trim() || null;
 }
 
 export function activityPostCoachAvatarUrl(post: ActivityFeedPost): string | null {
+  if (post.trigger_type === 'session_created') return null;
   const coach = first(post.athletes);
   return coach?.photo_url?.trim() || null;
 }

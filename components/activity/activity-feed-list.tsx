@@ -13,7 +13,7 @@ export function ActivityFeedList({
   if (posts.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-8 text-center">
-        No activity yet. Booked sessions will show up here.
+        No activity yet. New sessions and bookings will show up here.
       </p>
     );
   }

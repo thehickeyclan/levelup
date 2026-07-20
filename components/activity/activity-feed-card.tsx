@@ -21,6 +21,8 @@ import {
 import { ActivityFeedReactions } from '@/components/activity/activity-feed-reactions';
 import { ActivityPhotoLightbox } from '@/components/activity/activity-photo-lightbox';
 import { buildActivityPostShareCaption } from '@/lib/activity-feed/share-caption';
+import { coachSessionSharePath } from '@/lib/coach-session-share';
+import { trackProductEvent } from '@/lib/product-analytics';
 
 type Props = {
   post: ActivityFeedPost;
@@ -46,6 +48,8 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
   const isMilestone = post.trigger_type === 'milestone_hit';
   const isPhotoPost = post.trigger_type === 'photo_post';
   const isMarketListing = isMarketListingActivityPost(post.trigger_type);
+  const isSessionCreated = post.trigger_type === 'session_created';
+  const session = Array.isArray(post.sessions) ? post.sessions[0] : post.sessions;
   const listingHref = post.market_listing_id
     ? `/market/listing/${post.market_listing_id}`
     : null;
@@ -155,6 +159,20 @@ export function ActivityFeedCard({ post, highlightCoachHammers = false }: Props)
               className="mt-1.5 inline-block text-xs font-medium text-accent hover:text-accent/80"
             >
               View listing →
+            </Link>
+          ) : null}
+          {isSessionCreated && session ? (
+            <Link
+              href={coachSessionSharePath(session)}
+              onClick={() =>
+                trackProductEvent('activity_session_opened', {
+                  sessionId: session.id,
+                  coachId: post.coach_id ?? 'unknown',
+                })
+              }
+              className="mt-1.5 inline-block text-xs font-medium text-accent hover:text-accent/80"
+            >
+              View session →
             </Link>
           ) : null}
           {highlightCoachHammers && post.coach_id ? (

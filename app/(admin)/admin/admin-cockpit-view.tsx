@@ -104,6 +104,13 @@ export type CockpitData = {
     guildOrgFees: number;
     remainder: number;
   };
+  monthlyGuildNet?: Array<{
+    month: string;
+    gross: number;
+    coachPayouts: number;
+    stripeFees: number;
+    net: number;
+  }>;
   pageViews?: number;
   visitors?: number;
   periodUniqueDevices?: number;
@@ -658,6 +665,12 @@ export function AdminCockpitView() {
     }
     return row;
   });
+  const monthlyGuildNet = d.monthlyGuildNet ?? [];
+  const monthlyGuildNetChartData = monthlyGuildNet.map((row) => ({
+    label: formatEST(new Date(`${row.month}-15T12:00:00Z`), 'MMM yy'),
+    value: row.net,
+  }));
+  const allTimeGuildNet = monthlyGuildNet.reduce((sum, row) => sum + row.net, 0);
 
   return (
     <div className="space-y-6">
@@ -858,6 +871,40 @@ export function AdminCockpitView() {
           })()}
         />
       </div>
+
+      {/* All-time Guild net */}
+      <Card className="border-[#B89D60]/30">
+        <CardHeader>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-[#B89D60]" />
+                Guild Net Profit by Month
+              </CardTitle>
+              <CardDescription className="mt-1">
+                All time · gross booking revenue less coach payouts and Stripe fees
+              </CardDescription>
+            </div>
+            <div className="sm:text-right">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">All-time net profit</p>
+              <p className="text-2xl font-bold tabular-nums text-[#B89D60]">{formatChartCurrency(allTimeGuildNet)}</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {monthlyGuildNetChartData.length > 0 ? (
+            <ModernBarChart
+              data={monthlyGuildNetChartData}
+              dataKey="value"
+              label="Guild net profit"
+              valueFormat="currency"
+              color={CHART_COLORS.gold}
+            />
+          ) : (
+            <p className="py-12 text-center text-sm text-muted-foreground">No paid booking revenue yet.</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Activity Chart */}
       <Card>

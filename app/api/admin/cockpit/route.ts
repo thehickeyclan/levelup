@@ -18,6 +18,7 @@ import {
   cumulativeCountsAtRangeEnds,
 } from '@/lib/cockpit-trend-queries';
 import { fetchVercelWebAnalyticsTotals, vercelAnalyticsTokenConfigured } from '@/lib/fetch-vercel-web-analytics';
+import { buildCockpitMonthlyGuildNet } from '@/lib/cockpit-monthly-profit';
 
 /**
  * GET /api/admin/cockpit?date=YYYY-MM-DD&period=today|week|month|90d|year&timezone=America/New_York
@@ -90,6 +91,7 @@ export async function GET(req: NextRequest) {
       creditsOutstandingRes,
       creditsIssuedRes,
       creditsUsedRes,
+      allTimeBookingEconomicsRes,
     ] = await Promise.all([
       admin.from('users').select('id, email, created_at').eq('role', 'parent').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
       admin.from('athletes').select('id, first_name, last_name, school, created_at').gte('created_at', dayStart).lte('created_at', dayEnd).order('created_at', { ascending: false }),
@@ -110,6 +112,12 @@ export async function GET(req: NextRequest) {
       admin.from('credits').select('amount').is('used_at', null).gt('expires_at', new Date().toISOString()),
       admin.from('credits').select('amount').gte('created_at', dayStart).lte('created_at', dayEnd),
       admin.from('credits').select('amount').gte('used_at', dayStart).lte('used_at', dayEnd),
+      admin
+        .from('session_participants')
+        .select('amount_paid, stripe_fee, created_at, sessions(session_payout_rate)')
+        .gt('amount_paid', 0)
+        .order('created_at', { ascending: true })
+        .limit(100000),
     ]);
 
     // Traffic: Vercel Web Analytics API (matches dashboard). Drain only when no token configured.
@@ -170,6 +178,23 @@ export async function GET(req: NextRequest) {
     const outstandingCredits = sumAmounts(creditsOutstandingRes.data as { amount?: number }[]);
     const creditsIssuedInRange = sumAmounts(creditsIssuedRes.data as { amount?: number }[]);
     const creditsUsedInRange = sumAmounts(creditsUsedRes.data as { amount?: number }[]);
+    const monthlyGuildNet = buildCockpitMonthlyGuildNet(
+      ((allTimeBookingEconomicsRes.data ?? []) as Array<{
+        amount_paid: number | null;
+        stripe_fee: number | null;
+        created_at: string | null;
+        sessions?: { session_payout_rate?: number | null } | Array<{ session_payout_rate?: number | null }> | null;
+      }>).map((row) => {
+        const session = Array.isArray(row.sessions) ? row.sessions[0] : row.sessions;
+        return {
+          amount_paid: row.amount_paid,
+          stripe_fee: row.stripe_fee,
+          created_at: row.created_at,
+          session_payout_rate: session?.session_payout_rate ?? null,
+        };
+      }),
+      tz
+    );
 
     // Revenue: sum of amount_paid for participants created in range (each signup row).
     // Stripe fees live on session_participants (cart/register webhooks) — sessions.stripe_fee /
@@ -430,6 +455,7 @@ export async function GET(req: NextRequest) {
       payoutsPaidList,
       revenueThatDay,
       bookingEconomics,
+      monthlyGuildNet,
       // Credits (liability for reschedules/cancellations)
       outstandingCredits,
       creditsIssuedInRange,

@@ -671,6 +671,7 @@ export function AdminCockpitView() {
     value: row.net,
   }));
   const allTimeGuildNet = monthlyGuildNet.reduce((sum, row) => sum + row.net, 0);
+  const averageMonthlyGuildNet = monthlyGuildNet.length > 0 ? allTimeGuildNet / monthlyGuildNet.length : 0;
 
   return (
     <div className="space-y-6">
@@ -885,9 +886,15 @@ export function AdminCockpitView() {
                 All time · gross booking revenue less coach payouts and Stripe fees
               </CardDescription>
             </div>
-            <div className="sm:text-right">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">All-time net profit</p>
-              <p className="text-2xl font-bold tabular-nums text-[#B89D60]">{formatChartCurrency(allTimeGuildNet)}</p>
+            <div className="flex gap-6 sm:text-right">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Monthly average</p>
+                <p className="text-2xl font-bold tabular-nums">{formatChartCurrency(averageMonthlyGuildNet)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">All-time net profit</p>
+                <p className="text-2xl font-bold tabular-nums text-[#B89D60]">{formatChartCurrency(allTimeGuildNet)}</p>
+              </div>
             </div>
           </div>
         </CardHeader>

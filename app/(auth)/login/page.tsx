@@ -104,7 +104,7 @@ export default function LoginPage() {
         } else if (role === 'admin') {
           router.push('/dashboard');
         } else {
-          router.push('/dashboard');
+          router.push('/training');
         }
       }
 

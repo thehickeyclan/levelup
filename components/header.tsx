@@ -26,7 +26,6 @@ import { Bell, Mail, User } from 'lucide-react';
 import { useTenant } from '@/components/theme-provider';
 import { BrandLogo } from '@/components/brand-logo';
 import { CartDropdown } from '@/components/cart-dropdown';
-import { ParentHeaderCart } from '@/components/parent-header-cart';
 import { createClient } from '@/lib/supabase/client';
 import { CoachHeaderMobile } from '@/components/coach-header-mobile';
 import { PublicHeaderMobile } from '@/components/public-header-mobile';
@@ -116,7 +115,7 @@ export function Header() {
     setViewAsRole(value === 'admin' ? null : (value as 'coach' | 'parent' | 'youth_wrestler'));
     setViewAsCoachId(null);
     if (value === 'admin') router.push('/admin');
-    else if (value === 'parent') router.push('/dashboard');
+    else if (value === 'parent') router.push('/training');
     else if (value === 'youth_wrestler') router.push('/youth-dashboard');
   };
 
@@ -161,11 +160,6 @@ export function Header() {
           {user ? (
             <>
             <div className="flex items-center gap-2 shrink-0 ml-auto">
-              {effectiveRole === 'parent' && (
-                <div className="md:hidden">
-                  <ParentHeaderCart />
-                </div>
-              )}
               {effectiveRole === 'coach' && (
                 <div className="md:hidden">
                   <CoachHeaderMobile onSignOut={handleSignOut} />
@@ -421,8 +415,8 @@ export function Header() {
                       </Select>
                     </>
                   )}
-                  <Link href="/dashboard" className="text-white hover:text-accent transition-colors font-medium">Home</Link>
                   <Link href="/training" className="text-white hover:text-accent transition-colors font-medium">Training</Link>
+                  <Link href="/bookings" className="text-white hover:text-accent transition-colors font-medium">My Training</Link>
                   <Link
                     href={activityNavHref('parent')}
                     className={

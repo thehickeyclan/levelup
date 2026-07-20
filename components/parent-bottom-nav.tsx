@@ -2,24 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, Home, Users, Tag, Menu } from 'lucide-react';
-import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
+import { CalendarDays, Menu, ShoppingCart, Tag, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCart } from '@/lib/cart-context';
 
 /** Parent mobile bottom nav with gold active states. */
-const ITEMS: readonly { href: string; label: string; icon: typeof Home }[] = [
-  { href: '/dashboard', label: 'Home', icon: Home },
-  { href: activityNavHref('parent'), label: 'Activity', icon: Activity },
+const ITEMS: readonly { href: string; label: string; icon: typeof Users; showCartBadge?: boolean }[] = [
   { href: '/training', label: 'Training', icon: Users },
+  { href: '/bookings', label: 'My Training', icon: CalendarDays },
+  { href: '/cart', label: 'Cart', icon: ShoppingCart, showCartBadge: true },
   { href: '/market', label: 'Market', icon: Tag },
   { href: '/more', label: 'More', icon: Menu },
 ];
 
 const MORE_ROUTES = [
   '/more',
-  '/cart',
   '/account',
-  '/bookings',
+  '/activity',
   '/inbox',
   '/messages',
   '/notifications',
@@ -30,15 +29,16 @@ const MORE_ROUTES = [
 
 export function ParentBottomNav() {
   const pathname = usePathname();
+  const { count: cartCount } = useCart();
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-border/50 bg-black/95 backdrop-blur-xl supports-[backdrop-filter]:bg-black/90 pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label="Main navigation"
     >
-      {ITEMS.map(({ href, label, icon: Icon }) => {
+      {ITEMS.map(({ href, label, icon: Icon, showCartBadge }) => {
         const isActive =
-          href.startsWith('/activity')
-            ? pathname.startsWith('/activity')
+          href === '/training' && pathname === '/dashboard'
+            ? true
             : href === '/more'
               ? MORE_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
             : pathname === href ||
@@ -70,6 +70,11 @@ export function ParentBottomNav() {
                 strokeWidth={isActive ? 2.5 : 2}
                 aria-hidden 
               />
+              {showCartBadge && cartCount > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-black ring-2 ring-black">
+                  {cartCount > 9 ? '9+' : cartCount}
+                </span>
+              )}
             </div>
             <span className={cn(
               "mt-1 transition-all duration-200",

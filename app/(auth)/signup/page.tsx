@@ -155,8 +155,8 @@ export default function SignupPage() {
         return;
       }
 
-      // Parents land on home (same as login); add wrestler prompts live on /dashboard
-      router.push('/dashboard');
+      // Training is the parent home: join an available session or request one from a coach.
+      router.push('/training');
       router.refresh();
     } catch (err) {
       setError('An unexpected error occurred');

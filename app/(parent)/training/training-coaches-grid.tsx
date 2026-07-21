@@ -424,7 +424,7 @@ export function TrainingCoachesGrid({
               key={a.id}
               className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden flex flex-col"
             >
-              <Link href={profileHref(a.id)} className="block aspect-square w-full bg-zinc-800 overflow-hidden rounded-t-xl">
+              <Link href={profileHref(a.id)} className="block aspect-square w-full bg-black overflow-hidden rounded-t-xl">
                 <ProfileImage
                   src={a.photo_url}
                   alt={`${a.first_name} ${a.last_name}`}
@@ -432,7 +432,7 @@ export function TrainingCoachesGrid({
                   focusY={a.photo_focus_y ?? 15}
                   rounded="lg"
                   fit="contain"
-                  className="w-full h-full min-h-[140px] rounded-none"
+                  className="w-full h-full min-h-[140px] rounded-none bg-black"
                   fallbackIconClassName="h-16 w-16 text-muted-foreground"
                 />
               </Link>

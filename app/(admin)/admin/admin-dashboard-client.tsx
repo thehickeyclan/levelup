@@ -244,6 +244,17 @@ export type AthleteReport = {
   review_count?: number;
 };
 
+export type DashboardUserStats = {
+  totalUsers: number;
+  totalUsers30d: number;
+  athletes: number;
+  athletes30d: number;
+  parents: number;
+  parents30d: number;
+  coaches: number;
+  coaches30d: number;
+};
+
 export type CoachPayout = {
   athlete_id: string;
   name: string;
@@ -366,6 +377,7 @@ type Props = {
   youthSessionSpendLines: YouthSessionSpendLine[];
   /** Newest signups (parents, coaches, wrestlers) for overview — names + emails. */
   recentSignups: RecentSignupRow[];
+  dashboardUserStats: DashboardUserStats;
   /** Guild rewards program: show /admin/rewards in Money nav when enabled. */
   rewardsProgramEnabled?: boolean;
   /** RecruitNC → Guild wallet: grant buckets and spend from those buckets at checkout. */
@@ -488,6 +500,7 @@ export function AdminDashboardClient({
   usersError,
   youthSessionSpendLines = [],
   recentSignups = [],
+  dashboardUserStats,
   rewardsProgramEnabled = false,
   recruitNcCreditTotals = {
     grantRows: 0,
@@ -2506,55 +2519,36 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
             />
           </div>
 
-          {/* Quick Stats Row */}
+          {/* User growth */}
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-emerald-500/10">
-                    <Users className="h-4 w-4 text-emerald-500" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Coaches</p>
-                    <p className="text-lg font-semibold">{athleteReports.length}</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-blue-500/10">
-                    <User className="h-4 w-4 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Parents</p>
-                    <p className="text-lg font-semibold">{users.filter(u => u.role === 'parent').length}</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-amber-500/10">
-                    <Star className="h-4 w-4 text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Avg Rating</p>
-                    <p className="text-lg font-semibold">
-                      {(athleteReports.reduce((sum, a) => sum + (a.average_rating || 0), 0) / athleteReports.filter(a => a.average_rating).length || 0).toFixed(1)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-500/10">
-                    <CreditCard className="h-4 w-4 text-purple-500" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Active Credits</p>
-                    <p className="text-lg font-semibold">{credits.filter(c => c.remaining > 0).length}</p>
-                  </div>
-                </div>
-              </Card>
+              {[
+                { label: 'Total Users', value: dashboardUserStats.totalUsers, growth: dashboardUserStats.totalUsers30d, icon: Users, tone: 'text-[#B89D60]', bg: 'bg-[#B89D60]/10' },
+                { label: 'Athletes', value: dashboardUserStats.athletes, growth: dashboardUserStats.athletes30d, icon: Trophy, tone: 'text-amber-500', bg: 'bg-amber-500/10' },
+                { label: 'Parents', value: dashboardUserStats.parents, growth: dashboardUserStats.parents30d, icon: User, tone: 'text-blue-500', bg: 'bg-blue-500/10' },
+                { label: 'Coaches', value: dashboardUserStats.coaches, growth: dashboardUserStats.coaches30d, icon: Users, tone: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+              ].map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <Card key={stat.label} className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${stat.bg}`}>
+                        <Icon className={`h-4 w-4 ${stat.tone}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">{stat.label}</p>
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <p className="text-lg font-semibold tabular-nums">{stat.value.toLocaleString()}</p>
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${stat.growth > 0 ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+                            <TrendingUp className="h-3 w-3" />
+                            +{stat.growth.toLocaleString()} in 30d
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>

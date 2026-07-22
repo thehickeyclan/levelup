@@ -17,6 +17,7 @@ import {
   type CreditRecord,
   type YouthSessionSpendLine,
   type RecentSignupRow,
+  type DashboardUserStats,
 } from './admin-dashboard-client';
 import { computePendingCoachPayoutStats } from '@/lib/admin/pending-coach-payout-stats';
 import { coachPayoutUsd, type SessionCoachPayoutFields } from '@/lib/coach-session-payout';
@@ -155,7 +156,7 @@ export default async function AdminPage() {
       .order('created_at', { ascending: false }),
     admin
       .from('athletes')
-      .select('id, first_name, last_name, school, average_rating, review_count, active')
+      .select('id, first_name, last_name, school, average_rating, review_count, active, created_at')
       .eq('status', 'active')
       .order('last_name'),
     admin.from('reviews').select('athlete_id, rating'),
@@ -164,7 +165,7 @@ export default async function AdminPage() {
       .select('id, first_name, last_name, parent_id, created_at')
       .order('created_at', { ascending: false })
       .limit(80),
-    admin.from('youth_wrestlers').select('parent_id, first_name, last_name'),
+    admin.from('youth_wrestlers').select('id, parent_id, first_name, last_name, created_at'),
   ]);
 
   if (usersRes.error) {
@@ -479,6 +480,7 @@ export default async function AdminPage() {
     average_rating?: number | null;
     review_count?: number | null;
     active?: boolean | null;
+    created_at?: string | null;
   }>;
   const athleteMap = new Map<string, AthleteReport>();
   for (const o of athletesRows) {
@@ -757,6 +759,28 @@ export default async function AdminPage() {
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 36);
 
+  const thirtyDaysAgoMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const createdInLast30Days = (createdAt?: string | null) => {
+    if (!createdAt) return false;
+    const createdMs = new Date(createdAt).getTime();
+    return Number.isFinite(createdMs) && createdMs >= thirtyDaysAgoMs;
+  };
+  const allYouthRows = (allYouthNamesRes.data ?? []) as Array<{
+    id: string;
+    created_at?: string | null;
+  }>;
+  const parentUsers = usersRows.filter((u) => u.role === 'parent');
+  const dashboardUserStats: DashboardUserStats = {
+    totalUsers: usersRows.length,
+    totalUsers30d: usersRows.filter((u) => createdInLast30Days(u.created_at)).length,
+    athletes: allYouthRows.length,
+    athletes30d: allYouthRows.filter((a) => createdInLast30Days(a.created_at)).length,
+    parents: parentUsers.length,
+    parents30d: parentUsers.filter((u) => createdInLast30Days(u.created_at)).length,
+    coaches: athletesRows.length,
+    coaches30d: athletesRows.filter((a) => createdInLast30Days(a.created_at)).length,
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -778,6 +802,7 @@ export default async function AdminPage() {
         usersError={usersRes.error?.message ?? null}
         youthSessionSpendLines={youthSessionSpendLines}
         recentSignups={recentSignups}
+        dashboardUserStats={dashboardUserStats}
         rewardsProgramEnabled={isRewardsProgramEnabled()}
       />
     </div>

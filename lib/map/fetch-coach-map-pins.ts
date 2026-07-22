@@ -112,15 +112,43 @@ export async function fetchCoachMapPins(
     return { ok: false, error: 'Failed to load coaches' };
   }
 
+  const eligibleCoachIds = (coaches ?? []).map((c) => c.id as string);
+  const assignedFacilityIdsByCoach = new Map<string, Set<string>>();
+  const assignFacility = (coachId: string, facilityId: string | null | undefined) => {
+    if (!facilityId) return;
+    const assigned = assignedFacilityIdsByCoach.get(coachId) ?? new Set<string>();
+    assigned.add(facilityId);
+    assignedFacilityIdsByCoach.set(coachId, assigned);
+  };
+
+  // The multi-location junction is the current source of truth, but older coach
+  // profiles still store primary/secondary locations directly on athletes.
+  // Union both so a valid location never disappears from the map based on how it was added.
+  if (eligibleCoachIds.length > 0) {
+    const { data: coachFacilityRows, error: coachFacilitiesErr } = await admin
+      .from('coach_facilities')
+      .select('coach_id, facility_id')
+      .in('coach_id', eligibleCoachIds);
+    if (coachFacilitiesErr && !coachFacilitiesErr.message?.includes('does not exist')) {
+      console.error('[fetchCoachMapPins] coach_facilities', coachFacilitiesErr);
+    } else {
+      for (const row of coachFacilityRows ?? []) {
+        assignFacility(row.coach_id as string, row.facility_id as string);
+      }
+    }
+  }
+  for (const coach of coaches ?? []) {
+    assignFacility(coach.id as string, coach.facility_id as string | null);
+    assignFacility(coach.id as string, coach.secondary_facility_id as string | null);
+  }
+
   const skipTableErr = (err: { message?: string; code?: string } | null) =>
     err && (err.message?.includes('does not exist') || err.code === '42P01');
 
   let coachesLinkedToGeocodedFacilities = 0;
   const coachIds: string[] = [];
   for (const c of coaches ?? []) {
-    const assignedIds = [c.facility_id, c.secondary_facility_id].filter(
-      (id): id is string => typeof id === 'string' && id.length > 0
-    );
+    const assignedIds = Array.from(assignedFacilityIdsByCoach.get(c.id as string) ?? []);
     if (assignedIds.some((id) => facilityIds.has(id))) {
       coachesLinkedToGeocodedFacilities += 1;
       coachIds.push(c.id as string);
@@ -258,11 +286,9 @@ export async function fetchCoachMapPins(
       });
     };
 
-    const primaryId = c.facility_id as string | null | undefined;
-    if (primaryId && facilityIds.has(primaryId)) addPin(primaryId);
-    const secondaryId = c.secondary_facility_id as string | null | undefined;
-    if (secondaryId && secondaryId !== primaryId && facilityIds.has(secondaryId)) {
-      addPin(secondaryId);
+    const assignedFacilityIds = assignedFacilityIdsByCoach.get(c.id as string) ?? new Set<string>();
+    for (const facilityId of assignedFacilityIds) {
+      if (facilityIds.has(facilityId)) addPin(facilityId);
     }
   }
 

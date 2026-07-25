@@ -9,6 +9,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/cron/coach-session-reminders",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/release-referral-credits",
       "schedule": "30 8 * * *"
     },

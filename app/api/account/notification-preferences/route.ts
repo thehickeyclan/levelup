@@ -21,6 +21,10 @@ const PATCH_KEYS: (keyof NotificationPreferences)[] = [
   'messaging_sms',
   'messaging_push',
   'nearby_coaches_push',
+  'followed_coaches_push',
+  'training_partner_activity_push',
+  'matching_sessions_push',
+  'market_watch_push',
 ];
 
 export async function GET() {

@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications';
+import { parseNotificationPreferences } from '@/lib/notification-preferences';
 
 type ListingMeta = {
   id: string;
@@ -156,6 +157,16 @@ export async function notifyListingFollowers(
       .filter((id) => !exclude.has(id));
     if (!followerIds.length) return 0;
 
+    const { data: followerUsers } = await admin
+      .from('users')
+      .select('id, notification_preferences')
+      .in('id', followerIds);
+    const enabledFollowers = new Set(
+      (followerUsers ?? [])
+        .filter((user) => parseNotificationPreferences(user.notification_preferences).market_watch_push)
+        .map((user) => user.id as string)
+    );
+
     const cooldownSince = new Date(Date.now() - FOLLOWER_NOTIFY_COOLDOWN_MS).toISOString();
     const { data: recentRows } = await admin
       .from('notifications')
@@ -179,6 +190,7 @@ export async function notifyListingFollowers(
     const link = `/market/listing/${listing.id}`;
 
     for (const followerId of followerIds) {
+      if (!enabledFollowers.has(followerId)) continue;
       if (!shouldNotifyFollower(recentByUser, followerId, event.type)) continue;
 
       await createNotification(admin, {

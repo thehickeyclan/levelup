@@ -70,6 +70,7 @@ export async function unregisterPushToken(): Promise<void> {
 
 export function getNotificationDeepLink(data: Record<string, unknown> | undefined): string | null {
   if (!data) return null;
+  if (data.availability_setup === true) return '/coach-availability-setup';
   if (typeof data.session_id === 'string') return `/booking/${data.session_id}`;
   if (typeof data.thread_id === 'string') return `/thread/${data.thread_id}`;
   if (typeof data.listing_id === 'string') return `/listing/${data.listing_id}`;

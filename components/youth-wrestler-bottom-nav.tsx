@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, Home, Search, Tag, User } from 'lucide-react';
+import { Activity, Search, Tag, User, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
 
@@ -10,14 +10,18 @@ import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
 const ITEMS: readonly {
   href: string;
   label: string;
-  icon: typeof Home;
+  icon: typeof Users;
   match: (pathname: string) => boolean;
 }[] = [
   {
-    href: '/youth-dashboard',
-    label: 'Home',
-    icon: Home,
-    match: (p) => p === '/youth-dashboard' || p.startsWith('/youth-dashboard/'),
+    href: '/training',
+    label: 'Training',
+    icon: Users,
+    match: (p) =>
+      p === '/training' ||
+      p.startsWith('/training/') ||
+      p === '/youth-dashboard' ||
+      p.startsWith('/youth-dashboard/'),
   },
   {
     href: activityNavHref('youth_wrestler'),

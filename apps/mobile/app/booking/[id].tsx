@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { SessionDetailView, useSessionDetail } from '@/components/session-detail-view';
@@ -18,12 +18,22 @@ export default function BookingDetailScreen() {
       error={error}
       onRefresh={() => void load()}
       footer={
-        <Pressable
-          style={styles.button}
-          onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/sessions/${id}`)}
-        >
-          <Text style={styles.buttonText}>Manage on web</Text>
-        </Pressable>
+        <View>
+          {session?.status === 'completed' ? (
+            <Pressable
+              style={styles.reviewButton}
+              onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/sessions/${id}/review`)}
+            >
+              <Text style={styles.reviewButtonText}>Leave a review</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            style={styles.button}
+            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/sessions/${id}`)}
+          >
+            <Text style={styles.buttonText}>Manage booking</Text>
+          </Pressable>
+        </View>
       }
     />
   );
@@ -44,5 +54,18 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 15,
     letterSpacing: 0.4,
+  },
+  reviewButton: {
+    marginTop: 20,
+    backgroundColor: colors.accent,
+    borderRadius: 4,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewButtonText: {
+    ...typography.bodyBold,
+    color: colors.black,
+    fontSize: 15,
   },
 });

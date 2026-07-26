@@ -10,11 +10,16 @@ export type CoachSessionRow = {
   current_participants: number | null;
   max_participants: number | null;
   facilities: { name: string } | null;
+  athlete_paid?: boolean | null;
+  athlete_payout_date?: string | null;
 };
 
-export async function fetchCoachUpcomingSessions(coachUserId: string): Promise<CoachSessionRow[]> {
+export async function fetchCoachSessions(
+  coachUserId: string,
+  view: 'upcoming' | 'past' = 'upcoming'
+): Promise<CoachSessionRow[]> {
   const now = new Date().toISOString();
-  const { data, error } = await supabase
+  let query = supabase
     .from('sessions')
     .select(
       `
@@ -25,14 +30,21 @@ export async function fetchCoachUpcomingSessions(coachUserId: string): Promise<C
       session_type,
       current_participants,
       max_participants,
+      athlete_paid,
+      athlete_payout_date,
       facilities(name)
     `
     )
     .eq('athlete_id', coachUserId)
-    .eq('status', 'scheduled')
-    .gte('scheduled_datetime', now)
-    .order('scheduled_datetime', { ascending: true })
-    .limit(30);
+    .order('scheduled_datetime', { ascending: view === 'upcoming' })
+    .limit(50);
+
+  query =
+    view === 'upcoming'
+      ? query.eq('status', 'scheduled').gte('scheduled_datetime', now)
+      : query.or(`status.eq.completed,status.eq.cancelled,status.eq.no-show,scheduled_datetime.lt.${now}`);
+
+  const { data, error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -47,9 +59,15 @@ export async function fetchCoachUpcomingSessions(coachUserId: string): Promise<C
       session_type: s.session_type,
       current_participants: s.current_participants,
       max_participants: s.max_participants,
+      athlete_paid: s.athlete_paid,
+      athlete_payout_date: s.athlete_payout_date,
       facilities: facility,
     };
   });
+}
+
+export function fetchCoachUpcomingSessions(coachUserId: string): Promise<CoachSessionRow[]> {
+  return fetchCoachSessions(coachUserId, 'upcoming');
 }
 
 export function coachSessionTitle(s: CoachSessionRow): string {

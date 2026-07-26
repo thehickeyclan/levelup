@@ -13,6 +13,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/coach-availability-reminders",
+      "schedule": "0 14 * * 0"
+    },
+    {
       "path": "/api/cron/release-referral-credits",
       "schedule": "30 8 * * *"
     },

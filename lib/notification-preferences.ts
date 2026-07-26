@@ -8,6 +8,10 @@ export type NotificationPreferences = {
   messaging_sms: boolean;
   messaging_push: boolean;
   nearby_coaches_push: boolean;
+  followed_coaches_push: boolean;
+  training_partner_activity_push: boolean;
+  matching_sessions_push: boolean;
+  market_watch_push: boolean;
   sms_opted_out: boolean;
 };
 
@@ -21,6 +25,10 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   messaging_sms: true,
   messaging_push: true,
   nearby_coaches_push: false,
+  followed_coaches_push: true,
+  training_partner_activity_push: false,
+  matching_sessions_push: true,
+  market_watch_push: true,
   sms_opted_out: false,
 };
 
@@ -34,6 +42,10 @@ const BOOL_KEYS: (keyof NotificationPreferences)[] = [
   'messaging_sms',
   'messaging_push',
   'nearby_coaches_push',
+  'followed_coaches_push',
+  'training_partner_activity_push',
+  'matching_sessions_push',
+  'market_watch_push',
   'sms_opted_out',
 ];
 

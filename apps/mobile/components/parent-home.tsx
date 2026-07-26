@@ -11,6 +11,7 @@ import {
 } from '@/lib/parent-data';
 import { useAuth } from '@/lib/auth';
 import { colors, typography } from '@/lib/theme';
+import { ParentReviewPromptModal, type ParentReviewPrompt } from '@/components/parent-review-prompt';
 
 type CoachMapPin = {
   pinKey: string;
@@ -52,35 +53,42 @@ function formatWhen(iso: string) {
 
 export function ParentHomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [sessions, setSessions] = useState<OpenSmallGroupSession[]>([]);
   const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [pins, setPins] = useState<CoachMapPin[]>([]);
   const [activity, setActivity] = useState<ActivityPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviewPrompts, setReviewPrompts] = useState<ParentReviewPrompt[]>([]);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [sessionRows, bookingRows, map, feed] = await Promise.all([
+      const [sessionRows, bookingRows, map, feed, reviews] = await Promise.all([
         fetchOpenSmallGroupSessions(),
         user ? fetchFamilyBookings(user.id) : Promise.resolve([]),
         apiFetch<{ pins: CoachMapPin[] }>('/api/map/coach-pins').catch(() => ({ pins: [] })),
         apiFetch<{ posts: ActivityPreview[] }>('/api/activity/feed?scope=community&limit=3').catch(() => ({
           posts: [],
         })),
+        role === 'parent'
+          ? apiFetch<{ prompts: ParentReviewPrompt[] }>('/api/mobile/reviews/pending').catch(() => ({
+              prompts: [],
+            }))
+          : Promise.resolve({ prompts: [] }),
       ]);
       setSessions(sessionRows);
       setBookings(bookingRows);
       setPins(map.pins ?? []);
       setActivity(feed.posts ?? []);
+      setReviewPrompts(reviews.prompts ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load Home');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, role]);
 
   useFocusEffect(
     useCallback(() => {
@@ -104,6 +112,7 @@ export function ParentHomeScreen() {
   );
 
   return (
+    <>
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.kicker}>THE WRESTLING GUILD</Text>
       <Text style={styles.heading}>Train with the right coach.</Text>
@@ -227,6 +236,11 @@ export function ParentHomeScreen() {
       {loading ? <ActivityIndicator color={colors.accent} style={{ marginTop: 18 }} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </ScrollView>
+    <ParentReviewPromptModal
+      prompt={reviewPrompts[0] ?? null}
+      onDone={() => setReviewPrompts((current) => current.slice(1))}
+    />
+    </>
   );
 }
 

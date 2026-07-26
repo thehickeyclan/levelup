@@ -23,6 +23,7 @@ import {
 } from '@/lib/sessions';
 import { isBookingCheckoutShellSession, isOpenSessionStatus } from '@/lib/session-checkout-shell';
 import { buildServiceTypesByCoach } from '@/lib/coach-offered-session-types';
+import { getParentYouthWrestlerIds } from '@/lib/parent-wrestlers';
 import Link from 'next/link';
 
 export const metadata = {
@@ -103,14 +104,10 @@ export default async function TrainingPage({
     ];
   }
 
-  // Fetch parent's wrestlers for "Booked" state check (logged-in parents only)
+  // Parent household wrestlers or the signed-in athlete's own profile.
   let parentWrestlerIds: string[] = [];
   if (user) {
-    const { data: parentWrestlers } = await supabase
-      .from('youth_wrestlers')
-      .select('id')
-      .eq('parent_id', user.id);
-    parentWrestlerIds = (parentWrestlers || []).map((w) => w.id);
+    parentWrestlerIds = await getParentYouthWrestlerIds(supabase, user.id);
   }
 
   const { data: facilities } = await supabase

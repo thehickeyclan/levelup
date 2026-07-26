@@ -100,7 +100,7 @@ export default function LoginPage() {
         if (role === 'coach') {
           router.push('/athlete-dashboard');
         } else if (role === 'youth_wrestler') {
-          router.push('/youth-dashboard');
+          router.push('/training');
         } else if (role === 'admin') {
           router.push('/dashboard');
         } else {

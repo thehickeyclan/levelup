@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     const role = userData?.role || 'parent';
     const redirectPath = 
       role === 'coach' ? '/athlete-dashboard' :
-      role === 'youth_wrestler' ? '/youth-dashboard' :
+      role === 'youth_wrestler' ? '/training' :
       '/dashboard';
     // Admins land on product (/dashboard); use Admin nav link to switch to admin.
 
@@ -72,4 +72,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=callback_failed', req.url));
   }
 }
-

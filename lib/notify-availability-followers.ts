@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { parseNotificationPreferences } from '@/lib/notification-preferences';
 
 /**
  * Notify all parents who follow this coach that the coach has updated their availability.
@@ -29,8 +30,19 @@ export async function notifyAvailabilityFollowers(
     const body = `${name} updated their calendar. Tap to book!`;
     const link = `/athlete/${coachId}`;
 
+    const followerIds = [...new Set(follows.map((f) => f.parent_id as string))];
+    const { data: users } = await admin
+      .from('users')
+      .select('id, notification_preferences')
+      .in('id', followerIds);
+    const allowed = new Set(
+      (users ?? [])
+        .filter((user) => parseNotificationPreferences(user.notification_preferences).followed_coaches_push)
+        .map((user) => user.id as string)
+    );
+
     await Promise.all(
-      follows.map((f) =>
+      follows.filter((f) => allowed.has(f.parent_id as string)).map((f) =>
         admin.from('notifications').insert({
           user_id: f.parent_id,
           type: 'coach_new_availability',

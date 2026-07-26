@@ -17,6 +17,7 @@ import { sessionTypeLabel } from '@/lib/parent-data';
 import { WEB_ORIGIN } from '@/lib/config';
 import { useNotificationRealtime } from '@/lib/use-notification-realtime';
 import { colors, typography } from '@/lib/theme';
+import { apiFetch } from '@/lib/api';
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
@@ -35,13 +36,18 @@ export function CoachHomeScreen() {
   const [sessions, setSessions] = useState<CoachSessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [weeklyWindowCount, setWeeklyWindowCount] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
     setError(null);
     try {
-      const list = await fetchCoachUpcomingSessions(user.id);
+      const [list, availability] = await Promise.all([
+        fetchCoachUpcomingSessions(user.id),
+        apiFetch<{ windows?: unknown[] }>('/api/coach/availability/weekly').catch(() => ({ windows: [] })),
+      ]);
       setSessions(list);
+      setWeeklyWindowCount(availability.windows?.length ?? 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load schedule');
     } finally {
@@ -104,10 +110,18 @@ export function CoachHomeScreen() {
           </Pressable>
           <Pressable
             style={styles.secondaryCta}
-            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/availability`)}
+            onPress={() => weeklyWindowCount === 0 ? router.push('/coach-availability-setup') : void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/availability`)}
           >
-            <Text style={styles.secondaryCtaText}>Set availability</Text>
+            <Text style={styles.secondaryCtaText}>{weeklyWindowCount === 0 ? 'Set your normal week' : 'Manage calendar'}</Text>
           </Pressable>
+          {weeklyWindowCount === 0 ? (
+            <Pressable style={styles.calendarWarning} onPress={() => router.push('/coach-availability-setup')}>
+              <Text style={styles.calendarWarningTitle}>Parents can’t book you yet</Text>
+              <Text style={styles.calendarWarningText}>Choose your usual weekly hours once. We’ll repeat them automatically.</Text>
+            </Pressable>
+          ) : (
+            <Text style={styles.calendarHealthy}>Calendar active · {weeklyWindowCount} weekly window{weeklyWindowCount === 1 ? '' : 's'}</Text>
+          )}
 
           <View style={styles.metrics}>
             <View style={styles.metric}>
@@ -245,6 +259,10 @@ const styles = StyleSheet.create({
     color: colors.accent,
     letterSpacing: 0.4,
   },
+  calendarWarning: { borderWidth: 1, borderColor: colors.danger, backgroundColor: colors.surface, padding: 13, marginBottom: 16, borderRadius: 4 },
+  calendarWarningTitle: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
+  calendarWarningText: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  calendarHealthy: { ...typography.bodyMedium, color: colors.success, fontSize: 12, marginBottom: 16 },
   metrics: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   metric: {
     flex: 1,

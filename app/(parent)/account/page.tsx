@@ -48,7 +48,7 @@ export default async function AccountPage() {
           </div>
           <div className="pt-2 flex flex-col gap-2">
             <Link
-              href="/youth-dashboard"
+              href="/training"
               className="text-sm font-medium text-accent hover:text-accent-light"
             >
               ← Back to Home

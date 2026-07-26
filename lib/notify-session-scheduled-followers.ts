@@ -193,7 +193,7 @@ export async function notifySessionScheduledFollowers(
 
       const prefs = parseNotificationPreferences(parent.notification_preferences);
 
-      if (wantsNewSessionPush(prefs)) {
+      if (wantsNewSessionPush(prefs) && prefs.followed_coaches_push) {
         inAppTasks.push(
           createNotification(admin, {
             user_id: parentId,

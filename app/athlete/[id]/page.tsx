@@ -32,6 +32,7 @@ import {
   CoachProfileOpenSessions,
   type CoachProfileOpenSessionRow,
 } from '@/components/coach-profile-open-sessions';
+import QRCode from 'qrcode';
 
 /** Partner or small-group posts parents can join; not the book-new 1-on-1 flow. */
 function isJoinExistingSessionType(s: CoachProfileOpenSessionRow): boolean {
@@ -90,6 +91,7 @@ export default async function AthleteProfilePage({
 
   const tenantSlug = tenant.slug;
   const supabase = await createClient(tenantSlug);
+  const forwardedProto = headersList.get('x-forwarded-proto') || 'https';
 
   // Invalid id (e.g. /athlete/undefined or empty) -> friendly fallback instead of 404
   if (!id || typeof id !== 'string' || id.trim() === '') {
@@ -176,6 +178,12 @@ export default async function AthleteProfilePage({
     return qs ? `/book/${athlete.id}?${qs}` : `/book/${athlete.id}`;
   };
   const athleteName = `${athlete.first_name} ${athlete.last_name}`.trim() || 'This coach';
+  const publicProfileUrl = `${forwardedProto}://${host}/athlete/${athlete.id}`;
+  const profileQrDataUrl = await QRCode.toDataURL(publicProfileUrl, {
+    width: 220,
+    margin: 1,
+    color: { dark: '#000000', light: '#ffffff' },
+  });
 
   const { data: weeklyAvailRows } = await supabase
     .from('athlete_availability')
@@ -374,6 +382,30 @@ export default async function AthleteProfilePage({
               {nextOpenLine && (
                 <p className="text-sm font-medium text-accent/90">{nextOpenLine}</p>
               )}
+
+              <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/20 p-2.5 w-fit">
+                {/* Data URL generated server-side; no image optimization needed. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={profileQrDataUrl}
+                  alt={`QR code for ${athleteName}'s coach profile`}
+                  width={72}
+                  height={72}
+                  className="h-[72px] w-[72px] rounded bg-white p-1"
+                />
+                <div className="max-w-[150px]">
+                  <p className="text-xs font-semibold text-foreground">Scan to view &amp; book</p>
+                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                    Share this coach profile.
+                  </p>
+                  <Link
+                    href={`/qr/coach/${athlete.id}`}
+                    className="mt-1 inline-block text-[11px] font-medium text-accent underline"
+                  >
+                    Full-size QR
+                  </Link>
+                </div>
+              </div>
 
               {/* Certification Badges */}
               <div className="flex flex-wrap gap-2">
@@ -677,4 +709,3 @@ export default async function AthleteProfilePage({
     </div>
   );
 }
-

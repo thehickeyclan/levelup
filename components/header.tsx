@@ -116,7 +116,7 @@ export function Header() {
     setViewAsCoachId(null);
     if (value === 'admin') router.push('/admin');
     else if (value === 'parent') router.push('/training');
-    else if (value === 'youth_wrestler') router.push('/youth-dashboard');
+    else if (value === 'youth_wrestler') router.push('/training');
   };
 
   const handleSelectCoach = (coach: Coach) => {
@@ -290,10 +290,10 @@ export function Header() {
                     </>
                   )}
                   <Link
-                    href="/youth-dashboard"
+                    href="/training"
                     className="text-white hover:text-accent transition-colors font-medium"
                   >
-                    Dashboard
+                    Training
                   </Link>
                   <Link
                     href={activityNavHref('youth_wrestler')}

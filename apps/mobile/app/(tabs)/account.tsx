@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { GuildLogo } from '@/components/guild-logo';
 import { useAuth } from '@/lib/auth';
 import { registerForPushNotifications } from '@/lib/push';
 import { colors, typography } from '@/lib/theme';
-import { apiFetch } from '@/lib/api';
+import * as WebBrowser from 'expo-web-browser';
+import { WEB_ORIGIN } from '@/lib/config';
 
 export default function AccountScreen() {
   const {
@@ -21,36 +22,8 @@ export default function AccountScreen() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
-  const [nearbyCoachAlerts, setNearbyCoachAlerts] = useState(false);
-  const [savingNearby, setSavingNearby] = useState(false);
 
   const isRealCoach = role === 'coach' || role === 'admin';
-
-  useEffect(() => {
-    if (isCoachView) return;
-    void apiFetch<{ preferences?: { nearby_coaches_push?: boolean } }>(
-      '/api/account/notification-preferences'
-    )
-      .then((data) => setNearbyCoachAlerts(data.preferences?.nearby_coaches_push === true))
-      .catch(() => undefined);
-  }, [isCoachView]);
-
-  async function onToggleNearby(value: boolean) {
-    const previous = nearbyCoachAlerts;
-    setNearbyCoachAlerts(value);
-    setSavingNearby(true);
-    try {
-      await apiFetch('/api/account/notification-preferences', {
-        method: 'PATCH',
-        body: JSON.stringify({ nearby_coaches_push: value }),
-      });
-      if (value) await registerForPushNotifications();
-    } catch {
-      setNearbyCoachAlerts(previous);
-    } finally {
-      setSavingNearby(false);
-    }
-  }
 
   async function onEnablePush() {
     setBusy(true);
@@ -76,7 +49,7 @@ export default function AccountScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <GuildLogo size={72} variant="mark" />
       <Text style={styles.kicker}>MORE</Text>
       <Text style={styles.heading}>Account & activity</Text>
@@ -84,16 +57,34 @@ export default function AccountScreen() {
       <Text style={styles.meta}>Role: {role ?? '…'}</Text>
 
       {!isCoachView ? (
-        <Pressable
-          style={styles.menuRow}
-          onPress={() => router.push({ pathname: '/(tabs)/bookings', params: { view: 'past' } })}
-        >
-          <View>
-            <Text style={styles.menuTitle}>Training history</Text>
-            <Text style={styles.menuMeta}>Past sessions and reviews</Text>
-          </View>
-          <Text style={styles.menuArrow}>›</Text>
-        </Pressable>
+        <>
+          <Pressable
+            style={styles.menuRow}
+            onPress={() => router.push({ pathname: '/(tabs)/bookings', params: { view: 'past' } })}
+          >
+            <View>
+              <Text style={styles.menuTitle}>Training history</Text>
+              <Text style={styles.menuMeta}>Past sessions and reviews</Text>
+            </View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/my-wrestlers`)}>
+            <View><Text style={styles.menuTitle}>My wrestlers</Text><Text style={styles.menuMeta}>Add kids, photos, and profile details</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/activity`)}>
+            <View><Text style={styles.menuTitle}>Activity & photos</Text><Text style={styles.menuMeta}>See the feed and share session photos</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/my-coaches`)}>
+            <View><Text style={styles.menuTitle}>My coaches</Text><Text style={styles.menuMeta}>Coaches you follow and train with</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/wallet`)}>
+            <View><Text style={styles.menuTitle}>Wallet</Text><Text style={styles.menuMeta}>Credits and payment activity</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+        </>
       ) : null}
 
       <Pressable style={styles.menuRow} onPress={() => router.push('/notifications')}>
@@ -103,20 +94,33 @@ export default function AccountScreen() {
         </View>
         <Text style={styles.menuArrow}>›</Text>
       </Pressable>
-
-      {!isCoachView ? (
-        <View style={styles.menuRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.menuTitle}>Nearby coach alerts</Text>
-            <Text style={styles.menuMeta}>New coaches within about 50 miles of your ZIP</Text>
-          </View>
-          <Switch
-            value={nearbyCoachAlerts}
-            disabled={savingNearby}
-            trackColor={{ true: colors.accent }}
-            onValueChange={(value) => void onToggleNearby(value)}
-          />
+      <Pressable style={styles.menuRow} onPress={() => router.push('/notification-settings')}>
+        <View>
+          <Text style={styles.menuTitle}>Notification settings</Text>
+          <Text style={styles.menuMeta}>Choose push and text alerts</Text>
         </View>
+        <Text style={styles.menuArrow}>›</Text>
+      </Pressable>
+
+      {isCoachView ? (
+        <>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-earnings')}>
+            <View><Text style={styles.menuTitle}>Earnings</Text><Text style={styles.menuMeta}>Week, month, all time, and payouts</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/activity?scope=coach`)}>
+            <View><Text style={styles.menuTitle}>Activity</Text><Text style={styles.menuMeta}>Share photos and see Guild activity</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/availability`)}>
+            <View><Text style={styles.menuTitle}>Calendar & availability</Text><Text style={styles.menuMeta}>Keep at least one week open for families</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/profile`)}>
+            <View><Text style={styles.menuTitle}>Coach profile</Text><Text style={styles.menuMeta}>Photo, bio, schools, and training locations</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+        </>
       ) : null}
 
       {!isRealCoach ? (
@@ -158,12 +162,13 @@ export default function AccountScreen() {
       <Pressable style={styles.danger} onPress={() => void onSignOut()} disabled={busy}>
         <Text style={styles.dangerText}>Sign out</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, gap: 12, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: colors.background },
+  container: { flexGrow: 1, padding: 20, paddingBottom: 48, gap: 12, backgroundColor: colors.background },
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginTop: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   meta: { ...typography.body, color: colors.textSecondary, fontSize: 14 },

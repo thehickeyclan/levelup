@@ -28,13 +28,18 @@ export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [listing, setListing] = useState<Listing | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [following, setFollowing] = useState(false);
+  const [savingFollow, setSavingFollow] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await apiFetch<{ listing: Listing }>(`/api/market/listings/${id}`);
-        if (!cancelled) setListing(res.listing);
+        const res = await apiFetch<{ listing: Listing; following?: boolean }>(`/api/market/listings/${id}`);
+        if (!cancelled) {
+          setListing(res.listing);
+          setFollowing(res.following === true);
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load listing');
       }
@@ -60,6 +65,20 @@ export default function ListingDetailScreen() {
     );
   }
 
+  async function toggleFollow() {
+    if (savingFollow) return;
+    setSavingFollow(true);
+    setError(null);
+    try {
+      await apiFetch(`/api/market/listings/${id}/follow`, { method: following ? 'DELETE' : 'POST' });
+      setFollowing(!following);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update watch list');
+    } finally {
+      setSavingFollow(false);
+    }
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {listing.primary_image_url ? (
@@ -70,6 +89,11 @@ export default function ListingDetailScreen() {
         {listing.price_cents != null ? `$${(listing.price_cents / 100).toFixed(0)}` : '—'}
       </Text>
       {listing.description ? <Text style={styles.body}>{listing.description}</Text> : null}
+      <Pressable style={styles.watchButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
+        <Text style={styles.watchButtonText}>
+          {savingFollow ? 'Saving…' : following ? 'Watching · Alerts on' : 'Watch this pair'}
+        </Text>
+      </Pressable>
       <Pressable
         style={styles.button}
         onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/market/listing/${id}`)}
@@ -95,6 +119,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  watchButton: {
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 12,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  watchButtonText: { color: colors.accent, fontWeight: '700' },
   buttonText: { color: '#fff', fontWeight: '700' },
   error: { color: colors.danger },
 });

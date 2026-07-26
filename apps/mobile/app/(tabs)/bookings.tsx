@@ -14,7 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { statusLabel } from '@/components/session-detail-view';
 import { fetchFamilyBookings, sessionTypeLabel, type MobileBooking } from '@/lib/parent-data';
 import { colors, typography } from '@/lib/theme';
-import { coachSessionTitle, fetchCoachUpcomingSessions, type CoachSessionRow } from '@/lib/coach-data';
+import { coachSessionTitle, fetchCoachSessions, type CoachSessionRow } from '@/lib/coach-data';
 
 const ENDED_STATUSES = new Set(['completed', 'cancelled', 'no-show']);
 
@@ -50,18 +50,19 @@ function CoachScheduleScreen() {
   const [sessions, setSessions] = useState<CoachSessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<'upcoming' | 'past'>('upcoming');
 
   const load = useCallback(async () => {
     if (!user) return;
     setError(null);
     try {
-      setSessions(await fetchCoachUpcomingSessions(user.id));
+      setSessions(await fetchCoachSessions(user.id, view));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load schedule');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, view]);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,7 +82,21 @@ function CoachScheduleScreen() {
         <View style={{ marginBottom: 12 }}>
           <Text style={styles.kicker}>COACH</Text>
           <Text style={styles.heading}>Schedule</Text>
-          <Text style={styles.scheduleIntro}>Upcoming sessions, athletes, and open capacity.</Text>
+          <Text style={styles.scheduleIntro}>Sessions, rosters, locations, and payout status.</Text>
+          <View style={styles.segment}>
+            <Pressable
+              style={[styles.segmentButton, view === 'upcoming' && styles.segmentButtonActive]}
+              onPress={() => setView('upcoming')}
+            >
+              <Text style={[styles.segmentText, view === 'upcoming' && styles.segmentTextActive]}>Upcoming</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.segmentButton, view === 'past' && styles.segmentButtonActive]}
+              onPress={() => setView('past')}
+            >
+              <Text style={[styles.segmentText, view === 'past' && styles.segmentTextActive]}>Past</Text>
+            </Pressable>
+          </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
       }
@@ -89,7 +104,15 @@ function CoachScheduleScreen() {
         <Pressable style={styles.card} onPress={() => router.push(`/session/${item.id}`)}>
           <View style={styles.cardTop}>
             <Text style={styles.typeLabel}>{sessionTypeLabel(item.session_type).toUpperCase()}</Text>
-            <Text style={[styles.status, { color: colors.success }]}>Scheduled</Text>
+            <Text style={[styles.status, { color: view === 'upcoming' ? colors.success : colors.textSecondary }]}>
+              {view === 'upcoming'
+                ? 'Scheduled'
+                : item.athlete_payout_date
+                  ? 'Paid'
+                  : item.status === 'completed'
+                    ? 'Payment pending'
+                    : statusLabel(item.status)}
+            </Text>
           </View>
           <Text style={styles.title}>{coachSessionTitle(item)}</Text>
           <Text style={styles.meta}>{formatWhen(item.scheduled_datetime)}</Text>
@@ -100,7 +123,7 @@ function CoachScheduleScreen() {
         </Pressable>
       )}
       ListEmptyComponent={
-        !loading ? <Text style={styles.empty}>No upcoming sessions. Create one from Coach Home.</Text> : null
+        !loading ? <Text style={styles.empty}>{view === 'upcoming' ? 'No upcoming sessions. Create one from Coach Home.' : 'No past sessions yet.'}</Text> : null
       }
     />
   );
@@ -236,6 +259,19 @@ const styles = StyleSheet.create({
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   scheduleIntro: { ...typography.body, color: colors.textMuted, marginTop: 6, fontSize: 14 },
+  segment: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  segmentButton: {
+    flex: 1,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+  },
+  segmentButtonActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  segmentText: { ...typography.bodySemi, color: colors.textSecondary, fontSize: 13 },
+  segmentTextActive: { color: colors.black },
   sectionTitle: {
     ...typography.brand,
     fontSize: 12,

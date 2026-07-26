@@ -30,7 +30,7 @@ export default async function WorkspacePage({
     role === 'coach'
       ? '/athlete-dashboard'
       : role === 'youth_wrestler'
-        ? '/youth-dashboard'
+        ? '/training'
         : role === 'admin'
           ? '/admin'
           : '/dashboard';

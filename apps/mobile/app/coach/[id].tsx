@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
+import * as WebBrowser from 'expo-web-browser';
+import { WEB_ORIGIN } from '@/lib/config';
 import { colors, typography } from '@/lib/theme';
 
 type Coach = {
@@ -28,20 +31,27 @@ export default function CoachDetailScreen() {
   const router = useRouter();
   const [coach, setCoach] = useState<Coach | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [openingMessage, setOpeningMessage] = useState(false);
+  const [following, setFollowing] = useState(false);
+  const [savingFollow, setSavingFollow] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const { data, error: qErr } = await supabase
+        const [{ data, error: qErr }, follow] = await Promise.all([
+          supabase
           .from('athletes')
           .select('id, first_name, last_name, school, photo_url, bio, average_rating, review_count')
           .eq('id', id)
           .eq('active', true)
-          .maybeSingle();
+          .maybeSingle(),
+          apiFetch<{ following: boolean }>(`/api/coach-follows/check?coachId=${id}`).catch(() => ({ following: false })),
+        ]);
         if (qErr) throw new Error(qErr.message);
         if (!cancelled) {
           setCoach((data as Coach | null) ?? null);
+          setFollowing(follow.following);
           if (!data) setError('Coach not found');
         }
       } catch (e) {
@@ -68,6 +78,44 @@ export default function CoachDetailScreen() {
       </View>
     );
   }
+  const coachId = coach.id;
+
+  async function messageCoach() {
+    if (openingMessage) return;
+    setOpeningMessage(true);
+    setError(null);
+    try {
+      const data = await apiFetch<{ threadId: string }>('/api/guild/messages/coach-inquiry', {
+        method: 'POST',
+        body: JSON.stringify({ coachUserId: coachId }),
+      });
+      router.push(`/thread/${data.threadId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not open conversation');
+      setOpeningMessage(false);
+    }
+  }
+
+  async function toggleFollow() {
+    if (savingFollow) return;
+    setSavingFollow(true);
+    setError(null);
+    try {
+      if (following) {
+        await apiFetch(`/api/coach-follows?coachId=${coachId}`, { method: 'DELETE' });
+      } else {
+        await apiFetch('/api/coach-follows', {
+          method: 'POST',
+          body: JSON.stringify({ coachId }),
+        });
+      }
+      setFollowing(!following);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update follow');
+    } finally {
+      setSavingFollow(false);
+    }
+  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
@@ -87,8 +135,20 @@ export default function CoachDetailScreen() {
       ) : null}
       {coach.bio ? <Text style={styles.bio}>{coach.bio}</Text> : null}
 
-      <Pressable style={styles.button} onPress={() => router.push(`/book/${coach.id}`)}>
-        <Text style={styles.buttonText}>Book a private</Text>
+      <Pressable style={styles.followButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
+        <Text style={styles.followButtonText}>
+          {savingFollow ? 'Saving…' : following ? 'Following · Alerts on' : 'Follow coach'}
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.button}
+        onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/book/${coach.id}`)}
+      >
+        <Text style={styles.buttonText}>View availability & book</Text>
+      </Pressable>
+      <Pressable style={styles.buttonSecondary} onPress={() => void messageCoach()} disabled={openingMessage}>
+        <Text style={styles.buttonSecondaryText}>{openingMessage ? 'Opening…' : 'Message coach'}</Text>
       </Pressable>
       <Pressable
         style={styles.buttonSecondary}
@@ -138,6 +198,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  followButton: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  followButtonText: { ...typography.bodyBold, color: colors.accent, fontSize: 14 },
   buttonText: {
     ...typography.bodyBold,
     color: colors.black,

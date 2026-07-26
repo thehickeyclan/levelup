@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { SessionDetailView, useSessionDetail } from '@/components/session-detail-view';
 import { WEB_ORIGIN } from '@/lib/config';
 import { colors, typography } from '@/lib/theme';
+import { useAuth } from '@/lib/auth';
 
 /**
  * Small-group detail: session info + roster. Register/pay still uses the web
@@ -12,6 +13,8 @@ import { colors, typography } from '@/lib/theme';
  */
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { isCoachView } = useAuth();
   const { session, roster, loading, error, load } = useSessionDetail(id);
   const [opening, setOpening] = useState(false);
 
@@ -35,7 +38,18 @@ export default function SessionDetailScreen() {
       error={error}
       onRefresh={() => void load()}
       footer={
-        canJoin ? (
+        isCoachView && session ? (
+          <>
+            <Pressable style={styles.button} onPress={() => router.push('/new-message')}>
+              <Text style={styles.buttonText}>Message parent or athlete</Text>
+            </Pressable>
+            {session.status === 'scheduled' && roster.length > 0 ? (
+              <Pressable style={styles.secondaryButton} onPress={() => router.push(`/session-message/${id}`)}>
+                <Text style={styles.secondaryButtonText}>Text session roster</Text>
+              </Pressable>
+            ) : null}
+          </>
+        ) : canJoin ? (
           <Pressable style={styles.button} onPress={() => void openRegister()} disabled={opening}>
             <Text style={styles.buttonText}>
               {opening ? 'Opening…' : 'Join this session'}
@@ -68,6 +82,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: 0.4,
   },
+  secondaryButton: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 4,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: { ...typography.bodyBold, color: colors.accent, fontSize: 15 },
   fullNote: {
     ...typography.bodyMedium,
     color: colors.textMuted,

@@ -147,8 +147,13 @@ export default function CoachDetailScreen() {
       >
         <Text style={styles.buttonText}>View availability & book</Text>
       </Pressable>
+      <Text style={styles.availabilityHelp}>
+        Don&apos;t see a time that works? Message the coach directly to ask about another time.
+      </Text>
       <Pressable style={styles.buttonSecondary} onPress={() => void messageCoach()} disabled={openingMessage}>
-        <Text style={styles.buttonSecondaryText}>{openingMessage ? 'Opening…' : 'Message coach'}</Text>
+        <Text style={styles.buttonSecondaryText}>
+          {openingMessage ? 'Opening…' : 'Ask coach about availability'}
+        </Text>
       </Pressable>
       <Pressable
         style={styles.buttonSecondary}
@@ -214,6 +219,13 @@ const styles = StyleSheet.create({
     color: colors.black,
     fontSize: 15,
     letterSpacing: 0.4,
+  },
+  availabilityHelp: {
+    ...typography.body,
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 10,
   },
   buttonSecondary: {
     marginTop: 10,

@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { SessionDetailView, useSessionDetail } from '@/components/session-detail-view';
-import { WEB_ORIGIN } from '@/lib/config';
 import { colors, typography } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
+import { useMobileCart } from '@/lib/mobile-cart';
 
 /**
  * Small-group detail: session info + roster. Register/pay still uses the web
@@ -15,13 +14,17 @@ export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { isCoachView } = useAuth();
+  const { addSession } = useMobileCart();
   const { session, roster, loading, error, load } = useSessionDetail(id);
   const [opening, setOpening] = useState(false);
 
-  async function openRegister() {
+  async function addToCart() {
     setOpening(true);
     try {
-      await WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/sessions/${id}/register`);
+      await addSession(id);
+      router.push('/(tabs)/cart');
+    } catch (e) {
+      Alert.alert('Could not add to cart', e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setOpening(false);
       void load();
@@ -50,9 +53,9 @@ export default function SessionDetailScreen() {
             ) : null}
           </>
         ) : canJoin ? (
-          <Pressable style={styles.button} onPress={() => void openRegister()} disabled={opening}>
+          <Pressable style={styles.button} onPress={() => void addToCart()} disabled={opening}>
             <Text style={styles.buttonText}>
-              {opening ? 'Opening…' : 'Join this session'}
+              {opening ? 'Adding…' : 'Add a spot to cart'}
             </Text>
           </Pressable>
         ) : session ? (

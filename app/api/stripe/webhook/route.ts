@@ -299,6 +299,16 @@ export async function POST(req: NextRequest) {
 
         await maybeBackfillUserNameFromCheckoutSession(supabase, parentId, session);
 
+        // Remove only the paid cart lines. Keep unrelated sessions in the family's shared web/iPhone cart.
+        for (const row of rows) {
+          await supabase
+            .from('cart_items')
+            .delete()
+            .eq('user_id', parentId)
+            .eq('session_id', row.sid)
+            .eq('athlete_id', row.ywid);
+        }
+
         console.log('Cart checkout webhook completed:', { rows: rows.length, parentId, creditsUsed });
         return NextResponse.json({ received: true });
       }

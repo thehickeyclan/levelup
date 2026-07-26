@@ -19,9 +19,11 @@ import {
   type MobileCoach,
   type OpenSmallGroupSession,
 } from '@/lib/parent-data';
+import { apiFetch } from '@/lib/api';
 import { colors, typography } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { statusLabel } from '@/components/session-detail-view';
+import { useMobileCart } from '@/lib/mobile-cart';
 
 type Tab = 'available' | 'request' | 'mine';
 
@@ -57,12 +59,15 @@ function formatPrice(session: OpenSmallGroupSession) {
 export default function FindScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { addSession, sessionLineCount } = useMobileCart();
   const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>(() => parseTab(params.tab));
   const [sessions, setSessions] = useState<OpenSmallGroupSession[]>([]);
   const [coaches, setCoaches] = useState<MobileCoach[]>([]);
   const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openingMessageId, setOpeningMessageId] = useState<string | null>(null);
+  const [addingSessionId, setAddingSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -106,6 +111,37 @@ export default function FindScreen() {
     }, [params.tab, load])
   );
 
+  const messageCoach = async (coachId: string) => {
+    if (openingMessageId) return;
+    setOpeningMessageId(coachId);
+    setError(null);
+    try {
+      const data = await apiFetch<{ threadId: string }>('/api/guild/messages/coach-inquiry', {
+        method: 'POST',
+        body: JSON.stringify({ coachUserId: coachId }),
+      });
+      router.push(`/thread/${data.threadId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not message coach');
+    } finally {
+      setOpeningMessageId(null);
+    }
+  };
+
+  const addTrainingToCart = async (sessionId: string) => {
+    if (addingSessionId) return;
+    setAddingSessionId(sessionId);
+    setError(null);
+    try {
+      await addSession(sessionId);
+      router.push('/(tabs)/cart');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not add training to cart');
+    } finally {
+      setAddingSessionId(null);
+    }
+  };
+
   if (loading && sessions.length === 0 && coaches.length === 0) {
     return (
       <View style={styles.center}>
@@ -120,7 +156,7 @@ export default function FindScreen() {
         <Text style={styles.kicker}>TRAINING</Text>
         <Text style={styles.heading}>Training</Text>
         <Text style={styles.sub}>
-          Join an open session or ask a coach to create private, partner, or small-group training.
+          Join an open session or book a coach directly from their published availability.
         </Text>
 
         <View style={styles.segment}>
@@ -143,7 +179,7 @@ export default function FindScreen() {
             }}
           >
             <Text style={[styles.segmentText, tab === 'request' && styles.segmentTextActive]}>
-              Request
+              Book a Coach
             </Text>
           </Pressable>
           <Pressable
@@ -179,6 +215,8 @@ export default function FindScreen() {
                 ? Math.max(0, item.max_participants - (item.current_participants ?? 0))
                 : null;
             const price = formatPrice(item);
+            const cartQuantity = sessionLineCount(item.id);
+            const canAdd = spots == null || cartQuantity < spots;
             return (
               <View style={styles.card}>
                 {item.coach ? (
@@ -207,7 +245,7 @@ export default function FindScreen() {
                   </Pressable>
                 ) : null}
 
-                <Pressable style={styles.sessionDetails} onPress={() => router.push(`/session/${item.id}`)}>
+                <View style={styles.sessionDetails}>
                   <Text style={styles.cardKicker}>SMALL GROUP</Text>
                   <Text style={styles.cardTitle}>{item.focus_area?.trim() || 'Small-group training'}</Text>
                   <Text style={styles.cardMeta}>{formatWhen(item.scheduled_datetime)}</Text>
@@ -218,14 +256,47 @@ export default function FindScreen() {
                     </Text>
                     {price ? <Text style={styles.price}>{price}</Text> : null}
                   </View>
-                </Pressable>
+                  <View style={styles.sessionActions}>
+                    <Pressable
+                      style={styles.sessionSecondaryButton}
+                      onPress={() => router.push(`/session/${item.id}`)}
+                    >
+                      <Text style={styles.sessionSecondaryText}>View session</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.sessionPrimaryButton, !canAdd && styles.buttonUnavailable]}
+                      onPress={() => void addTrainingToCart(item.id)}
+                      disabled={!canAdd || addingSessionId !== null}
+                    >
+                      <Text style={styles.sessionPrimaryText}>
+                        {addingSessionId === item.id
+                          ? 'Adding…'
+                          : cartQuantity > 0
+                            ? `Add another spot`
+                            : 'Add to cart'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
               </View>
             );
           }}
           ListEmptyComponent={
-            <Text style={styles.empty}>
-              No open small groups right now. Check Privates to book 1:1, or pull to refresh.
-            </Text>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No open small groups right now</Text>
+              <Text style={styles.empty}>
+                Book a coach directly for private, partner, or small-group training.
+              </Text>
+              <Pressable
+                style={styles.emptyButton}
+                onPress={() => {
+                  setTab('request');
+                  router.setParams({ tab: 'request' });
+                }}
+              >
+                <Text style={styles.emptyButtonText}>View coaches</Text>
+              </Pressable>
+            </View>
           }
         />
       ) : tab === 'request' ? (
@@ -233,6 +304,15 @@ export default function FindScreen() {
           data={coaches}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            <View style={styles.coachListIntro}>
+              <Text style={styles.coachListIntroTitle}>Browse coaches and view their profiles.</Text>
+              <Text style={styles.coachListIntroText}>
+                Review experience, location, and ratings before viewing availability. If no time
+                works, message the coach directly.
+              </Text>
+            </View>
+          }
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -241,27 +321,49 @@ export default function FindScreen() {
             />
           }
           renderItem={({ item }) => (
-            <Pressable style={styles.row} onPress={() => router.push(`/coach/${item.id}`)}>
-              {item.photo_url ? (
-                <Image source={{ uri: item.photo_url }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                  <Text style={styles.avatarLetter}>{item.first_name?.[0] ?? '?'}</Text>
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.name}>
-                  {item.first_name} {item.last_name}
-                </Text>
-                <Text style={styles.meta}>{item.school ?? 'Coach'}</Text>
-                {item.review_count ? (
-                  <Text style={styles.meta}>
-                    ★ {Number(item.average_rating ?? 0).toFixed(1)} · {item.review_count} reviews
+            <View style={styles.coachRow}>
+              <Pressable style={styles.coachIdentity} onPress={() => router.push(`/coach/${item.id}`)}>
+                {item.photo_url ? (
+                  <Image source={{ uri: item.photo_url }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                    <Text style={styles.avatarLetter}>{item.first_name?.[0] ?? '?'}</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>
+                    {item.first_name} {item.last_name}
                   </Text>
-                ) : null}
+                  <Text style={styles.meta}>{item.school ?? 'Coach'}</Text>
+                  {item.review_count ? (
+                    <Text style={styles.meta}>
+                      ★ {Number(item.average_rating ?? 0).toFixed(1)} · {item.review_count} reviews
+                    </Text>
+                  ) : null}
+                </View>
+              </Pressable>
+              <View style={styles.coachActions}>
+                <Pressable
+                  style={styles.coachPrimaryButton}
+                  onPress={() => router.push(`/coach/${item.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View ${item.first_name} ${item.last_name}'s profile`}
+                >
+                  <Text style={styles.coachPrimaryText}>View profile</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.coachMessageButton}
+                  onPress={() => void messageCoach(item.id)}
+                  disabled={openingMessageId !== null}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Message ${item.first_name} ${item.last_name}`}
+                >
+                  <Text style={styles.coachMessageText}>
+                    {openingMessageId === item.id ? 'Opening…' : 'Message'}
+                  </Text>
+                </Pressable>
               </View>
-              <Text style={styles.cta}>Book</Text>
-            </Pressable>
+            </View>
           )}
           ListEmptyComponent={<Text style={styles.empty}>No coaches available right now.</Text>}
         />
@@ -339,6 +441,19 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, marginTop: 8, fontFamily: 'Inter_400Regular' },
   list: { paddingHorizontal: 20, paddingBottom: 40 },
   empty: { ...typography.body, color: colors.textMuted, marginTop: 12 },
+  emptyState: { marginTop: 16 },
+  emptyTitle: { ...typography.bodySemi, color: colors.text, fontSize: 16 },
+  emptyButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    marginTop: 16,
+    paddingHorizontal: 18,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyButtonText: { ...typography.bodyBold, color: colors.black, fontSize: 13 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: 4,
@@ -388,19 +503,73 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  sessionActions: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  sessionPrimaryButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sessionPrimaryText: { ...typography.bodyBold, color: colors.black, fontSize: 12 },
+  sessionSecondaryButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sessionSecondaryText: { ...typography.bodyBold, color: colors.text, fontSize: 12 },
+  buttonUnavailable: { opacity: 0.4 },
   bookingTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   bookingStatus: { ...typography.bodySemi, color: colors.success, fontSize: 12 },
   historyLink: { minHeight: 48, justifyContent: 'center', marginTop: 12 },
   price: { ...typography.bodyBold, color: colors.accent, fontSize: 14 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+  coachListIntro: {
+    marginTop: 10,
+    marginBottom: 12,
+    padding: 14,
+    borderRadius: 4,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  coachListIntroTitle: { ...typography.bodySemi, color: colors.text, fontSize: 14 },
+  coachListIntroText: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  coachRow: {
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  coachIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
     minHeight: 76,
   },
+  coachActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  coachPrimaryButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coachPrimaryText: { ...typography.bodyBold, color: colors.black, fontSize: 12 },
+  coachMessageButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coachMessageText: { ...typography.bodyBold, color: colors.accent, fontSize: 12 },
   avatar: {
     width: 56,
     height: 56,

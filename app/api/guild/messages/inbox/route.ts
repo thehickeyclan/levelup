@@ -177,6 +177,15 @@ export async function GET() {
       return {
         id: t.id as string,
         thread_type: t.thread_type as string,
+        title:
+          t.thread_type === 'order' && order?.order_ref
+            ? `Order #${order.order_ref}`
+            : contextTitle ?? listingTitle ?? threadLabel(t.thread_type as string, null).replace(/^\S+\s+/, ''),
+        category: MARKET_THREAD_TYPES.has(t.thread_type as never)
+          ? 'marketplace'
+          : t.thread_type === 'coach_inquiry'
+            ? 'direct'
+            : 'training',
         label: threadLabel(
           t.thread_type as string,
           t.thread_type === 'order' && order?.order_ref

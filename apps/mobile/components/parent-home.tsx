@@ -115,9 +115,10 @@ export function ParentHomeScreen() {
     <>
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.kicker}>THE WRESTLING GUILD</Text>
-      <Text style={styles.heading}>Train with the right coach.</Text>
+      <Text style={styles.heading}>Your next level starts here.</Text>
       <Text style={styles.sub}>
-        Join available training or ask any coach for a private, partner, or new small-group session.
+        Train with NCAA wrestlers and elite coaches in your community. Join an open session or
+        choose a coach and book directly from their availability.
       </Text>
 
       <View style={styles.actions}>
@@ -145,14 +146,15 @@ export function ParentHomeScreen() {
       ) : null}
 
       <View style={styles.sectionHeader}>
-        <View>
+        <View style={styles.sectionHeaderCopy}>
           <Text style={styles.sectionKicker}>COACH LOCATIONS</Text>
-          <Text style={styles.sectionTitle}>Find coaches near you</Text>
+          <Text style={styles.sectionTitle}>Elite coaching, close to home.</Text>
         </View>
-        <Pressable onPress={() => router.push('/coach-map')}>
-          <Text style={styles.link}>Open map →</Text>
-        </Pressable>
       </View>
+      <Text style={styles.sectionIntro}>
+        Explore Guild coaches by location, then view their profile, availability, and training
+        options.
+      </Text>
       <Pressable style={styles.mapWrap} onPress={() => router.push('/coach-map')}>
         <MapView
           style={StyleSheet.absoluteFill}
@@ -169,7 +171,11 @@ export function ParentHomeScreen() {
           ))}
         </MapView>
         <View style={styles.mapCaption}>
-          <Text style={styles.mapCaptionText}>{pins.length} coach locations · Tap to explore</Text>
+          <Text style={styles.mapCaptionText}>
+            {pins.length > 0
+              ? `${pins.length} coach ${pins.length === 1 ? 'location' : 'locations'} · Explore the map →`
+              : 'Explore coach locations →'}
+          </Text>
         </View>
       </Pressable>
 
@@ -258,9 +264,11 @@ const styles = StyleSheet.create({
   secondaryActionTitle: { ...typography.bodyBold, color: colors.text, fontSize: 17 },
   secondaryActionMeta: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 3 },
   nextCard: { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 1, borderRadius: 6, padding: 16, marginTop: 22 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 28, marginBottom: 12 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 28, marginBottom: 8 },
+  sectionHeaderCopy: { flex: 1, minWidth: 0 },
   sectionKicker: { ...typography.brand, color: colors.accent, fontSize: 10, marginBottom: 5 },
-  sectionTitle: { ...typography.display, color: colors.text, fontSize: 21 },
+  sectionTitle: { ...typography.display, color: colors.text, fontSize: 24, lineHeight: 29 },
+  sectionIntro: { ...typography.body, color: colors.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 12 },
   link: { ...typography.bodyBold, color: colors.accent, fontSize: 12, paddingVertical: 6 },
   mapWrap: { height: 220, overflow: 'hidden', borderRadius: 6, borderWidth: 1, borderColor: colors.border },
   mapCaption: { position: 'absolute', left: 10, right: 10, bottom: 10, backgroundColor: 'rgba(0,0,0,0.78)', padding: 9, borderRadius: 4 },

@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { useNotificationRealtime } from '@/lib/use-notification-realtime';
 import { colors, typography } from '@/lib/theme';
+import { useMobileCart } from '@/lib/mobile-cart';
 
 function TabLabel({ label, focused }: { label: string; focused: boolean }) {
   return (
@@ -23,6 +24,7 @@ function TabLabel({ label, focused }: { label: string; focused: boolean }) {
 export default function TabsLayout() {
   const { session, loading, isCoachView } = useAuth();
   const { unreadCount } = useNotificationRealtime();
+  const { count: cartCount } = useMobileCart();
 
   if (!loading && !session) return <Redirect href="/(auth)/login" />;
 
@@ -84,6 +86,16 @@ export default function TabsLayout() {
         options={{
           title: 'Market',
           tabBarIcon: ({ focused }) => <TabLabel label="Market" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="cart"
+        options={{
+          title: 'Cart',
+          href: isCoachView ? null : undefined,
+          tabBarIcon: ({ focused }) => <TabLabel label="Cart" focused={focused} />,
+          tabBarBadge: cartCount > 0 ? cartCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.accent, color: colors.black },
         }}
       />
       <Tabs.Screen

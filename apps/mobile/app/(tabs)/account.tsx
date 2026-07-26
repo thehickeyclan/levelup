@@ -141,7 +141,7 @@ export default function AccountScreen() {
           onPress={() => {
             const enteringParentView = !previewParentView;
             setPreviewParentView(enteringParentView);
-            router.replace(enteringParentView ? '/(tabs)/find' : '/(tabs)');
+            router.replace('/(tabs)');
           }}
         >
           <Text style={previewParentView ? styles.buttonText : styles.buttonSecondaryText}>

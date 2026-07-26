@@ -12,6 +12,7 @@ import { AuthProvider } from '@/lib/auth';
 import { colors } from '@/lib/theme';
 import { getNotificationDeepLink } from '@/lib/push';
 import { GuildLogo } from '@/components/guild-logo';
+import { MobileCartProvider } from '@/lib/mobile-cart';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -59,34 +60,36 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.accent,
-          headerTitleStyle: { fontFamily: 'Inter_600SemiBold', color: colors.text },
-          headerShadowVisible: false,
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      >
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/login" options={{ title: 'Sign in', headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="coach/[id]" options={{ title: 'Coach' }} />
-        <Stack.Screen name="coach-map" options={{ title: 'Coach map' }} />
-        <Stack.Screen name="book/[athleteId]" options={{ title: 'Book private' }} />
-        <Stack.Screen name="session/[id]" options={{ title: 'Session' }} />
-        <Stack.Screen name="booking/[id]" options={{ title: 'Booking' }} />
-        <Stack.Screen name="notifications" options={{ title: 'Alerts' }} />
-        <Stack.Screen name="notification-settings" options={{ title: 'Notification settings' }} />
-        <Stack.Screen name="thread/[id]" options={{ title: 'Messages' }} />
-        <Stack.Screen name="new-message" options={{ title: 'New message' }} />
-        <Stack.Screen name="session-message/[id]" options={{ title: 'Text roster' }} />
-        <Stack.Screen name="coach-earnings" options={{ title: 'Earnings' }} />
-        <Stack.Screen name="coach-availability-setup" options={{ title: 'Normal week' }} />
-        <Stack.Screen name="listing/[id]" options={{ title: 'Listing' }} />
-        <Stack.Screen name="order/[id]" options={{ title: 'Order' }} />
-      </Stack>
+      <MobileCartProvider>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.accent,
+            headerTitleStyle: { fontFamily: 'Inter_600SemiBold', color: colors.text },
+            headerShadowVisible: false,
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)/login" options={{ title: 'Sign in', headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="coach/[id]" options={{ title: 'Coach' }} />
+          <Stack.Screen name="coach-map" options={{ title: 'Coach map' }} />
+          <Stack.Screen name="book/[athleteId]" options={{ title: 'Book private' }} />
+          <Stack.Screen name="session/[id]" options={{ title: 'Session' }} />
+          <Stack.Screen name="booking/[id]" options={{ title: 'Booking' }} />
+          <Stack.Screen name="notifications" options={{ title: 'Alerts' }} />
+          <Stack.Screen name="notification-settings" options={{ title: 'Notification settings' }} />
+          <Stack.Screen name="thread/[id]" options={{ title: 'Messages' }} />
+          <Stack.Screen name="new-message" options={{ title: 'New message' }} />
+          <Stack.Screen name="session-message/[id]" options={{ title: 'Text roster' }} />
+          <Stack.Screen name="coach-earnings" options={{ title: 'Earnings' }} />
+          <Stack.Screen name="coach-availability-setup" options={{ title: 'Normal week' }} />
+          <Stack.Screen name="listing/[id]" options={{ title: 'Listing' }} />
+          <Stack.Screen name="order/[id]" options={{ title: 'Order' }} />
+        </Stack>
+      </MobileCartProvider>
     </AuthProvider>
   );
 }

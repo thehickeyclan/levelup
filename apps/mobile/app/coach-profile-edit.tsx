@@ -137,7 +137,11 @@ export default function CoachProfileEditScreen() {
       <Text style={styles.sub}>This is what parents and athletes see when choosing a coach.</Text>
 
       <Pressable style={styles.photoWrap} onPress={() => void changePhoto()}>
-        {profile?.photo_url ? <Image source={{ uri: profile.photo_url }} style={styles.photo} /> : <View style={styles.photo} />}
+        {profile?.photo_url ? (
+          <Image source={{ uri: profile.photo_url }} style={styles.photo} />
+        ) : (
+          <View style={styles.photo} />
+        )}
         <View style={styles.photoButton}><Text style={styles.photoButtonText}>Change photo</Text></View>
       </Pressable>
 
@@ -189,7 +193,13 @@ const styles = StyleSheet.create({
   heading: { ...typography.display, color: colors.text, fontSize: 32, marginTop: 6 },
   sub: { ...typography.body, color: colors.textSecondary, marginTop: 6 },
   photoWrap: { alignSelf: 'center', marginVertical: 20, alignItems: 'center' },
-  photo: { width: 150, height: 170, borderRadius: 8, backgroundColor: colors.surface, resizeMode: 'cover' },
+  photo: {
+    width: 150,
+    height: 170,
+    borderRadius: 8,
+    backgroundColor: colors.black,
+    resizeMode: 'contain',
+  },
   photoButton: { backgroundColor: colors.accent, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, marginTop: -16 },
   photoButtonText: { ...typography.bodyBold, color: colors.black, fontSize: 12 },
   label: { ...typography.brand, color: colors.accent, fontSize: 10, marginTop: 16, marginBottom: 6 },

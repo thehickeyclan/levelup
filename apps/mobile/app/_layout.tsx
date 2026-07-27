@@ -46,7 +46,7 @@ export default function RootLayout() {
       <View
         style={{
           flex: 1,
-          backgroundColor: colors.background,
+          backgroundColor: colors.black,
           alignItems: 'center',
           justifyContent: 'center',
         }}

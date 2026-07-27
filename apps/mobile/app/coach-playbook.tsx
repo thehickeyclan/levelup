@@ -75,7 +75,7 @@ function PlaybookCard({
     <View style={styles.card}>
       <View style={styles.authorRow}>
         {coach?.photo_url ? (
-          <Image source={{ uri: coach.photo_url }} style={styles.avatar} />
+          <Image source={{ uri: coach.photo_url }} style={styles.avatar} resizeMode="contain" />
         ) : (
           <View style={styles.avatarFallback}><Text style={styles.avatarLetter}>{coachName[0]}</Text></View>
         )}
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   error: { ...typography.body, color: colors.danger, marginTop: 8 },
   card: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 6, overflow: 'hidden', marginTop: 16 },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, paddingBottom: 7 },
-  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surfaceRaised },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.black },
   avatarFallback: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
   avatarLetter: { ...typography.bodyBold, color: colors.accent },
   authorCopy: { flex: 1 },

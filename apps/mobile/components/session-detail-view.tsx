@@ -166,7 +166,11 @@ export function SessionDetailView({
           <Text style={styles.sectionLabel}>COACH</Text>
           <View style={styles.coachRow}>
             {session.coach.photo_url ? (
-              <Image source={{ uri: session.coach.photo_url }} style={styles.avatar} />
+              <Image
+                source={{ uri: session.coach.photo_url }}
+                style={styles.avatar}
+                resizeMode="contain"
+              />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarLetter}>{session.coach.first_name?.[0] ?? '?'}</Text>
@@ -278,7 +282,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.black,
     borderWidth: 1.5,
     borderColor: colors.accent,
   },

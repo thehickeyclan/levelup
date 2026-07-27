@@ -67,7 +67,11 @@ export default function MyCoachesScreen() {
       {follows.map(({ coachId, coach }) => coach ? (
         <View key={coachId} style={styles.card}>
           <Pressable style={styles.identity} onPress={() => router.push(`/coach/${coachId}`)}>
-            {coach.photoUrl ? <Image source={{ uri: coach.photoUrl }} style={styles.avatar} /> : <View style={styles.avatar} />}
+            {coach.photoUrl ? (
+              <Image source={{ uri: coach.photoUrl }} style={styles.avatar} resizeMode="contain" />
+            ) : (
+              <View style={styles.avatar} />
+            )}
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{coach.firstName} {coach.lastName}</Text>
               <Text style={styles.meta}>{coach.school}</Text>
@@ -99,7 +103,7 @@ const styles = StyleSheet.create({
   sub: { ...typography.body, color: colors.textSecondary, marginTop: 6, marginBottom: 14 },
   card: { borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 16 },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.surface },
+  avatar: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.black },
   name: { ...typography.bodyBold, color: colors.text, fontSize: 17 },
   meta: { ...typography.body, color: colors.textSecondary, marginTop: 2 },
   rating: { ...typography.body, color: colors.accent, fontSize: 12, marginTop: 4 },

@@ -1,4 +1,4 @@
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { GuildLogo } from '@/components/guild-logo';
 import { useAuth } from '@/lib/auth';
@@ -14,12 +14,10 @@ export default function Index() {
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.background,
-          gap: 20,
+          backgroundColor: colors.black,
         }}
       >
-        <GuildLogo size={180} />
-        <ActivityIndicator color={colors.accent} />
+        <GuildLogo size={180} variant="mark" />
       </View>
     );
   }

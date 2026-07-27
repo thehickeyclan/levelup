@@ -232,7 +232,11 @@ export default function FindScreen() {
                     accessibilityLabel={`View ${item.coach.first_name} ${item.coach.last_name}'s coach profile`}
                   >
                     {item.coach.photo_url ? (
-                      <Image source={{ uri: item.coach.photo_url }} style={styles.sessionCoachAvatar} />
+                      <Image
+                        source={{ uri: item.coach.photo_url }}
+                        style={styles.sessionCoachAvatar}
+                        resizeMode="contain"
+                      />
                     ) : (
                       <View style={[styles.sessionCoachAvatar, styles.avatarPlaceholder]}>
                         <Text style={styles.sessionCoachLetter}>{item.coach.first_name?.[0] ?? '?'}</Text>
@@ -328,7 +332,7 @@ export default function FindScreen() {
             <View style={styles.coachRow}>
               <Pressable style={styles.coachIdentity} onPress={() => router.push(`/coach/${item.id}`)}>
                 {item.photo_url ? (
-                  <Image source={{ uri: item.photo_url }} style={styles.avatar} />
+                  <Image source={{ uri: item.photo_url }} style={styles.avatar} resizeMode="contain" />
                 ) : (
                   <View style={[styles.avatar, styles.avatarPlaceholder]}>
                     <Text style={styles.avatarLetter}>{item.first_name?.[0] ?? '?'}</Text>
@@ -474,7 +478,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: colors.background,
+    backgroundColor: colors.black,
     borderWidth: 1,
     borderColor: colors.accent,
   },
@@ -558,7 +562,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.black,
     borderWidth: 1.5,
     borderColor: colors.accent,
   },

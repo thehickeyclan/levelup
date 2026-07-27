@@ -133,7 +133,7 @@ export default function CoachDetailScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       {coach.photo_url ? (
-        <Image source={{ uri: coach.photo_url }} style={styles.photo} />
+        <Image source={{ uri: coach.photo_url }} style={styles.photo} resizeMode="contain" />
       ) : (
         <View style={[styles.photo, styles.photoPlaceholder]} />
       )}
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     borderRadius: 4,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.black,
     borderWidth: 1,
     borderColor: colors.accent,
   },

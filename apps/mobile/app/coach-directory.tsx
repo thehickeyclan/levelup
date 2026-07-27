@@ -111,7 +111,7 @@ export default function CoachDirectoryScreen() {
               accessibilityLabel={`View ${item.first_name} ${item.last_name}'s profile`}
             >
               {item.photo_url ? (
-                <Image source={{ uri: item.photo_url }} style={styles.avatar} />
+                <Image source={{ uri: item.photo_url }} style={styles.avatar} resizeMode="contain" />
               ) : (
                 <View style={[styles.avatar, styles.avatarFallback]}>
                   <Text style={styles.avatarLetter}>{item.first_name?.[0] ?? '?'}</Text>
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceRaised },
+  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.black },
   avatarFallback: {
     borderWidth: 1,
     borderColor: colors.accent,

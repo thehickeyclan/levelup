@@ -112,7 +112,7 @@ export default function SelectCoachScreen() {
             accessibilityLabel={`Preview as ${name}`}
           >
             {item.photo_url ? (
-              <Image source={{ uri: item.photo_url }} style={styles.avatar} />
+              <Image source={{ uri: item.photo_url }} style={styles.avatar} resizeMode="contain" />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarLetter}>{item.first_name?.[0] ?? '?'}</Text>
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.black,
   },
   avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   avatarLetter: { ...typography.bodyBold, color: colors.accent, fontSize: 18 },

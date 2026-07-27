@@ -121,6 +121,14 @@ export default function AccountScreen() {
 
       {isCoachView ? (
         <>
+          <Pressable style={styles.shareRow} onPress={() => router.push('/coach-share')}>
+            <View style={styles.shareCopy}>
+              <Text style={styles.shareEyebrow}>GET MORE BOOKINGS</Text>
+              <Text style={styles.shareTitle}>Share my coaching page</Text>
+              <Text style={styles.shareMeta}>QR + one link for your profile and every upcoming session</Text>
+            </View>
+            <Text style={styles.shareArrow}>›</Text>
+          </Pressable>
           <Pressable style={styles.menuRow} onPress={() => router.push('/coach-directory')}>
             <View><Text style={styles.menuTitle}>Coach Directory</Text><Text style={styles.menuMeta}>Profiles, referrals, messaging, and Coach Playbook</Text></View>
             <Text style={styles.menuArrow}>›</Text>
@@ -217,6 +225,21 @@ const styles = StyleSheet.create({
   menuTitle: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
   menuMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 3 },
   menuArrow: { ...typography.body, color: colors.accent, fontSize: 26 },
+  shareRow: {
+    minHeight: 92,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.accent,
+    borderRadius: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  shareCopy: { flex: 1, paddingRight: 12 },
+  shareEyebrow: { ...typography.brand, color: colors.black, fontSize: 8 },
+  shareTitle: { ...typography.bodyBold, color: colors.black, fontSize: 18, marginTop: 3 },
+  shareMeta: { ...typography.body, color: colors.black, opacity: 0.75, fontSize: 12, marginTop: 3 },
+  shareArrow: { ...typography.body, color: colors.black, fontSize: 34 },
   button: {
     backgroundColor: colors.accent,
     borderRadius: 4,

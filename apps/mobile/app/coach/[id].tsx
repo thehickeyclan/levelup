@@ -124,9 +124,11 @@ export default function CoachDetailScreen() {
   }
 
   async function shareProfile() {
+    const publicUrl = `${API_URL}/coach/${coachId}`;
     await Share.share({
       title: `${coachName} · The Guild`,
-      message: `View ${coachName}'s Guild coach profile: ${API_URL}/athlete/${coachId}`,
+      message: `View ${coachName}'s Guild coach profile and every upcoming session: ${publicUrl}`,
+      url: publicUrl,
     });
   }
 
@@ -207,8 +209,13 @@ export default function CoachDetailScreen() {
           <Text style={styles.buttonSecondaryText}>Browse small groups</Text>
         </Pressable>
       )}
-      <Pressable style={styles.shareButton} onPress={() => void shareProfile()}>
-        <Text style={styles.shareButtonText}>Share coach profile / QR link</Text>
+      <Pressable
+        style={styles.shareButton}
+        onPress={() => (isSelf ? router.push('/coach-share') : void shareProfile())}
+      >
+        <Text style={styles.shareButtonText}>
+          {isSelf ? 'Share profile, sessions & QR' : 'Share coach profile & sessions'}
+        </Text>
       </Pressable>
     </ScrollView>
   );

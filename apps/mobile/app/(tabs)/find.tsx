@@ -102,6 +102,13 @@ export default function FindScreen() {
         ),
     [bookings]
   );
+  const visibleCoaches = useMemo(
+    () =>
+      coaches.filter(
+        (coach) => Boolean(coach.first_name?.trim()) || Boolean(coach.last_name?.trim())
+      ),
+    [coaches]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -153,10 +160,8 @@ export default function FindScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.kicker}>TRAINING</Text>
-        <Text style={styles.heading}>Training</Text>
         <Text style={styles.sub}>
-          Join an open session or book a coach directly from their published availability.
+          Join an open session or choose a coach to view their profile and availability.
         </Text>
 
         <View style={styles.segment}>
@@ -168,7 +173,7 @@ export default function FindScreen() {
             }}
           >
             <Text style={[styles.segmentText, tab === 'available' && styles.segmentTextActive]}>
-              Available
+              Open
             </Text>
           </Pressable>
           <Pressable
@@ -179,7 +184,7 @@ export default function FindScreen() {
             }}
           >
             <Text style={[styles.segmentText, tab === 'request' && styles.segmentTextActive]}>
-              Book a Coach
+              Coaches
             </Text>
           </Pressable>
           <Pressable
@@ -301,15 +306,14 @@ export default function FindScreen() {
         />
       ) : tab === 'request' ? (
         <FlatList
-          data={coaches}
+          data={visibleCoaches}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           ListHeaderComponent={
             <View style={styles.coachListIntro}>
-              <Text style={styles.coachListIntroTitle}>Browse coaches and view their profiles.</Text>
+              <Text style={styles.coachListIntroTitle}>Choose your coach</Text>
               <Text style={styles.coachListIntroText}>
-                Review experience, location, and ratings before viewing availability. If no time
-                works, message the coach directly.
+                Tap a profile for experience, locations, reviews, and available times.
               </Text>
             </View>
           }
@@ -340,29 +344,20 @@ export default function FindScreen() {
                       ★ {Number(item.average_rating ?? 0).toFixed(1)} · {item.review_count} reviews
                     </Text>
                   ) : null}
+                  <Text style={styles.profileHint}>View profile & availability →</Text>
                 </View>
               </Pressable>
-              <View style={styles.coachActions}>
-                <Pressable
-                  style={styles.coachPrimaryButton}
-                  onPress={() => router.push(`/coach/${item.id}`)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`View ${item.first_name} ${item.last_name}'s profile`}
-                >
-                  <Text style={styles.coachPrimaryText}>View profile</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.coachMessageButton}
-                  onPress={() => void messageCoach(item.id)}
-                  disabled={openingMessageId !== null}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Message ${item.first_name} ${item.last_name}`}
-                >
-                  <Text style={styles.coachMessageText}>
-                    {openingMessageId === item.id ? 'Opening…' : 'Message'}
-                  </Text>
-                </Pressable>
-              </View>
+              <Pressable
+                style={styles.coachMessageButton}
+                onPress={() => void messageCoach(item.id)}
+                disabled={openingMessageId !== null}
+                accessibilityRole="button"
+                accessibilityLabel={`Message ${item.first_name} ${item.last_name}`}
+              >
+                <Text style={styles.coachMessageText}>
+                  {openingMessageId === item.id ? '…' : 'Message'}
+                </Text>
+              </Pressable>
             </View>
           )}
           ListEmptyComponent={<Text style={styles.empty}>No coaches available right now.</Text>}
@@ -414,18 +409,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.background,
   },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
-  kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
-  heading: { ...typography.display, fontSize: 28, color: colors.text },
-  sub: { ...typography.body, color: colors.textMuted, marginTop: 6, fontSize: 14, marginBottom: 16 },
+  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 6 },
+  sub: { ...typography.body, color: colors.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 14 },
   segment: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginBottom: 8,
   },
   segmentBtn: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 38,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.border,
@@ -436,7 +429,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     backgroundColor: colors.surface,
   },
-  segmentText: { ...typography.bodyMedium, fontSize: 13, color: colors.textSecondary },
+  segmentText: { ...typography.bodyMedium, fontSize: 12, color: colors.textSecondary },
   segmentTextActive: { ...typography.bodyBold, color: colors.accent },
   error: { color: colors.danger, marginTop: 8, fontFamily: 'Inter_400Regular' },
   list: { paddingHorizontal: 20, paddingBottom: 40 },
@@ -529,51 +522,42 @@ const styles = StyleSheet.create({
   historyLink: { minHeight: 48, justifyContent: 'center', marginTop: 12 },
   price: { ...typography.bodyBold, color: colors.accent, fontSize: 14 },
   coachListIntro: {
-    marginTop: 10,
-    marginBottom: 12,
-    padding: 14,
-    borderRadius: 4,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginTop: 12,
+    marginBottom: 4,
   },
-  coachListIntroTitle: { ...typography.bodySemi, color: colors.text, fontSize: 14 },
-  coachListIntroText: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  coachListIntroTitle: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
+  coachListIntroText: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 3 },
   coachRow: {
-    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 13,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   coachIdentity: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    minHeight: 76,
+    gap: 12,
+    minHeight: 68,
   },
-  coachActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  coachPrimaryButton: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coachPrimaryText: { ...typography.bodyBold, color: colors.black, fontSize: 12 },
+  profileHint: { ...typography.bodySemi, color: colors.accent, fontSize: 10, marginTop: 5 },
   coachMessageButton: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: 4,
+    minWidth: 76,
+    minHeight: 36,
+    paddingHorizontal: 10,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.accent,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  coachMessageText: { ...typography.bodyBold, color: colors.accent, fontSize: 12 },
+  coachMessageText: { ...typography.bodySemi, color: colors.text, fontSize: 11 },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.accent,

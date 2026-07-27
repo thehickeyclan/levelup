@@ -1,7 +1,6 @@
-import { Redirect, Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/lib/auth';
-import { useNotificationRealtime } from '@/lib/use-notification-realtime';
 import { colors, typography } from '@/lib/theme';
 import { useMobileCart } from '@/lib/mobile-cart';
 
@@ -23,37 +22,39 @@ function TabLabel({ label, focused }: { label: string; focused: boolean }) {
 
 export default function TabsLayout() {
   const { session, loading, isCoachView } = useAuth();
-  const { unreadCount } = useNotificationRealtime();
   const { count: cartCount } = useMobileCart();
+  const router = useRouter();
+  const pathname = usePathname();
 
   if (!loading && !session) return <Redirect href="/(auth)/login" />;
 
+  const showFloatingCart = !isCoachView && cartCount > 0 && !pathname.endsWith('/cart');
+
   return (
-    <Tabs
-      screenOptions={{
-        headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { ...typography.bodySemi, color: colors.text },
-        headerShadowVisible: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarShowLabel: false,
-        tabBarIconStyle: { width: '100%' },
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          paddingTop: 6,
-          height: 64,
-        },
-      }}
-    >
+    <View style={styles.root}>
+      <Tabs
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.background },
+          headerTitleStyle: { ...typography.bodySemi, color: colors.text },
+          headerShadowVisible: false,
+          tabBarActiveTintColor: colors.accent,
+          tabBarInactiveTintColor: colors.textSecondary,
+          tabBarShowLabel: false,
+          tabBarIconStyle: { width: '100%' },
+          tabBarStyle: {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+            borderTopWidth: 1,
+            paddingTop: 6,
+            height: 64,
+          },
+        }}
+      >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
           tabBarIcon: ({ focused }) => <TabLabel label="Home" focused={focused} />,
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.accent, color: colors.black },
         }}
       />
       <Tabs.Screen
@@ -92,10 +93,7 @@ export default function TabsLayout() {
         name="cart"
         options={{
           title: 'Cart',
-          href: isCoachView ? null : undefined,
-          tabBarIcon: ({ focused }) => <TabLabel label="Cart" focused={focused} />,
-          tabBarBadge: cartCount > 0 ? cartCount : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.accent, color: colors.black },
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -105,6 +103,54 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused }) => <TabLabel label="More" focused={focused} />,
         }}
       />
-    </Tabs>
+      </Tabs>
+      {showFloatingCart ? (
+        <Pressable
+          style={styles.floatingCart}
+          onPress={() => router.push('/(tabs)/cart')}
+          accessibilityRole="button"
+          accessibilityLabel={`Open Training Cart with ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
+        >
+          <Text style={styles.floatingCartText}>Cart</Text>
+          <View style={styles.cartCount}>
+            <Text style={styles.cartCountText}>{cartCount}</Text>
+          </View>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
+  floatingCart: {
+    position: 'absolute',
+    right: 16,
+    bottom: 74,
+    minHeight: 46,
+    paddingHorizontal: 18,
+    borderRadius: 23,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    backgroundColor: colors.accent,
+    borderWidth: 1,
+    borderColor: colors.black,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingCartText: { ...typography.bodyBold, color: colors.black, fontSize: 13 },
+  cartCount: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    backgroundColor: colors.black,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartCountText: { ...typography.bodyBold, color: colors.accent, fontSize: 11 },
+});

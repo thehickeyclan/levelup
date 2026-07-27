@@ -7,6 +7,7 @@ import { registerForPushNotifications } from '@/lib/push';
 import { colors, typography } from '@/lib/theme';
 import * as WebBrowser from 'expo-web-browser';
 import { WEB_ORIGIN } from '@/lib/config';
+import { useMobileCart } from '@/lib/mobile-cart';
 
 export default function AccountScreen() {
   const {
@@ -20,6 +21,7 @@ export default function AccountScreen() {
     signOut,
   } = useAuth();
   const router = useRouter();
+  const { count: cartCount } = useMobileCart();
   const [busy, setBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
 
@@ -58,6 +60,13 @@ export default function AccountScreen() {
 
       {!isCoachView ? (
         <>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/(tabs)/cart')}>
+            <View>
+              <Text style={styles.menuTitle}>Training Cart{cartCount > 0 ? ` (${cartCount})` : ''}</Text>
+              <Text style={styles.menuMeta}>Review training spots and checkout</Text>
+            </View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
           <Pressable
             style={styles.menuRow}
             onPress={() => router.push({ pathname: '/(tabs)/bookings', params: { view: 'past' } })}

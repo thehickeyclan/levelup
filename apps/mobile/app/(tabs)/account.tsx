@@ -5,8 +5,6 @@ import { GuildLogo } from '@/components/guild-logo';
 import { useAuth } from '@/lib/auth';
 import { registerForPushNotifications } from '@/lib/push';
 import { colors, typography } from '@/lib/theme';
-import * as WebBrowser from 'expo-web-browser';
-import { WEB_ORIGIN } from '@/lib/config';
 import { useMobileCart } from '@/lib/mobile-cart';
 
 export default function AccountScreen() {
@@ -87,19 +85,19 @@ export default function AccountScreen() {
             </View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/my-wrestlers`)}>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/my-wrestlers')}>
             <View><Text style={styles.menuTitle}>My wrestlers</Text><Text style={styles.menuMeta}>Add kids, photos, and profile details</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/activity`)}>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/activity')}>
             <View><Text style={styles.menuTitle}>Activity & photos</Text><Text style={styles.menuMeta}>See the feed and share session photos</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/my-coaches`)}>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/my-coaches')}>
             <View><Text style={styles.menuTitle}>My coaches</Text><Text style={styles.menuMeta}>Coaches you follow and train with</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/wallet`)}>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/wallet')}>
             <View><Text style={styles.menuTitle}>Wallet</Text><Text style={styles.menuMeta}>Credits and payment activity</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
@@ -123,11 +121,15 @@ export default function AccountScreen() {
 
       {isCoachView ? (
         <>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-playbook')}>
+            <View><Text style={styles.menuTitle}>Coach Playbook</Text><Text style={styles.menuMeta}>Private 60-second tips from Guild coaches</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
           <Pressable style={styles.menuRow} onPress={() => router.push('/coach-earnings')}>
             <View><Text style={styles.menuTitle}>Earnings</Text><Text style={styles.menuMeta}>Week, month, all time, and payouts</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/activity?scope=coach`)}>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/activity')}>
             <View><Text style={styles.menuTitle}>Activity</Text><Text style={styles.menuMeta}>Share photos and see Guild activity</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
@@ -139,7 +141,7 @@ export default function AccountScreen() {
             <View><Text style={styles.menuTitle}>Training locations</Text><Text style={styles.menuMeta}>Add gyms, schools, and wrestling rooms</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/profile`)}>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-profile-edit')}>
             <View><Text style={styles.menuTitle}>Coach profile</Text><Text style={styles.menuMeta}>Photo, bio, schools, and training locations</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>

@@ -39,7 +39,10 @@ export async function GET(req: NextRequest) {
   const effectiveRole = role === 'admin' ? 'parent' : role;
   const cookieStore = await cookies();
   const viewAsCoachId =
-    role === 'admin' ? cookieStore.get('levelup_view_as_coach_id')?.value : null;
+    role === 'admin'
+      ? headersList.get('x-levelup-coach-id')?.trim() ||
+        cookieStore.get('levelup_view_as_coach_id')?.value
+      : null;
 
   const ctx = await resolveFeedContext(supabase, user.id, effectiveRole);
   const coachScope = resolveCoachScopeForFeed({

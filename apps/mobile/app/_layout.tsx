@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
@@ -49,11 +49,9 @@ export default function RootLayout() {
           backgroundColor: colors.background,
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 20,
         }}
       >
-        <GuildLogo size={180} />
-        <ActivityIndicator color={colors.accent} />
+        <GuildLogo size={220} variant="mark" />
       </View>
     );
   }
@@ -68,6 +66,7 @@ export default function RootLayout() {
             headerTintColor: colors.accent,
             headerTitleStyle: { fontFamily: 'Inter_600SemiBold', color: colors.text },
             headerShadowVisible: false,
+            headerBackButtonDisplayMode: 'minimal',
             contentStyle: { backgroundColor: colors.background },
           }}
         >
@@ -90,6 +89,14 @@ export default function RootLayout() {
           <Stack.Screen name="select-coach" options={{ title: 'Select coach' }} />
           <Stack.Screen name="create-session" options={{ title: 'Create session' }} />
           <Stack.Screen name="coach-locations" options={{ title: 'Training locations' }} />
+          <Stack.Screen name="activity" options={{ title: 'Activity' }} />
+          <Stack.Screen name="my-wrestlers" options={{ title: 'My wrestlers' }} />
+          <Stack.Screen name="wrestler-edit/[id]" options={{ title: 'Wrestler profile' }} />
+          <Stack.Screen name="my-coaches" options={{ title: 'My coaches' }} />
+          <Stack.Screen name="wallet" options={{ title: 'Wallet' }} />
+          <Stack.Screen name="coach-profile-edit" options={{ title: 'Coach profile' }} />
+          <Stack.Screen name="coach-playbook" options={{ title: 'Coach Playbook' }} />
+          <Stack.Screen name="coach-playbook-add" options={{ title: 'Share a coach tip' }} />
           <Stack.Screen name="listing/[id]" options={{ title: 'Listing' }} />
           <Stack.Screen name="my-market" options={{ title: 'My Market' }} />
           <Stack.Screen name="add-shoe" options={{ title: 'Add shoe' }} />

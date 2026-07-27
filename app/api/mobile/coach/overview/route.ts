@@ -8,6 +8,7 @@ import {
   fetchPastSessionsForCoachEarnings,
   summarizeCoachEarningsFromPastSessions,
 } from '@/lib/coach-earnings-summary-server';
+import { resolveCoachActorId } from '@/lib/coach-actor-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,18 +41,23 @@ export async function GET() {
       return NextResponse.json({ error: 'Coach access required' }, { status: 403 });
     }
 
+    const actor = await resolveCoachActorId(supabase, user.id);
+    if (!actor.ok) {
+      return NextResponse.json({ error: actor.error }, { status: actor.status });
+    }
+
     const admin = createAdminClient(tenant.slug);
     const { data: coach } = await admin
       .from('athletes')
       .select('payout_rate')
-      .eq('id', user.id)
+      .eq('id', actor.coachId)
       .maybeSingle();
     const payoutRate = normalizeCoachRevenueShareRate(
       coach?.payout_rate != null ? Number(coach.payout_rate) : null
     );
     const now = new Date();
     const nowIso = now.toISOString();
-    const past = await fetchPastSessionsForCoachEarnings(admin, user.id, nowIso);
+    const past = await fetchPastSessionsForCoachEarnings(admin, actor.coachId, nowIso);
     const summary = summarizeCoachEarningsFromPastSessions(past, payoutRate, nowIso);
     const weekStart = startOfWeek(now);
     const thisWeekEarnings = summary.thisMonthSessions.reduce((total, session) => {
@@ -61,6 +67,7 @@ export async function GET() {
     }, 0);
 
     return NextResponse.json({
+      coachId: actor.coachId,
       earnings: {
         thisWeek: Math.round(thisWeekEarnings * 100) / 100,
         thisMonth: Math.round(summary.thisMonthEarnings * 100) / 100,

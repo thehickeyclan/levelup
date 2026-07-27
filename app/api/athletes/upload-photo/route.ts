@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { clearCoachPhotoCutout, ensureCoachPhotoCutout } from '@/lib/coach-photo-cutout';
+import { dbForCoachActor, resolveCoachActorId } from '@/lib/coach-actor-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +22,12 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const actor = await resolveCoachActorId(supabase, user.id);
+    if (!actor.ok) {
+      return NextResponse.json({ error: actor.error }, { status: actor.status });
+    }
+    const db = dbForCoachActor(tenant.slug, actor, supabase);
+    const coachId = actor.coachId;
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
@@ -40,10 +47,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Delete old photo if exists
-    const { data: oldData } = await supabase
+    const { data: oldData } = await db
       .from('athletes')
       .select('photo_url, photo_cutout_url')
-      .eq('id', user.id)
+      .eq('id', coachId)
       .single();
 
     if (oldData?.photo_url) {
@@ -51,7 +58,7 @@ export async function POST(req: NextRequest) {
       const oldUrl = oldData.photo_url;
       const oldPathMatch = oldUrl.match(/\/storage\/v1\/object\/public\/athlete-photos\/(.+)/);
       if (oldPathMatch) {
-        await supabase.storage
+        await db.storage
           .from('athlete-photos')
           .remove([oldPathMatch[1]]);
       }
@@ -60,10 +67,10 @@ export async function POST(req: NextRequest) {
     // Create file path: {athleteId}/{timestamp}-{filename}
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `${user.id}/${fileName}`;
+    const filePath = `${coachId}/${fileName}`;
 
     // Upload file using server client (has proper auth context for RLS)
-    const { data, error: uploadError } = await supabase.storage
+    const { data, error: uploadError } = await db.storage
       .from('athlete-photos')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -79,25 +86,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Get public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = db.storage
       .from('athlete-photos')
       .getPublicUrl(data.path);
 
     // Persist to DB immediately so the photo shows even if profile save fails or is skipped
     const admin = createAdminClient(tenant.slug);
-    await clearCoachPhotoCutout(admin, user.id, oldData?.photo_cutout_url);
+    await clearCoachPhotoCutout(admin, coachId, oldData?.photo_cutout_url);
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from('athletes')
       .update({ photo_url: urlData.publicUrl, photo_cutout_url: null })
-      .eq('id', user.id);
+      .eq('id', coachId);
 
     if (updateError) {
       console.error('Failed to save photo_url to athletes:', updateError);
       // Still return the URL so the client can retry profile save with it
     }
 
-    void ensureCoachPhotoCutout(admin, user.id, urlData.publicUrl, null).catch((err) =>
+    void ensureCoachPhotoCutout(admin, coachId, urlData.publicUrl, null).catch((err) =>
       console.warn('[upload-photo] cutout generation failed:', err)
     );
 
@@ -110,4 +117,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

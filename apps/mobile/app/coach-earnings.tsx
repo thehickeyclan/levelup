@@ -26,7 +26,7 @@ function money(value: number) {
 }
 
 export default function CoachEarningsScreen() {
-  const { user } = useAuth();
+  const { selectedCoachName } = useAuth();
   const [earnings, setEarnings] = useState<Earnings | null>(null);
   const [rank, setRank] = useState<LeaderboardRow | null>(null);
   const [totalCoaches, setTotalCoaches] = useState(0);
@@ -37,18 +37,18 @@ export default function CoachEarningsScreen() {
     setError(null);
     try {
       const [data, leaderboard] = await Promise.all([
-        apiFetch<{ earnings: Earnings }>('/api/mobile/coach/overview'),
+        apiFetch<{ coachId: string; earnings: Earnings }>('/api/mobile/coach/overview'),
         apiFetch<{ leaderboard: LeaderboardRow[]; totalCoaches: number }>('/api/coach/leaderboard'),
       ]);
       setEarnings(data.earnings);
-      setRank(leaderboard.leaderboard.find((row) => row.id === user?.id) ?? null);
+      setRank(leaderboard.leaderboard.find((row) => row.id === data.coachId) ?? null);
       setTotalCoaches(leaderboard.totalCoaches);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load earnings');
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, []);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
@@ -60,7 +60,9 @@ export default function CoachEarningsScreen() {
     >
       <Text style={styles.kicker}>COACH</Text>
       <Text style={styles.heading}>Earnings</Text>
-      <Text style={styles.intro}>Your completed-session earnings and payout status.</Text>
+      <Text style={styles.intro}>
+        {selectedCoachName ? `${selectedCoachName}'s` : 'Your'} completed-session earnings and payout status.
+      </Text>
       {loading && !earnings ? <ActivityIndicator color={colors.accent} style={{ marginTop: 30 }} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {earnings ? (

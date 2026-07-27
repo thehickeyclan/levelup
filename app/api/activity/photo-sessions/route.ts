@@ -26,7 +26,11 @@ export async function GET() {
 
   const cookieStore = await cookies();
   const viewAsCoachId =
-    role === 'admin' ? cookieStore.get('levelup_view_as_coach_id')?.value?.trim() ?? null : null;
+    role === 'admin'
+      ? headersList.get('x-levelup-coach-id')?.trim() ||
+        cookieStore.get('levelup_view_as_coach_id')?.value?.trim() ||
+        null
+      : null;
 
   const admin = createAdminClient(tenant.slug);
   const sessions = await fetchEligiblePhotoSessions(admin, {

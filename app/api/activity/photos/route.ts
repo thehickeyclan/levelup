@@ -47,7 +47,11 @@ export async function POST(req: NextRequest) {
 
     const cookieStore = await cookies();
     const viewAsCoachId =
-      role === 'admin' ? cookieStore.get('levelup_view_as_coach_id')?.value?.trim() ?? null : null;
+      role === 'admin'
+        ? headersList.get('x-levelup-coach-id')?.trim() ||
+          cookieStore.get('levelup_view_as_coach_id')?.value?.trim() ||
+          null
+        : null;
 
     const formData = await req.formData();
     const sessionId = String(formData.get('sessionId') ?? '').trim();

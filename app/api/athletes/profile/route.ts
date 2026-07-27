@@ -26,8 +26,10 @@ async function resolveProfileAthleteId(
     return { ok: true, athleteUserId: authUserId, useAdminRead: false };
   }
   if (userData?.role === 'admin') {
-    const cookieStore = await cookies();
-    const viewAs = cookieStore.get('levelup_view_as_coach_id')?.value?.trim();
+    const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+    const viewAs =
+      headerStore.get('x-levelup-coach-id')?.trim() ||
+      cookieStore.get('levelup_view_as_coach_id')?.value?.trim();
     if (!viewAs) {
       return {
         ok: false,
@@ -352,4 +354,3 @@ export async function PUT(req: NextRequest) {
     );
   }
 }
-

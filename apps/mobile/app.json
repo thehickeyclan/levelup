@@ -44,9 +44,18 @@
       "expo-font",
       "expo-web-browser",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow The Guild to choose photos and short videos you want to share.",
+          "cameraPermission": "Allow The Guild to record photos and short coach videos.",
+          "microphonePermission": "Allow The Guild to record sound with coach videos."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
-          "image": "./assets/guild-logo-hero.png",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
           "resizeMode": "contain",
           "backgroundColor": "#000000"
         }

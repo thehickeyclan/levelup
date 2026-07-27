@@ -3,26 +3,43 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { colors, typography } from '@/lib/theme';
 import { useMobileCart } from '@/lib/mobile-cart';
+import { useInboxUnreadRealtime } from '@/lib/use-inbox-unread-realtime';
 
-function TabLabel({ label, focused }: { label: string; focused: boolean }) {
+function TabLabel({
+  label,
+  focused,
+  badge,
+}: {
+  label: string;
+  focused: boolean;
+  badge?: number;
+}) {
   return (
-    <Text
-      numberOfLines={1}
-      style={{
-        fontSize: 10,
-        fontFamily: focused ? 'Inter_700Bold' : 'Inter_500Medium',
-        color: focused ? colors.accent : colors.textSecondary,
-        letterSpacing: 0.3,
-      }}
-    >
-      {label}
-    </Text>
+    <View style={styles.tabLabelWrap}>
+      <Text
+        numberOfLines={1}
+        style={{
+          fontSize: 10,
+          fontFamily: focused ? 'Inter_700Bold' : 'Inter_500Medium',
+          color: focused ? colors.accent : colors.textSecondary,
+          letterSpacing: 0.3,
+        }}
+      >
+        {label}
+      </Text>
+      {badge && badge > 0 ? (
+        <View style={styles.inboxBadge}>
+          <Text style={styles.inboxBadgeText}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 export default function TabsLayout() {
   const { session, loading, isCoachView } = useAuth();
   const { count: cartCount } = useMobileCart();
+  const { count: inboxUnreadCount } = useInboxUnreadRealtime();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -79,7 +96,9 @@ export default function TabsLayout() {
         name="inbox"
         options={{
           title: 'Inbox',
-          tabBarIcon: ({ focused }) => <TabLabel label="Inbox" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabLabel label="Inbox" focused={focused} badge={inboxUnreadCount} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -123,6 +142,22 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
+  tabLabelWrap: { minWidth: 48, height: 28, alignItems: 'center', justifyContent: 'center' },
+  inboxBadge: {
+    position: 'absolute',
+    right: -2,
+    top: -4,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.accent,
+    borderWidth: 1,
+    borderColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inboxBadgeText: { ...typography.bodyBold, color: colors.black, fontSize: 8 },
   floatingCart: {
     position: 'absolute',
     right: 16,

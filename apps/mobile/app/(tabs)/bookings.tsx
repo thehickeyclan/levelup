@@ -46,7 +46,7 @@ export default function BookingsScreen() {
 
 function CoachScheduleScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, role, selectedCoachId, selectedCoachName } = useAuth();
   const [sessions, setSessions] = useState<CoachSessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,15 +54,21 @@ function CoachScheduleScreen() {
 
   const load = useCallback(async () => {
     if (!user) return;
+    const coachId = role === 'admin' ? selectedCoachId : user.id;
+    if (!coachId) {
+      setSessions([]);
+      setLoading(false);
+      return;
+    }
     setError(null);
     try {
-      setSessions(await fetchCoachSessions(user.id, view));
+      setSessions(await fetchCoachSessions(coachId, view));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load schedule');
     } finally {
       setLoading(false);
     }
-  }, [user, view]);
+  }, [role, selectedCoachId, user, view]);
 
   useFocusEffect(
     useCallback(() => {
@@ -83,6 +89,13 @@ function CoachScheduleScreen() {
           <Text style={styles.kicker}>COACH</Text>
           <Text style={styles.heading}>Schedule</Text>
           <Text style={styles.scheduleIntro}>Sessions, rosters, locations, and payout status.</Text>
+          {role === 'admin' ? (
+            <Pressable style={styles.previewCoachLink} onPress={() => router.push('/select-coach')}>
+              <Text style={styles.previewCoachText}>
+                {selectedCoachName ? `Previewing ${selectedCoachName} · Change` : 'Choose a coach to preview'}
+              </Text>
+            </Pressable>
+          ) : null}
           <View style={styles.segment}>
             <Pressable
               style={[styles.segmentButton, view === 'upcoming' && styles.segmentButtonActive]}
@@ -259,6 +272,14 @@ const styles = StyleSheet.create({
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   scheduleIntro: { ...typography.body, color: colors.textMuted, marginTop: 6, fontSize: 14 },
+  previewCoachLink: {
+    minHeight: 42,
+    justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginTop: 8,
+  },
+  previewCoachText: { ...typography.bodySemi, color: colors.accent, fontSize: 12 },
   segment: { flexDirection: 'row', gap: 8, marginTop: 16 },
   segmentButton: {
     flex: 1,

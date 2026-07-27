@@ -1,18 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { apiFetch } from '@/lib/api';
 import { WEB_ORIGIN } from '@/lib/config';
-import { colors } from '@/lib/theme';
+import { colors, typography } from '@/lib/theme';
 
 type Listing = {
   id: string;
@@ -22,23 +24,56 @@ type Listing = {
   price_cents?: number | null;
   description?: string | null;
   primary_image_url?: string | null;
+  market_listing_images?: {
+    id: string;
+    public_url: string;
+    clean_public_url?: string | null;
+    use_clean?: boolean;
+    display_order: number;
+  }[];
+  size?: number | null;
+  condition?: string | null;
+  wear_state?: string | null;
+  listing_type?: string | null;
+  shipping_cents?: number | null;
+  open_to_trade?: boolean;
+  accepts_offers?: boolean;
+  colorway?: string | null;
+  rarity?: string | null;
+};
+
+type Seller = {
+  displayName?: string | null;
+  school?: string | null;
+  photoUrl?: string | null;
 };
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { width } = useWindowDimensions();
   const [listing, setListing] = useState<Listing | null>(null);
+  const [seller, setSeller] = useState<Seller | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [following, setFollowing] = useState(false);
   const [savingFollow, setSavingFollow] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await apiFetch<{ listing: Listing; following?: boolean }>(`/api/market/listings/${id}`);
+        const res = await apiFetch<{
+          listing: Listing;
+          seller?: Seller;
+          following?: boolean;
+          viewer?: { isSeller?: boolean };
+        }>(`/api/market/listings/${id}`);
         if (!cancelled) {
           setListing(res.listing);
+          setSeller(res.seller ?? null);
           setFollowing(res.following === true);
+          setIsOwner(res.viewer?.isSeller === true);
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load listing');
@@ -48,6 +83,26 @@ export default function ListingDetailScreen() {
       cancelled = true;
     };
   }, [id]);
+
+  const images = useMemo(() => {
+    const rows = [...(listing?.market_listing_images ?? [])].sort(
+      (a, b) => a.display_order - b.display_order
+    );
+    if (rows.length > 0) {
+      return rows.map((image) => ({
+        id: image.id,
+        url:
+          image.use_clean && image.clean_public_url
+            ? image.clean_public_url
+            : image.public_url,
+      }));
+    }
+    return listing?.primary_image_url
+      ? [{ id: 'primary', url: listing.primary_image_url }]
+      : [];
+  }, [listing]);
+  const [activeImage, setActiveImage] = useState(0);
+  const galleryWidth = Math.max(280, width - 40);
 
   if (!listing && !error) {
     return (
@@ -80,41 +135,173 @@ export default function ListingDetailScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {listing.primary_image_url ? (
-        <Image source={{ uri: listing.primary_image_url }} style={styles.image} />
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
+      {images.length > 0 ? (
+        <View>
+          <FlatList
+            data={images}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(image) => image.id}
+            onMomentumScrollEnd={(event) => {
+              setActiveImage(Math.round(event.nativeEvent.contentOffset.x / galleryWidth));
+            }}
+            renderItem={({ item }) => (
+              <View style={[styles.imageFrame, { width: galleryWidth }]}>
+                <Image source={{ uri: item.url }} style={styles.image} resizeMode="contain" />
+              </View>
+            )}
+          />
+          <View style={styles.galleryFooter}>
+            <View style={styles.dots}>
+              {images.map((image, index) => (
+                <View
+                  key={image.id}
+                  style={[styles.dot, activeImage === index && styles.dotActive]}
+                />
+              ))}
+            </View>
+            <Text style={styles.imageCount}>{activeImage + 1} / {images.length}</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={[styles.imageFrame, { width: galleryWidth }]}>
+          <Text style={styles.emptyPhoto}>No photo</Text>
+        </View>
+      )}
+
+      <Text style={styles.brand}>{listing.brand?.toUpperCase() || 'GUILD MARKET'}</Text>
+      <Text style={styles.title}>{listing.model || listing.title}</Text>
+      {listing.model && listing.title !== listing.model ? (
+        <Text style={styles.subtitle}>{listing.title}</Text>
       ) : null}
-      <Text style={styles.title}>{listing.title}</Text>
-      <Text style={styles.price}>
-        {listing.price_cents != null ? `$${(listing.price_cents / 100).toFixed(0)}` : '—'}
-      </Text>
-      {listing.description ? <Text style={styles.body}>{listing.description}</Text> : null}
-      <Pressable style={styles.watchButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
-        <Text style={styles.watchButtonText}>
-          {savingFollow ? 'Saving…' : following ? 'Watching · Alerts on' : 'Watch this pair'}
+      <View style={styles.priceRow}>
+        <Text style={styles.price}>
+          {listing.price_cents != null
+            ? `$${(listing.price_cents / 100).toFixed(0)}`
+            : listing.listing_type === 'trade'
+              ? 'Trade only'
+              : listing.listing_type === 'collection'
+                ? 'Collection'
+                : 'Make offer'}
         </Text>
-      </Pressable>
-      <Pressable
-        style={styles.button}
-        onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/market/listing/${id}`)}
-      >
-        <Text style={styles.buttonText}>Buy / offer on web</Text>
-      </Pressable>
+        {listing.shipping_cents ? (
+          <Text style={styles.shipping}>+ ${(listing.shipping_cents / 100).toFixed(0)} shipping</Text>
+        ) : null}
+      </View>
+
+      <View style={styles.badges}>
+        {listing.size ? <DetailBadge text={`Size ${listing.size}`} /> : null}
+        {listing.wear_state ? (
+          <DetailBadge
+            text={
+              listing.wear_state === 'bnib'
+                ? 'New in box'
+                : listing.wear_state === 'new_no_box'
+                  ? 'New'
+                  : listing.condition || 'Used'
+            }
+          />
+        ) : listing.condition ? <DetailBadge text={listing.condition} /> : null}
+        {listing.colorway ? <DetailBadge text={listing.colorway} /> : null}
+        {listing.rarity ? <DetailBadge text={listing.rarity} accent /> : null}
+        {listing.open_to_trade ? <DetailBadge text="Open to trade" accent /> : null}
+      </View>
+
+      {seller ? (
+        <View style={styles.sellerCard}>
+          {seller.photoUrl ? (
+            <Image source={{ uri: seller.photoUrl }} style={styles.sellerPhoto} />
+          ) : (
+            <View style={styles.sellerPhotoPlaceholder}>
+              <Text style={styles.sellerInitial}>{seller.displayName?.charAt(0) ?? 'G'}</Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sellerLabel}>SELLER</Text>
+            <Text style={styles.sellerName}>{seller.displayName || 'Guild member'}</Text>
+            {seller.school ? <Text style={styles.sellerSchool}>{seller.school}</Text> : null}
+          </View>
+        </View>
+      ) : null}
+
+      {listing.description ? (
+        <View style={styles.descriptionCard}>
+          <Text style={styles.sectionLabel}>ABOUT THIS PAIR</Text>
+          <Text style={styles.body}>{listing.description}</Text>
+        </View>
+      ) : null}
+      {isOwner ? (
+        <Pressable style={styles.button} onPress={() => router.push(`/manage-listing/${id}`)}>
+          <Text style={styles.buttonText}>Manage this listing</Text>
+        </Pressable>
+      ) : (
+        <>
+          <Pressable style={styles.watchButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
+            <Text style={styles.watchButtonText}>
+              {savingFollow ? 'Saving…' : following ? 'Watching · Alerts on' : 'Watch this pair'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.button}
+            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/market/listing/${id}`)}
+          >
+            <Text style={styles.buttonText}>
+              {listing.price_cents != null ? 'Buy or make an offer' : 'Make an offer'}
+            </Text>
+          </Pressable>
+        </>
+      )}
     </ScrollView>
   );
 }
 
+function DetailBadge({ text, accent = false }: { text: string; accent?: boolean }) {
+  return (
+    <View style={[styles.detailBadge, accent && styles.detailBadgeAccent]}>
+      <Text style={[styles.detailBadgeText, accent && styles.detailBadgeTextAccent]}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  container: { padding: 20, paddingBottom: 40 },
-  image: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: colors.surface },
-  title: { fontSize: 22, fontWeight: '800', marginTop: 16 },
-  price: { fontSize: 18, fontWeight: '700', marginTop: 8, color: colors.accent },
-  body: { marginTop: 12, fontSize: 15, lineHeight: 22, color: colors.text },
+  screen: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.background },
+  container: { padding: 20, paddingBottom: 48 },
+  imageFrame: { aspectRatio: 1, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
+  image: { width: '100%', height: '100%', backgroundColor: colors.surfaceRaised },
+  emptyPhoto: { ...typography.body, color: colors.textMuted, fontSize: 13 },
+  galleryFooter: { minHeight: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 3 },
+  dots: { flexDirection: 'row', gap: 5 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
+  dotActive: { width: 16, backgroundColor: colors.accent },
+  imageCount: { ...typography.bodySemi, color: colors.textSecondary, fontSize: 10 },
+  brand: { ...typography.bodyBold, color: colors.accent, fontSize: 10, letterSpacing: 1.3, marginTop: 10 },
+  title: { ...typography.display, color: colors.text, fontSize: 27, marginTop: 7 },
+  subtitle: { ...typography.body, color: colors.textMuted, fontSize: 13, marginTop: 5 },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 9, marginTop: 13 },
+  price: { ...typography.display, fontSize: 25, color: colors.accent },
+  shipping: { ...typography.body, color: colors.textMuted, fontSize: 11 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 14 },
+  detailBadge: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  detailBadgeAccent: { borderColor: colors.accent, backgroundColor: 'rgba(184,157,96,0.12)' },
+  detailBadgeText: { ...typography.bodySemi, color: colors.textMuted, fontSize: 10, textTransform: 'capitalize' },
+  detailBadgeTextAccent: { color: colors.accent },
+  sellerCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, padding: 13, marginTop: 20 },
+  sellerPhoto: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceRaised },
+  sellerPhotoPlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
+  sellerInitial: { ...typography.bodyBold, color: colors.accent, fontSize: 16 },
+  sellerLabel: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 8, letterSpacing: 1 },
+  sellerName: { ...typography.bodySemi, color: colors.text, fontSize: 14, marginTop: 3 },
+  sellerSchool: { ...typography.body, color: colors.textMuted, fontSize: 10, marginTop: 2 },
+  descriptionCard: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 22, paddingTop: 18 },
+  sectionLabel: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 9, letterSpacing: 1.1 },
+  body: { ...typography.body, marginTop: 9, fontSize: 14, lineHeight: 21, color: colors.textMuted },
   button: {
     marginTop: 24,
     backgroundColor: colors.accent,
-    borderRadius: 12,
+    borderRadius: 10,
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
@@ -128,7 +315,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  watchButtonText: { color: colors.accent, fontWeight: '700' },
-  buttonText: { color: '#fff', fontWeight: '700' },
-  error: { color: colors.danger },
+  watchButtonText: { ...typography.bodyBold, color: colors.accent, fontSize: 13 },
+  buttonText: { ...typography.bodyBold, color: colors.black, fontSize: 14 },
+  error: { ...typography.body, color: colors.danger },
 });

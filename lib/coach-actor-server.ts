@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -37,8 +37,10 @@ export async function resolveCoachActorId(
   }
 
   if (userData.role === 'admin') {
-    const cookieStore = await cookies();
-    const viewAs = cookieStore.get('levelup_view_as_coach_id')?.value?.trim();
+    const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+    const viewAs =
+      headerStore.get('x-levelup-coach-id')?.trim() ||
+      cookieStore.get('levelup_view_as_coach_id')?.value?.trim();
     if (!viewAs) {
       return {
         ok: false,

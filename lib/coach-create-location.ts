@@ -115,5 +115,14 @@ export async function createCoachLocation(
     throw new Error(linkErr.message);
   }
 
+  const { data: currentCoach } = await admin
+    .from('athletes')
+    .select('facility_id')
+    .eq('id', coachId)
+    .maybeSingle();
+  if (!(currentCoach as { facility_id?: string | null } | null)?.facility_id) {
+    await admin.from('athletes').update({ facility_id: facilityId }).eq('id', coachId);
+  }
+
   return row;
 }

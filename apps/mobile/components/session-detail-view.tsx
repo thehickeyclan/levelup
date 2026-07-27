@@ -194,6 +194,8 @@ export function SessionDetailView({
           <Text style={styles.facilityName}>{session.facility.name}</Text>
           {session.facility.address ? (
             <Text style={styles.meta}>{session.facility.address}</Text>
+          ) : session.facility.address_hidden ? (
+            <Text style={styles.meta}>Exact address shared after booking.</Text>
           ) : null}
         </View>
       ) : null}

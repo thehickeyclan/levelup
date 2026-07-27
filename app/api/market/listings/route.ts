@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
-import { primaryListingImageUrl } from '@/lib/market/listing-images';
+import { primaryListingImage, primaryListingImageUrl } from '@/lib/market/listing-images';
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { isMissingColumnError, withoutColorFamily, withoutColumn, isMissingPurchasePrivateListingColumnError, withoutPurchasePrivateListingFields, hasPurchasePrivateListingFields } from '@/lib/market/listing-column-fallback';
 import { normalizeMarketRarity } from '@/lib/market/rarity';
@@ -52,11 +52,18 @@ export async function GET(req: NextRequest) {
   const listings = (data ?? []).map((row) => {
     const ai = row.market_ai_analysis as { analyzed_at?: string } | { analyzed_at?: string }[] | null;
     const aiRow = Array.isArray(ai) ? ai[0] : ai;
-    const images = row.market_listing_images as { public_url: string; display_order: number }[] | null;
+    const images = row.market_listing_images as {
+      public_url: string;
+      clean_public_url?: string | null;
+      use_clean?: boolean;
+      display_order: number;
+    }[] | null;
+    const primaryImage = primaryListingImage(images);
     const { market_ai_analysis: _omit, ...rest } = row as Record<string, unknown>;
     return {
       ...rest,
       primary_image_url: primaryListingImageUrl(images),
+      primary_original_image_url: primaryImage?.public_url ?? null,
       ai_assisted: Boolean(aiRow?.analyzed_at),
     };
   });

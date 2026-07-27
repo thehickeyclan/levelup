@@ -16,6 +16,7 @@ import {
 import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
 import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
+import { ensureCoachFacilityLinked } from '@/lib/coach-facilities';
 
 /**
  * POST - Admin creates a small-group session: assign coach, set time/facility, get shareable link.
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
       published?: boolean;
       focusArea?: string;
       focusArea2?: string;
+      locationVisibility?: 'public' | 'participants_only';
     };
     const {
       athleteId: rawAthleteId,
@@ -63,6 +65,7 @@ export async function POST(req: NextRequest) {
       joinPolicy = 'public',
       focusArea,
       focusArea2,
+      locationVisibility = 'public',
     } = body;
 
     const athleteId = normalizeUuidParam(rawAthleteId);
@@ -182,40 +185,51 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Could not verify schedule availability' }, { status: 500 });
     }
 
+    const sessionInsert = {
+      parent_id: athleteId,
+      athlete_id: athleteId,
+      facility_id: facilityId,
+      // Map UI values to DB constraint values: '1-on-1', '2-athlete', 'group'
+      session_type: sessionType === 'small_group' ? 'group' : sessionType === 'partner' ? '2-athlete' : '1-on-1',
+      session_mode: sessionType === 'private' ? 'private' : 'partner-invite',
+      join_policy: joinPolicy,
+      partner_invite_code: code,
+      max_participants: max,
+      current_participants: 0,
+      base_price: 0,
+      price_per_participant: price,
+      scheduled_datetime: scheduledDatetime,
+      duration_minutes: duration,
+      total_price: totalPrice,
+      athlete_payment: athletePayment,
+      org_fee: orgFee,
+      stripe_fee: stripeFee,
+      paid_with_credit: false,
+      status: 'scheduled',
+      athlete_paid: false,
+      focus_area: focusArea && String(focusArea).trim() ? String(focusArea).trim() : null,
+      focus_area_2: focusArea2 && String(focusArea2).trim() ? String(focusArea2).trim() : null,
+      session_payout_rate: coachPayoutRate,
+      ...(sessionType === 'private' && locationVisibility === 'participants_only'
+        ? { location_visibility: 'participants_only' }
+        : {}),
+    };
+
     const { data: session, error: sessionError } = await admin
       .from('sessions')
-      .insert({
-        parent_id: athleteId,
-        athlete_id: athleteId,
-        facility_id: facilityId,
-        // Map UI values to DB constraint values: '1-on-1', '2-athlete', 'group'
-        session_type: sessionType === 'small_group' ? 'group' : sessionType === 'partner' ? '2-athlete' : '1-on-1',
-        session_mode: sessionType === 'private' ? 'private' : 'partner-invite',
-        join_policy: joinPolicy,
-        partner_invite_code: code,
-        max_participants: max,
-        current_participants: 0,
-        base_price: 0,
-        price_per_participant: price,
-        scheduled_datetime: scheduledDatetime,
-        duration_minutes: duration,
-        total_price: totalPrice,
-        athlete_payment: athletePayment,
-        org_fee: orgFee,
-        stripe_fee: stripeFee,
-        paid_with_credit: false,
-        status: 'scheduled',
-        athlete_paid: false,
-        focus_area: focusArea && String(focusArea).trim() ? String(focusArea).trim() : null,
-        focus_area_2: focusArea2 && String(focusArea2).trim() ? String(focusArea2).trim() : null,
-        session_payout_rate: coachPayoutRate,
-      })
+      .insert(sessionInsert)
       .select('id, partner_invite_code, scheduled_datetime, max_participants, price_per_participant')
       .single();
 
     if (sessionError) {
       console.error('Admin create session error:', sessionError);
       return NextResponse.json({ error: sessionError.message }, { status: 500 });
+    }
+
+    try {
+      await ensureCoachFacilityLinked(admin, athleteId, facilityId);
+    } catch (linkError) {
+      console.error('[admin/sessions POST] could not link coach facility', linkError);
     }
 
     const baseUrl =

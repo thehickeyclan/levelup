@@ -8,6 +8,7 @@ import {
   buildSessionRosterParticipant,
   type SessionRosterParticipant,
 } from '@/lib/wrestler-roster-display';
+import { getParentYouthWrestlerIds } from '@/lib/parent-wrestlers';
 
 type ParticipantRow = {
   youth_wrestler_id?: string | null;
@@ -56,10 +57,7 @@ export async function GET(
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const admin = createAdminClient(tenant.slug);
-    const { data: session, error } = await admin
-      .from('sessions')
-      .select(
-        `
+    const sessionFields = `
         id,
         scheduled_datetime,
         duration_minutes,
@@ -72,18 +70,35 @@ export async function GET(
         max_participants,
         price_per_participant,
         total_price,
+        location_visibility,
         athletes(id, first_name, last_name, school, photo_url, average_rating, review_count),
         facilities(id, name, address),
         session_participants(youth_wrestler_id, roster_first_name, roster_last_name, youth_wrestlers(first_name, last_name, age, weight_class, skill_level, graduation_year))
-      `
-      )
+      `;
+    const legacySessionFields = sessionFields.replace(/\s*location_visibility,\s*/, '\n');
+    let sessionResult = await admin
+      .from('sessions')
+      .select(sessionFields)
       .eq('id', sessionId)
       .maybeSingle();
 
-    if (error) {
-      console.error('mobile session GET:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (
+      sessionResult.error &&
+      (sessionResult.error.code === 'PGRST204' ||
+        sessionResult.error.message.includes('location_visibility'))
+    ) {
+      sessionResult = await admin
+        .from('sessions')
+        .select(legacySessionFields)
+        .eq('id', sessionId)
+        .maybeSingle() as typeof sessionResult;
     }
+
+    if (sessionResult.error) {
+      console.error('mobile session GET:', sessionResult.error);
+      return NextResponse.json({ error: sessionResult.error.message }, { status: 500 });
+    }
+    const session = sessionResult.data;
     if (!session) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     const participants = (session.session_participants ?? []) as ParticipantRow[];
@@ -116,7 +131,33 @@ export async function GET(
     );
 
     const coach = unwrapOne(session.athletes);
-    const facility = unwrapOne(session.facilities);
+    const rawFacility = unwrapOne(session.facilities);
+    const locationVisibility =
+      (session as { location_visibility?: string | null }).location_visibility ?? 'public';
+    let canRevealAddress = locationVisibility !== 'participants_only';
+    if (!canRevealAddress) {
+      const [{ data: userRow }, householdWrestlerIds] = await Promise.all([
+        admin.from('users').select('role').eq('id', user.id).maybeSingle(),
+        getParentYouthWrestlerIds(admin, user.id),
+      ]);
+      const participantIds = new Set(
+        participants
+          .map((participant) => participant.youth_wrestler_id)
+          .filter((value): value is string => Boolean(value))
+      );
+      canRevealAddress =
+        userRow?.role === 'admin' ||
+        coach?.id === user.id ||
+        participantIds.has(user.id) ||
+        householdWrestlerIds.some((wrestlerId) => participantIds.has(wrestlerId));
+    }
+    const facility = rawFacility
+      ? {
+          ...rawFacility,
+          address: canRevealAddress ? rawFacility.address : null,
+          address_hidden: !canRevealAddress,
+        }
+      : null;
 
     return NextResponse.json({
       session: {

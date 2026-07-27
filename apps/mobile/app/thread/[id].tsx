@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 import { typography } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
+import { notifyInboxUnreadChanged } from '@/lib/use-inbox-unread-realtime';
 
 type Message = {
   id: string;
@@ -24,6 +25,7 @@ type Message = {
   created_at: string;
   sender_id?: string;
   sender_name?: string;
+  read_by?: string[];
 };
 
 type DeliveryChannel = 'in_app' | 'sms';
@@ -38,12 +40,14 @@ export default function ThreadScreen() {
   const [sending, setSending] = useState(false);
   const [deliveryChannel, setDeliveryChannel] = useState<DeliveryChannel>('in_app');
   const [deliveryNotice, setDeliveryNotice] = useState<string | null>(null);
+  const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
   const listRef = useRef<FlatList<Message>>(null);
 
   const markRead = useCallback(async () => {
     if (!id) return;
     try {
       await apiFetch(`/api/guild/messages/threads/${id}/read`, { method: 'POST' });
+      notifyInboxUnreadChanged();
     } catch {
       // A read receipt should never prevent the conversation from opening.
     }
@@ -51,10 +55,19 @@ export default function ThreadScreen() {
 
   const load = useCallback(async () => {
     try {
-      const res = await apiFetch<{ messages: Message[] }>(
+      const res = await apiFetch<{ messages: Message[]; unread?: number }>(
         `/api/guild/messages/threads/${id}`
       );
-      setMessages(res.messages ?? []);
+      const nextMessages = res.messages ?? [];
+      if ((res.unread ?? 0) > 0 && !firstUnreadId) {
+        const firstUnread = nextMessages.find(
+          (message) =>
+            message.sender_id !== user?.id &&
+            !(message.read_by ?? []).includes(user?.id ?? '')
+        );
+        if (firstUnread) setFirstUnreadId(firstUnread.id);
+      }
+      setMessages(nextMessages);
       setError(null);
       void markRead();
     } catch (e) {
@@ -62,7 +75,7 @@ export default function ThreadScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id, markRead]);
+  }, [firstUnreadId, id, markRead, user?.id]);
 
   const send = useCallback(async () => {
     const body = draft.trim();
@@ -87,6 +100,7 @@ export default function ThreadScreen() {
         );
       }
       await load();
+      notifyInboxUnreadChanged();
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send message');
@@ -143,18 +157,36 @@ export default function ThreadScreen() {
         ListHeaderComponent={error ? <Text style={styles.error}>{error}</Text> : null}
         renderItem={({ item }) => {
           const own = item.sender_id === user?.id;
+          const seen = own && (item.read_by ?? []).some((readerId) => readerId !== user?.id);
           return (
-            <View style={[styles.messageRow, own && styles.messageRowOwn]}>
-              <Text style={[styles.sender, own && styles.senderOwn]}>
-                {own ? 'You' : item.sender_name ?? 'Member'}
-              </Text>
-              <View style={[styles.bubble, own && styles.bubbleOwn]}>
-                <Text style={[styles.body, own && styles.bodyOwn]}>
-                  {item.body ?? item.content ?? ''}
+            <>
+              {item.id === firstUnreadId ? (
+                <View style={styles.newDivider}>
+                  <View style={styles.newLine} />
+                  <Text style={styles.newText}>NEW MESSAGES</Text>
+                  <View style={styles.newLine} />
+                </View>
+              ) : null}
+              <View style={[styles.messageRow, own && styles.messageRowOwn]}>
+                <Text style={[styles.sender, own && styles.senderOwn]}>
+                  {own ? 'You' : item.sender_name ?? 'Member'}
+                </Text>
+                <View style={[styles.bubble, own && styles.bubbleOwn]}>
+                  <Text style={[styles.body, own && styles.bodyOwn]}>
+                    {item.body ?? item.content ?? ''}
+                  </Text>
+                </View>
+                <Text style={styles.meta}>
+                  {new Date(item.created_at).toLocaleString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                  {seen ? ' · Read' : ''}
                 </Text>
               </View>
-              <Text style={styles.meta}>{new Date(item.created_at).toLocaleString()}</Text>
-            </View>
+            </>
           );
         }}
         ListEmptyComponent={<Text style={styles.meta}>No messages in this thread.</Text>}
@@ -220,6 +252,9 @@ const styles = StyleSheet.create({
   list: { padding: 16, gap: 10, paddingBottom: 20 },
   messageRow: { alignItems: 'flex-start', marginBottom: 8 },
   messageRowOwn: { alignItems: 'flex-end' },
+  newDivider: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 10 },
+  newLine: { flex: 1, height: 1, backgroundColor: colors.accent },
+  newText: { ...typography.bodyBold, color: colors.accent, fontSize: 9, letterSpacing: 1 },
   sender: { ...typography.bodySemi, color: colors.textMuted, fontSize: 11, marginBottom: 4 },
   senderOwn: { color: colors.accent },
   bubble: {

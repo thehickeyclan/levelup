@@ -45,7 +45,7 @@ function threadLabel(threadType: string, title: string | null): string {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const headersList = await headers();
   const tenant = getTenantFromRequestHeaders(headersList);
   if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
@@ -202,5 +202,28 @@ export async function GET() {
 
   rows.sort((a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime());
 
-  return NextResponse.json({ threads: rows, userRole });
+  const query = new URL(req.url).searchParams.get('q')?.trim().toLowerCase() ?? '';
+  if (!query) return NextResponse.json({ threads: rows, userRole });
+
+  const visibleIds = rows.map((row) => row.id);
+  const matchingMessageThreadIds = new Set<string>();
+  if (visibleIds.length > 0) {
+    const { data: matches } = await admin
+      .from('guild_messages')
+      .select('thread_id')
+      .in('thread_id', visibleIds)
+      .ilike('body', `%${query.replace(/[%_]/g, '\\$&')}%`)
+      .limit(200);
+    for (const match of matches ?? []) {
+      if (match.thread_id) matchingMessageThreadIds.add(match.thread_id as string);
+    }
+  }
+
+  const searched = rows.filter((row) =>
+    matchingMessageThreadIds.has(row.id) ||
+    row.label.toLowerCase().includes(query) ||
+    row.title.toLowerCase().includes(query) ||
+    row.preview.toLowerCase().includes(query)
+  );
+  return NextResponse.json({ threads: searched, userRole });
 }

@@ -18,6 +18,7 @@ export default function AccountScreen() {
     setPreviewCoachView,
     previewParentView,
     setPreviewParentView,
+    selectedCoachName,
     signOut,
   } = useAuth();
   const router = useRouter();
@@ -57,6 +58,15 @@ export default function AccountScreen() {
       <Text style={styles.heading}>Account & activity</Text>
       <Text style={styles.meta}>{user?.email}</Text>
       <Text style={styles.meta}>Role: {role ?? '…'}</Text>
+      {role === 'admin' && isCoachView ? (
+        <Pressable style={styles.menuRow} onPress={() => router.push('/select-coach')}>
+          <View>
+            <Text style={styles.menuTitle}>Coach being previewed</Text>
+            <Text style={styles.menuMeta}>{selectedCoachName ?? 'Choose a coach'}</Text>
+          </View>
+          <Text style={styles.menuArrow}>›</Text>
+        </Pressable>
+      ) : null}
 
       {!isCoachView ? (
         <>
@@ -123,6 +133,10 @@ export default function AccountScreen() {
           </Pressable>
           <Pressable style={styles.menuRow} onPress={() => router.push('/coach-availability-custom')}>
             <View><Text style={styles.menuTitle}>Calendar & availability</Text><Text style={styles.menuMeta}>Keep at least one week open for families</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-locations')}>
+            <View><Text style={styles.menuTitle}>Training locations</Text><Text style={styles.menuMeta}>Add gyms, schools, and wrestling rooms</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
           <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/profile`)}>

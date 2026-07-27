@@ -3,6 +3,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { registerForPushNotifications, unregisterPushToken } from './push';
+import { clearSelectedCoach, getSelectedCoach, saveSelectedCoach } from './coach-preview';
 
 export type AppRole = 'parent' | 'coach' | 'admin' | 'youth_wrestler' | string;
 
@@ -17,6 +18,10 @@ type AuthContextValue = {
   /** Coach/admin only: browse the app as a parent (mirrors web view-as). */
   previewParentView: boolean;
   setPreviewParentView: (on: boolean) => void;
+  selectedCoachId: string | null;
+  selectedCoachName: string | null;
+  selectCoach: (id: string, name: string) => Promise<void>;
+  clearCoachSelection: () => Promise<void>;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<AppRole | null>;
   signOut: () => Promise<void>;
@@ -36,19 +41,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [previewCoachView, setPreviewCoachViewState] = useState(false);
   const [previewParentView, setPreviewParentViewState] = useState(false);
+  const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
+  const [selectedCoachName, setSelectedCoachName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      const [{ data }, previewRaw, previewParentRaw] = await Promise.all([
+      const [{ data }, previewRaw, previewParentRaw, selectedCoach] = await Promise.all([
         supabase.auth.getSession(),
         AsyncStorage.getItem(PREVIEW_KEY),
         AsyncStorage.getItem(PREVIEW_PARENT_KEY),
+        getSelectedCoach(),
       ]);
       if (!mounted) return;
       setPreviewCoachViewState(previewRaw === '1');
       setPreviewParentViewState(previewParentRaw === '1');
+      setSelectedCoachId(selectedCoach.id);
+      setSelectedCoachName(selectedCoach.name);
       setSession(data.session);
       if (data.session?.user) {
         setRole(await fetchRole(data.session.user.id));
@@ -90,6 +100,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPreviewParentViewState(on);
         void AsyncStorage.setItem(PREVIEW_PARENT_KEY, on ? '1' : '0');
       },
+      selectedCoachId,
+      selectedCoachName,
+      async selectCoach(id, name) {
+        await saveSelectedCoach(id, name);
+        setSelectedCoachId(id);
+        setSelectedCoachName(name);
+      },
+      async clearCoachSelection() {
+        await clearSelectedCoach();
+        setSelectedCoachId(null);
+        setSelectedCoachName(null);
+      },
       loading,
       async signIn(email, password) {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -104,12 +126,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       async signOut() {
         await unregisterPushToken();
+        await clearSelectedCoach();
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
         setRole(null);
       },
     };
-  }, [session, role, previewCoachView, previewParentView, loading]);
+  }, [
+    session,
+    role,
+    previewCoachView,
+    previewParentView,
+    selectedCoachId,
+    selectedCoachName,
+    loading,
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

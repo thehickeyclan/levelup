@@ -87,7 +87,13 @@ export default function RootLayout() {
           <Stack.Screen name="coach-earnings" options={{ title: 'Earnings' }} />
           <Stack.Screen name="coach-availability-setup" options={{ title: 'Normal week' }} />
           <Stack.Screen name="coach-availability-custom" options={{ title: 'Weekly availability' }} />
+          <Stack.Screen name="select-coach" options={{ title: 'Select coach' }} />
+          <Stack.Screen name="create-session" options={{ title: 'Create session' }} />
+          <Stack.Screen name="coach-locations" options={{ title: 'Training locations' }} />
           <Stack.Screen name="listing/[id]" options={{ title: 'Listing' }} />
+          <Stack.Screen name="my-market" options={{ title: 'My Market' }} />
+          <Stack.Screen name="add-shoe" options={{ title: 'Add shoe' }} />
+          <Stack.Screen name="manage-listing/[id]" options={{ title: 'Manage listing' }} />
           <Stack.Screen name="order/[id]" options={{ title: 'Order' }} />
         </Stack>
       </MobileCartProvider>

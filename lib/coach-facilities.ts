@@ -93,6 +93,9 @@ export type CoachFacilityOption = {
   school?: string | null;
   address?: string | null;
   directions?: string | null;
+  is_primary?: boolean;
+  is_recent?: boolean;
+  last_used_at?: string | null;
 };
 
 /** All tenant facilities (admin session edit). */
@@ -105,21 +108,78 @@ export async function getAllFacilitiesForEdit(admin: SupabaseClient): Promise<Co
   return (data ?? []) as CoachFacilityOption[];
 }
 
-/** Facilities for coach session create/edit — all admin-approved sites. */
+/** Coach-scoped facilities ordered primary → recently used → other saved. */
 export async function getCoachFacilitiesForEdit(
   admin: SupabaseClient,
-  _coachId: string,
+  coachId: string,
   currentFacilityId?: string | null
 ): Promise<CoachFacilityOption[]> {
-  const global = await getAllFacilitiesForEdit(admin);
-  if (!currentFacilityId || global.some((f) => f.id === currentFacilityId)) {
-    return global;
+  const [{ data: athlete }, { data: links }, { data: recentSessions }] = await Promise.all([
+    admin
+      .from('athletes')
+      .select('facility_id, secondary_facility_id')
+      .eq('id', coachId)
+      .maybeSingle(),
+    admin.from('coach_facilities').select('facility_id').eq('coach_id', coachId),
+    admin
+      .from('sessions')
+      .select('facility_id, scheduled_datetime')
+      .eq('athlete_id', coachId)
+      .not('facility_id', 'is', null)
+      .order('scheduled_datetime', { ascending: false })
+      .limit(50),
+  ]);
+
+  const profile = athlete as {
+    facility_id?: string | null;
+    secondary_facility_id?: string | null;
+  } | null;
+  const primaryId = profile?.facility_id ?? null;
+  const ids = new Set<string>();
+  if (primaryId) ids.add(primaryId);
+  if (profile?.secondary_facility_id) ids.add(profile.secondary_facility_id);
+  for (const row of links ?? []) {
+    const id = (row as { facility_id?: string | null }).facility_id;
+    if (id) ids.add(id);
   }
+  if (currentFacilityId) ids.add(currentFacilityId);
+
+  const lastUsed = new Map<string, string>();
+  for (const row of recentSessions ?? []) {
+    const session = row as { facility_id?: string | null; scheduled_datetime?: string | null };
+    if (!session.facility_id) continue;
+    ids.add(session.facility_id);
+    if (session.scheduled_datetime && !lastUsed.has(session.facility_id)) {
+      lastUsed.set(session.facility_id, session.scheduled_datetime);
+    }
+  }
+
+  if (ids.size === 0) return [];
+
   const { data, error } = await admin
     .from('facilities')
-    .select('id, name, school, address')
-    .eq('id', currentFacilityId)
-    .maybeSingle();
-  if (error || !data) return global;
-  return [...global, data as CoachFacilityOption].sort((a, b) => a.name.localeCompare(b.name));
+    .select('id, name, school, address, directions')
+    .in('id', [...ids]);
+  let facilitiesData = data as CoachFacilityOption[] | null;
+  if (error) {
+    const fallback = await admin
+      .from('facilities')
+      .select('id, name, school, address')
+      .in('id', [...ids]);
+    if (fallback.error) return [];
+    facilitiesData = fallback.data as CoachFacilityOption[] | null;
+  }
+
+  return (facilitiesData ?? [])
+    .map((facility) => ({
+      ...facility,
+      is_primary: facility.id === primaryId,
+      is_recent: lastUsed.has(facility.id),
+      last_used_at: lastUsed.get(facility.id) ?? null,
+    }))
+    .sort((a, b) => {
+      if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
+      const recent = String(b.last_used_at ?? '').localeCompare(String(a.last_used_at ?? ''));
+      return recent || a.name.localeCompare(b.name);
+    });
 }

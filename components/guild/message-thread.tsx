@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
 import { Loader2, MessageCircle, Send, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,11 +25,16 @@ export type MessageThreadProps = {
 function formatMessageTime(createdAt: string): string {
   const date = new Date(createdAt);
   if (Number.isNaN(date.getTime())) return '';
-  try {
-    return formatDistanceToNow(date, { addSuffix: true });
-  } catch {
-    return '';
+  const today = new Date();
+  if (date.toDateString() === today.toDateString()) {
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   }
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function SenderAvatar({
@@ -187,6 +191,7 @@ export function MessageThread({
         ) : (
           messages.map((m) => {
             const own = m.sender_id === currentUserId;
+            const seen = own && m.read_by.some((readerId) => readerId !== currentUserId);
             const displayName = own ? 'You' : (m.sender_name || 'Member');
             return (
               <div
@@ -231,7 +236,7 @@ export function MessageThread({
                     {m.body}
                   </div>
                   <p className={cn('text-[10px] text-muted-foreground mt-1 px-0.5', own && 'text-right')}>
-                    {formatMessageTime(m.created_at)}
+                    {formatMessageTime(m.created_at)}{seen ? ' · Read' : ''}
                   </p>
                   {!own ? (
                     <div className="flex gap-2 mt-1 px-0.5">

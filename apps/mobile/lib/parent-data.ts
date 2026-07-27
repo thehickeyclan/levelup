@@ -239,7 +239,12 @@ export type SessionDetail = {
     average_rating: number | null;
     review_count: number | null;
   } | null;
-  facility: { id: string; name: string; address: string | null } | null;
+  facility: {
+    id: string;
+    name: string;
+    address: string | null;
+    address_hidden?: boolean;
+  } | null;
 };
 
 /** Session detail + who's on the roster (server route uses admin client past RLS). */

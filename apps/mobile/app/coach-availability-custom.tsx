@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  timeOptionSelected: { backgroundColor: colors.accentMuted },
+  timeOptionSelected: { backgroundColor: 'rgba(184,157,96,0.18)' },
   timeOptionText: { ...typography.body, color: colors.text, fontSize: 16 },
   timeOptionTextSelected: { ...typography.bodyBold, color: colors.accent },
 });

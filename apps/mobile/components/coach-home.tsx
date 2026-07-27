@@ -9,12 +9,10 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { GuildLogo } from '@/components/guild-logo';
 import { useAuth } from '@/lib/auth';
 import { coachSessionTitle, fetchCoachUpcomingSessions, type CoachSessionRow } from '@/lib/coach-data';
 import { sessionTypeLabel } from '@/lib/parent-data';
-import { WEB_ORIGIN } from '@/lib/config';
 import { useNotificationRealtime } from '@/lib/use-notification-realtime';
 import { colors, typography } from '@/lib/theme';
 import { apiFetch } from '@/lib/api';
@@ -30,7 +28,7 @@ function formatWhen(iso: string) {
 }
 
 export function CoachHomeScreen() {
-  const { user, role, previewCoachView } = useAuth();
+  const { user, role, previewCoachView, selectedCoachId, selectedCoachName } = useAuth();
   const { unreadCount } = useNotificationRealtime();
   const router = useRouter();
   const [sessions, setSessions] = useState<CoachSessionRow[]>([]);
@@ -40,10 +38,17 @@ export function CoachHomeScreen() {
 
   const load = useCallback(async () => {
     if (!user) return;
+    const coachId = role === 'admin' ? selectedCoachId : user.id;
+    if (!coachId) {
+      setSessions([]);
+      setWeeklyWindowCount(null);
+      setLoading(false);
+      return;
+    }
     setError(null);
     try {
       const [list, availability] = await Promise.all([
-        fetchCoachUpcomingSessions(user.id),
+        fetchCoachUpcomingSessions(coachId),
         apiFetch<{ windows?: unknown[] }>('/api/coach/availability/weekly').catch(() => ({ windows: [] })),
       ]);
       setSessions(list);
@@ -53,7 +58,7 @@ export function CoachHomeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [role, selectedCoachId, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -94,6 +99,12 @@ export function CoachHomeScreen() {
           <Text style={styles.body}>
             Publish availability, fill private and small-group sessions, and manage every athlete in one place.
           </Text>
+          {role === 'admin' ? (
+            <Pressable style={styles.adminCoach} onPress={() => router.push('/select-coach')}>
+              <Text style={styles.adminCoachLabel}>PREVIEWING COACH</Text>
+              <Text style={styles.adminCoachName}>{selectedCoachName ?? 'Choose a coach'}</Text>
+            </Pressable>
+          ) : null}
           {isPreviewOnly ? (
             <Text style={styles.previewNote}>
               Preview mode — you&apos;re signed in as a parent. Toggle this off in Account. Sign in
@@ -103,18 +114,25 @@ export function CoachHomeScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
-            style={styles.primaryCta}
-            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/coach-sessions/create`)}
+            style={[styles.primaryCta, role === 'admin' && !selectedCoachId && styles.disabledCta]}
+            onPress={() => router.push('/create-session')}
+            disabled={role === 'admin' && !selectedCoachId}
           >
             <Text style={styles.primaryCtaText}>Create a session</Text>
           </Pressable>
           <Pressable
-            style={styles.secondaryCta}
+            style={[styles.secondaryCta, role === 'admin' && !selectedCoachId && styles.disabledCta]}
             onPress={() => weeklyWindowCount === 0 ? router.push('/coach-availability-setup') : router.push('/coach-availability-custom')}
+            disabled={role === 'admin' && !selectedCoachId}
           >
             <Text style={styles.secondaryCtaText}>{weeklyWindowCount === 0 ? 'Set your normal week' : 'Manage calendar'}</Text>
           </Pressable>
-          {weeklyWindowCount === 0 ? (
+          {role === 'admin' && !selectedCoachId ? (
+            <Pressable style={styles.calendarWarning} onPress={() => router.push('/select-coach')}>
+              <Text style={styles.calendarWarningTitle}>Choose a coach to continue</Text>
+              <Text style={styles.calendarWarningText}>Admin preview needs a coach before showing or changing coach data.</Text>
+            </Pressable>
+          ) : weeklyWindowCount === 0 ? (
             <Pressable style={styles.calendarWarning} onPress={() => router.push('/coach-availability-setup')}>
               <Text style={styles.calendarWarningTitle}>Parents can’t book you yet</Text>
               <Text style={styles.calendarWarningText}>Choose your usual weekly hours once. We’ll repeat them automatically.</Text>
@@ -149,11 +167,8 @@ export function CoachHomeScreen() {
             </Pressable>
           </View>
 
-          <Pressable
-            style={styles.dashboardLink}
-            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/athlete-dashboard`)}
-          >
-            <Text style={styles.dashboardLinkText}>Open earnings & full dashboard ›</Text>
+          <Pressable style={styles.dashboardLink} onPress={() => router.push('/coach-earnings')}>
+            <Text style={styles.dashboardLinkText}>Open earnings ›</Text>
           </Pressable>
 
           <Text style={styles.section}>Upcoming sessions</Text>
@@ -229,6 +244,19 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.surface,
   },
+  adminCoach: {
+    minHeight: 62,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 4,
+    paddingHorizontal: 13,
+    justifyContent: 'center',
+    marginBottom: 14,
+    backgroundColor: colors.surface,
+  },
+  adminCoachLabel: { ...typography.brand, color: colors.accent, fontSize: 9 },
+  adminCoachName: { ...typography.bodySemi, color: colors.text, fontSize: 15, marginTop: 4 },
+  disabledCta: { opacity: 0.4 },
   error: { color: colors.danger, marginBottom: 12, fontFamily: 'Inter_400Regular' },
   primaryCta: {
     backgroundColor: colors.accent,

@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { BackLink } from '@/components/back-link';
 import { MessageThread } from '@/components/guild/message-thread';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { COACHING_THREAD_TYPES, MARKET_THREAD_TYPES } from '@/lib/guild-messaging';
 import { CoachSessionMessagePanel } from '@/components/guild/coach-session-message-panel';
@@ -19,9 +19,23 @@ type InboxRow = {
   last_at: string;
   unread: number;
   href: string;
+  category?: 'marketplace' | 'direct' | 'training';
+  title?: string;
 };
 
-type FilterTab = 'all' | 'coaching' | 'market';
+type FilterTab = 'all' | 'unread' | 'coaching' | 'market';
+
+function formatInboxTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+  const days = Math.floor((now.getTime() - date.getTime()) / 86_400_000);
+  if (days < 7) return date.toLocaleDateString(undefined, { weekday: 'short' });
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 export function MessagesInboxClient({
   currentUserId,
@@ -41,9 +55,11 @@ export function MessagesInboxClient({
   const [loading, setLoading] = useState(true);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(initialThreadId);
   const [filter, setFilter] = useState<FilterTab>(isCoach ? 'coaching' : 'all');
+  const [query, setQuery] = useState('');
 
-  const loadInbox = () => {
-    return fetch('/api/guild/messages/inbox')
+  const loadInbox = (search = query) => {
+    const params = search.trim() ? `?q=${encodeURIComponent(search.trim())}` : '';
+    return fetch(`/api/guild/messages/inbox${params}`)
       .then((r) => r.json())
       .then((d) => setThreads(d.threads ?? []));
   };
@@ -52,8 +68,16 @@ export function MessagesInboxClient({
     loadInbox().finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadInbox(query);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
   const filtered = useMemo(() => {
     if (filter === 'all') return threads;
+    if (filter === 'unread') return threads.filter((t) => t.unread > 0);
     if (filter === 'coaching') {
       return threads.filter((t) => COACHING_THREAD_TYPES.has(t.thread_type as never));
     }
@@ -70,7 +94,9 @@ export function MessagesInboxClient({
       const list =
         tab === 'all'
           ? threads
-          : tab === 'coaching'
+          : tab === 'unread'
+            ? threads.filter((t) => t.unread > 0)
+            : tab === 'coaching'
             ? threads.filter((t) => COACHING_THREAD_TYPES.has(t.thread_type as never))
             : threads.filter((t) => MARKET_THREAD_TYPES.has(t.thread_type as never));
       return list.some((t) => t.id === current) ? current : null;
@@ -81,6 +107,7 @@ export function MessagesInboxClient({
     ? [{ id: 'coaching', label: 'Coaching' }]
     : [
         { id: 'all', label: 'All' },
+        { id: 'unread', label: 'Unread' },
         { id: 'coaching', label: 'Coaching' },
         { id: 'market', label: 'Market' },
       ];
@@ -109,6 +136,17 @@ export function MessagesInboxClient({
 
         {showCoachSessionHub ? <CoachSessionMessagePanel /> : null}
 
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search people, sessions, listings, and messages"
+            className="pl-9"
+            aria-label="Search messages"
+          />
+        </div>
+
         <div className={cn('flex gap-2', tabs.length > 1 ? '' : 'hidden')}>
           {tabs.map((tab) => (
             <button
@@ -131,7 +169,9 @@ export function MessagesInboxClient({
           <p className="text-sm text-muted-foreground py-8">Loading…</p>
         ) : filtered.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-8 text-center space-y-3">
-            <p className="text-sm text-muted-foreground">No conversations yet.</p>
+            <p className="text-sm text-muted-foreground">
+              {query ? 'No conversations match your search.' : filter === 'unread' ? 'No unread conversations.' : 'No conversations yet.'}
+            </p>
             {showNewMessage ? (
               <Button asChild size="sm" className="bg-accent text-accent-foreground">
                 <Link href="/inbox/new">{isCoach ? 'Message a parent' : 'Message a coach'}</Link>
@@ -154,14 +194,19 @@ export function MessagesInboxClient({
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className={cn('text-sm font-medium', t.unread > 0 && 'text-foreground')}>
+                    <p className={cn('text-sm font-medium', t.unread > 0 && 'text-foreground font-semibold')}>
                       {t.label}
                     </p>
                     <span className="text-[10px] text-muted-foreground shrink-0">
-                      {formatDistanceToNow(new Date(t.last_at), { addSuffix: true })}
+                      {formatInboxTime(t.last_at)}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.preview}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-accent mt-1">
+                    {t.category === 'marketplace' ? 'Marketplace' : t.category === 'direct' ? 'Direct message' : 'Training'}
+                  </p>
+                  <p className={cn('text-xs mt-1 line-clamp-2', t.unread > 0 ? 'text-foreground' : 'text-muted-foreground')}>
+                    {t.preview}
+                  </p>
                   {t.unread > 0 ? (
                     <span className="inline-block mt-2 text-[10px] font-semibold text-accent">
                       {t.unread} unread

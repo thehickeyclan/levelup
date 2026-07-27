@@ -121,7 +121,7 @@ export default function AccountScreen() {
             <View><Text style={styles.menuTitle}>Activity</Text><Text style={styles.menuMeta}>Share photos and see Guild activity</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/availability`)}>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-availability-custom')}>
             <View><Text style={styles.menuTitle}>Calendar & availability</Text><Text style={styles.menuMeta}>Keep at least one week open for families</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>

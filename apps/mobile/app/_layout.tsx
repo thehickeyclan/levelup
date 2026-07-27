@@ -86,6 +86,7 @@ export default function RootLayout() {
           <Stack.Screen name="session-message/[id]" options={{ title: 'Text roster' }} />
           <Stack.Screen name="coach-earnings" options={{ title: 'Earnings' }} />
           <Stack.Screen name="coach-availability-setup" options={{ title: 'Normal week' }} />
+          <Stack.Screen name="coach-availability-custom" options={{ title: 'Weekly availability' }} />
           <Stack.Screen name="listing/[id]" options={{ title: 'Listing' }} />
           <Stack.Screen name="order/[id]" options={{ title: 'Order' }} />
         </Stack>

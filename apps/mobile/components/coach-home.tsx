@@ -110,7 +110,7 @@ export function CoachHomeScreen() {
           </Pressable>
           <Pressable
             style={styles.secondaryCta}
-            onPress={() => weeklyWindowCount === 0 ? router.push('/coach-availability-setup') : void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/availability`)}
+            onPress={() => weeklyWindowCount === 0 ? router.push('/coach-availability-setup') : router.push('/coach-availability-custom')}
           >
             <Text style={styles.secondaryCtaText}>{weeklyWindowCount === 0 ? 'Set your normal week' : 'Manage calendar'}</Text>
           </Pressable>

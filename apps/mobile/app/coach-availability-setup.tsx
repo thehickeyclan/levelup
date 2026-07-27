@@ -1,9 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { apiFetch } from '@/lib/api';
-import { WEB_ORIGIN } from '@/lib/config';
 import { colors, typography } from '@/lib/theme';
 
 type WindowRow = { day_of_week: number; start_time: string; end_time: string };
@@ -112,8 +110,8 @@ export default function CoachAvailabilitySetupScreen() {
       <Pressable style={[styles.save, windows.length === 0 && styles.disabled]} onPress={() => void save()} disabled={saving || windows.length === 0}>
         {saving ? <ActivityIndicator color={colors.black} /> : <Text style={styles.saveText}>Use this normal week</Text>}
       </Pressable>
-      <Pressable style={styles.custom} onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/availability`)}>
-        <Text style={styles.customText}>I’ll set custom hours from Calendar</Text>
+      <Pressable style={styles.custom} onPress={() => router.push('/coach-availability-custom')}>
+        <Text style={styles.customText}>I’ll customize my hours</Text>
       </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </ScrollView>

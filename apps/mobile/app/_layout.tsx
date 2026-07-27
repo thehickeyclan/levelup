@@ -74,6 +74,8 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)/login" options={{ title: 'Sign in', headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="coach/[id]" options={{ title: 'Coach' }} />
+          <Stack.Screen name="coach-directory" options={{ title: 'Coach Directory' }} />
+          <Stack.Screen name="coach-public-availability/[id]" options={{ title: 'Public availability' }} />
           <Stack.Screen name="coach-map" options={{ title: 'Coach map' }} />
           <Stack.Screen name="book/[athleteId]" options={{ title: 'Book private' }} />
           <Stack.Screen name="session/[id]" options={{ title: 'Session' }} />
@@ -84,6 +86,8 @@ export default function RootLayout() {
           <Stack.Screen name="new-message" options={{ title: 'New message' }} />
           <Stack.Screen name="session-message/[id]" options={{ title: 'Text roster' }} />
           <Stack.Screen name="coach-earnings" options={{ title: 'Earnings' }} />
+          <Stack.Screen name="coach-athletes" options={{ title: 'My Athletes' }} />
+          <Stack.Screen name="coach-athlete/[id]" options={{ title: 'Athlete' }} />
           <Stack.Screen name="coach-availability-setup" options={{ title: 'Normal week' }} />
           <Stack.Screen name="coach-availability-custom" options={{ title: 'Weekly availability' }} />
           <Stack.Screen name="select-coach" options={{ title: 'Select coach' }} />

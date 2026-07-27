@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
 
     const search = req.nextUrl.searchParams.get('search')?.trim().slice(0, 100) ?? '';
     const category = req.nextUrl.searchParams.get('category')?.trim() ?? '';
+    const coachId = req.nextUrl.searchParams.get('coachId')?.trim() ?? '';
     const savedOnly = req.nextUrl.searchParams.get('saved') === 'true';
     const requestedLimit = Number(req.nextUrl.searchParams.get('limit') ?? 30);
     const limit = Number.isFinite(requestedLimit)
@@ -73,6 +74,7 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit);
     if (CATEGORIES.has(category)) query = query.eq('category', category);
+    if (coachId) query = query.eq('coach_id', coachId);
     if (search) {
       const escaped = search.replaceAll('%', '\\%').replaceAll(',', ' ');
       query = query.or(`title.ilike.%${escaped}%,caption.ilike.%${escaped}%`);

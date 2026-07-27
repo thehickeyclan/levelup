@@ -115,6 +115,20 @@ export default function CoachPlaybookAddScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <View style={styles.topNav}>
+        <Pressable
+          style={styles.topNavButton}
+          onPress={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace('/coach-playbook');
+          }}
+        >
+          <Text style={styles.topNavText}>‹ Coach Playbook</Text>
+        </Pressable>
+        <Pressable style={styles.topNavButton} onPress={() => router.replace('/(tabs)')}>
+          <Text style={styles.topNavText}>Coach home</Text>
+        </Pressable>
+      </View>
       <Text style={styles.kicker}>COACHES ONLY</Text>
       <Text style={styles.heading}>Share what works.</Text>
       <Text style={styles.sub}>
@@ -184,6 +198,9 @@ export default function CoachPlaybookAddScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20, paddingBottom: 56 },
+  topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+  topNavButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 2 },
+  topNavText: { ...typography.bodyBold, color: colors.accent, fontSize: 13 },
   kicker: { ...typography.brand, color: colors.accent, fontSize: 11 },
   heading: { ...typography.display, color: colors.text, fontSize: 32, marginTop: 6 },
   sub: { ...typography.body, color: colors.textSecondary, lineHeight: 21, marginTop: 7 },

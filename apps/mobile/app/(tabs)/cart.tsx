@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type ErrorBoundaryProps } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -55,19 +55,17 @@ export default function CartScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const loadWrestlers = useCallback(async () => {
+    setError(null);
     try {
       const data = await apiFetch<{ wrestlers?: Wrestler[] }>('/api/wrestlers');
-      const rows = data.wrestlers ?? [];
+      const rows = (data.wrestlers ?? []).filter(
+        (row) => row?.id && (row.first_name || row.last_name)
+      );
       setWrestlers(rows);
-      if (rows.length === 1) {
-        for (const item of items) {
-          if (!item.athleteId) await setAthlete(item.lineId, rows[0].id);
-        }
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load wrestlers');
     }
-  }, [items, setAthlete]);
+  }, []);
 
   useEffect(() => {
     if (!isCoachView) void loadWrestlers();
@@ -80,8 +78,16 @@ export default function CartScreen() {
   );
 
   const allAssigned = useMemo(
-    () => items.length > 0 && items.every((item) => Boolean(item.athleteId)),
-    [items]
+    () =>
+      items.length > 0 &&
+      items.every((item) => Boolean(item.athleteId || (wrestlers.length === 1 && wrestlers[0]?.id))),
+    [items, wrestlers]
+  );
+
+  const athleteForItem = useCallback(
+    (athleteId: string | null) =>
+      athleteId || (wrestlers.length === 1 ? wrestlers[0]?.id ?? null : null),
+    [wrestlers]
   );
 
   async function selectWrestler(lineId: string, athleteId: string) {
@@ -118,7 +124,7 @@ export default function CartScreen() {
         body: JSON.stringify({
           lines: items.map((item) => ({
             sessionId: item.sessionId,
-            wrestlerId: item.athleteId,
+            wrestlerId: athleteForItem(item.athleteId),
           })),
           useCredits: true,
         }),
@@ -183,8 +189,9 @@ export default function CartScreen() {
           {items.map((item) => {
             const takenForSession = items
               .filter((other) => other.lineId !== item.lineId && other.sessionId === item.sessionId)
-              .map((other) => other.athleteId)
+              .map((other) => athleteForItem(other.athleteId))
               .filter(Boolean);
+            const selectedAthleteId = athleteForItem(item.athleteId);
             return (
               <View key={item.lineId} style={styles.card}>
                 <View style={styles.cardTop}>
@@ -208,7 +215,7 @@ export default function CartScreen() {
                 <Text style={styles.selectLabel}>Who is training?</Text>
                 <View style={styles.wrestlerOptions}>
                   {wrestlers.map((wrestler) => {
-                    const selected = item.athleteId === wrestler.id;
+                    const selected = selectedAthleteId === wrestler.id;
                     const unavailable = takenForSession.includes(wrestler.id);
                     return (
                       <Pressable
@@ -233,7 +240,16 @@ export default function CartScreen() {
                     );
                   })}
                 </View>
-                {!item.athleteId ? (
+                {wrestlers.length === 0 ? (
+                  <View style={styles.noWrestlers}>
+                    <Text style={styles.selectionNeeded}>
+                      We could not find a wrestler profile for this account.
+                    </Text>
+                    <Pressable onPress={() => router.push('/my-wrestlers')}>
+                      <Text style={styles.manageWrestlers}>Manage wrestlers</Text>
+                    </Pressable>
+                  </View>
+                ) : !selectedAthleteId ? (
                   <Text style={styles.selectionNeeded}>Select a wrestler for this spot.</Text>
                 ) : null}
               </View>
@@ -263,6 +279,29 @@ export default function CartScreen() {
         </>
       )}
     </ScrollView>
+  );
+}
+
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const router = useRouter();
+
+  return (
+    <View style={styles.center}>
+      <Text style={styles.emptyTitle}>Your cart is still saved</Text>
+      <Text style={styles.emptyText}>
+        We could not display it just now. No training spot or payment was lost.
+      </Text>
+      <Pressable style={styles.primaryButton} onPress={() => void retry()}>
+        <Text style={styles.primaryButtonText}>Try cart again</Text>
+      </Pressable>
+      <Pressable
+        style={styles.recoveryLink}
+        onPress={() => router.replace({ pathname: '/(tabs)/find', params: { tab: 'available' } })}
+      >
+        <Text style={styles.manageWrestlers}>Back to training</Text>
+      </Pressable>
+      {__DEV__ ? <Text style={styles.debugError}>{error.message}</Text> : null}
+    </View>
   );
 }
 
@@ -320,6 +359,16 @@ const styles = StyleSheet.create({
   wrestlerChipText: { ...typography.bodyMedium, color: colors.text, fontSize: 12 },
   wrestlerChipTextSelected: { color: colors.black },
   selectionNeeded: { ...typography.body, color: colors.danger, fontSize: 11, marginTop: 8 },
+  noWrestlers: { gap: 8 },
+  manageWrestlers: { ...typography.bodyBold, color: colors.accent, fontSize: 13 },
+  recoveryLink: { marginTop: 16, padding: 8 },
+  debugError: {
+    ...typography.body,
+    color: colors.danger,
+    fontSize: 11,
+    marginTop: 16,
+    textAlign: 'center',
+  },
   summary: {
     marginTop: 20,
     paddingTop: 18,

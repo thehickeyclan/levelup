@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -45,8 +46,10 @@ export function MobileCartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [items, setItems] = useState<MobileCartLine[]>([]);
   const [loading, setLoading] = useState(true);
+  const refreshVersion = useRef(0);
 
   const refresh = useCallback(async () => {
+    const version = ++refreshVersion.current;
     if (!user) {
       setItems([]);
       setLoading(false);
@@ -95,12 +98,12 @@ export function MobileCartProvider({ children }: { children: ReactNode }) {
           } satisfies MobileCartLine;
         })
         .filter((row): row is MobileCartLine => row !== null);
-      setItems(next);
+      if (version === refreshVersion.current) setItems(next);
     } catch (error) {
       console.warn('[cart] Could not load shared training cart', error);
-      setItems([]);
+      if (version === refreshVersion.current) setItems([]);
     } finally {
-      setLoading(false);
+      if (version === refreshVersion.current) setLoading(false);
     }
   }, [user]);
 

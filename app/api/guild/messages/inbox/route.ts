@@ -115,21 +115,28 @@ export async function GET(req: Request) {
         const parentId = (t.inquiry_parent_id as string | null) ?? null;
         const coachId = (t.inquiry_coach_id as string | null) ?? null;
         const participantIds = ((t.participant_ids as string[]) ?? []).filter((id) => id !== user.id);
-        const otherId = isCoach
-          ? parentId ?? participantIds.find((id) => id !== coachId) ?? participantIds[0]
-          : coachId ?? participantIds[0];
+        const otherId = participantIds[0] ?? (isCoach ? parentId : coachId);
 
         if (otherId) {
           if (isCoach) {
-            const { data: parentUser } = await admin
-              .from('users')
-              .select('first_name, last_name, email')
-              .eq('id', otherId)
-              .maybeSingle();
-            contextTitle =
-              [parentUser?.first_name, parentUser?.last_name].filter(Boolean).join(' ').trim() ||
-              parentUser?.email ||
-              'Parent';
+            const [{ data: otherCoach }, { data: otherUser }] = await Promise.all([
+              admin
+                .from('athletes')
+                .select('first_name, last_name')
+                .eq('id', otherId)
+                .maybeSingle(),
+              admin
+                .from('users')
+                .select('first_name, last_name, email')
+                .eq('id', otherId)
+                .maybeSingle(),
+            ]);
+            const displayName = otherCoach
+              ? [otherCoach.first_name, otherCoach.last_name].filter(Boolean).join(' ').trim()
+              : [otherUser?.first_name, otherUser?.last_name].filter(Boolean).join(' ').trim();
+            contextTitle = otherCoach
+              ? `Coach ${displayName || 'Guild coach'}`
+              : displayName || otherUser?.email || 'Parent';
           } else {
             const { data: coach } = await admin
               .from('athletes')

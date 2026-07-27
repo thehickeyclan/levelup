@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { apiFetch } from '@/lib/api';
 import { colors, typography } from '@/lib/theme';
@@ -131,6 +131,9 @@ function PlaybookCard({
 
 export default function CoachPlaybookScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ coachId?: string; coachName?: string }>();
+  const coachId = Array.isArray(params.coachId) ? params.coachId[0] : params.coachId;
+  const coachName = Array.isArray(params.coachName) ? params.coachName[0] : params.coachName;
   const [posts, setPosts] = useState<PlaybookPost[]>([]);
   const [category, setCategory] = useState('all');
   const [search, setSearch] = useState('');
@@ -143,8 +146,9 @@ export default function CoachPlaybookScreen() {
     if (category !== 'all') params.set('category', category);
     if (search.trim()) params.set('search', search.trim());
     if (savedOnly) params.set('saved', 'true');
+    if (coachId) params.set('coachId', coachId);
     return params.toString();
-  }, [category, savedOnly, search]);
+  }, [category, coachId, savedOnly, search]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -209,14 +213,32 @@ export default function CoachPlaybookScreen() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />}
       ListHeaderComponent={
         <View>
+          <View style={styles.topNav}>
+            <Pressable
+              style={styles.topNavButton}
+              onPress={() => {
+                if (router.canGoBack()) router.back();
+                else router.replace('/(tabs)');
+              }}
+            >
+              <Text style={styles.topNavText}>‹ Back to app</Text>
+            </Pressable>
+            <Pressable style={styles.topNavButton} onPress={() => router.replace('/(tabs)')}>
+              <Text style={styles.topNavText}>Coach home</Text>
+            </Pressable>
+          </View>
           <Text style={styles.kicker}>COACHES ONLY</Text>
-          <Text style={styles.heading}>Coach Playbook</Text>
+          <Text style={styles.heading}>{coachName ? `${coachName}'s Playbook` : 'Coach Playbook'}</Text>
           <Text style={styles.sub}>
-            Short, useful ideas from Guild coaches. Share what is working so every coach gets better.
+            {coachName
+              ? `Published coaching ideas from ${coachName}.`
+              : 'Short, useful ideas from Guild coaches. Share what is working so every coach gets better.'}
           </Text>
-          <Pressable style={styles.primary} onPress={() => router.push('/coach-playbook-add')}>
-            <Text style={styles.primaryText}>Record a 60-second tip</Text>
-          </Pressable>
+          {!coachId ? (
+            <Pressable style={styles.primary} onPress={() => router.push('/coach-playbook-add')}>
+              <Text style={styles.primaryText}>Record a 60-second tip</Text>
+            </Pressable>
+          ) : null}
           <TextInput
             style={styles.search}
             value={search}
@@ -261,6 +283,9 @@ export default function CoachPlaybookScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20, paddingBottom: 56 },
+  topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+  topNavButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 2 },
+  topNavText: { ...typography.bodyBold, color: colors.accent, fontSize: 13 },
   kicker: { ...typography.brand, color: colors.accent, fontSize: 11 },
   heading: { ...typography.display, color: colors.text, fontSize: 34, marginTop: 6 },
   sub: { ...typography.body, color: colors.textSecondary, lineHeight: 21, marginTop: 6 },

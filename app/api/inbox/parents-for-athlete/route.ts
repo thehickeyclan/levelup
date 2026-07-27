@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { getCoachSessionMessageContacts } from '@/lib/coach-message-contacts';
+import { resolveCoachActorId } from '@/lib/coach-actor-server';
 
 /**
  * GET — parents and youth athletes this coach may DM:
@@ -27,9 +28,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const actor = await resolveCoachActorId(supabase, user.id);
+    if (!actor.ok) {
+      return NextResponse.json({ error: actor.error }, { status: actor.status });
+    }
+
     // Admin client so we always see full participant history for this coach's sessions
     const admin = createAdminClient(tenant.slug);
-    const contacts = await getCoachSessionMessageContacts(admin, user.id);
+    const contacts = await getCoachSessionMessageContacts(admin, actor.coachId);
 
     // Backward-compatible `parents` array for existing clients
     const parents = contacts

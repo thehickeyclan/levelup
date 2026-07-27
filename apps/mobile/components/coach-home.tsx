@@ -157,15 +157,29 @@ export function CoachHomeScreen() {
           </View>
 
           <View style={styles.quickLinks}>
-            <Pressable style={styles.quickLink} onPress={() => router.push('/(tabs)/inbox')}>
-              <Text style={styles.linkTitle}>Messages</Text>
-              <Text style={styles.linkMeta}>Parents & athletes</Text>
+            <Pressable style={styles.quickLink} onPress={() => router.push('/coach-athletes')}>
+              <Text style={styles.linkTitle}>My Athletes</Text>
+              <Text style={styles.linkMeta}>History & milestones</Text>
             </Pressable>
-            <Pressable style={styles.quickLink} onPress={() => router.push('/notifications')}>
-              <Text style={styles.linkTitle}>Alerts{unreadCount > 0 ? ` · ${unreadCount}` : ''}</Text>
-              <Text style={styles.linkMeta}>Bookings & updates</Text>
+            <Pressable style={styles.quickLink} onPress={() => router.push('/coach-directory')}>
+              <Text style={styles.linkTitle}>Coach Directory</Text>
+              <Text style={styles.linkMeta}>Connect & refer</Text>
             </Pressable>
           </View>
+          <View style={styles.quickLinks}>
+            <Pressable style={styles.quickLink} onPress={() => router.push('/(tabs)/inbox')}>
+              <Text style={styles.linkTitle}>Messages</Text>
+              <Text style={styles.linkMeta}>Guild conversations</Text>
+            </Pressable>
+            <Pressable style={styles.quickLink} onPress={() => router.push('/coach-playbook')}>
+              <Text style={styles.linkTitle}>Coach Playbook</Text>
+              <Text style={styles.linkMeta}>Tips from coaches</Text>
+            </Pressable>
+          </View>
+          <Pressable style={styles.alertLink} onPress={() => router.push('/notifications')}>
+            <Text style={styles.linkTitle}>Alerts{unreadCount > 0 ? ` · ${unreadCount}` : ''}</Text>
+            <Text style={styles.linkMeta}>Bookings & updates</Text>
+          </Pressable>
 
           <Pressable style={styles.dashboardLink} onPress={() => router.push('/coach-earnings')}>
             <Text style={styles.dashboardLinkText}>Open earnings ›</Text>
@@ -309,6 +323,14 @@ const styles = StyleSheet.create({
     minHeight: 68,
     justifyContent: 'center',
     padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  alertLink: {
+    minHeight: 58,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    marginTop: 8,
     borderWidth: 1,
     borderColor: colors.border,
   },

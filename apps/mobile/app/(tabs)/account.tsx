@@ -121,6 +121,14 @@ export default function AccountScreen() {
 
       {isCoachView ? (
         <>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-directory')}>
+            <View><Text style={styles.menuTitle}>Coach Directory</Text><Text style={styles.menuMeta}>Profiles, referrals, messaging, and Coach Playbook</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-athletes')}>
+            <View><Text style={styles.menuTitle}>My Athletes</Text><Text style={styles.menuMeta}>History, weight, skill, milestones, and messaging</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
           <Pressable style={styles.menuRow} onPress={() => router.push('/coach-playbook')}>
             <View><Text style={styles.menuTitle}>Coach Playbook</Text><Text style={styles.menuMeta}>Private 60-second tips from Guild coaches</Text></View>
             <Text style={styles.menuArrow}>›</Text>

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
+  Share,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,8 +12,8 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
-import * as WebBrowser from 'expo-web-browser';
-import { WEB_ORIGIN } from '@/lib/config';
+import { API_URL } from '@/lib/config';
+import { useAuth } from '@/lib/auth';
 import { colors, typography } from '@/lib/theme';
 
 type Coach = {
@@ -29,6 +30,7 @@ type Coach = {
 export default function CoachDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { user, role, isCoachView, selectedCoachId } = useAuth();
   const [coach, setCoach] = useState<Coach | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openingMessage, setOpeningMessage] = useState(false);
@@ -79,6 +81,10 @@ export default function CoachDetailScreen() {
     );
   }
   const coachId = coach.id;
+  const coachName = `${coach.first_name} ${coach.last_name}`.trim();
+  const currentCoachId =
+    role === 'admin' ? selectedCoachId : role === 'coach' ? user?.id ?? null : null;
+  const isSelf = currentCoachId === coachId;
 
   async function messageCoach() {
     if (openingMessage) return;
@@ -97,7 +103,7 @@ export default function CoachDetailScreen() {
   }
 
   async function toggleFollow() {
-    if (savingFollow) return;
+    if (savingFollow || isSelf) return;
     setSavingFollow(true);
     setError(null);
     try {
@@ -115,6 +121,13 @@ export default function CoachDetailScreen() {
     } finally {
       setSavingFollow(false);
     }
+  }
+
+  async function shareProfile() {
+    await Share.share({
+      title: `${coachName} · The Guild`,
+      message: `View ${coachName}'s Guild coach profile: ${API_URL}/athlete/${coachId}`,
+    });
   }
 
   return (
@@ -135,33 +148,67 @@ export default function CoachDetailScreen() {
       ) : null}
       {coach.bio ? <Text style={styles.bio}>{coach.bio}</Text> : null}
 
-      <Pressable style={styles.followButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
-        <Text style={styles.followButtonText}>
-          {savingFollow ? 'Saving…' : following ? 'Following · Alerts on' : 'Follow coach'}
-        </Text>
-      </Pressable>
+      {!isSelf ? (
+        <Pressable style={styles.followButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
+          <Text style={styles.followButtonText}>
+            {savingFollow ? 'Saving…' : following ? 'Following · Alerts on' : 'Follow coach'}
+          </Text>
+        </Pressable>
+      ) : (
+        <Pressable style={styles.followButton} onPress={() => router.push('/coach-profile-edit')}>
+          <Text style={styles.followButtonText}>Edit your profile</Text>
+        </Pressable>
+      )}
 
       <Pressable
         style={styles.button}
-        onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/book/${coach.id}`)}
-      >
-        <Text style={styles.buttonText}>View availability & book</Text>
-      </Pressable>
-      <Text style={styles.availabilityHelp}>
-        Don&apos;t see a time that works? Message the coach directly to ask about another time.
-      </Text>
-      <Pressable style={styles.buttonSecondary} onPress={() => void messageCoach()} disabled={openingMessage}>
-        <Text style={styles.buttonSecondaryText}>
-          {openingMessage ? 'Opening…' : 'Ask coach about availability'}
-        </Text>
-      </Pressable>
-      <Pressable
-        style={styles.buttonSecondary}
         onPress={() =>
-          router.push({ pathname: '/(tabs)/find', params: { tab: 'groups' } })
+          isCoachView
+            ? router.push(`/coach-public-availability/${coach.id}`)
+            : router.push(`/book/${coach.id}`)
         }
       >
-        <Text style={styles.buttonSecondaryText}>Browse small groups</Text>
+        <Text style={styles.buttonText}>
+          {isCoachView ? 'View public availability' : 'View availability & book'}
+        </Text>
+      </Pressable>
+      {!isSelf ? (
+        <>
+          <Text style={styles.availabilityHelp}>
+            Connect directly for referrals, training questions, or another available time.
+          </Text>
+          <Pressable style={styles.buttonSecondary} onPress={() => void messageCoach()} disabled={openingMessage}>
+            <Text style={styles.buttonSecondaryText}>
+              {openingMessage ? 'Opening…' : isCoachView ? 'Message coach' : 'Ask coach about availability'}
+            </Text>
+          </Pressable>
+        </>
+      ) : null}
+      {isCoachView ? (
+        <Pressable
+          style={styles.buttonSecondary}
+          onPress={() =>
+            router.push({
+              pathname: '/coach-playbook',
+              params: {
+                coachId,
+                coachName: `${coach.first_name} ${coach.last_name}`,
+              },
+            })
+          }
+        >
+          <Text style={styles.buttonSecondaryText}>View Coach Playbook posts</Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          style={styles.buttonSecondary}
+          onPress={() => router.push({ pathname: '/(tabs)/find', params: { tab: 'groups' } })}
+        >
+          <Text style={styles.buttonSecondaryText}>Browse small groups</Text>
+        </Pressable>
+      )}
+      <Pressable style={styles.shareButton} onPress={() => void shareProfile()}>
+        <Text style={styles.shareButtonText}>Share coach profile / QR link</Text>
       </Pressable>
     </ScrollView>
   );
@@ -242,5 +289,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: 0.4,
   },
+  shareButton: { minHeight: 46, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  shareButtonText: { ...typography.bodySemi, color: colors.textSecondary, fontSize: 13 },
   error: { color: colors.danger, fontFamily: 'Inter_400Regular' },
 });

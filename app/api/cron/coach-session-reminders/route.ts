@@ -6,6 +6,7 @@ import {
   COACH_REMINDER_WINDOW_MIN_MINUTES,
 } from '@/lib/coach-session-reminder';
 import { logMessage } from '@/lib/message-log';
+import { createNotification } from '@/lib/notifications';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveCoachSmsE164, sendSms } from '@/lib/twilio';
 
@@ -15,6 +16,7 @@ type ReminderSessionRow = {
   scheduled_datetime: string;
   session_type: string | null;
   session_mode: string | null;
+  duration_minutes?: number | null;
   athletes:
     | { first_name?: string | null; last_name?: string | null }
     | Array<{ first_name?: string | null; last_name?: string | null }>
@@ -55,12 +57,13 @@ export async function GET(req: NextRequest) {
 
   const byTenant: Record<
     string,
-    { sent: number; missingPhone: number; failed: number }
+    { sent: number; closeoutSent: number; missingPhone: number; failed: number }
   > = {};
 
   for (const slug of Object.keys(tenants)) {
     const admin = createAdminClient(slug);
     let sent = 0;
+    let closeoutSent = 0;
     let missingPhone = 0;
     let failed = 0;
 
@@ -77,7 +80,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error(`coach-session-reminders query ${slug}`, error);
-      byTenant[slug] = { sent, missingPhone, failed: failed + 1 };
+      byTenant[slug] = { sent, closeoutSent, missingPhone, failed: failed + 1 };
       continue;
     }
 
@@ -144,7 +147,57 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    byTenant[slug] = { sent, missingPhone, failed };
+    // The same five-minute job also creates one in-app/push reminder after the
+    // scheduled end. Notification data is the idempotency key, so an unclosed
+    // session never spams the coach on later cron runs.
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60_000).toISOString();
+    const { data: closeoutRows, error: closeoutError } = await admin
+      .from('sessions')
+      .select(
+        'id, athlete_id, scheduled_datetime, duration_minutes, session_type, session_mode, athletes(first_name, last_name), facilities(name)'
+      )
+      .eq('status', 'scheduled')
+      .gte('scheduled_datetime', oneDayAgo)
+      .lte('scheduled_datetime', now.toISOString())
+      .limit(200);
+
+    if (closeoutError) {
+      console.error(`coach closeout reminder query ${slug}`, closeoutError);
+      failed++;
+    } else {
+      for (const row of (closeoutRows ?? []) as ReminderSessionRow[]) {
+        const endsAt =
+          new Date(row.scheduled_datetime).getTime() + (row.duration_minutes ?? 60) * 60_000;
+        if (endsAt > now.getTime()) continue;
+
+        const { data: existing } = await admin
+          .from('notifications')
+          .select('id')
+          .eq('user_id', row.athlete_id)
+          .eq('type', 'coach_session_closeout')
+          .contains('data', { session_id: row.id })
+          .limit(1)
+          .maybeSingle();
+        if (existing) continue;
+
+        const facility = firstRelation(row.facilities);
+        await createNotification(admin, {
+          user_id: row.athlete_id,
+          type: 'coach_session_closeout',
+          title: 'Close out your session',
+          body: `Record attendance${facility?.name ? ` at ${facility.name}` : ''}, or reschedule/cancel if it did not happen.`,
+          data: {
+            session_id: row.id,
+            deep_link: `/coach-session-closeout/${row.id}`,
+          },
+          sessionId: row.id,
+          coachId: row.athlete_id,
+        });
+        closeoutSent++;
+      }
+    }
+
+    byTenant[slug] = { sent, closeoutSent, missingPhone, failed };
   }
 
   return NextResponse.json({ ok: true, windowStart, windowEnd, byTenant });

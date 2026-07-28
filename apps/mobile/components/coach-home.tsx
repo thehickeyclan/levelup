@@ -10,8 +10,14 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { GuildLogo } from '@/components/guild-logo';
+import { CoachSessionCloseoutReminder } from '@/components/coach-session-closeout-reminder';
 import { useAuth } from '@/lib/auth';
-import { coachSessionTitle, fetchCoachUpcomingSessions, type CoachSessionRow } from '@/lib/coach-data';
+import {
+  coachSessionTitle,
+  fetchCoachUnclosedSessions,
+  fetchCoachUpcomingSessions,
+  type CoachSessionRow,
+} from '@/lib/coach-data';
 import { sessionTypeLabel } from '@/lib/parent-data';
 import { useNotificationRealtime } from '@/lib/use-notification-realtime';
 import { colors, typography } from '@/lib/theme';
@@ -32,6 +38,8 @@ export function CoachHomeScreen() {
   const { unreadCount } = useNotificationRealtime();
   const router = useRouter();
   const [sessions, setSessions] = useState<CoachSessionRow[]>([]);
+  const [unclosedSessions, setUnclosedSessions] = useState<CoachSessionRow[]>([]);
+  const [dismissedCloseoutId, setDismissedCloseoutId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [weeklyWindowCount, setWeeklyWindowCount] = useState<number | null>(null);
@@ -41,17 +49,20 @@ export function CoachHomeScreen() {
     const coachId = role === 'admin' ? selectedCoachId : user.id;
     if (!coachId) {
       setSessions([]);
+      setUnclosedSessions([]);
       setWeeklyWindowCount(null);
       setLoading(false);
       return;
     }
     setError(null);
     try {
-      const [list, availability] = await Promise.all([
+      const [list, unclosed, availability] = await Promise.all([
         fetchCoachUpcomingSessions(coachId),
+        fetchCoachUnclosedSessions(coachId),
         apiFetch<{ windows?: unknown[] }>('/api/coach/availability/weekly').catch(() => ({ windows: [] })),
       ]);
       setSessions(list);
+      setUnclosedSessions(unclosed);
       setWeeklyWindowCount(availability.windows?.length ?? 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load schedule');
@@ -68,6 +79,8 @@ export function CoachHomeScreen() {
   );
 
   const isPreviewOnly = previewCoachView && role !== 'coach' && role !== 'admin';
+  const closeoutSession =
+    unclosedSessions.find((session) => session.id !== dismissedCloseoutId) ?? null;
   const coachSummary = useMemo(() => {
     const booked = sessions.reduce((sum, session) => sum + (session.current_participants ?? 0), 0);
     const openSpots = sessions.reduce(
@@ -79,7 +92,12 @@ export function CoachHomeScreen() {
   }, [sessions]);
 
   return (
-    <FlatList
+    <>
+      <CoachSessionCloseoutReminder
+        session={closeoutSession}
+        onLater={() => setDismissedCloseoutId(closeoutSession?.id ?? null)}
+      />
+      <FlatList
       style={styles.screen}
       data={sessions}
       keyExtractor={(item) => item.id}
@@ -216,7 +234,8 @@ export function CoachHomeScreen() {
           </Text>
         ) : null
       }
-    />
+      />
+    </>
   );
 }
 

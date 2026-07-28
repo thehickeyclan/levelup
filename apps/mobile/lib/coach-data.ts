@@ -4,6 +4,7 @@ import { sessionTypeLabel } from './parent-data';
 export type CoachSessionRow = {
   id: string;
   scheduled_datetime: string;
+  duration_minutes: number | null;
   status: string;
   focus_area: string | null;
   session_type: string | null;
@@ -25,6 +26,7 @@ export async function fetchCoachSessions(
       `
       id,
       scheduled_datetime,
+      duration_minutes,
       status,
       focus_area,
       session_type,
@@ -54,6 +56,7 @@ export async function fetchCoachSessions(
     return {
       id: s.id,
       scheduled_datetime: s.scheduled_datetime,
+      duration_minutes: s.duration_minutes,
       status: s.status,
       focus_area: s.focus_area,
       session_type: s.session_type,
@@ -68,6 +71,60 @@ export async function fetchCoachSessions(
 
 export function fetchCoachUpcomingSessions(coachUserId: string): Promise<CoachSessionRow[]> {
   return fetchCoachSessions(coachUserId, 'upcoming');
+}
+
+/** Scheduled sessions whose end time has passed and still need coach closeout. */
+export async function fetchCoachUnclosedSessions(
+  coachUserId: string
+): Promise<CoachSessionRow[]> {
+  const { data, error } = await supabase
+    .from('sessions')
+    .select(
+      `
+      id,
+      scheduled_datetime,
+      duration_minutes,
+      status,
+      focus_area,
+      session_type,
+      current_participants,
+      max_participants,
+      athlete_paid,
+      athlete_payout_date,
+      facilities(name)
+    `
+    )
+    .eq('athlete_id', coachUserId)
+    .eq('status', 'scheduled')
+    .lte('scheduled_datetime', new Date().toISOString())
+    .order('scheduled_datetime', { ascending: true })
+    .limit(20);
+  if (error) throw new Error(error.message);
+
+  const now = Date.now();
+  return (data ?? [])
+    .map((s) => {
+      const fac = s.facilities as { name: string } | { name: string }[] | null;
+      return {
+        id: s.id,
+        scheduled_datetime: s.scheduled_datetime,
+        duration_minutes: s.duration_minutes,
+        status: s.status,
+        focus_area: s.focus_area,
+        session_type: s.session_type,
+        current_participants: s.current_participants,
+        max_participants: s.max_participants,
+        athlete_paid: s.athlete_paid,
+        athlete_payout_date: s.athlete_payout_date,
+        facilities: Array.isArray(fac) ? fac[0] ?? null : fac,
+      };
+    })
+    .filter(
+      (session) =>
+        new Date(session.scheduled_datetime).getTime() +
+          (session.duration_minutes ?? 60) * 60_000 <=
+        now
+    );
 }
 
 export function coachSessionTitle(s: CoachSessionRow): string {

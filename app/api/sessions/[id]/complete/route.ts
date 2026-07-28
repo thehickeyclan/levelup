@@ -12,7 +12,7 @@ import { notifyAdminsSessionCompleted } from '@/lib/twilio';
  * Only allowed when status is scheduled.
  */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -57,7 +57,69 @@ export async function POST(
       );
     }
 
+    const body = (await req.json().catch(() => ({}))) as {
+      attendance?: Array<{
+        participantId?: string;
+        status?: 'attended' | 'no_show';
+      }>;
+    };
+    const attendance = body.attendance;
     const now = new Date().toISOString();
+
+    if (attendance) {
+      const { data: participantRows, error: participantsError } = await admin
+        .from('session_participants')
+        .select('id, status')
+        .eq('session_id', sessionId);
+      if (participantsError) {
+        return NextResponse.json({ error: participantsError.message }, { status: 500 });
+      }
+
+      const participantIds = new Set(
+        (participantRows ?? [])
+          .filter((row: { status?: string | null }) => row.status !== 'cancelled')
+          .map((row: { id: string }) => row.id)
+      );
+      const submittedIds = new Set(attendance.map((item) => item.participantId));
+      const valid =
+        attendance.length === participantIds.size &&
+        submittedIds.size === participantIds.size &&
+        attendance.every(
+          (item) =>
+            Boolean(item.participantId) &&
+            participantIds.has(item.participantId as string) &&
+            (item.status === 'attended' || item.status === 'no_show')
+        );
+      if (!valid) {
+        return NextResponse.json(
+          { error: 'Record attended or no-show for every athlete before closing the session.' },
+          { status: 400 }
+        );
+      }
+
+      for (const item of attendance) {
+        const { error: attendanceError } = await admin
+          .from('session_participants')
+          .update({
+            attendance_status: item.status,
+            attendance_recorded_at: now,
+            attendance_recorded_by: user.id,
+          })
+          .eq('session_id', sessionId)
+          .eq('id', item.participantId as string);
+        if (attendanceError) {
+          console.error('Record session attendance error:', attendanceError);
+          const migrationHint = /attendance_status|schema cache/i.test(attendanceError.message)
+            ? ' Run the session attendance database migration, then try again.'
+            : '';
+          return NextResponse.json(
+            { error: `Could not record attendance.${migrationHint}` },
+            { status: 500 }
+          );
+        }
+      }
+    }
+
     const { error: updateError } = await admin
       .from('sessions')
       .update({ status: 'completed', completed_at: now, updated_at: now })
@@ -77,12 +139,16 @@ export async function POST(
     if (isRewardsProgramEnabled()) {
       const { data: partRows } = await admin
         .from('session_participants')
-        .select('parent_id')
+        .select('parent_id, attendance_status')
         .eq('session_id', sessionId)
         .eq('paid', true);
       const parentIds = [
         ...new Set(
           (partRows ?? [])
+            .filter(
+              (r: { attendance_status?: string | null }) =>
+                !attendance || r.attendance_status === 'attended'
+            )
             .map((r: { parent_id?: string | null }) => r.parent_id)
             .filter((id): id is string => Boolean(id))
         ),

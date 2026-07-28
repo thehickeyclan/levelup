@@ -72,23 +72,29 @@ export async function PATCH(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    if (session.parent_id !== user.id) {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      const isAdmin = userData?.role === 'admin';
-      const isCoach = session.athlete_id === user.id;
-      if (!isAdmin && !isCoach) {
-        return NextResponse.json(
-          { error: 'Not authorized to reschedule this session' },
-          { status: 403 }
-        );
-      }
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    const isAdmin = userData?.role === 'admin';
+    const isCoach = session.athlete_id === user.id;
+    const isParentOwner = session.parent_id === user.id;
+    if (!isAdmin && !isCoach && !isParentOwner) {
+      return NextResponse.json(
+        { error: 'Not authorized to reschedule this session' },
+        { status: 403 }
+      );
     }
 
-    if (!isSessionEditableBeforeStart(session)) {
+    // A coach may reconcile a session that remained scheduled after its start by
+    // moving the whole roster to a future time. Parents still cannot move a session
+    // once it has begun.
+    const coachCanRecoverPastSession =
+      session.status === 'scheduled' &&
+      (isCoach || isAdmin) &&
+      new Date(session.scheduled_datetime as string).getTime() <= Date.now();
+    if (!isSessionEditableBeforeStart(session) && !coachCanRecoverPastSession) {
       return NextResponse.json({ error: SESSION_NOT_RESCHEDULABLE_ERROR }, { status: 400 });
     }
 

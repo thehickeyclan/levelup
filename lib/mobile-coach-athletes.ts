@@ -52,6 +52,7 @@ type YouthProfile = {
 
 type ParticipantRow = {
   session_id: string;
+  attendance_status?: 'attended' | 'no_show' | null;
   youth_wrestler_id?: string | null;
   parent_id?: string | null;
   paid?: boolean | null;
@@ -94,8 +95,8 @@ function isCompletedTraining(session: SessionRow, nowMs: number): boolean {
 
 /**
  * Every athlete registered for this coach, enriched with coach-specific history and
- * completed Guild-session totals. These are registration-derived session counts; the
- * product must not call them verified attendance until per-participant attendance exists.
+ * completed Guild-session totals. Verified no-shows are excluded; historical rows with
+ * no attendance record retain the legacy registration-derived behavior.
  */
 export async function fetchMobileCoachAthletes(
   admin: SupabaseClient,
@@ -120,6 +121,7 @@ export async function fetchMobileCoachAthletes(
     .select(
       `
       session_id,
+      attendance_status,
       youth_wrestler_id,
       parent_id,
       paid,
@@ -159,7 +161,7 @@ export async function fetchMobileCoachAthletes(
 
   const { data: allParticipantRowsRaw, error: allParticipantError } = await admin
     .from('session_participants')
-    .select('session_id, youth_wrestler_id, paid')
+    .select('session_id, youth_wrestler_id, paid, attendance_status')
     .in('youth_wrestler_id', athleteIds);
   if (allParticipantError) throw new Error(allParticipantError.message);
   const allParticipantRows = (allParticipantRowsRaw ?? []) as ParticipantRow[];
@@ -186,7 +188,14 @@ export async function fetchMobileCoachAthletes(
   for (const participant of allParticipantRows) {
     const wrestlerId = participant.youth_wrestler_id;
     const session = allSessionById.get(participant.session_id);
-    if (!wrestlerId || !session || !isCompletedTraining(session, nowMs)) continue;
+    if (
+      !wrestlerId ||
+      !session ||
+      participant.attendance_status === 'no_show' ||
+      !isCompletedTraining(session, nowMs)
+    ) {
+      continue;
+    }
     let ids = guildCompletedByAthlete.get(wrestlerId);
     if (!ids) {
       ids = new Set();
@@ -205,9 +214,14 @@ export async function fetchMobileCoachAthletes(
   };
 
   const byAthlete = new Map<string, AthleteAggregate>();
+  const coachAttendanceByAthleteSession = new Map<string, ParticipantRow['attendance_status']>();
   for (const participant of coachParticipants) {
     const wrestlerId = participant.youth_wrestler_id;
     if (!wrestlerId) continue;
+    coachAttendanceByAthleteSession.set(
+      `${wrestlerId}:${participant.session_id}`,
+      participant.attendance_status
+    );
     const profile = unwrapOne(participant.youth_wrestlers);
     const existing = byAthlete.get(wrestlerId);
     if (existing) {
@@ -237,15 +251,17 @@ export async function fetchMobileCoachAthletes(
         focusArea: session.focus_area ?? null,
         facilityName: unwrapOne(session.facilities)?.name ?? null,
       }));
-    const completedWithCoach = history.filter((session) =>
-      isCompletedTraining(
-        {
-          id: session.id,
-          scheduled_datetime: session.scheduledDatetime,
-          status: session.status,
-        },
-        nowMs
-      )
+    const completedWithCoach = history.filter(
+      (session) =>
+        coachAttendanceByAthleteSession.get(`${id}:${session.id}`) !== 'no_show' &&
+        isCompletedTraining(
+          {
+            id: session.id,
+            scheduled_datetime: session.scheduledDatetime,
+            status: session.status,
+          },
+          nowMs
+        )
     );
     const upcoming = history
       .filter(

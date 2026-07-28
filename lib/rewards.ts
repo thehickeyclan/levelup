@@ -298,14 +298,22 @@ export async function countCompletedPaidSessionsForParent(
 ): Promise<number> {
   const { data: rows, error: spErr } = await admin
     .from('session_participants')
-    .select('session_id')
+    .select('session_id, attendance_status')
     .eq('parent_id', parentId)
     .eq('paid', true);
   if (spErr) {
     console.warn('countCompletedPaidSessionsForParent:', spErr);
     return 0;
   }
-  const sessionIds = [...new Set((rows ?? []).map((r: { session_id: string }) => r.session_id))];
+  const sessionIds = [
+    ...new Set(
+      (rows ?? [])
+        .filter(
+          (r: { attendance_status?: string | null }) => r.attendance_status !== 'no_show'
+        )
+        .map((r: { session_id: string }) => r.session_id)
+    ),
+  ];
   if (sessionIds.length === 0) return 0;
   const { count, error: cErr } = await admin
     .from('sessions')

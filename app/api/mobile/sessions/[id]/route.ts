@@ -6,11 +6,14 @@ import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { getEffectiveFilledCountWithListedNames } from '@/lib/sessions';
 import {
   buildSessionRosterParticipant,
-  type SessionRosterParticipant,
 } from '@/lib/wrestler-roster-display';
 import { getParentYouthWrestlerIds } from '@/lib/parent-wrestlers';
 
 type ParticipantRow = {
+  id?: string;
+  status?: string | null;
+  paid?: boolean | null;
+  attendance_status?: 'attended' | 'no_show' | null;
   youth_wrestler_id?: string | null;
   roster_first_name?: string | null;
   roster_last_name?: string | null;
@@ -73,23 +76,34 @@ export async function GET(
         location_visibility,
         athletes(id, first_name, last_name, school, photo_url, average_rating, review_count),
         facilities(id, name, address),
-        session_participants(youth_wrestler_id, roster_first_name, roster_last_name, youth_wrestlers(first_name, last_name, age, weight_class, skill_level, graduation_year))
+        session_participants(id, status, paid, attendance_status, youth_wrestler_id, roster_first_name, roster_last_name, youth_wrestlers(first_name, last_name, age, weight_class, skill_level, graduation_year))
       `;
-    const legacySessionFields = sessionFields.replace(/\s*location_visibility,\s*/, '\n');
+    const withoutAttendance = sessionFields
+      .replace(
+        'id, status, paid, attendance_status, youth_wrestler_id',
+        'id, status, paid, youth_wrestler_id'
+      );
+    const fieldCandidates = [
+      sessionFields,
+      withoutAttendance,
+      sessionFields.replace(/\s*location_visibility,\s*/, '\n'),
+      withoutAttendance.replace(/\s*location_visibility,\s*/, '\n'),
+    ];
     let sessionResult = await admin
       .from('sessions')
-      .select(sessionFields)
+      .select(fieldCandidates[0])
       .eq('id', sessionId)
       .maybeSingle();
 
-    if (
-      sessionResult.error &&
-      (sessionResult.error.code === 'PGRST204' ||
-        sessionResult.error.message.includes('location_visibility'))
-    ) {
+    for (const fields of fieldCandidates.slice(1)) {
+      if (!sessionResult.error) break;
+      const schemaError =
+        sessionResult.error.code === 'PGRST204' ||
+        /location_visibility|attendance_status/i.test(sessionResult.error.message);
+      if (!schemaError) break;
       sessionResult = await admin
         .from('sessions')
-        .select(legacySessionFields)
+        .select(fields)
         .eq('id', sessionId)
         .maybeSingle() as typeof sessionResult;
     }
@@ -98,14 +112,55 @@ export async function GET(
       console.error('mobile session GET:', sessionResult.error);
       return NextResponse.json({ error: sessionResult.error.message }, { status: 500 });
     }
-    const session = sessionResult.data;
+    const session = sessionResult.data as unknown as {
+      id: string;
+      scheduled_datetime: string;
+      duration_minutes: number | null;
+      status: string;
+      session_type: string | null;
+      focus_area: string | null;
+      focus_area_2: string | null;
+      join_policy: string | null;
+      current_participants: number | null;
+      max_participants: number | null;
+      price_per_participant: number | null;
+      total_price: number | null;
+      location_visibility?: string | null;
+      athletes:
+        | {
+            id: string;
+            first_name: string;
+            last_name: string;
+            school: string | null;
+            photo_url: string | null;
+            average_rating: number | null;
+            review_count: number | null;
+          }
+        | Array<{
+            id: string;
+            first_name: string;
+            last_name: string;
+            school: string | null;
+            photo_url: string | null;
+            average_rating: number | null;
+            review_count: number | null;
+          }>
+        | null;
+      facilities:
+        | { id: string; name: string; address: string | null }
+        | Array<{ id: string; name: string; address: string | null }>
+        | null;
+      session_participants?: ParticipantRow[];
+    } | null;
     if (!session) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const participants = (session.session_participants ?? []) as ParticipantRow[];
+    const participants = ((session.session_participants ?? []) as ParticipantRow[]).filter(
+      (participant) => participant.status !== 'cancelled'
+    );
     const roster = participants
-      .map((p) => {
+      .map((p, index) => {
         const yw = unwrapOne(p.youth_wrestlers);
-        return buildSessionRosterParticipant(
+        const display = buildSessionRosterParticipant(
           yw
             ? {
                 first_name: yw.first_name,
@@ -117,8 +172,14 @@ export async function GET(
               }
             : { first_name: p.roster_first_name, last_name: p.roster_last_name }
         );
+        return {
+          ...(display ?? { name: `Athlete ${index + 1}` }),
+          participantId: p.id,
+          paid: p.paid ?? null,
+          attendanceStatus: p.attendance_status ?? null,
+        };
       })
-      .filter((r): r is SessionRosterParticipant => r != null);
+      .filter((r) => Boolean(r.participantId));
 
     const max = session.max_participants ?? 1;
     const filled = getEffectiveFilledCountWithListedNames(

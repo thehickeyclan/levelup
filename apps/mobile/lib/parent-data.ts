@@ -210,6 +210,9 @@ export async function fetchFamilyBookings(userId: string): Promise<MobileBooking
 
 export type RosterParticipant = {
   name: string;
+  participantId?: string;
+  paid?: boolean | null;
+  attendanceStatus?: 'attended' | 'no_show' | null;
   age?: number | null;
   weightClass?: string | null;
   skillLevel?: string | null;

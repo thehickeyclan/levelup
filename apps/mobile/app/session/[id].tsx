@@ -32,6 +32,11 @@ export default function SessionDetailScreen() {
   }
 
   const canJoin = session != null && session.status === 'scheduled' && session.openings > 0;
+  const sessionEnded =
+    session != null &&
+    new Date(session.scheduled_datetime).getTime() +
+      (session.duration_minutes ?? 60) * 60_000 <=
+      Date.now();
 
   return (
     <SessionDetailView
@@ -43,6 +48,30 @@ export default function SessionDetailScreen() {
       footer={
         isCoachView && session ? (
           <>
+            {session.status === 'scheduled' && sessionEnded ? (
+              <Pressable
+                style={styles.button}
+                onPress={() => router.push(`/coach-session-closeout/${id}`)}
+              >
+                <Text style={styles.buttonText}>Close out session</Text>
+              </Pressable>
+            ) : null}
+            {session.status === 'scheduled' ? (
+              <Pressable
+                style={styles.secondaryButton}
+                onPress={() => router.push(`/coach-session-reschedule/${id}`)}
+              >
+                <Text style={styles.secondaryButtonText}>Reschedule session</Text>
+              </Pressable>
+            ) : null}
+            {session.status === 'scheduled' ? (
+              <Pressable
+                style={styles.secondaryButton}
+                onPress={() => router.push(`/coach-session-closeout/${id}?action=cancel`)}
+              >
+                <Text style={styles.secondaryButtonText}>Cancel session</Text>
+              </Pressable>
+            ) : null}
             <Pressable style={styles.button} onPress={() => router.push('/new-message')}>
               <Text style={styles.buttonText}>Message parent or athlete</Text>
             </Pressable>

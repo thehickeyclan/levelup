@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/lib/auth';
 import { colors, typography } from '@/lib/theme';
 import { ParentReviewPromptModal, type ParentReviewPrompt } from '@/components/parent-review-prompt';
+import { mobileActivityTitle, type MobileActivityPost } from '@/lib/activity-display';
 
 type CoachMapPin = {
   pinKey: string;
@@ -24,14 +25,8 @@ type CoachMapPin = {
   hasOpenSession: boolean;
 };
 
-type ActivityPreview = {
+type ActivityPreview = MobileActivityPost & {
   id: string;
-  trigger_type: string;
-  caption?: string | null;
-  athletes?:
-    | { first_name?: string | null; last_name?: string | null }
-    | { first_name?: string | null; last_name?: string | null }[]
-    | null;
 };
 
 const NC_REGION = {
@@ -215,15 +210,7 @@ export function ParentHomeScreen() {
             </View>
           </View>
           {activity.map((post) => {
-            const coachRaw = post.athletes;
-            const coach = Array.isArray(coachRaw) ? coachRaw[0] : coachRaw;
-            const coachName = [coach?.first_name, coach?.last_name].filter(Boolean).join(' ');
-            const title =
-              post.trigger_type === 'coach_joined'
-                ? `${coachName || 'A new coach'} joined The Guild`
-                : post.trigger_type === 'session_created'
-                  ? `${coachName || 'A coach'} created new training`
-                  : post.caption || 'New Guild activity';
+            const title = mobileActivityTitle(post);
             return (
               <View key={post.id} style={styles.activityRow}>
                 <View style={styles.activityDot} />

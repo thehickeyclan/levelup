@@ -14,8 +14,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { colors, typography } from '@/lib/theme';
+import { mobileActivityTitle, type MobileActivityPost } from '@/lib/activity-display';
 
-type FeedPost = {
+type FeedPost = MobileActivityPost & {
   id: string;
   trigger_type: string;
   created_at: string;
@@ -46,21 +47,6 @@ type PlaybookPreview = {
 function one<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
-}
-
-function title(post: FeedPost): string {
-  const coach = one(post.athletes);
-  const wrestler = one(post.youth_wrestlers);
-  const coachName = [coach?.first_name, coach?.last_name].filter(Boolean).join(' ');
-  const wrestlerName = [wrestler?.first_name, wrestler?.last_name].filter(Boolean).join(' ');
-  if (post.trigger_type === 'coach_joined') return `${coachName || 'A coach'} joined The Guild`;
-  if (post.trigger_type === 'session_created') return `${coachName || 'A coach'} posted new training`;
-  if (post.trigger_type === 'session_completed') return `${wrestlerName || 'An athlete'} completed training`;
-  if (post.trigger_type === 'booking_confirmed') return `${wrestlerName || 'An athlete'} joined a session`;
-  if (post.trigger_type === 'review_posted') return `New coach review`;
-  if (post.trigger_type === 'photo_post') return `${coachName || wrestlerName || 'The Guild'} shared session photos`;
-  if (post.trigger_type.startsWith('market_')) return 'Guild Market update';
-  return 'Guild activity';
 }
 
 export default function ActivityScreen() {
@@ -205,7 +191,7 @@ export default function ActivityScreen() {
             <View style={styles.cardTop}>
               {avatar ? <Image source={{ uri: avatar }} style={styles.avatar} /> : <View style={styles.avatarFallback} />}
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>{title(post)}</Text>
+                <Text style={styles.cardTitle}>{mobileActivityTitle(post)}</Text>
                 <Text style={styles.time}>{new Date(post.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
               </View>
             </View>

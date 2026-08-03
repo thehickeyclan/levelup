@@ -33,6 +33,7 @@ export default function CoachDetailScreen() {
   const { user, role, isCoachView, selectedCoachId } = useAuth();
   const [coach, setCoach] = useState<Coach | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [messageError, setMessageError] = useState<string | null>(null);
   const [openingMessage, setOpeningMessage] = useState(false);
   const [following, setFollowing] = useState(false);
   const [savingFollow, setSavingFollow] = useState(false);
@@ -81,6 +82,7 @@ export default function CoachDetailScreen() {
     );
   }
   const coachId = coach.id;
+  const coachFirstName = coach.first_name;
   const coachName = `${coach.first_name} ${coach.last_name}`.trim();
   const currentCoachId =
     role === 'admin' ? selectedCoachId : role === 'coach' ? user?.id ?? null : null;
@@ -89,15 +91,23 @@ export default function CoachDetailScreen() {
   async function messageCoach() {
     if (openingMessage) return;
     setOpeningMessage(true);
-    setError(null);
+    setMessageError(null);
     try {
       const data = await apiFetch<{ threadId: string }>('/api/guild/messages/coach-inquiry', {
         method: 'POST',
         body: JSON.stringify({ coachUserId: coachId }),
       });
-      router.push(`/thread/${data.threadId}`);
+      router.push({
+        pathname: '/thread/[id]',
+        params: {
+          id: data.threadId,
+          ...(isCoachView
+            ? {}
+            : { draft: `Hi ${coachFirstName}, are you available for training?` }),
+        },
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not open conversation');
+      setMessageError(e instanceof Error ? e.message : 'Could not open conversation');
       setOpeningMessage(false);
     }
   }
@@ -179,11 +189,31 @@ export default function CoachDetailScreen() {
           <Text style={styles.availabilityHelp}>
             Connect directly for referrals, training questions, or another available time.
           </Text>
-          <Pressable style={styles.buttonSecondary} onPress={() => void messageCoach()} disabled={openingMessage}>
+          <Pressable
+            style={[styles.buttonSecondary, openingMessage && styles.buttonDisabled]}
+            onPress={() => void messageCoach()}
+            disabled={openingMessage}
+            accessibilityRole="button"
+            accessibilityLabel={isCoachView ? `Message ${coachName}` : `Ask ${coachName} about availability`}
+            accessibilityState={{ disabled: openingMessage, busy: openingMessage }}
+          >
             <Text style={styles.buttonSecondaryText}>
               {openingMessage ? 'Opening…' : isCoachView ? 'Message coach' : 'Ask coach about availability'}
             </Text>
           </Pressable>
+          {messageError ? (
+            <View style={styles.actionError} accessibilityRole="alert">
+              <Text style={styles.actionErrorText}>{messageError}</Text>
+              <Pressable
+                onPress={() => void messageCoach()}
+                disabled={openingMessage}
+                accessibilityRole="button"
+                accessibilityLabel="Try opening the coach conversation again"
+              >
+                <Text style={styles.retryText}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </>
       ) : null}
       {isCoachView ? (
@@ -290,6 +320,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  buttonDisabled: { opacity: 0.6 },
   buttonSecondaryText: {
     ...typography.bodyBold,
     color: colors.accent,
@@ -298,5 +329,15 @@ const styles = StyleSheet.create({
   },
   shareButton: { minHeight: 46, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   shareButtonText: { ...typography.bodySemi, color: colors.textSecondary, fontSize: 13 },
+  actionError: {
+    marginTop: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: 4,
+    backgroundColor: colors.surface,
+  },
+  actionErrorText: { ...typography.body, color: colors.danger, fontSize: 13, lineHeight: 18 },
+  retryText: { ...typography.bodyBold, color: colors.accent, fontSize: 13, marginTop: 8 },
   error: { color: colors.danger, fontFamily: 'Inter_400Regular' },
 });

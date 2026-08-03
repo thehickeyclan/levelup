@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { getTenantByDomain } from '@/config/tenants';
+import { getTenantFromRequestHeaders } from '@/config/tenants';
 
 /** GET - list all coaches (athletes) so parent can start a DM with any. */
 export async function GET() {
   try {
     const headersList = await headers();
-    const host = headersList.get('host') || '';
-    const tenant = getTenantByDomain(host);
+    const tenant = getTenantFromRequestHeaders(headersList);
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
 
     const supabase = await createClient(tenant.slug);

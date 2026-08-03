@@ -31,12 +31,14 @@ type Message = {
 type DeliveryChannel = 'in_app' | 'sms';
 
 export default function ThreadScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, draft: initialDraft } = useLocalSearchParams<{ id: string; draft?: string }>();
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() =>
+    typeof initialDraft === 'string' ? initialDraft.slice(0, 1000) : ''
+  );
   const [sending, setSending] = useState(false);
   const [deliveryChannel, setDeliveryChannel] = useState<DeliveryChannel>('in_app');
   const [deliveryNotice, setDeliveryNotice] = useState<string | null>(null);

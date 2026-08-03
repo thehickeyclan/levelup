@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getTenantByDomain } from '@/config/tenants';
+import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { ensureCoachInquiryThread } from '@/lib/guild-coach-inquiry';
 import { coachMayMessageUser } from '@/lib/coach-message-contacts';
 import { resolveCoachActorId } from '@/lib/coach-actor-server';
@@ -11,8 +11,7 @@ import { canonicalCoachConversationPair } from '@/lib/coach-peer-message';
 /** POST { coachUserId } (parent/athlete/coach) or { parentId } (coach) — open/create DM. */
 export async function POST(req: NextRequest) {
   const headersList = await headers();
-  const host = headersList.get('host') || '';
-  const tenant = getTenantByDomain(host);
+  const tenant = getTenantFromRequestHeaders(headersList);
   if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
 
   const supabase = await createClient(tenant.slug);

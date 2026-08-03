@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     coachUserId?: string;
     parentId?: string;
+    senderMode?: 'family' | 'coach';
   };
 
   const { data: caller } = await supabase.from('users').select('role').eq('id', user.id).single();
@@ -35,7 +36,12 @@ export async function POST(req: NextRequest) {
   if (body.coachUserId) {
     requestedCoachUserId = body.coachUserId;
     coachUserId = requestedCoachUserId;
-    if (callerRole === 'coach' || callerRole === 'admin') {
+    // Admins can browse the native app in its family view. In that mode they
+    // should message from their own account, not be forced through coach-preview
+    // calendar state just because their underlying database role is admin.
+    if (callerRole === 'admin' && body.senderMode !== 'coach') {
+      parentId = user.id;
+    } else if (callerRole === 'coach' || callerRole === 'admin') {
       const actor = await resolveCoachActorId(supabase, user.id);
       if (!actor.ok) {
         return NextResponse.json({ error: actor.error }, { status: actor.status });

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { WEB_ORIGIN } from '@/lib/config';
-import { colors } from '@/lib/theme';
+import { marketColors as colors } from '@/lib/theme';
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,8 +22,8 @@ export default function OrderDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, gap: 12 },
-  title: { fontSize: 22, fontWeight: '800' },
+  container: { flex: 1, padding: 20, gap: 12, backgroundColor: colors.background },
+  title: { fontSize: 22, fontWeight: '800', color: colors.text },
   meta: { color: colors.textSecondary },
   button: {
     backgroundColor: colors.accent,
@@ -32,5 +32,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonText: { color: '#fff', fontWeight: '700' },
+  buttonText: { color: colors.black, fontWeight: '700' },
 });

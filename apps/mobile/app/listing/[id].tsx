@@ -14,7 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { apiFetch } from '@/lib/api';
 import { WEB_ORIGIN } from '@/lib/config';
-import { colors, typography } from '@/lib/theme';
+import { marketColors as colors, typography } from '@/lib/theme';
 
 type Listing = {
   id: string;

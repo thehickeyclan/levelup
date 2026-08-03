@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
-import { colors, typography } from '@/lib/theme';
+import { marketColors as colors, typography } from '@/lib/theme';
 
 type ListingType = 'collection' | 'sell' | 'trade';
 type Listing = {

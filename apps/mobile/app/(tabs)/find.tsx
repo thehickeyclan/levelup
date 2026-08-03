@@ -126,7 +126,7 @@ export default function FindScreen() {
     try {
       const data = await apiFetch<{ threadId: string }>('/api/guild/messages/coach-inquiry', {
         method: 'POST',
-        body: JSON.stringify({ coachUserId: coachId }),
+        body: JSON.stringify({ coachUserId: coachId, senderMode: 'family' }),
       });
       router.push(`/thread/${data.threadId}`);
     } catch (e) {

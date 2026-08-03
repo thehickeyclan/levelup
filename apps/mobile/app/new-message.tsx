@@ -104,7 +104,9 @@ export default function NewMessageScreen() {
       const data = await apiFetch<{ threadId: string }>('/api/guild/messages/coach-inquiry', {
         method: 'POST',
         body: JSON.stringify(
-          isCoach ? { parentId: target.id } : { coachUserId: target.id }
+          isCoach
+            ? { parentId: target.id, senderMode: 'coach' }
+            : { coachUserId: target.id, senderMode: 'family' }
         ),
       });
       router.replace(`/thread/${data.threadId}`);

@@ -40,7 +40,7 @@ export default function MyCoachesScreen() {
     try {
       const result = await apiFetch<{ threadId: string }>('/api/guild/messages/coach-inquiry', {
         method: 'POST',
-        body: JSON.stringify({ coachId }),
+        body: JSON.stringify({ coachUserId: coachId, senderMode: 'family' }),
       });
       router.push(`/thread/${result.threadId}`);
     } catch (e) {

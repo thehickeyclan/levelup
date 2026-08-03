@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, usePathname, useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -9,13 +9,21 @@ import {
   PlayfairDisplay_700Bold,
 } from '@expo-google-fonts/playfair-display';
 import { AuthProvider } from '@/lib/auth';
-import { colors } from '@/lib/theme';
+import { colors, marketColors } from '@/lib/theme';
 import { getNotificationDeepLink } from '@/lib/push';
 import { GuildLogo } from '@/components/guild-logo';
 import { MobileCartProvider } from '@/lib/mobile-cart';
 
 export default function RootLayout() {
   const router = useRouter();
+  const pathname = usePathname();
+  const isMarketScreen =
+    pathname === '/market' ||
+    pathname.startsWith('/listing/') ||
+    pathname === '/my-market' ||
+    pathname === '/add-shoe' ||
+    pathname.startsWith('/manage-listing/') ||
+    pathname.startsWith('/order/');
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -59,15 +67,22 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <MobileCartProvider>
-        <StatusBar style="light" />
+        <StatusBar style={isMarketScreen ? 'dark' : 'light'} />
         <Stack
           screenOptions={{
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.accent,
-            headerTitleStyle: { fontFamily: 'Inter_600SemiBold', color: colors.text },
+            headerStyle: {
+              backgroundColor: isMarketScreen ? marketColors.background : colors.background,
+            },
+            headerTintColor: isMarketScreen ? marketColors.text : colors.accent,
+            headerTitleStyle: {
+              fontFamily: 'Inter_600SemiBold',
+              color: isMarketScreen ? marketColors.text : colors.text,
+            },
             headerShadowVisible: false,
             headerBackButtonDisplayMode: 'minimal',
-            contentStyle: { backgroundColor: colors.background },
+            contentStyle: {
+              backgroundColor: isMarketScreen ? marketColors.background : colors.background,
+            },
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />

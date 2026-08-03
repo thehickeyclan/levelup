@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
-import { colors, typography } from '@/lib/theme';
+import { marketColors as colors, typography } from '@/lib/theme';
 
 type MarketItem = {
   id: string;

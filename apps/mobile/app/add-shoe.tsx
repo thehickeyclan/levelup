@@ -13,7 +13,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
-import { colors, typography } from '@/lib/theme';
+import { marketColors as colors, typography } from '@/lib/theme';
 
 type ListingType = 'collection' | 'sell' | 'trade';
 type WearState = 'bnib' | 'new_no_box' | 'used';

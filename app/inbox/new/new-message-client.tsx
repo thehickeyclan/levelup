@@ -118,7 +118,7 @@ export function NewMessageClient({
       const res = await fetch('/api/guild/messages/coach-inquiry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ coachUserId: coachId }),
+        body: JSON.stringify({ coachUserId: coachId, senderMode: 'family' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not start conversation');

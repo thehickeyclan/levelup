@@ -95,7 +95,10 @@ export default function CoachDetailScreen() {
     try {
       const data = await apiFetch<{ threadId: string }>('/api/guild/messages/coach-inquiry', {
         method: 'POST',
-        body: JSON.stringify({ coachUserId: coachId }),
+        body: JSON.stringify({
+          coachUserId: coachId,
+          senderMode: isCoachView ? 'coach' : 'family',
+        }),
       });
       router.push({
         pathname: '/thread/[id]',

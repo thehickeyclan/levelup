@@ -17,6 +17,28 @@ export const colors = {
   white: '#FFFFFF',
 };
 
+/**
+ * Native equivalent of the website's `.theme-market` storefront palette.
+ * Market is intentionally the only light section of the mobile app.
+ */
+export const marketColors = {
+  black: '#000000',
+  navy: '#0A1628',
+  background: '#FAF9F6',
+  surface: '#FFFFFF',
+  surfaceRaised: '#EEEAE4',
+  accent: '#B89D60',
+  accentHover: '#9A8550',
+  accentLight: '#C9B078',
+  text: '#1C1C1C',
+  textMuted: '#6B6B6B',
+  textSecondary: '#595959',
+  border: '#DEDAD4',
+  danger: '#B91C1C',
+  success: '#15803D',
+  white: '#FFFFFF',
+};
+
 export const typography = {
   brand: {
     fontFamily: 'PlayfairDisplay_700Bold',

@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { colors, typography } from '@/lib/theme';
 import { useMobileCart } from '@/lib/mobile-cart';
 import { useInboxUnreadRealtime } from '@/lib/use-inbox-unread-realtime';
+import { BADGE_TEXT_MAX_SCALE, MIN_TOUCH_TARGET, NAV_TEXT_MAX_SCALE } from '@/lib/accessibility';
 
 function TabLabel({
   label,
@@ -18,8 +19,9 @@ function TabLabel({
     <View style={styles.tabLabelWrap}>
       <Text
         numberOfLines={1}
+        maxFontSizeMultiplier={NAV_TEXT_MAX_SCALE}
         style={{
-          fontSize: 10,
+          fontSize: 11,
           fontFamily: focused ? 'Inter_700Bold' : 'Inter_500Medium',
           color: focused ? colors.accent : colors.textSecondary,
           letterSpacing: 0.3,
@@ -29,7 +31,9 @@ function TabLabel({
       </Text>
       {badge && badge > 0 ? (
         <View style={styles.inboxBadge}>
-          <Text style={styles.inboxBadgeText}>{badge > 99 ? '99+' : badge}</Text>
+          <Text maxFontSizeMultiplier={BADGE_TEXT_MAX_SCALE} style={styles.inboxBadgeText}>
+            {badge > 99 ? '99+' : badge}
+          </Text>
         </View>
       ) : null}
     </View>
@@ -58,12 +62,13 @@ export default function TabsLayout() {
           tabBarInactiveTintColor: colors.textSecondary,
           tabBarShowLabel: false,
           tabBarIconStyle: { width: '100%' },
+          tabBarItemStyle: { minHeight: MIN_TOUCH_TARGET },
           tabBarStyle: {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
             borderTopWidth: 1,
             paddingTop: 6,
-            height: 64,
+            minHeight: 72,
           },
         }}
       >
@@ -71,6 +76,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
+          tabBarAccessibilityLabel: 'Home tab',
           tabBarIcon: ({ focused }) => <TabLabel label="Home" focused={focused} />,
         }}
       />
@@ -79,6 +85,7 @@ export default function TabsLayout() {
         options={{
           title: isCoachView ? 'Create' : 'Training',
           href: isCoachView ? null : undefined,
+          tabBarAccessibilityLabel: 'Training tab',
           tabBarIcon: ({ focused }) => <TabLabel label="Training" focused={focused} />,
         }}
       />
@@ -87,6 +94,7 @@ export default function TabsLayout() {
         options={{
           title: isCoachView ? 'Schedule' : 'Bookings',
           href: isCoachView ? undefined : null,
+          tabBarAccessibilityLabel: isCoachView ? 'Schedule tab' : 'Bookings tab',
           tabBarIcon: ({ focused }) => (
             <TabLabel label={isCoachView ? 'Schedule' : 'Bookings'} focused={focused} />
           ),
@@ -96,6 +104,9 @@ export default function TabsLayout() {
         name="inbox"
         options={{
           title: 'Inbox',
+          tabBarAccessibilityLabel: inboxUnreadCount > 0
+            ? `Inbox tab, ${inboxUnreadCount} unread`
+            : 'Inbox tab',
           tabBarIcon: ({ focused }) => (
             <TabLabel label="Inbox" focused={focused} badge={inboxUnreadCount} />
           ),
@@ -105,6 +116,7 @@ export default function TabsLayout() {
         name="market"
         options={{
           title: 'Market',
+          tabBarAccessibilityLabel: 'Market tab',
           tabBarIcon: ({ focused }) => <TabLabel label="Market" focused={focused} />,
         }}
       />
@@ -119,6 +131,7 @@ export default function TabsLayout() {
         name="account"
         options={{
           title: 'More',
+          tabBarAccessibilityLabel: 'More tab',
           tabBarIcon: ({ focused }) => <TabLabel label="More" focused={focused} />,
         }}
       />
@@ -130,9 +143,9 @@ export default function TabsLayout() {
           accessibilityRole="button"
           accessibilityLabel={`Open Training Cart with ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
         >
-          <Text style={styles.floatingCartText}>Cart</Text>
+          <Text maxFontSizeMultiplier={NAV_TEXT_MAX_SCALE} style={styles.floatingCartText}>Cart</Text>
           <View style={styles.cartCount}>
-            <Text style={styles.cartCountText}>{cartCount}</Text>
+            <Text maxFontSizeMultiplier={BADGE_TEXT_MAX_SCALE} style={styles.cartCountText}>{cartCount}</Text>
           </View>
         </Pressable>
       ) : null}
@@ -142,13 +155,13 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
-  tabLabelWrap: { minWidth: 48, height: 28, alignItems: 'center', justifyContent: 'center' },
+  tabLabelWrap: { minWidth: 56, minHeight: 36, alignItems: 'center', justifyContent: 'center' },
   inboxBadge: {
     position: 'absolute',
     right: -2,
     top: -4,
     minWidth: 17,
-    height: 17,
+    minHeight: 18,
     borderRadius: 9,
     paddingHorizontal: 4,
     backgroundColor: colors.accent,
@@ -161,8 +174,8 @@ const styles = StyleSheet.create({
   floatingCart: {
     position: 'absolute',
     right: 16,
-    bottom: 74,
-    minHeight: 46,
+    bottom: 82,
+    minHeight: MIN_TOUCH_TARGET,
     paddingHorizontal: 18,
     borderRadius: 23,
     flexDirection: 'row',
@@ -180,7 +193,7 @@ const styles = StyleSheet.create({
   floatingCartText: { ...typography.bodyBold, color: colors.black, fontSize: 13 },
   cartCount: {
     minWidth: 22,
-    height: 22,
+    minHeight: 22,
     paddingHorizontal: 6,
     borderRadius: 11,
     backgroundColor: colors.black,

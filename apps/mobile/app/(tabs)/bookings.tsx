@@ -15,6 +15,7 @@ import { statusLabel } from '@/components/session-detail-view';
 import { fetchFamilyBookings, sessionTypeLabel, type MobileBooking } from '@/lib/parent-data';
 import { colors, typography } from '@/lib/theme';
 import { coachSessionTitle, fetchCoachSessions, type CoachSessionRow } from '@/lib/coach-data';
+import { MIN_TOUCH_TARGET } from '@/lib/accessibility';
 
 const ENDED_STATUSES = new Set(['completed', 'cancelled', 'no-show']);
 
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   scheduleIntro: { ...typography.body, color: colors.textMuted, marginTop: 6, fontSize: 14 },
   previewCoachLink: {
-    minHeight: 42,
+    minHeight: MIN_TOUCH_TARGET,
     justifyContent: 'center',
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -283,7 +284,7 @@ const styles = StyleSheet.create({
   segment: { flexDirection: 'row', gap: 8, marginTop: 16 },
   segmentButton: {
     flex: 1,
-    minHeight: 42,
+    minHeight: MIN_TOUCH_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

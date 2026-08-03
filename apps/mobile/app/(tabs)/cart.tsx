@@ -13,6 +13,7 @@ import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useMobileCart } from '@/lib/mobile-cart';
 import { colors, typography } from '@/lib/theme';
+import { MIN_TOUCH_TARGET } from '@/lib/accessibility';
 
 type Wrestler = {
   id: string;
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
   selectLabel: { ...typography.bodySemi, color: colors.text, fontSize: 12, marginTop: 16 },
   wrestlerOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 9 },
   wrestlerChip: {
-    minHeight: 38,
+    minHeight: MIN_TOUCH_TARGET,
     paddingHorizontal: 12,
     borderRadius: 999,
     borderWidth: 1,

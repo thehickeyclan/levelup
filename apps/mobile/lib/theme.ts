@@ -9,7 +9,8 @@ export const colors = {
   accentLight: '#C9B078',
   text: '#F5F5F5',
   textMuted: '#A3A3A3',
-  textSecondary: '#737373',
+  // High enough contrast for small secondary copy on the app background.
+  textSecondary: '#8A8A8A',
   border: '#2A2A2A',
   danger: '#EF4444',
   success: '#22C55E',

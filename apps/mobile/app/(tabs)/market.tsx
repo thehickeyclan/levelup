@@ -195,7 +195,7 @@ export default function MarketScreen() {
               </View>
               <View style={styles.featuredInfo}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.featuredTitle} numberOfLines={1}>{listingName(featured)}</Text>
+                  <Text style={styles.featuredTitle}>{listingName(featured)}</Text>
                   <Text style={styles.featuredMeta}>{listingMeta(featured) || 'Guild listing'}</Text>
                 </View>
                 <Text style={styles.featuredPrice}>{listingPriceLabel(featured)}</Text>
@@ -251,13 +251,13 @@ const styles = StyleSheet.create({
   list: { padding: 20, paddingBottom: 40 },
   columns: { gap: 12 },
   header: { marginBottom: 14, width: '100%' },
-  marketTopRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  marketTopRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   sub: { ...typography.body, color: colors.textMuted, marginTop: 6, fontSize: 14 },
-  myMarketButton: { borderWidth: 1, borderColor: colors.accent, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 9 },
+  myMarketButton: { minHeight: 44, borderWidth: 1, borderColor: colors.accent, borderRadius: 999, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
   myMarketButtonText: { ...typography.bodySemi, color: colors.accent, fontSize: 10 },
-  addShoeButton: { alignSelf: 'flex-start', backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, marginTop: 14 },
+  addShoeButton: { alignSelf: 'flex-start', minHeight: 44, backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   addShoeButtonText: { ...typography.bodyBold, color: colors.black, fontSize: 11 },
   search: { ...typography.body, minHeight: 46, color: colors.text, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, marginTop: 18, fontSize: 13 },
   filters: { gap: 8, paddingTop: 11, paddingBottom: 5 },

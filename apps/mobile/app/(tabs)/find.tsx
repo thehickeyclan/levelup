@@ -24,6 +24,7 @@ import { colors, typography } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { statusLabel } from '@/components/session-detail-view';
 import { useMobileCart } from '@/lib/mobile-cart';
+import { MIN_TOUCH_TARGET } from '@/lib/accessibility';
 
 type Tab = 'available' | 'request' | 'mine';
 
@@ -422,7 +423,7 @@ const styles = StyleSheet.create({
   },
   segmentBtn: {
     flex: 1,
-    minHeight: 38,
+    minHeight: MIN_TOUCH_TARGET,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.border,
@@ -503,7 +504,7 @@ const styles = StyleSheet.create({
   sessionActions: { flexDirection: 'row', gap: 8, marginTop: 14 },
   sessionPrimaryButton: {
     flex: 1,
-    minHeight: 42,
+    minHeight: MIN_TOUCH_TARGET,
     borderRadius: 4,
     backgroundColor: colors.accent,
     alignItems: 'center',
@@ -512,7 +513,7 @@ const styles = StyleSheet.create({
   sessionPrimaryText: { ...typography.bodyBold, color: colors.black, fontSize: 12 },
   sessionSecondaryButton: {
     flex: 1,
-    minHeight: 42,
+    minHeight: MIN_TOUCH_TARGET,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.border,
@@ -549,7 +550,7 @@ const styles = StyleSheet.create({
   profileHint: { ...typography.bodySemi, color: colors.accent, fontSize: 10, marginTop: 5 },
   coachMessageButton: {
     minWidth: 76,
-    minHeight: 36,
+    minHeight: MIN_TOUCH_TARGET,
     paddingHorizontal: 10,
     borderRadius: 18,
     borderWidth: 1,

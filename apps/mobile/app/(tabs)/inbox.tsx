@@ -13,6 +13,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 import { colors, typography } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
+import { MIN_TOUCH_TARGET } from '@/lib/accessibility';
 
 type Thread = {
   id: string;
@@ -188,6 +189,9 @@ export default function InboxScreen() {
                   key={value}
                   style={[styles.filter, selected && styles.filterSelected]}
                   onPress={() => setFilter(value)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`${label} messages`}
                 >
                   <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
                     {label}
@@ -214,7 +218,7 @@ export default function InboxScreen() {
             <View style={styles.titleRow}>
               <Text
                 style={[styles.title, (item.unread ?? item.unread_count ?? 0) > 0 && styles.titleUnread]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {cleanTitle(item)}
               </Text>
@@ -224,7 +228,7 @@ export default function InboxScreen() {
             {(item.preview ?? item.last_message_preview) ? (
               <Text
                 style={[styles.meta, (item.unread ?? item.unread_count ?? 0) > 0 && styles.metaUnread]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {(item.preview ?? item.last_message_preview) === 'No messages yet'
                   ? 'No messages yet — tap to start'
@@ -263,18 +267,18 @@ const styles = StyleSheet.create({
   },
   list: { padding: 20, paddingBottom: 40 },
   header: { marginBottom: 22 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
+  headerRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   sub: { ...typography.body, color: colors.textMuted, marginTop: 7, fontSize: 13, lineHeight: 19 },
   search: { ...typography.body, minHeight: 46, color: colors.text, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 13, marginTop: 16, fontSize: 13 },
-  filters: { flexDirection: 'row', gap: 7, marginTop: 10 },
-  filter: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 },
+  filter: { minHeight: MIN_TOUCH_TARGET, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 13, alignItems: 'center', justifyContent: 'center' },
   filterSelected: { borderColor: colors.accent, backgroundColor: 'rgba(184,157,96,0.16)' },
   filterText: { ...typography.bodySemi, color: colors.textMuted, fontSize: 10 },
   filterTextSelected: { color: colors.accent },
   error: { color: colors.danger, marginTop: 8, fontFamily: 'Inter_400Regular' },
   newButton: {
-    minHeight: 44,
+    minHeight: MIN_TOUCH_TARGET,
     paddingHorizontal: 15,
     borderRadius: 999,
     backgroundColor: colors.accent,
@@ -294,7 +298,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
     paddingVertical: 13,
     borderBottomWidth: 1,
@@ -314,7 +318,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { ...typography.bodyBold, color: colors.accent, fontSize: 16 },
   rowContent: { flex: 1, minWidth: 0 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   title: { ...typography.bodySemi, flex: 1, fontSize: 15, color: colors.text },
   titleUnread: { ...typography.bodyBold },
   time: { ...typography.body, color: colors.textSecondary, fontSize: 11 },
@@ -323,7 +327,7 @@ const styles = StyleSheet.create({
   metaUnread: { color: colors.text },
   unreadBadge: {
     minWidth: 22,
-    height: 22,
+    minHeight: 22,
     borderRadius: 11,
     paddingHorizontal: 6,
     backgroundColor: colors.accent,

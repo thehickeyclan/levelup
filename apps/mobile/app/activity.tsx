@@ -50,8 +50,9 @@ function one<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export default function ActivityScreen() {
-  const { isCoachView } = useAuth();
+  const { isCoachView, role } = useAuth();
   const router = useRouter();
+  const isAthlete = role === 'youth_wrestler';
   const [scope, setScope] = useState<'community' | 'family' | 'coach'>(isCoachView ? 'coach' : 'family');
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [photoSessions, setPhotoSessions] = useState<PhotoSession[]>([]);
@@ -128,10 +129,21 @@ export default function ActivityScreen() {
     >
       <Text style={styles.kicker}>THE GUILD</Text>
       <Text style={styles.heading}>Activity</Text>
-      <Text style={styles.sub}>Training, new coaches, photos, reviews, and Market updates.</Text>
+      <Text style={styles.sub}>
+        {isCoachView
+          ? 'Bookings, coach updates, photos, reviews, and Market activity.'
+          : isAthlete
+            ? 'Your training, coaches you follow, photos, milestones, and Guild updates.'
+            : 'Training, new coaches, photos, reviews, and Market updates.'}
+      </Text>
 
       <View style={styles.tabs}>
-        {(isCoachView ? [['coach', 'My activity'], ['community', 'Community']] : [['family', 'My family'], ['community', 'Community']]).map(([value, label]) => (
+        {(isCoachView
+          ? [['coach', 'My activity'], ['community', 'Community']]
+          : isAthlete
+            ? [['family', 'My training'], ['community', 'Guild']]
+            : [['family', 'My family'], ['community', 'Community']]
+        ).map(([value, label]) => (
           <Pressable key={value} style={[styles.tab, scope === value && styles.tabSelected]} onPress={() => setScope(value as typeof scope)}>
             <Text style={[styles.tabText, scope === value && styles.tabTextSelected]}>{label}</Text>
           </Pressable>
@@ -167,7 +179,7 @@ export default function ActivityScreen() {
 
       {photoSessions.length > 0 ? (
         <View style={styles.shareBox}>
-          <Text style={styles.shareTitle}>Share session photos</Text>
+          <Text style={styles.shareTitle}>{isAthlete ? 'Add photos from training' : 'Share session photos'}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sessionRow}>
             {photoSessions.slice(0, 8).map((session) => (
               <Pressable key={session.id} style={styles.sessionChip} onPress={() => void addPhotos(session)} disabled={Boolean(uploadingId)}>

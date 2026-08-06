@@ -146,7 +146,8 @@ function CoachScheduleScreen() {
 function ParentBookingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ view?: string }>();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAthlete = role === 'youth_wrestler';
   const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -222,7 +223,20 @@ function ParentBookingsScreen() {
       ListHeaderComponent={
         <View style={{ marginBottom: 8 }}>
           <Text style={styles.kicker}>{params.view === 'past' ? 'HISTORY' : 'MY TRAINING'}</Text>
-          <Text style={styles.heading}>{params.view === 'past' ? 'Training history' : 'Upcoming'}</Text>
+          <Text style={styles.heading}>
+            {params.view === 'past'
+              ? isAthlete
+                ? 'My training history'
+                : 'Training history'
+              : isAthlete
+                ? 'My upcoming training'
+                : 'Upcoming'}
+          </Text>
+          {isAthlete ? (
+            <Text style={styles.scheduleIntro}>
+              Track your sessions, coaches, locations, and completed work toward Guild milestones.
+            </Text>
+          ) : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
       }
@@ -253,8 +267,12 @@ function ParentBookingsScreen() {
       ListEmptyComponent={
         <Text style={styles.empty}>
           {params.view === 'past'
-            ? 'No past sessions yet.'
-            : 'No upcoming training. Choose Available or Request to get started.'}
+            ? isAthlete
+              ? 'No completed Guild sessions yet.'
+              : 'No past sessions yet.'
+            : isAthlete
+              ? 'No upcoming training. Join an open group or choose a coach.'
+              : 'No upcoming training. Choose Available or Request to get started.'}
         </Text>
       }
     />

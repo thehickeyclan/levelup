@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth';
 import { colors, typography } from '@/lib/theme';
 import { ParentReviewPromptModal, type ParentReviewPrompt } from '@/components/parent-review-prompt';
 import { mobileActivityTitle, type MobileActivityPost } from '@/lib/activity-display';
+import { milestoneFor } from '@/lib/coach-athletes';
 
 type CoachMapPin = {
   pinKey: string;
@@ -49,6 +50,7 @@ function formatWhen(iso: string) {
 export function ParentHomeScreen() {
   const router = useRouter();
   const { user, role } = useAuth();
+  const isAthlete = role === 'youth_wrestler';
   const [sessions, setSessions] = useState<OpenSmallGroupSession[]>([]);
   const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [pins, setPins] = useState<CoachMapPin[]>([]);
@@ -105,15 +107,23 @@ export function ParentHomeScreen() {
         )[0] ?? null,
     [bookings]
   );
+  const completedTrainingCount = useMemo(
+    () => bookings.filter((booking) => booking.status === 'completed').length,
+    [bookings]
+  );
+  const milestone = milestoneFor(completedTrainingCount);
 
   return (
     <>
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.kicker}>THE WRESTLING GUILD</Text>
-      <Text style={styles.heading}>Your next level starts here.</Text>
+      <Text style={styles.heading}>
+        {isAthlete ? 'Build your wrestling week.' : 'Your next level starts here.'}
+      </Text>
       <Text style={styles.sub}>
-        Train with NCAA wrestlers and elite coaches in your community. Join an open session or
-        choose a coach and book directly from their availability.
+        {isAthlete
+          ? 'Find open small groups, follow coaches, and keep track of your Guild training journey.'
+          : 'Train with NCAA wrestlers and elite coaches in your community. Join an open session or choose a coach and book directly from their availability.'}
       </Text>
 
       <View style={styles.actions}>
@@ -126,6 +136,38 @@ export function ParentHomeScreen() {
           <Text style={styles.secondaryActionMeta}>Private · Partner · Small group</Text>
         </Pressable>
       </View>
+
+      {isAthlete ? (
+        <View style={styles.journeyCard}>
+          <Text style={styles.sectionKicker}>MY GUILD JOURNEY</Text>
+          <View style={styles.journeyTop}>
+            <View>
+              <Text style={styles.journeyNumber}>{completedTrainingCount}</Text>
+              <Text style={styles.journeyLabel}>completed sessions</Text>
+            </View>
+            <View style={styles.milestonePill}>
+              <Text style={styles.milestonePillNumber}>
+                {milestone.earned ? `${milestone.earned}` : milestone.next ? `${milestone.next}` : '100+'}
+              </Text>
+              <Text style={styles.milestonePillLabel}>
+                {milestone.earned ? 'CLUB' : 'NEXT'}
+              </Text>
+            </View>
+          </View>
+          {milestone.next ? (
+            <>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${milestone.progress * 100}%` }]} />
+              </View>
+              <Text style={styles.journeyMeta}>
+                {Math.max(0, milestone.next - completedTrainingCount)} more to reach the {milestone.next}-Session Club.
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.journeyMeta}>You’re in the 100-Session Club. Keep stacking work.</Text>
+          )}
+        </View>
+      ) : null}
 
       {nextBooking ? (
         <Pressable style={styles.nextCard} onPress={() => router.push(`/booking/${nextBooking.id}`)}>
@@ -205,7 +247,7 @@ export function ParentHomeScreen() {
         <>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionKicker}>AROUND THE GUILD</Text>
+              <Text style={styles.sectionKicker}>{isAthlete ? 'TRAINING FEED' : 'AROUND THE GUILD'}</Text>
               <Text style={styles.sectionTitle}>Recent activity</Text>
             </View>
           </View>
@@ -250,6 +292,38 @@ const styles = StyleSheet.create({
   secondaryAction: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 6, padding: 17 },
   secondaryActionTitle: { ...typography.bodyBold, color: colors.text, fontSize: 17 },
   secondaryActionMeta: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 3 },
+  journeyCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 16,
+    marginTop: 18,
+  },
+  journeyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  journeyNumber: { ...typography.display, color: colors.text, fontSize: 35, lineHeight: 38 },
+  journeyLabel: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  milestonePill: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.black,
+  },
+  milestonePillNumber: { ...typography.bodyBold, color: colors.accent, fontSize: 20 },
+  milestonePillLabel: { ...typography.bodyBold, color: colors.accent, fontSize: 8, letterSpacing: 1.4 },
+  progressTrack: {
+    height: 7,
+    borderRadius: 99,
+    backgroundColor: colors.surfaceRaised,
+    overflow: 'hidden',
+    marginTop: 14,
+  },
+  progressFill: { height: '100%', borderRadius: 99, backgroundColor: colors.accent },
+  journeyMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 9 },
   nextCard: { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 1, borderRadius: 6, padding: 16, marginTop: 22 },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 28, marginBottom: 8 },
   sectionHeaderCopy: { flex: 1, minWidth: 0 },

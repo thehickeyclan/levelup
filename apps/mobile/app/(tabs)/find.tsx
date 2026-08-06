@@ -59,7 +59,8 @@ function formatPrice(session: OpenSmallGroupSession) {
 
 export default function FindScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAthlete = role === 'youth_wrestler';
   const { addSession, sessionLineCount } = useMobileCart();
   const params = useLocalSearchParams<{ tab?: string; coachId?: string; coachName?: string }>();
   const [tab, setTab] = useState<Tab>(() => parseTab(params.tab));
@@ -170,7 +171,9 @@ export default function FindScreen() {
         <Text style={styles.sub}>
           {scopedCoachName
             ? `Open small groups with ${scopedCoachName}.`
-            : 'Join an open session or choose a coach to view their profile and availability.'}
+            : isAthlete
+              ? 'Join an open small group, follow coaches, or build your next private or partner session.'
+              : 'Join an open session or choose a coach to view their profile and availability.'}
         </Text>
 
         <View style={styles.segment}>
@@ -305,7 +308,9 @@ export default function FindScreen() {
               <Text style={styles.empty}>
                 {scopedCoachName
                   ? `${scopedCoachName} has no open small groups right now. View availability or send a message.`
-                  : 'Book a coach directly for private, partner, or small-group training.'}
+                  : isAthlete
+                    ? 'Pick a coach to request a private, partner, or new small-group session.'
+                    : 'Book a coach directly for private, partner, or small-group training.'}
               </Text>
               <Pressable
                 style={styles.emptyButton}
@@ -330,9 +335,13 @@ export default function FindScreen() {
           contentContainerStyle={styles.list}
           ListHeaderComponent={
             <View style={styles.coachListIntro}>
-              <Text style={styles.coachListIntroTitle}>Choose your coach</Text>
+              <Text style={styles.coachListIntroTitle}>
+                {isAthlete ? 'Find coaches to follow and train with' : 'Choose your coach'}
+              </Text>
               <Text style={styles.coachListIntroText}>
-                Tap a profile for experience, locations, reviews, and available times.
+                {isAthlete
+                  ? 'Tap a profile for available times, small groups, reviews, and coach updates.'
+                  : 'Tap a profile for experience, locations, reviews, and available times.'}
               </Text>
             </View>
           }
@@ -406,6 +415,11 @@ export default function FindScreen() {
           ListEmptyComponent={
             <View>
               <Text style={styles.empty}>No upcoming training.</Text>
+              {isAthlete ? (
+                <Text style={styles.emptySub}>
+                  Join a small group or book a coach to keep building your Guild session count.
+                </Text>
+              ) : null}
               <Pressable
                 style={styles.historyLink}
                 onPress={() => router.push({ pathname: '/(tabs)/bookings', params: { view: 'past' } })}
@@ -453,6 +467,7 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, marginTop: 8, fontFamily: 'Inter_400Regular' },
   list: { paddingHorizontal: 20, paddingBottom: 40 },
   empty: { ...typography.body, color: colors.textMuted, marginTop: 12 },
+  emptySub: { ...typography.body, color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 6 },
   emptyState: { marginTop: 16 },
   emptyTitle: { ...typography.bodySemi, color: colors.text, fontSize: 16 },
   emptyButton: {

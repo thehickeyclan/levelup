@@ -114,7 +114,7 @@ export default function AccountScreen() {
       <Pressable style={styles.menuRow} onPress={() => router.push('/notification-settings')}>
         <View>
           <Text style={styles.menuTitle}>Notification settings</Text>
-          <Text style={styles.menuMeta}>Choose push and text alerts</Text>
+          <Text style={styles.menuMeta}>Choose app, push, and SMS alerts</Text>
         </View>
         <Text style={styles.menuArrow}>›</Text>
       </Pressable>

@@ -136,7 +136,7 @@ export default function NotificationSettingsScreen() {
 
       <Text style={styles.section}>MESSAGES</Text>
       <SettingRow title="Message push alerts" detail="New internal messages on this iPhone" value={preferences.messaging_push} disabled={saving !== null} onChange={(value) => void toggle('messaging_push', value)} />
-      <SettingRow title="Message text alerts" detail={smsDisabled ? 'Add a phone number or re-enable SMS on the web' : `SMS to ${phone}`} value={preferences.messaging_sms && !preferences.sms_opted_out} disabled={saving !== null || smsDisabled} onChange={(value) => void toggle('messaging_sms', value)} />
+      <SettingRow title="SMS backup alerts" detail={smsDisabled ? 'Add a phone number or re-enable SMS on the web' : 'Urgent/fallback Guild texts. Replies happen in the app.'} value={preferences.messaging_sms && !preferences.sms_opted_out} disabled={saving !== null || smsDisabled} onChange={(value) => void toggle('messaging_sms', value)} />
 
       <Text style={styles.section}>TRAINING</Text>
       <SettingRow title="Session reminder push" detail={isCoachView ? 'Reminders for sessions you coach' : 'Upcoming training reminders'} value={preferences.reminders_push} disabled={saving !== null} onChange={(value) => void toggle('reminders_push', value)} />

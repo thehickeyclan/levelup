@@ -122,7 +122,7 @@ export function NotificationPreferencesForm({
           {row('New sessions from coaches I follow', 'new_sessions_sms', prefs.sms_opted_out)}
           {row('Session reminders (24 hours before)', 'reminders_sms', prefs.sms_opted_out)}
           {row('Booking confirmations', 'confirmations_sms', prefs.sms_opted_out)}
-          {row('Messages sent to me by SMS', 'messaging_sms', prefs.sms_opted_out)}
+          {row('SMS backup message alerts', 'messaging_sms', prefs.sms_opted_out)}
         </div>
       </div>
 

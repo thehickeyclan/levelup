@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, MessageCircle, Send, Smartphone } from 'lucide-react';
+import { Loader2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ProfileImage } from '@/components/profile-image';
 import { useGuildThreadMessages } from '@/lib/hooks/use-guild-thread-messages';
 import { cn } from '@/lib/utils';
-import type { GuildMessageDeliveryChannel } from '@/lib/guild-messaging';
 
 export type MessageThreadProps = {
   threadId: string;
@@ -82,8 +81,6 @@ export function MessageThread({
   const { messages, loading, error, refresh } = useGuildThreadMessages(threadId, currentUserId);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
-  const [deliveryChannel, setDeliveryChannel] = useState<GuildMessageDeliveryChannel>('in_app');
-  const [deliveryNotice, setDeliveryNotice] = useState<string | null>(null);
   const [safetyNotice, setSafetyNotice] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const hasLoadedMessagesRef = useRef(false);
@@ -105,24 +102,15 @@ export function MessageThread({
     const body = draft.trim();
     if (!body || sending || readOnly) return;
     setSending(true);
-    setDeliveryNotice(null);
     try {
       const res = await fetch(`/api/guild/messages/threads/${threadId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, deliveryChannel }),
+        body: JSON.stringify({ body, deliveryChannel: 'in_app' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send');
       setDraft('');
-      if (deliveryChannel === 'sms') {
-        const smsRecipients = Number(data.message?.sms_recipients ?? 0);
-        setDeliveryNotice(
-          smsRecipients > 0
-            ? `Text sent to ${smsRecipients} recipient${smsRecipients === 1 ? '' : 's'} and saved here.`
-            : 'Saved here, but no recipient could receive SMS. They may have no phone on file or opted out.'
-        );
-      }
       await refresh();
       onMessageSent?.();
     } catch (e) {
@@ -265,34 +253,8 @@ export function MessageThread({
 
       {!readOnly ? (
         <div className="border-t border-border p-2 bg-background space-y-2">
-          <div className="flex gap-1" role="group" aria-label="How to send">
-            <Button
-              type="button"
-              size="sm"
-              variant={deliveryChannel === 'in_app' ? 'default' : 'outline'}
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => setDeliveryChannel('in_app')}
-              disabled={sending}
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              Guild message
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={deliveryChannel === 'sms' ? 'default' : 'outline'}
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => setDeliveryChannel('sms')}
-              disabled={sending}
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-              SMS
-            </Button>
-          </div>
           <p className="text-[11px] text-muted-foreground">
-            {deliveryChannel === 'sms'
-              ? 'Send as a text and save a copy in this Guild conversation.'
-              : 'Send in the Guild with an app notification.'}
+            Sends in The Guild and alerts the recipient by app notification.
           </p>
           <div className="flex gap-2 items-end">
             <Textarea
@@ -309,12 +271,11 @@ export function MessageThread({
               className="shrink-0 bg-accent text-accent-foreground"
               disabled={!draft.trim() || sending}
               onClick={() => void send()}
-              aria-label={deliveryChannel === 'sms' ? 'Send SMS' : 'Send Guild message'}
+              aria-label="Send Guild message"
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
-          {deliveryNotice ? <p className="text-xs text-muted-foreground">{deliveryNotice}</p> : null}
         </div>
       ) : null}
       {!readOnly && draft.length > 800 ? (

@@ -361,7 +361,7 @@ export async function notifyGuildMessageRecipients(
     if (opts.deliveryChannel === 'sms') {
       const phone = normalizePhone(userRow?.phone as string | null | undefined);
       if (phone && preferences.messaging_sms && !preferences.sms_opted_out) {
-        const sent = await sendSms(phone, `New Guild message: ${preview}`, {
+        const sent = await sendSms(phone, `New Guild message: ${preview}. Reply in The Guild app.`, {
           admin,
           messageType: notifType,
           recipientId: userId,

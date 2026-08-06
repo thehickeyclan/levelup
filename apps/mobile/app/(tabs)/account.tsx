@@ -16,6 +16,8 @@ export default function AccountScreen() {
     setPreviewCoachView,
     previewParentView,
     setPreviewParentView,
+    previewAthleteView,
+    setPreviewAthleteView,
     selectedCoachName,
     signOut,
   } = useAuth();
@@ -55,7 +57,9 @@ export default function AccountScreen() {
       <Text style={styles.kicker}>MORE</Text>
       <Text style={styles.heading}>Account & activity</Text>
       <Text style={styles.meta}>{user?.email}</Text>
-      <Text style={styles.meta}>Role: {role ?? '…'}</Text>
+      <Text style={styles.meta}>
+        Role: {role ?? '…'}{previewAthleteView ? ' · previewing athlete' : previewParentView ? ' · previewing parent' : previewCoachView ? ' · previewing coach' : ''}
+      </Text>
       {role === 'admin' && isCoachView ? (
         <Pressable style={styles.menuRow} onPress={() => router.push('/select-coach')}>
           <View>
@@ -165,30 +169,58 @@ export default function AccountScreen() {
       ) : null}
 
       {!isRealCoach ? (
-        <Pressable
-          style={previewCoachView ? styles.button : styles.buttonSecondary}
-          onPress={() => {
-            setPreviewCoachView(!previewCoachView);
-            router.replace('/(tabs)');
-          }}
-        >
-          <Text style={previewCoachView ? styles.buttonText : styles.buttonSecondaryText}>
-            {previewCoachView ? 'Exit coach preview' : 'Preview coach view'}
-          </Text>
-        </Pressable>
+        <>
+          <Pressable
+            style={previewCoachView ? styles.button : styles.buttonSecondary}
+            onPress={() => {
+              setPreviewCoachView(!previewCoachView);
+              router.replace('/(tabs)');
+            }}
+          >
+            <Text style={previewCoachView ? styles.buttonText : styles.buttonSecondaryText}>
+              {previewCoachView ? 'Exit coach preview' : 'Preview coach view'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={previewAthleteView ? styles.button : styles.buttonSecondary}
+            onPress={() => {
+              const enteringAthleteView = !previewAthleteView;
+              setPreviewAthleteView(enteringAthleteView);
+              router.replace('/(tabs)');
+            }}
+          >
+            <Text style={previewAthleteView ? styles.buttonText : styles.buttonSecondaryText}>
+              {previewAthleteView ? 'Exit athlete preview' : 'Preview athlete view'}
+            </Text>
+          </Pressable>
+        </>
       ) : (
-        <Pressable
-          style={previewParentView ? styles.button : styles.buttonSecondary}
-          onPress={() => {
-            const enteringParentView = !previewParentView;
-            setPreviewParentView(enteringParentView);
-            router.replace('/(tabs)');
-          }}
-        >
-          <Text style={previewParentView ? styles.buttonText : styles.buttonSecondaryText}>
-            {previewParentView ? 'Exit parent preview' : 'Preview parent view'}
-          </Text>
-        </Pressable>
+        <>
+          <Pressable
+            style={previewParentView ? styles.button : styles.buttonSecondary}
+            onPress={() => {
+              const enteringParentView = !previewParentView;
+              setPreviewParentView(enteringParentView);
+              router.replace('/(tabs)');
+            }}
+          >
+            <Text style={previewParentView ? styles.buttonText : styles.buttonSecondaryText}>
+              {previewParentView ? 'Exit parent preview' : 'Preview parent view'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={previewAthleteView ? styles.button : styles.buttonSecondary}
+            onPress={() => {
+              const enteringAthleteView = !previewAthleteView;
+              setPreviewAthleteView(enteringAthleteView);
+              router.replace('/(tabs)');
+            }}
+          >
+            <Text style={previewAthleteView ? styles.buttonText : styles.buttonSecondaryText}>
+              {previewAthleteView ? 'Exit athlete preview' : 'Preview athlete view'}
+            </Text>
+          </Pressable>
+        </>
       )}
 
       <Pressable style={styles.buttonSecondary} onPress={() => void onEnablePush()} disabled={busy}>

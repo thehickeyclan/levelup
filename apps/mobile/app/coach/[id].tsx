@@ -28,7 +28,8 @@ type Coach = {
 };
 
 export default function CoachDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string | string[] }>();
+  const routeCoachId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
   const { user, role, isCoachView, selectedCoachId } = useAuth();
   const [coach, setCoach] = useState<Coach | null>(null);
@@ -39,18 +40,25 @@ export default function CoachDetailScreen() {
   const [savingFollow, setSavingFollow] = useState(false);
 
   useEffect(() => {
+    if (!routeCoachId) {
+      setError('Coach not found');
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
-        const [{ data, error: qErr }, follow] = await Promise.all([
-          supabase
+        const coachResult = await supabase
           .from('athletes')
           .select('id, first_name, last_name, school, photo_url, bio, average_rating, review_count')
-          .eq('id', id)
+          .eq('id', routeCoachId)
           .eq('active', true)
-          .maybeSingle(),
-          apiFetch<{ following: boolean }>(`/api/coach-follows/check?coachId=${id}`).catch(() => ({ following: false })),
-        ]);
+          .maybeSingle();
+        const follow = isCoachView
+          ? { following: false }
+          : await apiFetch<{ following: boolean }>(
+              `/api/coach-follows/check?coachId=${encodeURIComponent(routeCoachId)}`
+            ).catch(() => ({ following: false }));
+        const { data, error: qErr } = coachResult;
         if (qErr) throw new Error(qErr.message);
         if (!cancelled) {
           setCoach((data as Coach | null) ?? null);
@@ -64,7 +72,7 @@ export default function CoachDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [isCoachView, routeCoachId]);
 
   if (!coach && !error) {
     return (
@@ -163,17 +171,17 @@ export default function CoachDetailScreen() {
       ) : null}
       {coach.bio ? <Text style={styles.bio}>{coach.bio}</Text> : null}
 
-      {!isSelf ? (
+      {!isSelf && !isCoachView ? (
         <Pressable style={styles.followButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
           <Text style={styles.followButtonText}>
             {savingFollow ? 'Saving…' : following ? 'Following · Alerts on' : 'Follow coach'}
           </Text>
         </Pressable>
-      ) : (
+      ) : isSelf ? (
         <Pressable style={styles.followButton} onPress={() => router.push('/coach-profile-edit')}>
           <Text style={styles.followButtonText}>Edit your profile</Text>
         </Pressable>
-      )}
+      ) : null}
 
       <Pressable
         style={styles.button}

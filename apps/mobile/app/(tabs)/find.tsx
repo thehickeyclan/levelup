@@ -59,8 +59,8 @@ function formatPrice(session: OpenSmallGroupSession) {
 
 export default function FindScreen() {
   const router = useRouter();
-  const { user, role } = useAuth();
-  const isAthlete = role === 'youth_wrestler';
+  const { user, role, previewAthleteView } = useAuth();
+  const isAthlete = role === 'youth_wrestler' || previewAthleteView;
   const { addSession, sessionLineCount } = useMobileCart();
   const params = useLocalSearchParams<{ tab?: string; coachId?: string; coachName?: string }>();
   const [tab, setTab] = useState<Tab>(() => parseTab(params.tab));

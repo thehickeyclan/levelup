@@ -50,9 +50,9 @@ function one<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export default function ActivityScreen() {
-  const { isCoachView, role } = useAuth();
+  const { isCoachView, role, previewAthleteView } = useAuth();
   const router = useRouter();
-  const isAthlete = role === 'youth_wrestler';
+  const isAthlete = role === 'youth_wrestler' || previewAthleteView;
   const [scope, setScope] = useState<'community' | 'family' | 'coach'>(isCoachView ? 'coach' : 'family');
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [photoSessions, setPhotoSessions] = useState<PhotoSession[]>([]);

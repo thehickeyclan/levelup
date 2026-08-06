@@ -49,8 +49,8 @@ function formatWhen(iso: string) {
 
 export function ParentHomeScreen() {
   const router = useRouter();
-  const { user, role } = useAuth();
-  const isAthlete = role === 'youth_wrestler';
+  const { user, role, previewAthleteView } = useAuth();
+  const isAthlete = role === 'youth_wrestler' || previewAthleteView;
   const [sessions, setSessions] = useState<OpenSmallGroupSession[]>([]);
   const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [pins, setPins] = useState<CoachMapPin[]>([]);

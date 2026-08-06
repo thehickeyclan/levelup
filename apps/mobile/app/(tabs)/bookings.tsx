@@ -146,8 +146,8 @@ function CoachScheduleScreen() {
 function ParentBookingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ view?: string }>();
-  const { user, role } = useAuth();
-  const isAthlete = role === 'youth_wrestler';
+  const { user, role, previewAthleteView } = useAuth();
+  const isAthlete = role === 'youth_wrestler' || previewAthleteView;
   const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -18,6 +18,9 @@ type AuthContextValue = {
   /** Coach/admin only: browse the app as a parent (mirrors web view-as). */
   previewParentView: boolean;
   setPreviewParentView: (on: boolean) => void;
+  /** Testing only: browse the family side with athlete-specific copy and milestones. */
+  previewAthleteView: boolean;
+  setPreviewAthleteView: (on: boolean) => void;
   selectedCoachId: string | null;
   selectedCoachName: string | null;
   selectCoach: (id: string, name: string) => Promise<void>;
@@ -29,6 +32,7 @@ type AuthContextValue = {
 
 const PREVIEW_KEY = 'guild.previewCoachView';
 const PREVIEW_PARENT_KEY = 'guild.previewParentView';
+const PREVIEW_ATHLETE_KEY = 'guild.previewAthleteView';
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function fetchRole(userId: string): Promise<AppRole | null> {
@@ -41,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [previewCoachView, setPreviewCoachViewState] = useState(false);
   const [previewParentView, setPreviewParentViewState] = useState(false);
+  const [previewAthleteView, setPreviewAthleteViewState] = useState(false);
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
   const [selectedCoachName, setSelectedCoachName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,15 +53,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      const [{ data }, previewRaw, previewParentRaw, selectedCoach] = await Promise.all([
+      const [{ data }, previewRaw, previewParentRaw, previewAthleteRaw, selectedCoach] = await Promise.all([
         supabase.auth.getSession(),
         AsyncStorage.getItem(PREVIEW_KEY),
         AsyncStorage.getItem(PREVIEW_PARENT_KEY),
+        AsyncStorage.getItem(PREVIEW_ATHLETE_KEY),
         getSelectedCoach(),
       ]);
       if (!mounted) return;
       setPreviewCoachViewState(previewRaw === '1');
       setPreviewParentViewState(previewParentRaw === '1');
+      setPreviewAthleteViewState(previewAthleteRaw === '1');
       setSelectedCoachId(selectedCoach.id);
       setSelectedCoachName(selectedCoach.name);
       setSession(data.session);
@@ -89,16 +96,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       user: session?.user ?? null,
       role,
-      isCoachView: (isCoachRole && !previewParentView) || previewCoachView,
+      isCoachView: (isCoachRole && !previewParentView && !previewAthleteView) || previewCoachView,
       previewCoachView,
       setPreviewCoachView: (on: boolean) => {
         setPreviewCoachViewState(on);
         void AsyncStorage.setItem(PREVIEW_KEY, on ? '1' : '0');
+        if (on) {
+          setPreviewParentViewState(false);
+          setPreviewAthleteViewState(false);
+          void AsyncStorage.multiSet([
+            [PREVIEW_PARENT_KEY, '0'],
+            [PREVIEW_ATHLETE_KEY, '0'],
+          ]);
+        }
       },
       previewParentView,
       setPreviewParentView: (on: boolean) => {
         setPreviewParentViewState(on);
         void AsyncStorage.setItem(PREVIEW_PARENT_KEY, on ? '1' : '0');
+        if (on) {
+          setPreviewCoachViewState(false);
+          setPreviewAthleteViewState(false);
+          void AsyncStorage.multiSet([
+            [PREVIEW_KEY, '0'],
+            [PREVIEW_ATHLETE_KEY, '0'],
+          ]);
+        }
+      },
+      previewAthleteView,
+      setPreviewAthleteView: (on: boolean) => {
+        setPreviewAthleteViewState(on);
+        void AsyncStorage.setItem(PREVIEW_ATHLETE_KEY, on ? '1' : '0');
+        if (on) {
+          setPreviewCoachViewState(false);
+          setPreviewParentViewState(false);
+          void AsyncStorage.multiSet([
+            [PREVIEW_KEY, '0'],
+            [PREVIEW_PARENT_KEY, '0'],
+          ]);
+        }
       },
       selectedCoachId,
       selectedCoachName,
@@ -137,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role,
     previewCoachView,
     previewParentView,
+    previewAthleteView,
     selectedCoachId,
     selectedCoachName,
     loading,

@@ -72,7 +72,7 @@ function SettingRow({
 }
 
 export default function NotificationSettingsScreen() {
-  const { role, isCoachView } = useAuth();
+  const { role, isCoachView, previewAthleteView } = useAuth();
   const [preferences, setPreferences] = useState<Preferences>(DEFAULTS);
   const [phone, setPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,7 +119,7 @@ export default function NotificationSettingsScreen() {
   }
 
   const isFamily = !isCoachView;
-  const roleLabel = role === 'youth_wrestler' ? 'Athlete' : isCoachView ? 'Coach' : 'Parent';
+  const roleLabel = role === 'youth_wrestler' || previewAthleteView ? 'Athlete' : isCoachView ? 'Coach' : 'Parent';
   const smsDisabled = preferences.sms_opted_out || !phone;
 
   return (

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -58,6 +60,8 @@ export default function ListingDetailScreen() {
   const [following, setFollowing] = useState(false);
   const [savingFollow, setSavingFollow] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [sendingQuestion, setSendingQuestion] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +135,29 @@ export default function ListingDetailScreen() {
       setError(e instanceof Error ? e.message : 'Could not update watch list');
     } finally {
       setSavingFollow(false);
+    }
+  }
+
+  async function askSeller() {
+    const text = question.trim();
+    if (!text || sendingQuestion) return;
+    setSendingQuestion(true);
+    setError(null);
+    try {
+      const result = await apiFetch<{ thread_id?: string }>(`/api/market/listings/${id}/qa`, {
+        method: 'POST',
+        body: JSON.stringify({ question: text }),
+      });
+      setQuestion('');
+      if (result.thread_id) {
+        router.push(`/thread/${result.thread_id}`);
+      } else {
+        Alert.alert('Message sent', 'Your question was sent to the seller.');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not message seller');
+    } finally {
+      setSendingQuestion(false);
     }
   }
 
@@ -243,6 +270,31 @@ export default function ListingDetailScreen() {
               {savingFollow ? 'Saving…' : following ? 'Watching · Alerts on' : 'Watch this pair'}
             </Text>
           </Pressable>
+          <View style={styles.askCard}>
+            <Text style={styles.sectionLabel}>ASK THE SELLER</Text>
+            <Text style={styles.askHelp}>
+              Ask about fit, condition, trades, or whether they would take an offer.
+            </Text>
+            <TextInput
+              value={question}
+              onChangeText={setQuestion}
+              placeholder="Example: Would you trade for size 9 Rulons?"
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              style={styles.askInput}
+            />
+            <Pressable
+              style={[styles.askButton, (!question.trim() || sendingQuestion) && styles.disabled]}
+              onPress={() => void askSeller()}
+              disabled={!question.trim() || sendingQuestion}
+            >
+              {sendingQuestion ? (
+                <ActivityIndicator color={colors.black} />
+              ) : (
+                <Text style={styles.buttonText}>Send message</Text>
+              )}
+            </Pressable>
+          </View>
           <Pressable
             style={styles.button}
             onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/market/listing/${id}`)}
@@ -298,6 +350,30 @@ const styles = StyleSheet.create({
   descriptionCard: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 22, paddingTop: 18 },
   sectionLabel: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 9, letterSpacing: 1.1 },
   body: { ...typography.body, marginTop: 9, fontSize: 14, lineHeight: 21, color: colors.textMuted },
+  askCard: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 13, padding: 14, marginTop: 18 },
+  askHelp: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 7 },
+  askInput: {
+    ...typography.body,
+    minHeight: 86,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+    color: colors.text,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 12,
+    padding: 12,
+    textAlignVertical: 'top',
+  },
+  askButton: {
+    marginTop: 12,
+    backgroundColor: colors.accent,
+    borderRadius: 10,
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   button: {
     marginTop: 24,
     backgroundColor: colors.accent,
@@ -317,5 +393,6 @@ const styles = StyleSheet.create({
   },
   watchButtonText: { ...typography.bodyBold, color: colors.accent, fontSize: 13 },
   buttonText: { ...typography.bodyBold, color: colors.black, fontSize: 14 },
+  disabled: { opacity: 0.5 },
   error: { ...typography.body, color: colors.danger },
 });

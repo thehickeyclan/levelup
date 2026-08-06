@@ -20,6 +20,8 @@ type Listing = {
   listing_type: string;
   status: string;
   price_cents?: number | null;
+  accepts_offers?: boolean | null;
+  open_to_trade?: boolean | null;
 };
 
 function normalizedType(value: string): ListingType {
@@ -34,6 +36,8 @@ export default function ManageListingScreen() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [listingType, setListingType] = useState<ListingType>('collection');
   const [price, setPrice] = useState('');
+  const [acceptsOffers, setAcceptsOffers] = useState(true);
+  const [openToTrade, setOpenToTrade] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +48,8 @@ export default function ManageListingScreen() {
         setListing(result.listing);
         setListingType(normalizedType(result.listing.listing_type));
         setPrice(result.listing.price_cents != null ? String(result.listing.price_cents / 100) : '');
+        setAcceptsOffers(result.listing.accepts_offers !== false);
+        setOpenToTrade(result.listing.open_to_trade === true);
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Could not load listing'));
   }, [id]);
@@ -63,7 +69,8 @@ export default function ManageListingScreen() {
         body: JSON.stringify({
           listing_type: listingType,
           price_cents: listingType === 'sell' ? Math.round(numericPrice * 100) : null,
-          open_to_trade: listingType === 'trade',
+          open_to_trade: listingType === 'trade' || openToTrade,
+          accepts_offers: listingType !== 'trade' ? acceptsOffers : true,
           ...(nextStatus ? { status: nextStatus } : {}),
         }),
       });
@@ -107,6 +114,20 @@ export default function ManageListingScreen() {
             <Text style={styles.prefix}>$</Text>
             <TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" style={styles.input} placeholder="75" placeholderTextColor={colors.textSecondary} />
           </View>
+          <Pressable style={styles.toggleRow} onPress={() => setAcceptsOffers((value) => !value)}>
+            <View style={[styles.toggleDot, acceptsOffers && styles.toggleDotOn]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toggleTitle}>Accept offers</Text>
+              <Text style={styles.toggleMeta}>Let members bid below ask and start a market conversation.</Text>
+            </View>
+          </Pressable>
+          <Pressable style={styles.toggleRow} onPress={() => setOpenToTrade((value) => !value)}>
+            <View style={[styles.toggleDot, openToTrade && styles.toggleDotOn]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toggleTitle}>Also open to trade</Text>
+              <Text style={styles.toggleMeta}>Show this pair to members browsing trades.</Text>
+            </View>
+          </Pressable>
         </>
       ) : null}
 
@@ -139,6 +160,11 @@ const styles = StyleSheet.create({
   field: { minHeight: 50, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, paddingHorizontal: 12 },
   prefix: { ...typography.bodySemi, color: colors.accent, fontSize: 17 },
   input: { ...typography.bodySemi, flex: 1, color: colors.text, fontSize: 16, paddingHorizontal: 7 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 10, padding: 12, marginTop: 12 },
+  toggleDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border },
+  toggleDotOn: { borderColor: colors.accent, backgroundColor: colors.accent },
+  toggleTitle: { ...typography.bodyBold, color: colors.text, fontSize: 13 },
+  toggleMeta: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 },
   error: { ...typography.body, color: colors.danger, fontSize: 12, marginTop: 15 },
   save: { minHeight: 54, borderRadius: 9, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   saveText: { ...typography.bodyBold, color: colors.black, fontSize: 14 },

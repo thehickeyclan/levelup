@@ -87,11 +87,11 @@ export default function MyMarketScreen() {
   }
 
   const tabs: [Tab, string][] = [
-    ['watching', 'Watching'],
+    ['watching', 'Following'],
     ['collection', 'Collection'],
-    ['selling', 'For sale'],
-    ['trades', 'Trades'],
-    ['sold', 'Sold'],
+    ['selling', 'Selling'],
+    ['trades', 'Trading'],
+    ['sold', 'History'],
     ['orders', 'Orders'],
   ];
 
@@ -110,8 +110,27 @@ export default function MyMarketScreen() {
               <Text style={styles.heading}>Your shoe room</Text>
               <Text style={styles.sub}>Watch, collect, sell, and trade in one place.</Text>
             </View>
-            <Pressable style={styles.addButton} onPress={() => router.push('/add-shoe')}>
+            <Pressable
+              style={styles.addButton}
+              onPress={() => router.push({ pathname: '/add-shoe', params: { mode: 'collection' } })}
+            >
               <Text style={styles.addButtonText}>+ Add shoe</Text>
+            </Pressable>
+          </View>
+          <View style={styles.quickActions}>
+            <Pressable
+              style={styles.quickActionPrimary}
+              onPress={() => router.push({ pathname: '/add-shoe', params: { mode: 'sell' } })}
+            >
+              <Text style={styles.quickTitle}>List a pair</Text>
+              <Text style={styles.quickMeta}>Photos · price · offers</Text>
+            </Pressable>
+            <Pressable
+              style={styles.quickAction}
+              onPress={() => router.push({ pathname: '/add-shoe', params: { mode: 'trade' } })}
+            >
+              <Text style={styles.quickTitleAlt}>Open to trade</Text>
+              <Text style={styles.quickMeta}>Trade or trade + cash</Text>
             </Pressable>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
@@ -166,12 +185,22 @@ export default function MyMarketScreen() {
 }
 
 function Empty({ tab }: { tab: Tab }) {
+  const copy =
+    tab === 'watching'
+      ? 'Tap Watch on a shoe to save it here and get alerts when it goes for sale.'
+      : tab === 'collection'
+        ? 'Add shoes you own even if they are not for sale. Other members can still follow them.'
+        : tab === 'selling'
+          ? 'List a pair when you are ready to take offers or sell.'
+          : tab === 'trades'
+            ? 'Mark a pair as trade-ready when you want swaps or trade + cash.'
+            : tab === 'orders'
+              ? 'Marketplace purchases and sales will appear here.'
+              : 'Sold and traded history will appear here.';
   return (
     <View style={styles.empty}>
       <Text style={styles.emptyTitle}>Nothing here yet</Text>
-      <Text style={styles.emptyText}>
-        {tab === 'watching' ? 'Tap Watch on a shoe to save it here.' : 'Add a shoe to start your collection, sale, or trade.'}
-      </Text>
+      <Text style={styles.emptyText}>{copy}</Text>
     </View>
   );
 }
@@ -186,6 +215,12 @@ const styles = StyleSheet.create({
   sub: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 5 },
   addButton: { backgroundColor: colors.accent, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 11 },
   addButtonText: { ...typography.bodyBold, color: colors.black, fontSize: 11 },
+  quickActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  quickActionPrimary: { flex: 1, borderRadius: 13, backgroundColor: colors.accent, padding: 13, minHeight: 72, justifyContent: 'center' },
+  quickAction: { flex: 1, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 13, minHeight: 72, justifyContent: 'center' },
+  quickTitle: { ...typography.bodyBold, color: colors.black, fontSize: 14 },
+  quickTitleAlt: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
+  quickMeta: { ...typography.body, color: colors.textSecondary, fontSize: 10, marginTop: 5 },
   tabs: { gap: 7, paddingVertical: 18 },
   tab: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   tabSelected: { borderColor: colors.accent, backgroundColor: 'rgba(184,157,96,0.14)' },

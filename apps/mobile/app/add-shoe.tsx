@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 import { marketColors as colors, typography } from '@/lib/theme';
 
@@ -21,9 +21,11 @@ type PickedPhoto = { uri: string; fileName?: string | null; mimeType?: string | 
 
 export default function AddShoeScreen() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [listingType, setListingType] = useState<ListingType>('collection');
   const [wearState, setWearState] = useState<WearState>('used');
+  const [acceptsOffers, setAcceptsOffers] = useState(true);
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [size, setSize] = useState('');
@@ -32,6 +34,12 @@ export default function AddShoeScreen() {
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (mode === 'sell' || mode === 'trade' || mode === 'collection') {
+      setListingType(mode);
+    }
+  }, [mode]);
 
   async function pickPhotos() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -94,6 +102,7 @@ export default function AddShoeScreen() {
           listing_type: listingType,
           price_cents: listingType === 'sell' ? Math.round(numericPrice * 100) : null,
           open_to_trade: listingType === 'trade',
+          accepts_offers: listingType !== 'trade' ? acceptsOffers : true,
           description: description.trim() || undefined,
         }),
       });
@@ -143,6 +152,13 @@ export default function AddShoeScreen() {
           </Pressable>
         ))}
       </View>
+      <Text style={styles.modeHelp}>
+        {listingType === 'collection'
+          ? 'Collection keeps it in your shoe room. Members can follow it and you can list it later.'
+          : listingType === 'sell'
+            ? 'Sell makes the pair visible for purchase and offers.'
+            : 'Trade tells the Guild you are looking for swaps or trade + cash.'}
+      </Text>
 
       <Text style={styles.label}>PHOTOS · {photos.length}/6</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
@@ -179,7 +195,16 @@ export default function AddShoeScreen() {
         <Field label="CONDITION NOTES" value={condition} onChangeText={setCondition} placeholder="Good" />
       ) : null}
       {listingType === 'sell' ? (
-        <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
+        <>
+          <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
+          <Pressable style={styles.toggleRow} onPress={() => setAcceptsOffers((value) => !value)}>
+            <View style={[styles.toggleDot, acceptsOffers && styles.toggleDotOn]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toggleTitle}>Accept offers</Text>
+              <Text style={styles.toggleMeta}>Let members make a lower bid or start a conversation.</Text>
+            </View>
+          </Pressable>
+        </>
       ) : null}
       <Text style={styles.label}>DESCRIPTION (OPTIONAL)</Text>
       <TextInput
@@ -229,6 +254,7 @@ const styles = StyleSheet.create({
   choiceSelected: { backgroundColor: colors.accent, borderColor: colors.accent },
   choiceText: { ...typography.bodySemi, color: colors.textMuted, fontSize: 11 },
   choiceTextSelected: { color: colors.black },
+  modeHelp: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 10 },
   photoRow: { gap: 9 },
   addPhoto: { width: 98, height: 98, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.accent, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   addPhotoPlus: { ...typography.body, color: colors.accent, fontSize: 27 },
@@ -241,6 +267,11 @@ const styles = StyleSheet.create({
   fieldInput: { ...typography.body, flex: 1, color: colors.text, fontSize: 14, paddingHorizontal: 6 },
   input: { ...typography.body, minHeight: 49, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, color: colors.text, paddingHorizontal: 12 },
   textarea: { height: 94, paddingTop: 12, textAlignVertical: 'top' },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 10, padding: 12, marginTop: 12 },
+  toggleDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border },
+  toggleDotOn: { borderColor: colors.accent, backgroundColor: colors.accent },
+  toggleTitle: { ...typography.bodyBold, color: colors.text, fontSize: 13 },
+  toggleMeta: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 },
   error: { ...typography.body, color: colors.danger, fontSize: 12, marginTop: 14 },
   publish: { minHeight: 54, backgroundColor: colors.accent, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginTop: 22 },
   publishText: { ...typography.bodyBold, color: colors.black, fontSize: 14 },

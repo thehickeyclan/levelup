@@ -135,14 +135,21 @@ export default function MarketScreen() {
               <Text style={styles.kicker}>MARKET</Text>
               <Text style={styles.heading}>Guild Market</Text>
             </View>
-            <Pressable style={styles.myMarketButton} onPress={() => router.push('/my-market')}>
-              <Text style={styles.myMarketButtonText}>♡ My Market</Text>
+          </View>
+          <Text style={styles.sub}>Browse rare pairs, follow shoes, make offers, and manage your own collection.</Text>
+          <View style={styles.actionRow}>
+            <Pressable style={styles.primaryAction} onPress={() => router.push('/my-market')}>
+              <Text style={styles.primaryActionText}>My Market</Text>
+              <Text style={styles.actionHint}>Following · collection · sales</Text>
+            </Pressable>
+            <Pressable
+              style={styles.secondaryAction}
+              onPress={() => router.push({ pathname: '/add-shoe', params: { mode: 'collection' } })}
+            >
+              <Text style={styles.secondaryActionText}>+ Add shoe</Text>
+              <Text style={styles.actionHint}>Sell or showcase</Text>
             </Pressable>
           </View>
-          <Text style={styles.sub}>Find rare pairs, make offers, and trade with the Guild.</Text>
-          <Pressable style={styles.addShoeButton} onPress={() => router.push('/add-shoe')}>
-            <Text style={styles.addShoeButtonText}>+ Add a shoe</Text>
-          </Pressable>
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -255,10 +262,12 @@ const styles = StyleSheet.create({
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   sub: { ...typography.body, color: colors.textMuted, marginTop: 6, fontSize: 14 },
-  myMarketButton: { minHeight: 44, borderWidth: 1, borderColor: colors.accent, borderRadius: 999, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
-  myMarketButtonText: { ...typography.bodySemi, color: colors.accent, fontSize: 10 },
-  addShoeButton: { alignSelf: 'flex-start', minHeight: 44, backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
-  addShoeButtonText: { ...typography.bodyBold, color: colors.black, fontSize: 11 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  primaryAction: { flex: 1, minHeight: 62, backgroundColor: colors.accent, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
+  secondaryAction: { flex: 1, minHeight: 62, borderWidth: 1, borderColor: colors.accent, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
+  primaryActionText: { ...typography.bodyBold, color: colors.black, fontSize: 14 },
+  secondaryActionText: { ...typography.bodyBold, color: colors.accent, fontSize: 14 },
+  actionHint: { ...typography.body, color: colors.textSecondary, fontSize: 9, marginTop: 4 },
   search: { ...typography.body, minHeight: 46, color: colors.text, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, marginTop: 18, fontSize: 13 },
   filters: { gap: 8, paddingTop: 11, paddingBottom: 5 },
   filter: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },

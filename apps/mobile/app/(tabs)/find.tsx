@@ -61,7 +61,7 @@ export default function FindScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { addSession, sessionLineCount } = useMobileCart();
-  const params = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; coachId?: string; coachName?: string }>();
   const [tab, setTab] = useState<Tab>(() => parseTab(params.tab));
   const [sessions, setSessions] = useState<OpenSmallGroupSession[]>([]);
   const [coaches, setCoaches] = useState<MobileCoach[]>([]);
@@ -102,6 +102,12 @@ export default function FindScreen() {
             new Date(a.scheduled_datetime).getTime() - new Date(b.scheduled_datetime).getTime()
         ),
     [bookings]
+  );
+  const scopedCoachId = Array.isArray(params.coachId) ? params.coachId[0] : params.coachId;
+  const scopedCoachName = Array.isArray(params.coachName) ? params.coachName[0] : params.coachName;
+  const visibleSessions = useMemo(
+    () => (scopedCoachId ? sessions.filter((session) => session.athlete_id === scopedCoachId) : sessions),
+    [sessions, scopedCoachId]
   );
   const visibleCoaches = useMemo(
     () =>
@@ -162,7 +168,9 @@ export default function FindScreen() {
     <View style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.sub}>
-          Join an open session or choose a coach to view their profile and availability.
+          {scopedCoachName
+            ? `Open small groups with ${scopedCoachName}.`
+            : 'Join an open session or choose a coach to view their profile and availability.'}
         </Text>
 
         <View style={styles.segment}>
@@ -205,7 +213,7 @@ export default function FindScreen() {
 
       {tab === 'available' ? (
         <FlatList
-          data={sessions}
+          data={visibleSessions}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           refreshControl={
@@ -295,16 +303,22 @@ export default function FindScreen() {
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No open small groups right now</Text>
               <Text style={styles.empty}>
-                Book a coach directly for private, partner, or small-group training.
+                {scopedCoachName
+                  ? `${scopedCoachName} has no open small groups right now. View availability or send a message.`
+                  : 'Book a coach directly for private, partner, or small-group training.'}
               </Text>
               <Pressable
                 style={styles.emptyButton}
                 onPress={() => {
-                  setTab('request');
-                  router.setParams({ tab: 'request' });
+                  if (scopedCoachId) {
+                    router.push(`/coach/${scopedCoachId}`);
+                  } else {
+                    setTab('request');
+                    router.setParams({ tab: 'request' });
+                  }
                 }}
               >
-                <Text style={styles.emptyButtonText}>View coaches</Text>
+                <Text style={styles.emptyButtonText}>{scopedCoachId ? 'Back to coach' : 'View coaches'}</Text>
               </Pressable>
             </View>
           }

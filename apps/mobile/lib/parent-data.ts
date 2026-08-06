@@ -27,6 +27,7 @@ export type MobileBooking = {
 
 export type OpenSmallGroupSession = {
   id: string;
+  athlete_id: string | null;
   scheduled_datetime: string;
   focus_area: string | null;
   current_participants: number | null;
@@ -56,6 +57,7 @@ export async function fetchOpenSmallGroupSessions(): Promise<OpenSmallGroupSessi
     .select(
       `
       id,
+      athlete_id,
       scheduled_datetime,
       focus_area,
       current_participants,
@@ -103,6 +105,7 @@ export async function fetchOpenSmallGroupSessions(): Promise<OpenSmallGroupSessi
       );
       return {
         id: s.id,
+        athlete_id: (s.athlete_id as string | null) ?? null,
         scheduled_datetime: s.scheduled_datetime,
         focus_area: s.focus_area,
         current_participants: s.current_participants,

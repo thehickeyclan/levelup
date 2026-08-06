@@ -573,8 +573,12 @@ export async function POST(
       typeof err?.message === 'string' && err.message.length > 0 ? err.message : '';
     const isIdempotency =
       raw.includes('idempotent') || raw.includes('Idempotency');
+    const isStripeKeyConfig =
+      /invalid api key|api key provided|stripe secret key/i.test(raw);
     const msg = isIdempotency
       ? 'Checkout is still processing from your last attempt. Wait a moment and tap Pay again.'
+      : isStripeKeyConfig
+        ? 'Online payment is temporarily unavailable. Please contact The Guild.'
       : raw.length > 0 && raw.length < 400
         ? raw
         : 'Internal server error';

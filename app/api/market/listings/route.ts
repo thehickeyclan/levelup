@@ -19,6 +19,10 @@ export async function GET(req: NextRequest) {
   const brand = sp.get('brand');
   const listingType = sp.get('listing_type');
   const size = sp.get('size');
+  const requestedLimit = Number(sp.get('limit'));
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(Math.floor(requestedLimit), 1), 150)
+    : 50;
 
   let q = supabase
     .from('market_listings')
@@ -28,8 +32,9 @@ export async function GET(req: NextRequest) {
       market_listing_images(id, public_url, clean_public_url, use_clean, display_order),
       market_ai_analysis(analyzed_at)
     `)
+    .eq('tenant_slug', ctx.tenant.slug)
     .order('created_at', { ascending: false })
-    .limit(50);
+    .limit(limit);
 
   if (sellerMe) {
     q = q.eq('seller_id', ctx.user!.id);

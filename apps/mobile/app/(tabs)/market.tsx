@@ -74,7 +74,7 @@ export default function MarketScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await apiFetch<{ listings: Listing[] }>('/api/market/listings');
+      const res = await apiFetch<{ listings: Listing[] }>('/api/market/listings?limit=150');
       setListings(res.listings ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load market');

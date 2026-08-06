@@ -237,12 +237,7 @@ export default function CoachDetailScreen() {
       ) : (
         <Pressable
           style={styles.buttonSecondary}
-          onPress={() =>
-            router.push({
-              pathname: '/(tabs)/find',
-              params: { tab: 'groups', coachId, coachName },
-            })
-          }
+          onPress={() => router.push(`/coach-small-groups/${coachId}`)}
         >
           <Text style={styles.buttonSecondaryText}>Browse small groups</Text>
         </Pressable>

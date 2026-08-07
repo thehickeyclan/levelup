@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Eye, Flame, Send, ShoppingCart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Eye, Flame, Send, Share2, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ListingSellerCard } from '@/components/market/listing-seller-card';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
@@ -31,6 +31,7 @@ import {
   type ListingSizeRow,
 } from '@/lib/market/listing-sizes';
 import { cn } from '@/lib/utils';
+import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
 import type { ShoeModelAbout } from '@/lib/market/shoe-model-content';
 import type { ListingConditionRead } from '@/lib/market/listing-condition-read';
@@ -58,6 +59,53 @@ const ListingQaSection = dynamic(
     })),
   { ssr: false }
 );
+
+type MarketListingShareInput = {
+  id?: string;
+  title?: string | null;
+  brand?: string | null;
+  model?: string | null;
+  size?: number | string | null;
+  price_cents?: number | null;
+  listing_type?: string | null;
+  accepts_offers?: boolean | null;
+};
+
+function marketListingShareUrl(listingId: string, origin = 'https://www.wrestlingguild.com') {
+  return `${origin.replace(/\/$/, '')}/market/listing/${listingId}`;
+}
+
+function marketListingShareTitle(listing: MarketListingShareInput) {
+  const brand = listing.brand?.trim();
+  const model = listing.model?.trim() || listing.title?.trim();
+  return [brand, model].filter(Boolean).join(' ') || 'Guild Market listing';
+}
+
+function marketListingShareStatus(listing: MarketListingShareInput) {
+  if (listing.price_cents != null) return `$${(listing.price_cents / 100).toFixed(0)}`;
+  if (listing.listing_type === 'trade') return 'Open to trade';
+  if (listing.listing_type === 'collection' || listing.listing_type === 'vault') {
+    return listing.accepts_offers === false ? 'Guild Collection' : 'Guild Collection · offers welcome';
+  }
+  return 'Make an offer';
+}
+
+function marketListingShareMessage(
+  listing: MarketListingShareInput & { id: string },
+  origin = 'https://www.wrestlingguild.com'
+) {
+  const details = [listing.size ? `Size ${listing.size}` : null, marketListingShareStatus(listing)]
+    .filter(Boolean)
+    .join(' · ');
+  return [
+    marketListingShareTitle(listing),
+    details,
+    'See it on Guild Market:',
+    marketListingShareUrl(listing.id, origin),
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
 
 export default function ListingDetailClient() {
   const params = useParams();
@@ -89,6 +137,7 @@ export default function ListingDetailClient() {
   const [conditionRead, setConditionRead] = useState<ListingConditionRead | null>(null);
   const [conditionAnalyzing, setConditionAnalyzing] = useState(false);
   const [colorwayAliases, setColorwayAliases] = useState<string[]>([]);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'shared'>('idle');
   const staleHistoryRepairRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -418,6 +467,46 @@ export default function ListingDetailClient() {
 
   const askingValue = priceCents != null ? `$${(priceCents / 100).toFixed(0)}` : null;
 
+  async function shareListing() {
+    const origin =
+      typeof window !== 'undefined' ? window.location.origin : 'https://www.wrestlingguild.com';
+    const url = marketListingShareUrl(id, origin);
+    const title = marketListingShareTitle({
+      title: l.title as string | undefined,
+      brand: l.brand as string | null,
+      model: l.model as string | null,
+    });
+    const text = marketListingShareMessage(
+      {
+        id,
+        title: l.title as string | undefined,
+        brand: l.brand as string | null,
+        model: l.model as string | null,
+        size: sizeLabel,
+        price_cents: priceCents,
+        listing_type: listingType,
+        accepts_offers: l.accepts_offers as boolean | null,
+      },
+      origin
+    );
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title, text, url });
+        setShareStatus('shared');
+      } else {
+        const copied = await copyTextToClipboard(text);
+        setShareStatus(copied ? 'copied' : 'idle');
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      const copied = await copyTextToClipboard(text);
+      setShareStatus(copied ? 'copied' : 'idle');
+    } finally {
+      window.setTimeout(() => setShareStatus('idle'), 2200);
+    }
+  }
+
   const checkoutHref =
     inventorySizes.length > 0 && selectedSizeUs != null
       ? `/market/listing/${id}/checkout?size=${selectedSizeUs}`
@@ -591,6 +680,15 @@ export default function ListingDetailClient() {
                   {displayTitle}
                 </h1>
                 <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => void shareListing()}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 min-h-[40px] text-xs font-medium text-muted-foreground hover:border-accent/50 hover:text-accent transition-colors touch-manipulation"
+                    aria-label="Share this listing"
+                  >
+                    <Share2 className="h-4 w-4 shrink-0" />
+                    {shareStatus === 'copied' ? 'Copied' : shareStatus === 'shared' ? 'Shared' : 'Share'}
+                  </button>
                   {!isSeller ? (
                     <button
                       type="button"

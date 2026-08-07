@@ -5,6 +5,7 @@ import {
   FlatList,
   Image,
   Pressable,
+  Share,
   ScrollView,
   StyleSheet,
   Text,
@@ -179,6 +180,20 @@ export default function ListingDetailScreen() {
     }
   }
 
+  async function shareListing() {
+    const currentListing = listing;
+    if (!currentListing) return;
+    try {
+      await Share.share({
+        title: marketListingShareTitle(currentListing),
+        message: marketListingShareMessage(currentListing),
+        url: marketListingShareUrl(currentListing.id),
+      });
+    } catch (e) {
+      Alert.alert('Could not share', e instanceof Error ? e.message : 'Try again in a moment.');
+    }
+  }
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       {images.length > 0 ? (
@@ -253,6 +268,10 @@ export default function ListingDetailScreen() {
         {listing.rarity ? <DetailBadge text={listing.rarity} accent /> : null}
         {listing.open_to_trade ? <DetailBadge text="Open to trade" accent /> : null}
       </View>
+
+      <Pressable style={styles.shareButton} onPress={() => void shareListing()}>
+        <Text style={styles.shareButtonText}>Share listing</Text>
+      </Pressable>
 
       {seller ? (
         <View style={styles.sellerCard}>
@@ -359,6 +378,39 @@ function DetailBadge({ text, accent = false }: { text: string; accent?: boolean 
   );
 }
 
+function marketListingShareUrl(listingId: string) {
+  return `https://www.wrestlingguild.com/market/listing/${listingId}`;
+}
+
+function marketListingShareTitle(listing: Listing) {
+  const brand = listing.brand?.trim();
+  const model = listing.model?.trim() || listing.title?.trim();
+  return [brand, model].filter(Boolean).join(' ') || 'Guild Market listing';
+}
+
+function marketListingShareStatus(listing: Listing) {
+  if (listing.price_cents != null) return `$${(listing.price_cents / 100).toFixed(0)}`;
+  if (listing.listing_type === 'trade') return 'Open to trade';
+  if (listing.listing_type === 'collection') {
+    return listing.accepts_offers === false ? 'Guild Collection' : 'Guild Collection · offers welcome';
+  }
+  return 'Make an offer';
+}
+
+function marketListingShareMessage(listing: Listing) {
+  const details = [listing.size ? `Size ${listing.size}` : null, marketListingShareStatus(listing)]
+    .filter(Boolean)
+    .join(' · ');
+  return [
+    marketListingShareTitle(listing),
+    details,
+    'See it on Guild Market:',
+    marketListingShareUrl(listing.id),
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.background },
@@ -382,6 +434,19 @@ const styles = StyleSheet.create({
   detailBadgeAccent: { borderColor: colors.accent, backgroundColor: 'rgba(184,157,96,0.12)' },
   detailBadgeText: { ...typography.bodySemi, color: colors.textMuted, fontSize: 10, textTransform: 'capitalize' },
   detailBadgeTextAccent: { color: colors.accent },
+  shareButton: {
+    alignSelf: 'flex-start',
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareButtonText: { ...typography.bodyBold, color: colors.text, fontSize: 12 },
   sellerCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, padding: 13, marginTop: 20 },
   sellerPhoto: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceRaised },
   sellerPhotoPlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },

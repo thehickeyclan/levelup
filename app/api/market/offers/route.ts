@@ -17,7 +17,8 @@ function buyerFirstName(firstName: string | null | undefined): string {
 export async function GET(req: NextRequest) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
-  const { supabase, user } = ctx;
+  const { tenant, user } = ctx;
+  const supabase = createAdminClient(tenant.slug);
 
   const mode = req.nextUrl.searchParams.get('mode') || 'incoming';
 

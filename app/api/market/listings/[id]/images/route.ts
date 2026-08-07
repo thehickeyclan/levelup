@@ -10,6 +10,13 @@ import { MAX_LISTING_PHOTO_BYTES } from '@/lib/market/listing-photo-upload-limit
 const MAX_SIZE = MAX_LISTING_PHOTO_BYTES;
 const MAX_PHOTOS = 6;
 
+type UploadedPhoto = {
+  buffer: Buffer;
+  name: string;
+  type: string;
+  size: number;
+};
+
 async function assertListingOwner(
   supabase: SupabaseClient,
   userId: string,
@@ -69,19 +76,49 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const formData = await req.formData();
-  const file = formData.get('file') as File | null;
+  const contentType = req.headers.get('content-type')?.toLowerCase() || '';
+  let uploaded: UploadedPhoto | null = null;
 
-  if (!file || !file.size) {
+  if (contentType.includes('application/json')) {
+    const body = (await req.json().catch(() => ({}))) as {
+      base64?: unknown;
+      fileName?: unknown;
+      mimeType?: unknown;
+    };
+    const rawBase64 = typeof body.base64 === 'string' ? body.base64 : '';
+    const base64 = rawBase64.includes(',') ? rawBase64.split(',').pop() || '' : rawBase64;
+    if (base64) {
+      const buffer = Buffer.from(base64, 'base64');
+      uploaded = {
+        buffer,
+        name: typeof body.fileName === 'string' && body.fileName.trim() ? body.fileName.trim() : 'shoe.jpg',
+        type: typeof body.mimeType === 'string' && body.mimeType.trim() ? body.mimeType.trim() : 'image/jpeg',
+        size: buffer.length,
+      };
+    }
+  } else {
+    const formData = await req.formData();
+    const file = formData.get('file') as File | null;
+    if (file && file.size) {
+      uploaded = {
+        buffer: Buffer.from(await file.arrayBuffer()),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      };
+    }
+  }
+
+  if (!uploaded || !uploaded.size) {
     return NextResponse.json({ error: 'No photo received — try again.' }, { status: 400 });
   }
 
-  const mime = resolveListingPhotoMime(file);
+  const mime = resolveListingPhotoMime(uploaded as unknown as File);
   if ('error' in mime) {
     return NextResponse.json({ error: mime.error }, { status: 400 });
   }
 
-  if (file.size > MAX_SIZE) {
+  if (uploaded.size > MAX_SIZE) {
     return NextResponse.json({ error: 'Photo must be under 4MB — it is auto-compressed on upload.' }, { status: 400 });
   }
 
@@ -103,11 +140,10 @@ export async function POST(
   const displayOrder = count ?? 0;
   const fileName = `${Date.now()}-${displayOrder}.${mime.ext}`;
   const storagePath = `${tenant.slug}/${user!.id}/${listingId}/${fileName}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
 
   const { data: uploadData, error: uploadError } = await admin.storage
     .from('market-listing-photos')
-    .upload(storagePath, buffer, {
+    .upload(storagePath, uploaded.buffer, {
       contentType: mime.contentType,
       cacheControl: '3600',
       upsert: false,

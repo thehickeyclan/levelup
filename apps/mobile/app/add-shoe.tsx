@@ -17,7 +17,7 @@ import { marketColors as colors, typography } from '@/lib/theme';
 
 type ListingType = 'collection' | 'sell' | 'trade';
 type WearState = 'bnib' | 'new_no_box' | 'used';
-type PickedPhoto = { uri: string; fileName?: string | null; mimeType?: string | null };
+type PickedPhoto = { uri: string; fileName?: string | null; mimeType?: string | null; base64?: string | null };
 
 export default function AddShoeScreen() {
   const router = useRouter();
@@ -52,6 +52,7 @@ export default function AddShoeScreen() {
       allowsMultipleSelection: true,
       selectionLimit: Math.max(1, 6 - photos.length),
       quality: 0.8,
+      base64: true,
     });
     if (!result.canceled) {
       setPhotos((current) => [
@@ -60,6 +61,7 @@ export default function AddShoeScreen() {
           uri: asset.uri,
           fileName: asset.fileName,
           mimeType: asset.mimeType,
+          base64: asset.base64,
         })),
       ]);
     }
@@ -108,15 +110,16 @@ export default function AddShoeScreen() {
       });
 
       for (const [index, photo] of photos.entries()) {
-        const form = new FormData();
-        form.append('file', {
-          uri: photo.uri,
-          name: photo.fileName || `shoe-${index + 1}.jpg`,
-          type: photo.mimeType || 'image/jpeg',
-        } as unknown as Blob);
+        if (!photo.base64) {
+          throw new Error('Could not read one of the photos. Please pick it again from your camera roll.');
+        }
         await apiFetch(`/api/market/listings/${created.listingId}/images`, {
           method: 'POST',
-          body: form,
+          body: JSON.stringify({
+            fileName: photo.fileName || `shoe-${index + 1}.jpg`,
+            mimeType: photo.mimeType || 'image/jpeg',
+            base64: photo.base64,
+          }),
         });
       }
 

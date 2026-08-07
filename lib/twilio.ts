@@ -8,6 +8,7 @@
 import { formatEST } from './format-date';
 import { logMessage } from './message-log';
 import { getSessionTypeDisplay } from './session-type-display';
+import { formatWeightClassLabel } from './wrestler-roster-display';
 
 export type SupabaseAdmin = import('@supabase/supabase-js').SupabaseClient;
 
@@ -184,10 +185,16 @@ function formatPersonName(first?: string | null, last?: string | null): string |
 type BookingSmsContext = {
   coachName: string;
   wrestlerName: string | null;
+  wrestlerWeight: string | null;
   facilityName: string | null;
   sessionUrl: string | null;
   dateStr: string;
 };
+
+function bookingSmsWrestlerLabel(ctx: BookingSmsContext, fallback: string): string {
+  const who = ctx.wrestlerName ?? fallback;
+  return ctx.wrestlerWeight ? `${who}, ${ctx.wrestlerWeight}` : who;
+}
 
 async function loadBookingSmsContext(
   admin: SupabaseAdmin,
@@ -210,7 +217,7 @@ async function loadBookingSmsContext(
     opts.youthWrestlerId
       ? admin
           .from('youth_wrestlers')
-          .select('first_name, last_name')
+          .select('first_name, last_name, weight_class')
           .eq('id', opts.youthWrestlerId)
           .maybeSingle()
       : Promise.resolve({ data: null as null }),
@@ -253,7 +260,11 @@ async function loadBookingSmsContext(
   const facility = Array.isArray(facRaw) ? facRaw[0] : facRaw;
   const facilityName = (facility as { name?: string } | undefined)?.name?.trim() || null;
 
-  return { coachName, wrestlerName, facilityName, sessionUrl, dateStr: opts.dateStr };
+  const wrestlerWeight = formatWeightClassLabel(
+    (ywRes.data as { weight_class?: string | null } | null)?.weight_class ?? null
+  );
+
+  return { coachName, wrestlerName, wrestlerWeight, facilityName, sessionUrl, dateStr: opts.dateStr };
 }
 
 function bookingSmsFacilitySuffix(facilityName: string | null): string {
@@ -261,7 +272,7 @@ function bookingSmsFacilitySuffix(facilityName: string | null): string {
 }
 
 function buildParentBookingConfirmBody(ctx: BookingSmsContext): string {
-  const who = ctx.wrestlerName ?? 'Your athlete';
+  const who = bookingSmsWrestlerLabel(ctx, 'Your athlete');
   const place = bookingSmsFacilitySuffix(ctx.facilityName);
   const link = ctx.sessionUrl ? ` ${ctx.sessionUrl}` : ' Open The Guild app → My bookings.';
   return `The Guild: ${who} is booked with Coach ${ctx.coachName}, ${ctx.dateStr}${place}.${link}`.slice(
@@ -271,7 +282,7 @@ function buildParentBookingConfirmBody(ctx: BookingSmsContext): string {
 }
 
 function buildCoachNewSignupBody(ctx: BookingSmsContext): string {
-  const wrestler = ctx.wrestlerName ?? 'A wrestler';
+  const wrestler = bookingSmsWrestlerLabel(ctx, 'A wrestler');
   const place = bookingSmsFacilitySuffix(ctx.facilityName);
   const link = ctx.sessionUrl ? ` ${ctx.sessionUrl}` : ' Check My sessions in the app.';
   return `The Guild: New signup — ${wrestler} for your session ${ctx.dateStr}${place}.${link}`.slice(
@@ -281,7 +292,7 @@ function buildCoachNewSignupBody(ctx: BookingSmsContext): string {
 }
 
 function buildAdminBookingAlertBody(ctx: BookingSmsContext): string {
-  const wrestler = ctx.wrestlerName ?? 'New athlete';
+  const wrestler = bookingSmsWrestlerLabel(ctx, 'New athlete');
   const place = bookingSmsFacilitySuffix(ctx.facilityName);
   return `The Guild (ops): ${wrestler} booked · Coach ${ctx.coachName} · ${ctx.dateStr}${place}`.slice(
     0,

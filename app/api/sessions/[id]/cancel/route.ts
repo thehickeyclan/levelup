@@ -72,6 +72,19 @@ export async function POST(
       return NextResponse.json({ error: 'Session cannot be cancelled' }, { status: 400 });
     }
 
+    const scheduledTime = new Date(session.scheduled_datetime);
+    const sessionDateKey = formatEST(scheduledTime, 'yyyy-MM-dd');
+    const todayDateKey = formatEST(new Date(), 'yyyy-MM-dd');
+    if (isParent && !isAdmin && sessionDateKey <= todayDateKey) {
+      return NextResponse.json(
+        {
+          error:
+            "You can't cancel a session on the day of training. Please message the coach or contact The Guild so we can help.",
+        },
+        { status: 400 }
+      );
+    }
+
     const { data: participants } = await admin
       .from('session_participants')
       .select('id, parent_id, youth_wrestler_id, amount_paid, paid')
@@ -91,7 +104,6 @@ export async function POST(
       }
     }
 
-    const scheduledTime = new Date(session.scheduled_datetime);
     const sessionDate = formatEST(scheduledTime, 'EEE, MMM d');
     const coach = Array.isArray(session.athletes) ? session.athletes[0] : session.athletes;
     const coachName = coach ? [coach.first_name, coach.last_name].filter(Boolean).join(' ') : 'Coach';

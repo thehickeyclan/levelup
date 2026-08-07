@@ -8,6 +8,26 @@ import { grantCredit } from '@/lib/credits';
 import { createNotification } from '@/lib/notifications';
 import { formatEST } from '@/lib/format-date';
 import { isRewardsProgramEnabled, reverseSessionEarnedForParticipant } from '@/lib/rewards';
+import { resolveCoachSmsE164, sendSms } from '@/lib/twilio';
+import { formatWeightClassLabel } from '@/lib/wrestler-roster-display';
+
+function personName(first?: string | null, last?: string | null): string | null {
+  const name = [first, last].filter(Boolean).join(' ').trim();
+  return name || null;
+}
+
+function participantLeaveLabel(row: {
+  roster_first_name?: string | null;
+  roster_last_name?: string | null;
+  youth_wrestlers?: { first_name?: string | null; last_name?: string | null; weight_class?: string | null } | null;
+}): string {
+  const name =
+    personName(row.youth_wrestlers?.first_name, row.youth_wrestlers?.last_name) ??
+    personName(row.roster_first_name, row.roster_last_name) ??
+    'A wrestler';
+  const weight = formatWeightClassLabel(row.youth_wrestlers?.weight_class ?? null);
+  return weight ? `${name}, ${weight}` : name;
+}
 
 /**
  * POST - Parent leaves a session they joined (e.g. small group).
@@ -43,7 +63,7 @@ export async function POST(
     const admin = createAdminClient(tenant.slug);
     const { data: session, error: sessionErr } = await admin
       .from('sessions')
-      .select('id, parent_id, athlete_id, status, scheduled_datetime, athletes(first_name, last_name)')
+      .select('id, parent_id, athlete_id, status, scheduled_datetime, athletes(first_name, last_name), facilities(name)')
       .eq('id', sessionId)
       .single();
 
@@ -68,9 +88,21 @@ export async function POST(
       return NextResponse.json({ error: 'Session can no longer be left' }, { status: 400 });
     }
 
+    const sessionDateKey = formatEST(new Date(s.scheduled_datetime), 'yyyy-MM-dd');
+    const todayDateKey = formatEST(new Date(), 'yyyy-MM-dd');
+    if (userData?.role !== 'admin' && sessionDateKey <= todayDateKey) {
+      return NextResponse.json(
+        {
+          error:
+            "You can't leave a session on the day of training. Please message the coach or contact The Guild so we can help.",
+        },
+        { status: 400 }
+      );
+    }
+
     let rowsQuery = admin
       .from('session_participants')
-      .select('id, youth_wrestler_id, amount_paid, paid, parent_id')
+      .select('id, youth_wrestler_id, amount_paid, paid, parent_id, roster_first_name, roster_last_name, youth_wrestlers(first_name, last_name, weight_class), users:parent_id(first_name, last_name, phone, email)')
       .eq('session_id', sessionId)
       .eq('parent_id', user.id);
 
@@ -95,8 +127,12 @@ export async function POST(
     const coachName = coach
       ? [coach.first_name, coach.last_name].filter(Boolean).join(' ')
       : 'Coach';
+    const facilityRaw = (session as { facilities?: { name?: string } | { name?: string }[] | null }).facilities;
+    const facility = Array.isArray(facilityRaw) ? facilityRaw[0] : facilityRaw;
+    const facilityName = facility?.name?.trim() || null;
     const sessionDate = formatEST(new Date(s.scheduled_datetime), 'EEE, MMM d');
     const when = formatEST(new Date(s.scheduled_datetime), 'MMM d, h:mm a');
+    const smsWhen = formatEST(new Date(s.scheduled_datetime), 'EEE MMM d, h:mm a');
 
     let totalCreditsAmount = 0;
     let creditsGranted = 0;
@@ -155,13 +191,51 @@ export async function POST(
         data: { link: '/bookings', session_id: sessionId },
       });
       if (s.athlete_id) {
+        const leftNames = myRows.map((row) =>
+          participantLeaveLabel(
+            row as {
+              roster_first_name?: string | null;
+              roster_last_name?: string | null;
+              youth_wrestlers?: { first_name?: string | null; last_name?: string | null; weight_class?: string | null } | null;
+            }
+          )
+        );
+        const leftLabel = leftNames.join(', ');
         await createNotification(admin, {
           user_id: s.athlete_id,
           type: 'session_cancelled',
           title: 'Athlete left session',
-          body: `A family left the session on ${when}. Their spot is open again.`,
+          body: `${leftLabel} left the session on ${when}. Their spot is open again.`,
           data: { link: '/athlete-dashboard', session_id: sessionId },
         });
+
+        const coachPhone = await resolveCoachSmsE164(admin, s.athlete_id);
+        if (coachPhone) {
+          const firstRow = myRows[0] as {
+            users?: { first_name?: string | null; last_name?: string | null; phone?: string | null; email?: string | null } | null;
+          };
+          const parent = firstRow.users;
+          const parentLabel =
+            personName(parent?.first_name, parent?.last_name) ??
+            parent?.phone ??
+            parent?.email ??
+            'family';
+          const contact = [parent?.phone, parent?.email].filter(Boolean).join(' · ');
+          const place = facilityName ? ` @ ${facilityName}` : '';
+          const contactSuffix = contact ? ` Parent: ${parentLabel} (${contact}).` : ` Parent: ${parentLabel}.`;
+          await sendSms(
+            coachPhone,
+            `The Guild: ${leftLabel} left your session ${smsWhen}${place}. Spot is open again.${contactSuffix}`.slice(0, 1600),
+            {
+              admin,
+              messageType: 'coach_session_left',
+              recipientId: s.athlete_id,
+              recipientLabel: 'Coach',
+              sessionId,
+              coachId: s.athlete_id,
+            }
+          );
+        }
       }
     } catch (notifErr) {
       console.warn('Notify leave session failed:', notifErr);

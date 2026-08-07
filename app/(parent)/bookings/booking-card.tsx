@@ -43,6 +43,19 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
+function easternDateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value ?? '0000';
+  const month = parts.find((part) => part.type === 'month')?.value ?? '00';
+  const day = parts.find((part) => part.type === 'day')?.value ?? '00';
+  return `${year}-${month}-${day}`;
+}
+
 /** Other sessions the same coach can move a wrestler into (coach home only). */
 export type CoachTransferSessionOption = {
   id: string;
@@ -230,9 +243,10 @@ export function BookingCard({
 
   const scheduledTime = new Date(session.scheduled_datetime);
   const canCancel = !isPast && session.status === 'scheduled' && scheduledTime > new Date();
+  const isSessionDayOfOrPast = easternDateKey(scheduledTime) <= easternDateKey(new Date());
   
   const familyHasSpot = session.isFamilyParticipant !== false;
-  const canLeave = canCancel && !session.isOwner && familyHasSpot;
+  const canLeave = canCancel && !isSessionDayOfOrPast && !session.isOwner && familyHasSpot;
   const showJoinWhenNotEnrolled =
     variant !== 'coach' &&
     session.isFamilyParticipant === false &&

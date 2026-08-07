@@ -177,7 +177,16 @@ export default async function SessionDetailPage({
     scheduledTime != null &&
     scheduledTime > now &&
     isOwner;
-  const canLeave = canCancel && !isOwner;
+  const isSessionDayOfOrPast =
+    scheduledTime != null && formatEST(scheduledTime, 'yyyy-MM-dd') <= formatEST(now, 'yyyy-MM-dd');
+  const canLeave =
+    !isPast &&
+    s.status === 'scheduled' &&
+    scheduledTime != null &&
+    scheduledTime > now &&
+    !isSessionDayOfOrPast &&
+    isParticipant &&
+    !isOwner;
   const max = s.max_participants ?? 1;
 
   const rosterParticipants = (s.session_participants ?? [])

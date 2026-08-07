@@ -61,7 +61,7 @@ function listingMeta(listing: Listing) {
   return pieces.join(' · ');
 }
 
-type MarketFilter = 'all' | 'sell' | 'trade' | 'collection';
+type MarketFilter = 'available' | 'sell' | 'trade' | 'collection' | 'all';
 
 export default function MarketScreen() {
   const router = useRouter();
@@ -69,7 +69,7 @@ export default function MarketScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<MarketFilter>('all');
+  const [filter, setFilter] = useState<MarketFilter>('available');
 
   const load = useCallback(async () => {
     setError(null);
@@ -93,7 +93,12 @@ export default function MarketScreen() {
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return listings.filter((listing) => {
-      if (filter !== 'all' && listing.listing_type !== filter) return false;
+      if (filter === 'available') {
+        const isAvailable = listing.listing_type === 'sell' || listing.listing_type === 'trade' || listing.open_to_trade === true;
+        if (!isAvailable) return false;
+      } else if (filter !== 'all' && listing.listing_type !== filter) {
+        return false;
+      }
       if (!normalizedQuery) return true;
       return [listing.title, listing.brand, listing.model, listing.condition, listing.size]
         .filter((value) => value != null)
@@ -104,6 +109,22 @@ export default function MarketScreen() {
   }, [filter, listings, query]);
   const featured = filtered[0] ?? null;
   const gridListings = featured ? filtered.slice(1) : [];
+  const collectionListings = useMemo(
+    () =>
+      listings
+        .filter((listing) => listing.listing_type === 'collection')
+        .filter((listing) => {
+          const normalizedQuery = query.trim().toLowerCase();
+          if (!normalizedQuery) return true;
+          return [listing.title, listing.brand, listing.model, listing.condition, listing.size]
+            .filter((value) => value != null)
+            .join(' ')
+            .toLowerCase()
+            .includes(normalizedQuery);
+        })
+        .slice(0, 10),
+    [listings, query]
+  );
 
   if (loading && listings.length === 0) {
     return (
@@ -136,7 +157,7 @@ export default function MarketScreen() {
               <Text style={styles.heading}>Guild Market</Text>
             </View>
           </View>
-          <Text style={styles.sub}>Browse rare pairs, follow shoes, make offers, and manage your own collection.</Text>
+          <Text style={styles.sub}>Buy, trade, follow shoes, and manage your own collection.</Text>
           <View style={styles.actionRow}>
             <Pressable style={styles.primaryAction} onPress={() => router.push('/my-market')}>
               <Text style={styles.primaryActionText}>My Market</Text>
@@ -164,10 +185,11 @@ export default function MarketScreen() {
             contentContainerStyle={styles.filters}
           >
             {([
-              ['all', 'All'],
+              ['available', 'Available now'],
               ['sell', 'For sale'],
               ['trade', 'Trade'],
-              ['collection', 'Collections'],
+              ['collection', 'Guild Collections'],
+              ['all', 'All'],
             ] as [MarketFilter, string][]).map(([value, label]) => {
               const selected = filter === value;
               return (
@@ -209,7 +231,11 @@ export default function MarketScreen() {
               </View>
             </Pressable>
           ) : null}
-          {gridListings.length > 0 ? <Text style={styles.sectionTitle}>MORE IN MARKET</Text> : null}
+          {gridListings.length > 0 ? (
+            <Text style={styles.sectionTitle}>
+              {filter === 'available' ? 'MORE AVAILABLE NOW' : 'MORE IN MARKET'}
+            </Text>
+          ) : null}
         </View>
       }
       renderItem={({ item }) => (
@@ -238,8 +264,56 @@ export default function MarketScreen() {
       ListEmptyComponent={
         !featured ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No matching listings</Text>
-            <Text style={styles.emptyText}>Try another search or market filter.</Text>
+            <Text style={styles.emptyTitle}>
+              {filter === 'available' ? 'No available pairs yet' : 'No matching listings'}
+            </Text>
+            <Text style={styles.emptyText}>
+              {filter === 'available'
+                ? 'Browse Guild Collections below, follow a pair, or ask if the owner would consider offers.'
+                : 'Try another search or market filter.'}
+            </Text>
+          </View>
+        ) : null
+      }
+      ListFooterComponent={
+        filter === 'available' && collectionListings.length > 0 ? (
+          <View style={styles.collectionsSection}>
+            <View style={styles.collectionsHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>GUILD COLLECTIONS</Text>
+                <Text style={styles.collectionsSub}>
+                  Follow shoes from the community. Ask if they’d consider offers.
+                </Text>
+              </View>
+              <Pressable onPress={() => setFilter('collection')}>
+                <Text style={styles.viewAll}>View all</Text>
+              </Pressable>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.collectionRow}>
+              {collectionListings.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={styles.collectionCard}
+                  onPress={() => router.push(`/listing/${item.id}`)}
+                >
+                  <View style={styles.collectionImageWrap}>
+                    {item.primary_original_image_url || item.primary_image_url ? (
+                      <Image
+                        source={{ uri: item.primary_original_image_url ?? item.primary_image_url! }}
+                        style={styles.collectionImage}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <View style={[styles.collectionImage, styles.imagePlaceholder]} />
+                    )}
+                  </View>
+                  <Text style={styles.collectionTitle} numberOfLines={2}>{listingName(item)}</Text>
+                  <Text style={styles.collectionMeta} numberOfLines={1}>
+                    {listingMeta(item) || 'Collection'}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
         ) : null
       }
@@ -315,5 +389,15 @@ const styles = StyleSheet.create({
   },
   empty: { alignItems: 'center', paddingVertical: 58 },
   emptyTitle: { ...typography.bodySemi, color: colors.text, fontSize: 16 },
-  emptyText: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 6 },
+  emptyText: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 6, textAlign: 'center', lineHeight: 18 },
+  collectionsSection: { marginTop: 10, paddingTop: 10 },
+  collectionsHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 10 },
+  collectionsSub: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: -4 },
+  viewAll: { ...typography.bodyBold, color: colors.accent, fontSize: 12, paddingBottom: 10 },
+  collectionRow: { gap: 12, paddingBottom: 8 },
+  collectionCard: { width: 150, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden' },
+  collectionImageWrap: { width: '100%', aspectRatio: 1, backgroundColor: colors.surfaceRaised },
+  collectionImage: { width: '100%', height: '100%', backgroundColor: colors.surfaceRaised },
+  collectionTitle: { ...typography.bodyBold, color: colors.text, fontSize: 12, lineHeight: 16, paddingHorizontal: 10, paddingTop: 10 },
+  collectionMeta: { ...typography.body, color: colors.textMuted, fontSize: 10, paddingHorizontal: 10, paddingTop: 4, paddingBottom: 12 },
 });

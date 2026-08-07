@@ -217,7 +217,7 @@ export function MarketBrowseClient({
         />
         {isCollectors ? (
           <p className="text-xs text-muted-foreground mt-3 mb-1">
-            Browse collections — sorted by rarest first. Tap a profile to see every pair.
+            Browse Guild Collections. Tap a profile to see every pair, follow shoes, or ask if the owner would consider offers.
           </p>
         ) : type === 'all' ? (
           <p className="text-xs text-muted-foreground mt-3 mb-1">
@@ -265,15 +265,15 @@ export function MarketBrowseClient({
           <div className="py-16 text-center">
             <p className="text-sm text-muted-foreground">
               {sourceListings.length === 0
-                ? 'No listings yet — be the first to list a pair.'
+                ? 'No available pairs yet — browse Guild Collections or add the first pair for sale or trade.'
                 : 'No listings match these filters.'}
             </p>
             <Button
               asChild
               className="mt-4 bg-accent text-accent-foreground font-semibold rounded-full hover:bg-accent/90"
             >
-              <Link href="/market/listing/new">List a pair</Link>
-            </Button>
+                <Link href="/market/listing/new">Add a pair</Link>
+              </Button>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

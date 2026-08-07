@@ -9,7 +9,7 @@ const TABS = [
   {
     id: 'collection',
     href: '/market/my-listings',
-    label: 'My Collection',
+    label: 'My Market',
     match: (p: string) => p.startsWith('/market/my-listings'),
   },
   { id: 'offers', href: '/market/offers', label: 'Offers', match: (p: string) => p.startsWith('/market/offers') },
@@ -21,7 +21,7 @@ function tabLabel(tab: (typeof TABS)[number], browseCount?: number, myCollection
     return `Browse (${browseCount})`;
   }
   if (tab.id === 'collection' && myCollectionCount != null) {
-    return `My Collection (${myCollectionCount})`;
+    return `My Market (${myCollectionCount})`;
   }
   return tab.label;
 }

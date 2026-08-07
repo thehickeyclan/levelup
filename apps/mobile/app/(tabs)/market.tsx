@@ -36,12 +36,13 @@ function formatPrice(cents: number | null | undefined) {
 }
 
 function listingPriceLabel(listing: Listing) {
+  const isCollection = listing.listing_type === 'collection' || listing.listing_type === 'vault';
   return (
     formatPrice(listing.price_cents) ??
     (listing.listing_type === 'trade'
       ? 'Trade'
-      : listing.listing_type === 'collection'
-        ? 'Collection'
+      : isCollection
+        ? 'Guild Collection'
         : 'Make offer')
   );
 }
@@ -94,8 +95,12 @@ export default function MarketScreen() {
     const normalizedQuery = query.trim().toLowerCase();
     return listings.filter((listing) => {
       if (filter === 'available') {
-        const isAvailable = listing.listing_type === 'sell' || listing.listing_type === 'trade' || listing.open_to_trade === true;
+        const type = listing.listing_type;
+        const isCollection = type === 'collection' || type === 'vault';
+        const isAvailable = type === 'sell' || type === 'trade' || (!isCollection && listing.open_to_trade === true);
         if (!isAvailable) return false;
+      } else if (filter === 'collection') {
+        if (listing.listing_type !== 'collection' && listing.listing_type !== 'vault') return false;
       } else if (filter !== 'all' && listing.listing_type !== filter) {
         return false;
       }
@@ -112,7 +117,7 @@ export default function MarketScreen() {
   const collectionListings = useMemo(
     () =>
       listings
-        .filter((listing) => listing.listing_type === 'collection')
+        .filter((listing) => listing.listing_type === 'collection' || listing.listing_type === 'vault')
         .filter((listing) => {
           const normalizedQuery = query.trim().toLowerCase();
           if (!normalizedQuery) return true;

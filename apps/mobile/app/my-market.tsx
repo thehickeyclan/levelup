@@ -73,7 +73,7 @@ export default function MyMarketScreen() {
   const items = useMemo(() => {
     const active = data?.groups.pairs ?? [];
     if (tab === 'watching') return data?.watching ?? [];
-    if (tab === 'collection') return active.filter((item) => item.listing_type === 'collection');
+    if (tab === 'collection') return active.filter((item) => item.listing_type === 'collection' || item.listing_type === 'vault');
     if (tab === 'selling') {
       return [...active.filter((item) => item.listing_type === 'sell'), ...(data?.groups.drafts ?? [])];
     }

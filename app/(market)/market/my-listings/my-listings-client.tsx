@@ -245,8 +245,9 @@ export function MyListingsClient({
     groups.drafts.length +
     groups.archived.length;
 
-  const collectionCount = groups.pairs.length;
+  const activeCount = groups.pairs.length;
   const statsForSale = groups.pairs.filter((l) => l.listing_type === 'sell').length;
+  const statsTrade = groups.pairs.filter((l) => l.listing_type === 'trade').length;
   const statsInCollection = groups.pairs.filter(
     (l) => l.listing_type === 'collection' || l.listing_type === 'vault'
   ).length;
@@ -256,28 +257,51 @@ export function MyListingsClient({
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-accent">My Collection</p>
-            <h1 className="text-2xl font-bold text-foreground mt-1">My Collection</h1>
+            <p className="text-xs font-semibold uppercase tracking-wider text-accent">My Market</p>
+            <h1 className="text-2xl font-bold text-foreground mt-1">My Market</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              {collectionCount} pair{collectionCount !== 1 ? 's' : ''} · {statsForSale} for sale ·{' '}
-              {statsInCollection} in collection
+              {activeCount} active pair{activeCount !== 1 ? 's' : ''} · {statsForSale} for sale ·{' '}
+              {statsTrade} trading · {statsInCollection} in Guild Collections
             </p>
           </div>
           <Button asChild size="sm" className="bg-accent text-accent-foreground rounded-full shrink-0">
-            <Link href="/market/listing/new?type=collection">+ Add a Pair</Link>
+            <Link href="/market/listing/new?type=collection">+ Add pair</Link>
           </Button>
         </div>
         <MarketSubNav
           pendingOffers={pendingOffers}
           browseCount={browsePairCount}
-          myCollectionCount={collectionCount}
+          myCollectionCount={activeCount}
         />
+        <div className="grid grid-cols-3 gap-2">
+          <Link
+            href="/market/listing/new?type=collection"
+            className="rounded-xl border border-border bg-card p-3 text-center"
+          >
+            <span className="block text-xs font-semibold text-foreground">Collect</span>
+            <span className="block text-[10px] text-muted-foreground mt-1">Showcase only</span>
+          </Link>
+          <Link
+            href="/market/listing/new?type=sell"
+            className="rounded-xl border border-border bg-card p-3 text-center"
+          >
+            <span className="block text-xs font-semibold text-foreground">Sell</span>
+            <span className="block text-[10px] text-muted-foreground mt-1">Price + offers</span>
+          </Link>
+          <Link
+            href="/market/listing/new?type=trade"
+            className="rounded-xl border border-border bg-card p-3 text-center"
+          >
+            <span className="block text-xs font-semibold text-foreground">Trade</span>
+            <span className="block text-[10px] text-muted-foreground mt-1">Swap or cash</span>
+          </Link>
+        </div>
         {total === 0 ? (
           <div className="py-12 text-center space-y-3">
-            <p className="text-sm font-medium text-foreground">Your collection is empty.</p>
-            <p className="text-sm text-muted-foreground">Add your first pair to get started.</p>
+            <p className="text-sm font-medium text-foreground">Your Market is empty.</p>
+            <p className="text-sm text-muted-foreground">Add a pair to showcase, sell, or trade.</p>
             <Button asChild className="bg-accent text-accent-foreground rounded-full">
-              <Link href="/market/listing/new?type=collection">+ Add a Pair</Link>
+              <Link href="/market/listing/new?type=collection">+ Add pair</Link>
             </Button>
           </div>
         ) : (

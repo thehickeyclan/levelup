@@ -303,11 +303,11 @@ export default function ListingDetailClient() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-          My Collection
+          My Market
         </Link>
         <p className="text-destructive">{loadError}</p>
         <Button asChild variant="outline">
-          <Link href="/market/my-listings">Back to My Collection</Link>
+          <Link href="/market/my-listings">Back to My Market</Link>
         </Button>
       </div>
     );
@@ -673,7 +673,7 @@ export default function ListingDetailClient() {
                   <span className="text-xs text-muted-foreground">{rarityShortHint(listingRarity)}</span>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground mb-2">Assessing how rare this pair is…</p>
+                <p className="text-xs text-muted-foreground mb-2">Assessing this pair’s collector profile…</p>
               )}
               <div className="flex items-start justify-between gap-3">
                 <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground leading-tight">

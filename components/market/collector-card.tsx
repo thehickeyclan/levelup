@@ -96,11 +96,11 @@ export function CollectorCard({
             </span>
             {collector.grail_count > 0 ? (
               <span className="text-[10px] text-accent font-medium">
-                {collector.grail_count} grail{collector.grail_count !== 1 ? 's' : ''}
+                {collector.grail_count} standout{collector.grail_count !== 1 ? 's' : ''}
               </span>
             ) : collector.rare_count > 0 ? (
               <span className="text-[10px] text-amber-400 font-medium">
-                {collector.rare_count} rare
+                {collector.rare_count} highlighted
               </span>
             ) : null}
             {collector.estimated_value_cents != null && collector.estimated_value_cents > 0 ? (

@@ -15,7 +15,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { apiFetch } from '@/lib/api';
-import { WEB_ORIGIN } from '@/lib/config';
 import { marketColors as colors, typography } from '@/lib/theme';
 
 type Listing = {
@@ -62,6 +61,7 @@ export default function ListingDetailScreen() {
   const [isOwner, setIsOwner] = useState(false);
   const [question, setQuestion] = useState('');
   const [sendingQuestion, setSendingQuestion] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +158,24 @@ export default function ListingDetailScreen() {
       setError(e instanceof Error ? e.message : 'Could not message seller');
     } finally {
       setSendingQuestion(false);
+    }
+  }
+
+  async function buyNow() {
+    if (checkingOut) return;
+    setCheckingOut(true);
+    setError(null);
+    try {
+      const result = await apiFetch<{ checkoutUrl?: string; orderRef?: string }>('/api/market/checkout', {
+        method: 'POST',
+        body: JSON.stringify({ listingId: id }),
+      });
+      if (!result.checkoutUrl) throw new Error('Could not start secure checkout');
+      await WebBrowser.openBrowserAsync(result.checkoutUrl);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start checkout');
+    } finally {
+      setCheckingOut(false);
     }
   }
 
@@ -295,14 +313,38 @@ export default function ListingDetailScreen() {
               )}
             </Pressable>
           </View>
-          <Pressable
-            style={styles.button}
-            onPress={() => void WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/market/listing/${id}`)}
-          >
-            <Text style={styles.buttonText}>
-              {listing.price_cents != null ? 'Buy or make an offer' : 'Make an offer'}
-            </Text>
-          </Pressable>
+          <View style={styles.actionGrid}>
+            {listing.price_cents != null ? (
+              <Pressable
+                style={[styles.actionButton, styles.actionButtonPrimary]}
+                onPress={() => void buyNow()}
+                disabled={checkingOut}
+              >
+                {checkingOut ? (
+                  <ActivityIndicator color={colors.black} />
+                ) : (
+                  <Text style={styles.buttonText}>Buy now</Text>
+                )}
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={[
+                styles.actionButton,
+                listing.price_cents == null && styles.actionButtonPrimary,
+                listing.price_cents != null && styles.actionButtonSecondary,
+              ]}
+              onPress={() => router.push(`/make-offer/${id}`)}
+            >
+              <Text
+                style={[
+                  styles.buttonText,
+                  listing.price_cents != null && styles.actionButtonSecondaryText,
+                ]}
+              >
+                Make offer / trade
+              </Text>
+            </Pressable>
+          </View>
         </>
       )}
     </ScrollView>
@@ -374,6 +416,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  actionGrid: { flexDirection: 'row', gap: 10, marginTop: 22 },
+  actionButton: {
+    flex: 1,
+    borderRadius: 10,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonPrimary: { backgroundColor: colors.accent },
+  actionButtonSecondary: { borderWidth: 1, borderColor: colors.accent, backgroundColor: colors.background },
+  actionButtonSecondaryText: { color: colors.accent },
   button: {
     marginTop: 24,
     backgroundColor: colors.accent,

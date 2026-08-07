@@ -23,6 +23,8 @@ export default function RootLayout() {
     pathname === '/my-market' ||
     pathname === '/add-shoe' ||
     pathname.startsWith('/manage-listing/') ||
+    pathname.startsWith('/make-offer/') ||
+    pathname === '/market-offers' ||
     pathname.startsWith('/order/');
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -124,6 +126,8 @@ export default function RootLayout() {
           <Stack.Screen name="my-market" options={{ title: 'My Market' }} />
           <Stack.Screen name="add-shoe" options={{ title: 'Add shoe' }} />
           <Stack.Screen name="manage-listing/[id]" options={{ title: 'Manage listing' }} />
+          <Stack.Screen name="make-offer/[id]" options={{ title: 'Make offer' }} />
+          <Stack.Screen name="market-offers" options={{ title: 'Offers' }} />
           <Stack.Screen name="order/[id]" options={{ title: 'Order' }} />
         </Stack>
       </MobileCartProvider>

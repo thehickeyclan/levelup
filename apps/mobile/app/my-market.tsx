@@ -133,6 +133,10 @@ export default function MyMarketScreen() {
               <Text style={styles.quickMeta}>Trade or trade + cash</Text>
             </Pressable>
           </View>
+          <Pressable style={styles.offersButton} onPress={() => router.push('/market-offers')}>
+            <Text style={styles.offersButtonText}>Offers</Text>
+            <Text style={styles.offersButtonMeta}>Review bids you received or sent</Text>
+          </Pressable>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
             {tabs.map(([value, label]) => (
               <Pressable
@@ -221,6 +225,9 @@ const styles = StyleSheet.create({
   quickTitle: { ...typography.bodyBold, color: colors.black, fontSize: 14 },
   quickTitleAlt: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
   quickMeta: { ...typography.body, color: colors.textSecondary, fontSize: 10, marginTop: 5 },
+  offersButton: { marginTop: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 13, padding: 13 },
+  offersButtonText: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
+  offersButtonMeta: { ...typography.body, color: colors.textMuted, fontSize: 11, marginTop: 4 },
   tabs: { gap: 7, paddingVertical: 18 },
   tab: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   tabSelected: { borderColor: colors.accent, backgroundColor: 'rgba(184,157,96,0.14)' },

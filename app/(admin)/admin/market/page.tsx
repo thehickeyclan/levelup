@@ -12,6 +12,46 @@ function getAdminEmails(): Set<string> {
   return new Set(raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean));
 }
 
+type UserContactRow = {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+};
+
+type AthletePayoutRow = {
+  id: string;
+  payout_method?: string | null;
+  venmo_handle?: string | null;
+  zelle_email?: string | null;
+};
+
+function userDisplayName(user: UserContactRow | undefined, fallback: string) {
+  if (!user) return fallback;
+  return (
+    formatSellerDisplayName(user.first_name ?? '', user.last_name ?? '') ||
+    user.email?.split('@')[0] ||
+    fallback
+  );
+}
+
+function userContact(user: UserContactRow | undefined) {
+  if (!user) return 'No contact on file';
+  return [user.email, user.phone].filter(Boolean).join(' · ') || 'No contact on file';
+}
+
+function payoutContact(user: UserContactRow | undefined, payout: AthletePayoutRow | undefined) {
+  const parts = [
+    payout?.payout_method ? `Prefers ${payout.payout_method}` : null,
+    payout?.venmo_handle ? `Venmo ${payout.venmo_handle}` : null,
+    payout?.zelle_email ? `Zelle ${payout.zelle_email}` : null,
+    user?.phone ? `Phone ${user.phone}` : null,
+    user?.email ? `Email ${user.email}` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'No payout contact on file';
+}
+
 export default async function AdminMarketPage() {
   const headersList = await headers();
   const host = headersList.get('host') || '';
@@ -38,7 +78,7 @@ export default async function AdminMarketPage() {
       admin
         .from('market_orders')
         .select(
-          'id, order_ref, status, amount_cents, platform_fee_cents, seller_payout_cents, created_at, seller_paid_at, buyer_id, seller_id, market_listings(title, brand, model)'
+          'id, order_ref, status, amount_cents, shipping_cents, platform_fee_cents, seller_payout_cents, created_at, updated_at, seller_paid_at, seller_payout_method, seller_payout_reference, seller_payout_note, buyer_id, seller_id, payout_recipient_id, shipping_carrier, tracking_number, shipped_at, delivered_at, market_listings(title, brand, model)'
         )
         .order('created_at', { ascending: false })
         .limit(100),
@@ -64,19 +104,25 @@ export default async function AdminMarketPage() {
   for (const o of orderRows ?? []) {
     userIds.add(o.buyer_id as string);
     userIds.add(o.seller_id as string);
+    userIds.add(o.payout_recipient_id as string);
   }
   for (const o of offerRows ?? []) userIds.add(o.buyer_id as string);
 
   const { data: users } = userIds.size
-    ? await admin.from('users').select('id, first_name, last_name, email').in('id', [...userIds])
+    ? await admin.from('users').select('id, first_name, last_name, email, phone').in('id', [...userIds])
     : { data: [] };
-  const userMap = new Map(
-    (users ?? []).map((u) => [
-      u.id as string,
-      formatSellerDisplayName(u.first_name as string, u.last_name as string) ||
-        (u.email as string)?.split('@')[0] ||
-        'User',
-    ])
+  const userContactMap = new Map(
+    ((users ?? []) as UserContactRow[]).map((u) => [u.id, u])
+  );
+
+  const { data: athletePayouts } = userIds.size
+    ? await admin
+        .from('athletes')
+        .select('id, payout_method, venmo_handle, zelle_email')
+        .in('id', [...userIds])
+    : { data: [] };
+  const athletePayoutMap = new Map(
+    ((athletePayouts ?? []) as AthletePayoutRow[]).map((a) => [a.id, a])
   );
 
   const listingIds = new Set<string>();
@@ -123,14 +169,33 @@ export default async function AdminMarketPage() {
       id: o.id as string,
       order_ref: o.order_ref as string,
       listing_title: listing?.title || [listing?.brand, listing?.model].filter(Boolean).join(' ') || 'Listing',
-      buyer_label: userMap.get(o.buyer_id as string) ?? 'Buyer',
-      seller_label: userMap.get(o.seller_id as string) ?? 'Seller',
+      buyer_label: userDisplayName(userContactMap.get(o.buyer_id as string), 'Buyer'),
+      buyer_contact: userContact(userContactMap.get(o.buyer_id as string)),
+      seller_label: userDisplayName(userContactMap.get(o.seller_id as string), 'Seller'),
+      seller_contact: userContact(userContactMap.get(o.seller_id as string)),
+      payout_recipient_label: userDisplayName(
+        userContactMap.get(o.payout_recipient_id as string),
+        'Payout recipient'
+      ),
+      payout_contact: payoutContact(
+        userContactMap.get(o.payout_recipient_id as string),
+        athletePayoutMap.get(o.payout_recipient_id as string)
+      ),
       amount_cents: o.amount_cents as number,
+      shipping_cents: (o.shipping_cents as number) ?? 0,
       platform_fee_cents: (o.platform_fee_cents as number) ?? 0,
       seller_payout_cents: (o.seller_payout_cents as number) ?? 0,
       status: o.status as string,
       created_at: o.created_at as string,
+      updated_at: o.updated_at as string,
       seller_paid_at: o.seller_paid_at as string | null,
+      seller_payout_method: o.seller_payout_method as string | null,
+      seller_payout_reference: o.seller_payout_reference as string | null,
+      seller_payout_note: o.seller_payout_note as string | null,
+      shipping_carrier: o.shipping_carrier as string | null,
+      tracking_number: o.tracking_number as string | null,
+      shipped_at: o.shipped_at as string | null,
+      delivered_at: o.delivered_at as string | null,
       thread_id: orderThreadMap.get(o.id as string) ?? null,
     };
   });
@@ -152,7 +217,7 @@ export default async function AdminMarketPage() {
     return {
       id: o.id as string,
       listing_title: listing?.title || [listing?.brand, listing?.model].filter(Boolean).join(' ') || 'Listing',
-      buyer_label: userMap.get(o.buyer_id as string) ?? 'Buyer',
+      buyer_label: userDisplayName(userContactMap.get(o.buyer_id as string), 'Buyer'),
       offer_type: o.offer_type as string,
       amount_cents: o.amount_cents as number | null,
       trade_listing_title: o.trade_listing_id

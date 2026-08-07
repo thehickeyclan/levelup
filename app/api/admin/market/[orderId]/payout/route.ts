@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   const headersList = await headers();
@@ -27,10 +27,26 @@ export async function POST(
   const { orderId } = await params;
   const admin = createAdminClient(tenant.slug);
   const now = new Date().toISOString();
+  const body = (await req.json().catch(() => ({}))) as {
+    method?: string;
+    reference?: string;
+    note?: string;
+  };
+
+  const method = (body.method || 'other').trim().toLowerCase();
+  const allowedMethods = new Set(['venmo', 'zelle', 'cash', 'check', 'other']);
+  const seller_payout_method = allowedMethods.has(method) ? method : 'other';
+  const seller_payout_reference = body.reference?.trim() || null;
+  const seller_payout_note = body.note?.trim() || null;
 
   const { error } = await admin
     .from('market_orders')
-    .update({ seller_paid_at: now })
+    .update({
+      seller_paid_at: now,
+      seller_payout_method,
+      seller_payout_reference,
+      seller_payout_note,
+    })
     .eq('id', orderId)
     .is('seller_paid_at', null);
 

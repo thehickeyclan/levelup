@@ -38,6 +38,15 @@ type ConditionResponse = {
     grade?: string;
   };
   suggested_description?: string;
+  warning?: string;
+};
+type AgentResponse = {
+  has_draft?: boolean;
+  message?: string;
+  draft?: {
+    description?: string;
+    colorway?: string;
+  };
 };
 
 export default function AddShoeScreen() {
@@ -49,6 +58,7 @@ export default function AddShoeScreen() {
   const [acceptsOffers, setAcceptsOffers] = useState(true);
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
+  const [colorway, setColorway] = useState('');
   const [size, setSize] = useState('');
   const [condition, setCondition] = useState('good');
   const [price, setPrice] = useState('');
@@ -105,6 +115,7 @@ export default function AddShoeScreen() {
       title: `${brand.trim()} ${model.trim()}`.trim() || 'Wrestling sneakers',
       brand: brand.trim(),
       model: model.trim(),
+      colorway: colorway.trim() || null,
       size: Number.isFinite(numericSize) && numericSize > 0 ? numericSize : 10,
       condition,
       wear_state: wearState,
@@ -185,6 +196,7 @@ export default function AddShoeScreen() {
           listingId,
           brand: brand.trim(),
           model: model.trim(),
+          colorway: colorway.trim() || undefined,
           persist: true,
         }),
       });
@@ -215,7 +227,7 @@ export default function AddShoeScreen() {
             description: description.trim(),
             wear_state: wearState,
             model_year: catalog.model_year ?? null,
-            colorway: catalog.colorway ?? undefined,
+            colorway: colorway.trim() || catalog.colorway || undefined,
           }),
         });
         const mid = priceResult.price?.suggested_mid_cents;
@@ -226,8 +238,44 @@ export default function AddShoeScreen() {
         }
       }
 
+      let descriptionNote = '';
+      try {
+        const agentResult = await apiFetch<AgentResponse>('/api/market/ai/agent', {
+          method: 'POST',
+          body: JSON.stringify({
+            draftId: listingId,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  'Write the buyer-facing listing description/history for this wrestling shoe.',
+                  `Brand: ${brand.trim()}`,
+                  `Model: ${model.trim()}`,
+                  colorway.trim() ? `Colorway: ${colorway.trim()}` : null,
+                  `Size: ${size}`,
+                  `Wear state: ${wearState}`,
+                  `Condition: ${nextCondition}`,
+                ]
+                  .filter(Boolean)
+                  .join('\n'),
+              },
+            ],
+          }),
+        });
+        if (agentResult.draft?.colorway && !colorway.trim()) {
+          setColorway(agentResult.draft.colorway);
+        }
+        if (agentResult.draft?.description && !description.trim()) {
+          setDescription(agentResult.draft.description);
+        }
+      } catch {
+        descriptionNote = ' Description/history did not refresh; you can try again.';
+      }
+
       setAiMessage(
-        `${catalog.found ? 'Catalog matched.' : 'No exact catalog match yet.'} AI refreshed condition, description, and value from your corrected brand/model.${priceNote}`
+        `${catalog.found ? 'Catalog matched.' : 'No exact catalog match yet.'} AI refreshed condition, description, history, and value from your corrected brand/model/colorway.${priceNote}${
+          conditionResult.warning ? ' Review condition before publishing.' : ''
+        }${descriptionNote}`
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'AI refresh failed');
@@ -318,6 +366,7 @@ export default function AddShoeScreen() {
 
       <Field label="BRAND" value={brand} onChangeText={setBrand} placeholder="Adidas, Nike, Rudis…" />
       <Field label="MODEL" value={model} onChangeText={setModel} placeholder="Combat Speed 4" />
+      <Field label="COLORWAY (OPTIONAL)" value={colorway} onChangeText={setColorway} placeholder="Black / gold, white / royal…" />
       <Field label="SIZE" value={size} onChangeText={setSize} placeholder="10.5" keyboardType="decimal-pad" />
 
       <Text style={styles.label}>CONDITION</Text>
@@ -339,7 +388,7 @@ export default function AddShoeScreen() {
       <View style={styles.aiBox}>
         <Text style={styles.aiTitle}>AI listing assistant</Text>
         <Text style={styles.aiCopy}>
-          Correct the brand/model first, then refresh. AI will re-check condition, description, and price from those details.
+          Enter brand, model, and colorway first. AI writes the description/history, checks photo condition, and suggests price.
         </Text>
         <Pressable
           style={[styles.aiButton, (aiRefreshing || saving) && styles.disabled]}

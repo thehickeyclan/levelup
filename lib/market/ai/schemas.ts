@@ -2,23 +2,43 @@ import { z } from 'zod';
 import { gradeFromWrestleScore, calibrateGuildConditionScores } from '@/lib/market/condition-grade';
 import type { MarketWearState } from '@/lib/market/wear-state';
 
-export const ConditionBreakdownSchema = z.object({
-  sole: z.object({ score: z.number(), note: z.string() }).optional(),
-  upper: z.object({ score: z.number(), note: z.string() }).optional(),
-  midsole: z.object({ score: z.number(), note: z.string() }).optional(),
-  laces: z.object({ score: z.number(), note: z.string() }).optional(),
-});
+const ConditionBreakdownItemSchema = z.preprocess((value) => {
+  if (typeof value === 'string') {
+    return { score: 5, note: value };
+  }
+  if (value && typeof value === 'object') {
+    const item = value as Record<string, unknown>;
+    return {
+      score: item.score ?? item.rating ?? item.condition_score ?? 5,
+      note: item.note ?? item.summary ?? item.comment ?? '',
+    };
+  }
+  return undefined;
+}, z.object({
+  score: z.coerce.number().min(1).max(10).default(5),
+  note: z.coerce.string().default(''),
+}).optional());
+
+export const ConditionBreakdownSchema = z.preprocess((value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value;
+}, z.object({
+  sole: ConditionBreakdownItemSchema,
+  upper: ConditionBreakdownItemSchema,
+  midsole: ConditionBreakdownItemSchema,
+  laces: ConditionBreakdownItemSchema,
+}).default({}));
 
 const ConditionAnalysisRawSchema = z.object({
-  wrestle_score: z.number().min(1).max(10).optional(),
-  cosmetic_score: z.number().min(1).max(10).optional(),
+  wrestle_score: z.coerce.number().min(1).max(10).optional(),
+  cosmetic_score: z.coerce.number().min(1).max(10).optional(),
   /** Legacy single score — treated as wrestle_score */
-  score: z.number().min(1).max(10).optional(),
+  score: z.coerce.number().min(1).max(10).optional(),
   grade: z.enum(['new', 'like_new', 'good', 'fair']).optional(),
-  summary: z.string(),
-  cosmetic_summary: z.string().optional(),
-  breakdown: ConditionBreakdownSchema,
-  listing_tip: z.string().optional(),
+  summary: z.coerce.string().default('Condition reviewed from the listing photos.'),
+  cosmetic_summary: z.coerce.string().optional(),
+  breakdown: ConditionBreakdownSchema.default({}),
+  listing_tip: z.coerce.string().optional(),
 });
 
 export type ConditionAnalysis = {

@@ -1290,8 +1290,8 @@ export default function NewListingPage() {
         </h1>
         <p className="text-sm text-muted-foreground leading-snug">
           {isCollection
-            ? 'Photo first — AI fills brand, condition, and rarity. Tap anything to change it.'
-            : 'Add a photo first. AI helps with the details — you stay in control.'}
+            ? 'Add brand, model, and colorway. AI writes the story, checks photos for condition, and suggests value.'
+            : 'Add brand, model, and colorway. AI writes the description, checks condition, and suggests price — you stay in control.'}
         </p>
       </header>
 
@@ -1449,9 +1449,9 @@ export default function NewListingPage() {
               : pipelineStep === 'condition'
                 ? 'AI assessing condition from photos…'
                 : pipelineStep === 'rarity'
-                  ? 'Estimating rarity…'
+                  ? 'Checking collection context…'
                   : pipelineStep === 'price'
-                    ? 'Suggesting price from model, condition, and rarity…'
+                    ? 'Suggesting price from model, condition, and sale history…'
                     : 'Writing listing description…'}
           </p>
         ) : null}
@@ -1466,7 +1466,7 @@ export default function NewListingPage() {
               pipelineStep === 'condition'
                 ? 'Step 3 — AI assessing condition…'
                 : pipelineStep === 'rarity'
-                  ? 'Step 4 — estimating rarity…'
+                  ? 'Step 4 — checking collection context…'
                   : pipelineStep === 'price'
                     ? 'Step 5 — suggesting price…'
                     : pipelineStep === 'description'
@@ -1687,7 +1687,7 @@ export default function NewListingPage() {
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">
-              Correct brand/model first — AI will re-check catalog details, condition, price, and description
+              Correct brand/model/colorway first — AI will re-check history, condition, price, and description
             </span>
           )}
         </div>

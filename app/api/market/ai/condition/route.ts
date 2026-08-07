@@ -10,7 +10,7 @@ import {
   BNIB_CONDITION_PROMPT,
   NEW_NO_BOX_CONDITION_PROMPT,
 } from '@/lib/market/ai/prompts';
-import { ConditionAnalysisSchema, conditionGradeForWearState } from '@/lib/market/ai/schemas';
+import { ConditionAnalysisSchema, conditionGradeForWearState, type ConditionAnalysis } from '@/lib/market/ai/schemas';
 import type { MarketWearState } from '@/lib/market/wear-state';
 import { conditionForWearState, wearStateLabel } from '@/lib/market/wear-state';
 import { buildListingDescription } from '@/lib/market/listing-description';
@@ -34,6 +34,33 @@ function promptForWearState(wearState: MarketWearState): string {
   return CONDITION_SYSTEM_PROMPT;
 }
 
+function fallbackConditionAnalysis(wearState: MarketWearState): ConditionAnalysis {
+  const declaredNew = wearState === 'bnib' || wearState === 'new_no_box';
+  const wrestleScore = declaredNew ? 9 : 6;
+  const cosmeticScore = declaredNew ? 9 : 6;
+  const summary = declaredNew
+    ? 'AI reviewed the photos but could not return structured details. Verify the shoes are unworn before publishing.'
+    : 'AI reviewed the photos but could not return structured details. Review the condition manually before publishing.';
+  const cosmeticSummary = declaredNew
+    ? 'Photos should clearly show unworn uppers, soles, and laces.'
+    : 'Use the photos and notes to confirm cosmetic wear before publishing.';
+
+  return {
+    wrestle_score: wrestleScore,
+    cosmetic_score: cosmeticScore,
+    grade: declaredNew ? 'new' : 'good',
+    summary,
+    cosmetic_summary: cosmeticSummary,
+    breakdown: {
+      sole: { score: wrestleScore, note: 'Review sole tread and grip from photos.' },
+      upper: { score: cosmeticScore, note: 'Review upper wear from photos.' },
+      midsole: { score: wrestleScore, note: 'Review structure and separation from photos.' },
+      laces: { score: cosmeticScore, note: 'Review laces and strap condition from photos.' },
+    },
+    listing_tip: 'AI could not read its own structured response. Confirm condition before publishing.',
+  };
+}
+
 export async function POST(req: NextRequest) {
   const ctx = await requireMarketUser();
   if (ctx.error) return ctx.error;
@@ -49,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   const { data: listing } = await supabase
     .from('market_listings')
-    .select('seller_id, description, wear_state, brand, model, model_year, size, condition')
+    .select('seller_id, description, wear_state, brand, model, colorway, model_year, size, condition')
     .eq('id', listingId)
     .single();
 
@@ -94,7 +121,7 @@ export async function POST(req: NextRequest) {
 
   const claude = await callClaude(promptForWearState(wearState), [...visionBlocks, textBlock]);
 
-  let analysis = null;
+  let analysis: ConditionAnalysis | null = null;
   let parseFailed = false;
 
   if (claude.ok) {
@@ -109,11 +136,16 @@ export async function POST(req: NextRequest) {
   }
 
   if (!analysis) {
-    const errOutcome = claude.ok ? { reason: 'parse' } : claude;
-    return NextResponse.json(
-      { error: aiErrorMessage(errOutcome, parseFailed) },
-      { status: 503 }
-    );
+    if (claude.ok && parseFailed) {
+      const fallback = fallbackConditionAnalysis(wearState);
+      analysis = { ...fallback, grade: conditionGradeForWearState(wearState, fallback) };
+    } else {
+      const errOutcome = claude.ok ? { reason: 'parse' } : claude;
+      return NextResponse.json(
+        { error: aiErrorMessage(errOutcome, parseFailed) },
+        { status: 503 }
+      );
+    }
   }
 
   await admin.from('market_ai_analysis').upsert({
@@ -143,6 +175,7 @@ export async function POST(req: NextRequest) {
   const suggestedDescription = buildListingDescription({
     brand: (listing.brand as string) || 'Other',
     model: (listing.model as string) || '',
+    colorway: listing.colorway as string | null,
     modelYear: listing.model_year as number | null,
     size: Number(listing.size) || 10,
     wearState,
@@ -158,6 +191,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     analysis,
+    warning: parseFailed ? 'AI returned partial condition details. Review condition before publishing.' : undefined,
     wear_state: wearState,
     suggested_description: suggestedDescription,
     remaining: usage.remaining,

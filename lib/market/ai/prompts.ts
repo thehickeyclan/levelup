@@ -19,17 +19,57 @@ CALIBRATION (important): Grade like a wrestling parent, not a StockX collector. 
    - 1–4 ONLY for rips, holes, collapsed shape, or destroyed uppers — not for dirt alone
 
 cosmetic_score is often 1–2 points below wrestle_score on white shoes. Do not assign cosmetic 1–4 unless there is real damage beyond dirt/yellowing.
-Return ONLY valid JSON: wrestle_score, cosmetic_score, summary (wrestle-focused), cosmetic_summary (appearance), breakdown (sole, upper, midsole, laces each with score and note), listing_tip.`;
+
+Return ONLY a valid JSON object. Do not wrap it in markdown. Use this exact shape:
+{
+  "wrestle_score": 7,
+  "cosmetic_score": 6,
+  "summary": "Short wrestle-focused condition summary.",
+  "cosmetic_summary": "Short appearance summary.",
+  "breakdown": {
+    "sole": { "score": 7, "note": "Tread/grip note." },
+    "upper": { "score": 6, "note": "Upper note." },
+    "midsole": { "score": 7, "note": "Midsole/structure note." },
+    "laces": { "score": 6, "note": "Laces/strap note." }
+  },
+  "listing_tip": "One seller-facing tip."
+}`;
 
 export const BNIB_CONDITION_PROMPT = `You are verifying a BNIB (brand new in box) wrestling shoe listing for The Guild Market.
 Seller declares: unworn, original box included. Verify from photos: box present, shoes look unworn, tags if visible.
 Return wrestle_score and cosmetic_score (expect 9–10 if truly BNIB). Note any red flags (no box visible, clear wear).
-Return ONLY valid JSON: wrestle_score, cosmetic_score, summary, cosmetic_summary, breakdown (sole, upper, midsole, laces), listing_tip.`;
+Return ONLY a valid JSON object. Do not wrap it in markdown. Use this exact shape:
+{
+  "wrestle_score": 10,
+  "cosmetic_score": 10,
+  "summary": "Short BNIB verification summary.",
+  "cosmetic_summary": "Short appearance summary.",
+  "breakdown": {
+    "sole": { "score": 10, "note": "Sole note." },
+    "upper": { "score": 10, "note": "Upper note." },
+    "midsole": { "score": 10, "note": "Midsole/structure note." },
+    "laces": { "score": 10, "note": "Laces/strap note." }
+  },
+  "listing_tip": "One seller-facing tip."
+}`;
 
 export const NEW_NO_BOX_CONDITION_PROMPT = `You are verifying a brand-new without box wrestling shoe listing for The Guild Market.
 Seller declares: unworn deadstock, no box. Verify shoes look unworn; do not penalize missing box.
 Return wrestle_score and cosmetic_score (expect 8–10 if unworn). Note any wear that contradicts "new".
-Return ONLY valid JSON: wrestle_score, cosmetic_score, summary, cosmetic_summary, breakdown (sole, upper, midsole, laces), listing_tip.`;
+Return ONLY a valid JSON object. Do not wrap it in markdown. Use this exact shape:
+{
+  "wrestle_score": 9,
+  "cosmetic_score": 9,
+  "summary": "Short new-without-box verification summary.",
+  "cosmetic_summary": "Short appearance summary.",
+  "breakdown": {
+    "sole": { "score": 9, "note": "Sole note." },
+    "upper": { "score": 9, "note": "Upper note." },
+    "midsole": { "score": 9, "note": "Midsole/structure note." },
+    "laces": { "score": 9, "note": "Laces/strap note." }
+  },
+  "listing_tip": "One seller-facing tip."
+}`;
 
 export const PRICE_SYSTEM_PROMPT = `You are a wrestling sneaker pricing analyst for The Guild Market (parents and wrestlers, not StockX collectors).
 Price USED shoes primarily on wrestle-ready score and model demand — NOT on appearance alone. White wrestling shoes often score low cosmetically but still sell $70–$120 used when tread is good.

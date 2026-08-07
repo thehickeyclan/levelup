@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ComponentProps } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +19,26 @@ import { marketColors as colors, typography } from '@/lib/theme';
 type ListingType = 'collection' | 'sell' | 'trade';
 type WearState = 'bnib' | 'new_no_box' | 'used';
 type PickedPhoto = { uri: string; fileName?: string | null; mimeType?: string | null; base64?: string | null };
+type ListingImageResponse = {
+  image?: {
+    id: string;
+    public_url?: string | null;
+    clean_public_url?: string | null;
+    use_clean?: boolean | null;
+  };
+};
+type PriceResponse = {
+  price?: {
+    suggested_mid_cents?: number;
+    confidence_note?: string;
+  };
+};
+type ConditionResponse = {
+  analysis?: {
+    grade?: string;
+  };
+  suggested_description?: string;
+};
 
 export default function AddShoeScreen() {
   const router = useRouter();
@@ -33,6 +54,11 @@ export default function AddShoeScreen() {
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [aiRefreshing, setAiRefreshing] = useState(false);
+  const [draftListingId, setDraftListingId] = useState<string | null>(null);
+  const [uploadedPhotoCount, setUploadedPhotoCount] = useState(0);
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -55,6 +81,9 @@ export default function AddShoeScreen() {
       base64: true,
     });
     if (!result.canceled) {
+      if (draftListingId) {
+        setAiMessage('Photos changed. Run AI refresh again if you want updated guidance before publishing.');
+      }
       setPhotos((current) => [
         ...current,
         ...result.assets.slice(0, 6 - current.length).map((asset) => ({
@@ -64,6 +93,146 @@ export default function AddShoeScreen() {
           base64: asset.base64,
         })),
       ]);
+    }
+  }
+
+  function listingPayload(status?: 'active') {
+    const numericSize = Number(size);
+    const numericPrice = Number(price);
+    return {
+      draft: status !== 'active',
+      status,
+      title: `${brand.trim()} ${model.trim()}`.trim() || 'Wrestling sneakers',
+      brand: brand.trim(),
+      model: model.trim(),
+      size: Number.isFinite(numericSize) && numericSize > 0 ? numericSize : 10,
+      condition,
+      wear_state: wearState,
+      listing_type: listingType,
+      price_cents:
+        listingType === 'sell' && Number.isFinite(numericPrice) && numericPrice > 0
+          ? Math.round(numericPrice * 100)
+          : null,
+      open_to_trade: listingType === 'trade',
+      accepts_offers: listingType !== 'trade' ? acceptsOffers : true,
+      description: description.trim() || undefined,
+    };
+  }
+
+  async function ensureDraftWithPhotos() {
+    if (!brand.trim() || !model.trim() || !size.trim()) {
+      throw new Error('Enter brand, model, and size first — then AI can refresh from the corrected details.');
+    }
+    if (photos.length === 0) {
+      throw new Error('Add at least one photo before AI refresh.');
+    }
+
+    let listingId = draftListingId;
+    if (!listingId) {
+      const created = await apiFetch<{ listingId: string }>('/api/market/listings', {
+        method: 'POST',
+        body: JSON.stringify(listingPayload()),
+      });
+      listingId = created.listingId;
+      setDraftListingId(listingId);
+    } else {
+      await apiFetch(`/api/market/listings/${listingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(listingPayload()),
+      });
+    }
+
+    const urls = [...uploadedImageUrls];
+    for (let index = uploadedPhotoCount; index < photos.length; index += 1) {
+      const photo = photos[index];
+      if (!photo.base64) {
+        throw new Error('Could not read one of the photos. Please pick it again from your camera roll.');
+      }
+      const uploaded = await apiFetch<ListingImageResponse>(`/api/market/listings/${listingId}/images`, {
+        method: 'POST',
+        body: JSON.stringify({
+          fileName: photo.fileName || `shoe-${index + 1}.jpg`,
+          mimeType: photo.mimeType || 'image/jpeg',
+          base64: photo.base64,
+        }),
+      });
+      const imageUrl = uploaded.image?.use_clean
+        ? uploaded.image.clean_public_url || uploaded.image.public_url
+        : uploaded.image?.public_url || uploaded.image?.clean_public_url;
+      if (imageUrl) urls.push(imageUrl);
+    }
+
+    setUploadedPhotoCount(photos.length);
+    setUploadedImageUrls(urls);
+    return { listingId };
+  }
+
+  async function refreshAiFromCurrentDetails() {
+    if (aiRefreshing || saving) return;
+    setAiRefreshing(true);
+    setError(null);
+    setAiMessage(null);
+    try {
+      const { listingId } = await ensureDraftWithPhotos();
+
+      const catalog = await apiFetch<{
+        found?: boolean;
+        model_year?: number | null;
+        colorway?: string | null;
+      }>('/api/market/catalog/lookup', {
+        method: 'POST',
+        body: JSON.stringify({
+          listingId,
+          brand: brand.trim(),
+          model: model.trim(),
+          persist: true,
+        }),
+      });
+
+      const conditionResult = await apiFetch<ConditionResponse>('/api/market/ai/condition', {
+        method: 'POST',
+        body: JSON.stringify({ listingId, wear_state: wearState }),
+      });
+      const nextCondition = conditionResult.analysis?.grade || condition;
+      if (conditionResult.analysis?.grade) {
+        setCondition(conditionResult.analysis.grade);
+      }
+      if (!description.trim() && conditionResult.suggested_description) {
+        setDescription(conditionResult.suggested_description);
+      }
+
+      let priceNote = '';
+      if (listingType === 'sell') {
+        const priceResult = await apiFetch<PriceResponse>('/api/market/ai/price', {
+          method: 'POST',
+          body: JSON.stringify({
+            listingId,
+            brand: brand.trim(),
+            model: model.trim(),
+            size: Number(size),
+            condition: nextCondition,
+            listing_type: listingType,
+            description: description.trim(),
+            wear_state: wearState,
+            model_year: catalog.model_year ?? null,
+            colorway: catalog.colorway ?? undefined,
+          }),
+        });
+        const mid = priceResult.price?.suggested_mid_cents;
+        if (typeof mid === 'number' && mid > 0) {
+          const dollars = Math.round(mid / 100);
+          setPrice(String(dollars));
+          priceNote = ` Suggested price: $${dollars}.`;
+        }
+      }
+
+      setAiMessage(
+        `${catalog.found ? 'Catalog matched.' : 'No exact catalog match yet.'} AI refreshed condition, description, and value from your corrected brand/model.${priceNote}`
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'AI refresh failed');
+    } finally {
+      setAiRefreshing(false);
     }
   }
 
@@ -91,44 +260,14 @@ export default function AddShoeScreen() {
     setSaving(true);
     setError(null);
     try {
-      const created = await apiFetch<{ listingId: string }>('/api/market/listings', {
-        method: 'POST',
-        body: JSON.stringify({
-          draft: true,
-          title: `${brand.trim()} ${model.trim()}`,
-          brand: brand.trim(),
-          model: model.trim(),
-          size: numericSize,
-          condition,
-          wear_state: wearState,
-          listing_type: listingType,
-          price_cents: listingType === 'sell' ? Math.round(numericPrice * 100) : null,
-          open_to_trade: listingType === 'trade',
-          accepts_offers: listingType !== 'trade' ? acceptsOffers : true,
-          description: description.trim() || undefined,
-        }),
-      });
+      const { listingId } = await ensureDraftWithPhotos();
 
-      for (const [index, photo] of photos.entries()) {
-        if (!photo.base64) {
-          throw new Error('Could not read one of the photos. Please pick it again from your camera roll.');
-        }
-        await apiFetch(`/api/market/listings/${created.listingId}/images`, {
-          method: 'POST',
-          body: JSON.stringify({
-            fileName: photo.fileName || `shoe-${index + 1}.jpg`,
-            mimeType: photo.mimeType || 'image/jpeg',
-            base64: photo.base64,
-          }),
-        });
-      }
-
-      await apiFetch(`/api/market/listings/${created.listingId}`, {
+      await apiFetch(`/api/market/listings/${listingId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: 'active' }),
+        body: JSON.stringify({ ...listingPayload('active'), status: 'active' }),
       });
       Alert.alert('Shoe added', 'Your shoe is now in My Market.', [
-        { text: 'View listing', onPress: () => router.replace(`/listing/${created.listingId}`) },
+        { text: 'View listing', onPress: () => router.replace(`/listing/${listingId}`) },
       ]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not add shoe');
@@ -197,6 +336,24 @@ export default function AddShoeScreen() {
       {wearState === 'used' ? (
         <Field label="CONDITION NOTES" value={condition} onChangeText={setCondition} placeholder="Good" />
       ) : null}
+      <View style={styles.aiBox}>
+        <Text style={styles.aiTitle}>AI listing assistant</Text>
+        <Text style={styles.aiCopy}>
+          Correct the brand/model first, then refresh. AI will re-check condition, description, and price from those details.
+        </Text>
+        <Pressable
+          style={[styles.aiButton, (aiRefreshing || saving) && styles.disabled]}
+          onPress={() => void refreshAiFromCurrentDetails()}
+          disabled={aiRefreshing || saving}
+        >
+          {aiRefreshing ? (
+            <ActivityIndicator color={colors.black} />
+          ) : (
+            <Text style={styles.aiButtonText}>Refresh AI from these details</Text>
+          )}
+        </Pressable>
+        {aiMessage ? <Text style={styles.aiMessage}>{aiMessage}</Text> : null}
+      </View>
       {listingType === 'sell' ? (
         <>
           <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
@@ -233,7 +390,7 @@ function Field({
 }: {
   label: string;
   prefix?: string;
-} & React.ComponentProps<typeof TextInput>) {
+} & ComponentProps<typeof TextInput>) {
   return (
     <>
       <Text style={styles.label}>{label}</Text>
@@ -275,6 +432,12 @@ const styles = StyleSheet.create({
   toggleDotOn: { borderColor: colors.accent, backgroundColor: colors.accent },
   toggleTitle: { ...typography.bodyBold, color: colors.text, fontSize: 13 },
   toggleMeta: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  aiBox: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, padding: 13, marginTop: 16 },
+  aiTitle: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
+  aiCopy: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 5 },
+  aiButton: { minHeight: 45, backgroundColor: colors.accent, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  aiButtonText: { ...typography.bodyBold, color: colors.black, fontSize: 13 },
+  aiMessage: { ...typography.body, color: colors.accent, fontSize: 12, lineHeight: 17, marginTop: 10 },
   error: { ...typography.body, color: colors.danger, fontSize: 12, marginTop: 14 },
   publish: { minHeight: 54, backgroundColor: colors.accent, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginTop: 22 },
   publishText: { ...typography.bodyBold, color: colors.black, fontSize: 14 },

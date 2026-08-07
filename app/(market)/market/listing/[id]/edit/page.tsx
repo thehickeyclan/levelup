@@ -1033,7 +1033,7 @@ export default function EditListingPage() {
                 Saving…
               </>
             ) : (
-              'Save shoe details'
+              'Refresh AI from corrected details'
             )}
           </Button>
           {identitySavedFlash ? (
@@ -1042,7 +1042,7 @@ export default function EditListingPage() {
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">
-              Save when you correct the model — AI looks up catalog details and refreshes the listing
+              Correct brand/model first — AI will re-check catalog details, condition, price, and description
             </span>
           )}
         </div>

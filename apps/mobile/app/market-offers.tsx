@@ -11,7 +11,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { apiFetch } from '@/lib/api';
 import { marketColors as colors, typography } from '@/lib/theme';
 
@@ -19,12 +20,15 @@ type OfferMode = 'incoming' | 'sent';
 
 type Offer = {
   id: string;
+  listing_id?: string | null;
   offer_type: 'cash' | 'trade' | 'cash_and_trade';
   amount_cents?: number | null;
   message?: string | null;
   status: string;
   created_at?: string | null;
   buyer_label?: string | null;
+  accepted_order_id?: string | null;
+  accepted_trade_id?: string | null;
   market_listings?: ListingEmbed | ListingEmbed[] | null;
 };
 
@@ -69,7 +73,8 @@ function offerLabel(offer: Offer) {
 
 export default function MarketOffersScreen() {
   const router = useRouter();
-  const [mode, setMode] = useState<OfferMode>('incoming');
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [mode, setMode] = useState<OfferMode>(params.tab === 'sent' ? 'sent' : 'incoming');
   const [incoming, setIncoming] = useState<Offer[]>([]);
   const [sent, setSent] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +116,25 @@ export default function MarketOffersScreen() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : `Could not ${action} offer`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function payAcceptedOffer(offer: Offer) {
+    const listing = listingFromOffer(offer);
+    if (!listing?.id || !offer.accepted_order_id || busyId) return;
+    setBusyId(offer.id);
+    setError(null);
+    try {
+      const result = await apiFetch<{ checkoutUrl?: string }>('/api/market/checkout', {
+        method: 'POST',
+        body: JSON.stringify({ listingId: listing.id, orderId: offer.accepted_order_id }),
+      });
+      if (!result.checkoutUrl) throw new Error('Could not start secure checkout');
+      await WebBrowser.openBrowserAsync(result.checkoutUrl);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start checkout');
     } finally {
       setBusyId(null);
     }
@@ -179,6 +203,27 @@ export default function MarketOffersScreen() {
                 </Pressable>
               </View>
             ) : null}
+            {mode === 'sent' && item.status === 'accepted' && item.accepted_order_id ? (
+              <Pressable
+                style={styles.fullWidthAction}
+                onPress={() => void payAcceptedOffer(item)}
+                disabled={busyId === item.id}
+              >
+                {busyId === item.id ? (
+                  <ActivityIndicator color={colors.black} />
+                ) : (
+                  <Text style={styles.acceptText}>Pay accepted offer</Text>
+                )}
+              </Pressable>
+            ) : null}
+            {item.status === 'accepted' && item.accepted_trade_id ? (
+              <Pressable
+                style={styles.fullWidthSecondaryAction}
+                onPress={() => router.push(`/market-trade/${item.accepted_trade_id}`)}
+              >
+                <Text style={styles.secondaryActionText}>View trade status</Text>
+              </Pressable>
+            ) : null}
           </View>
         );
       }}
@@ -240,10 +285,13 @@ const styles = StyleSheet.create({
   statusText: { ...typography.bodyBold, fontSize: 9, textTransform: 'capitalize' },
   responseRow: { flexDirection: 'row', gap: 9, marginTop: 13, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 },
   responseButton: { flex: 1, minHeight: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  fullWidthAction: { marginTop: 12, minHeight: 42, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  fullWidthSecondaryAction: { marginTop: 10, minHeight: 42, borderRadius: 10, borderWidth: 1, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   declineButton: { borderWidth: 1, borderColor: colors.border },
   acceptButton: { backgroundColor: colors.accent },
   declineText: { ...typography.bodyBold, color: colors.textMuted, fontSize: 12 },
   acceptText: { ...typography.bodyBold, color: colors.black, fontSize: 12 },
+  secondaryActionText: { ...typography.bodyBold, color: colors.accent, fontSize: 12 },
   empty: { alignItems: 'center', paddingVertical: 58, paddingHorizontal: 28 },
   emptyTitle: { ...typography.bodyBold, color: colors.text, fontSize: 16 },
   emptyText: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 6 },

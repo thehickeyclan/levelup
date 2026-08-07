@@ -30,8 +30,9 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from('market_offers')
       .select(`
-        id, offer_type, amount_cents, message, status, created_at, expires_at, listing_id,
-        ${listingEmbed}
+      id, offer_type, amount_cents, message, status, created_at, expires_at, listing_id,
+      trade_listing_id, accepted_order_id, accepted_trade_id,
+      ${listingEmbed}
       `)
       .eq('buyer_id', user!.id)
       .order('created_at', { ascending: false })
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
     .from('market_offers')
     .select(`
       id, offer_type, amount_cents, message, status, created_at, expires_at, listing_id, buyer_id,
+      trade_listing_id, accepted_order_id, accepted_trade_id,
       ${listingEmbed}
     `)
     .in('listing_id', listingIds)

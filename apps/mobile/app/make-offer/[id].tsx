@@ -125,7 +125,10 @@ export default function MakeOfferScreen() {
         }),
       });
       Alert.alert('Offer sent', 'The seller can review it in Guild Market.', [
-        { text: 'View My Market', onPress: () => router.replace('/my-market') },
+        {
+          text: 'View sent offers',
+          onPress: () => router.replace({ pathname: '/market-offers', params: { tab: 'sent' } }),
+        },
         { text: 'Done', onPress: () => router.back(), style: 'cancel' },
       ]);
     } catch (e) {

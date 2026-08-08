@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { primaryListingImageUrl, type MarketListingImageRow } from '@/lib/market/listing-images';
 import { resolveSiteBaseUrl, siteShareImageMetadata } from '@/lib/site-metadata';
 
 type PageProps = {
@@ -35,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { data: listing } = await admin
     .from('market_listings')
     .select(
-      'id, title, brand, model, colorway, price_cents, listing_type, market_listing_images(public_url, clean_public_url, use_clean, display_order)'
+      'id, title, brand, model, colorway, price_cents, listing_type'
     )
     .eq('id', id)
     .maybeSingle();
@@ -47,9 +46,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const images = (listing.market_listing_images as MarketListingImageRow[] | null) ?? [];
-  const imageUrl = primaryListingImageUrl(images);
-  const shareImageUrl = imageUrl ? `${baseUrl}/api/market/listings/${id}/share-image` : null;
+  const shareImageUrl = `${baseUrl}/api/market/listings/${id}/share-image`;
   const titleBase =
     (listing.title as string | null)?.trim() ||
     [listing.brand, listing.model].filter(Boolean).join(' ').trim() ||
@@ -75,27 +72,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url: canonicalUrl,
       title,
       description,
-      images: imageUrl
-        ? [
-            {
-              url: shareImageUrl!,
-              alt: titleBase,
-              width: 1200,
-              height: 1200,
-            },
-          ]
-        : [
-            {
-              url: fallbackLogo,
-              alt: productName,
-            },
-          ],
+      images: [
+        {
+          url: shareImageUrl,
+          alt: titleBase,
+          width: 1200,
+          height: 1200,
+        },
+      ],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: [shareImageUrl || fallbackLogo],
+      images: [shareImageUrl],
     },
   };
 }

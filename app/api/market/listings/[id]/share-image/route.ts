@@ -24,7 +24,7 @@ export async function GET(
     const admin = createAdminClient(tenant.slug);
     const { data: listing } = await admin
       .from('market_listings')
-      .select('id, status, market_listing_images(public_url, clean_public_url, use_clean, display_order)')
+      .select('id, status')
       .eq('id', id)
       .maybeSingle();
 
@@ -32,7 +32,19 @@ export async function GET(
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
     }
 
-    const images = (listing.market_listing_images as MarketListingImageRow[] | null) ?? [];
+    const { data: imageRows, error: imageError } = await admin
+      .from('market_listing_images')
+      .select('public_url, clean_public_url, use_clean, display_order')
+      .eq('listing_id', id)
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (imageError) {
+      console.error('[market listing share-image images]', imageError.message);
+      return NextResponse.json({ error: 'Listing image unavailable' }, { status: 502 });
+    }
+
+    const images = (imageRows as MarketListingImageRow[] | null) ?? [];
     const imageUrl = primaryListingImageUrl(images);
 
     if (!imageUrl) {

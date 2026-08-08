@@ -49,6 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const images = (listing.market_listing_images as MarketListingImageRow[] | null) ?? [];
   const imageUrl = primaryListingImageUrl(images);
+  const shareImageUrl = imageUrl ? `${baseUrl}/api/market/listings/${id}/share-image` : null;
   const titleBase =
     (listing.title as string | null)?.trim() ||
     [listing.brand, listing.model].filter(Boolean).join(' ').trim() ||
@@ -77,8 +78,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       images: imageUrl
         ? [
             {
-              url: imageUrl,
+              url: shareImageUrl!,
               alt: titleBase,
+              width: 1200,
+              height: 1200,
             },
           ]
         : [
@@ -92,7 +95,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: 'summary_large_image',
       title,
       description,
-      images: [imageUrl || fallbackLogo],
+      images: [shareImageUrl || fallbackLogo],
     },
   };
 }

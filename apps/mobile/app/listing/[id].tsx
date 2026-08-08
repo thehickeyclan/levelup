@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Platform,
   Pressable,
   Share,
   ScrollView,
@@ -184,11 +185,19 @@ export default function ListingDetailScreen() {
     const currentListing = listing;
     if (!currentListing) return;
     try {
-      await Share.share({
-        title: marketListingShareTitle(currentListing),
-        message: marketListingShareMessage(currentListing),
-        url: marketListingShareUrl(currentListing.id),
-      });
+      const title = marketListingShareTitle(currentListing);
+      const url = marketListingShareUrl(currentListing.id);
+      await Share.share(
+        Platform.OS === 'ios'
+          ? {
+              title,
+              url,
+            }
+          : {
+              title,
+              message: marketListingShareMessage(currentListing),
+            }
+      );
     } catch (e) {
       Alert.alert('Could not share', e instanceof Error ? e.message : 'Try again in a moment.');
     }

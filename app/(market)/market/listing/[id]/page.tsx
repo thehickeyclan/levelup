@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { primaryListingImageUrl, type MarketListingImageRow } from '@/lib/market/listing-images';
 import { resolveSiteBaseUrl, siteShareImageMetadata } from '@/lib/site-metadata';
 
 type PageProps = {
@@ -46,7 +47,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const shareImageUrl = `${baseUrl}/api/market/listings/${id}/share-image`;
+  const { data: imageRows } = await admin
+    .from('market_listing_images')
+    .select('public_url, clean_public_url, use_clean, display_order')
+    .eq('listing_id', id)
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  const primaryImageUrl = primaryListingImageUrl((imageRows as MarketListingImageRow[] | null) ?? []);
+  const shareImageUrl = primaryImageUrl
+    ? new URL(primaryImageUrl, baseUrl).toString()
+    : `${baseUrl}/api/market/listings/${id}/share-image`;
   const titleBase =
     (listing.title as string | null)?.trim() ||
     [listing.brand, listing.model].filter(Boolean).join(' ').trim() ||

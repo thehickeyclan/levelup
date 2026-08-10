@@ -50,6 +50,7 @@ export default function SignupPage() {
   const inviteToken = searchParams?.get('invite')?.trim() || undefined;
   const refFromUrl = searchParams?.get('ref')?.trim() || undefined;
   const roleParam = searchParams?.get('role')?.toLowerCase();
+  const campaign = searchParams?.get('campaign')?.trim() || undefined;
   const redirectTo = searchParams?.get('redirect')?.trim();
   const safeRedirect: string | null =
     redirectTo &&
@@ -64,6 +65,8 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   /** True when signup URL had ?ref= or browser already stored a referral code from a prior visit. */
   const [referralLinkActive, setReferralLinkActive] = useState(false);
+  const isYouthWrestlerSignup = roleParam === 'youth_wrestler' || roleParam === 'athlete' || roleParam === 'wrestler';
+  const isTocCampaign = campaign?.toLowerCase() === 'toc_2026';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -117,7 +120,9 @@ export default function SignupPage() {
           phone: values.phone.trim(),
           email: values.email,
           password: values.password,
-          role: 'parent',
+          role: isYouthWrestlerSignup ? 'youth_wrestler' : 'parent',
+          athletePhone: isYouthWrestlerSignup ? values.phone.trim() : undefined,
+          campaign: campaign || undefined,
           discountCode: values.discountCode?.trim() || undefined,
           inviteToken: inviteToken || undefined,
           referralCode:
@@ -155,7 +160,7 @@ export default function SignupPage() {
         return;
       }
 
-      // Training is the parent home: join an available session or request one from a coach.
+      // Training is the parent/athlete home: join an available session or request one from a coach.
       router.push('/training');
       router.refresh();
     } catch (err) {
@@ -177,12 +182,25 @@ export default function SignupPage() {
     <div className="container mx-auto px-4 py-16 flex items-center justify-center min-h-screen">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-foreground font-serif">Parent Sign Up</CardTitle>
+          <CardTitle className="text-foreground font-serif">
+            {isYouthWrestlerSignup ? 'Wrestler Sign Up' : 'Parent Sign Up'}
+          </CardTitle>
           <CardDescription>
-            Create your account to book training sessions for your wrestler
+            {isYouthWrestlerSignup
+              ? 'Create your free wrestler account to follow coaches and book training.'
+              : 'Create your account to book training sessions for your wrestler'}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {isTocCampaign && isYouthWrestlerSignup && (
+            <div className="mb-4 rounded-md border border-accent/40 bg-accent/10 px-3 py-3 text-sm text-foreground">
+              <p className="font-semibold text-accent">Tournament of Champions entry</p>
+              <p className="mt-1 text-muted-foreground">
+                Create a free wrestler account by September 15 for a chance to win $100 in Guild
+                training credit. No purchase necessary.
+              </p>
+            </div>
+          )}
           {error && (
             <div className="mb-4 p-3 bg-destructive/10 border border-destructive rounded-md">
               <p className="text-sm text-destructive">{error}</p>
@@ -255,7 +273,9 @@ export default function SignupPage() {
                       />
                     </FormControl>
                     <FormDescription>
-                      Required for session texts and coach contact (same standard as wrestler signup).
+                      {isYouthWrestlerSignup
+                        ? 'Used for training alerts, coach messages, and account recovery.'
+                        : 'Required for session texts and coach contact (same standard as wrestler signup).'}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -328,7 +348,11 @@ export default function SignupPage() {
               />
 
               <Button type="submit" className="w-full bg-accent hover:bg-accent-hover text-black" disabled={loading}>
-                {loading ? 'Creating account...' : 'Create Account'}
+                {loading
+                  ? 'Creating account...'
+                  : isTocCampaign && isYouthWrestlerSignup
+                    ? 'Create Account + Enter Drawing'
+                    : 'Create Account'}
               </Button>
             </form>
           </Form>

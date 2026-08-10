@@ -7,6 +7,7 @@ import { resolveDiscountPercentOff } from '@/lib/discount-codes';
 import { family10CodeBlockedForEmail } from '@/lib/family-auto-discount';
 import { normalizeUsZipCode } from '@/lib/us-zip';
 import { createReferralAttributionOnSignup, isRewardsProgramEnabled } from '@/lib/rewards';
+import { isTocGiveawayOpen, normalizeTocCampaign } from '@/lib/toc-giveaway';
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,7 +34,9 @@ export async function POST(req: NextRequest) {
       inviteToken,
       athletePhone,
       referralCode: referralCodeBody,
+      campaign,
     } = body;
+    const tocCampaign = normalizeTocCampaign(campaign);
 
     // Validate required fields
     if (!email || !password || !role) {
@@ -321,6 +324,34 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
+
+      if (tocCampaign && isTocGiveawayOpen()) {
+        const { error: tocErr } = await supabaseAdmin.from('toc_giveaway_entries').upsert(
+          {
+            campaign: tocCampaign,
+            user_id: userId,
+            youth_wrestler_id: userId,
+            email: emailNormalized,
+            first_name: String(firstName).trim(),
+            last_name: String(lastName).trim(),
+            phone: youthAthletePhone!,
+            zip_code: youthZipNorm!,
+            eligible: true,
+            source: 'signup',
+          },
+          { onConflict: 'campaign,user_id' }
+        );
+
+        if (tocErr) {
+          await supabaseAdmin.from('youth_wrestlers').delete().eq('id', userId);
+          await supabaseAdmin.from('users').delete().eq('id', userId);
+          await supabaseAdmin.auth.admin.deleteUser(userId);
+          return NextResponse.json(
+            { error: `Failed to enter Tournament of Champions giveaway: ${tocErr.message}` },
+            { status: 500 }
+          );
+        }
+      }
     }
 
     return NextResponse.json({
@@ -339,4 +370,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

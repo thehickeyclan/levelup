@@ -7,6 +7,7 @@ import { MeetCoachesSection } from '@/components/home/meet-coaches-section';
 import { EcosystemSection } from '@/components/home/ecosystem-section';
 import { ParentReviewsCarousel } from '@/components/home/parent-reviews-carousel';
 import { TrainingPathsSection } from '@/components/home/training-paths-section';
+import { TocGiveawayBanner } from '@/components/home/toc-giveaway-banner';
 import { CoachMapSection } from '@/components/map/coach-map-section';
 import { CoachApplySection } from '@/components/home/coach-apply-section';
 import { StickyMobileBar } from '@/components/home/sticky-mobile-bar';
@@ -76,6 +77,7 @@ export default async function HomePage({
         logoSrc={tenant?.heroLogo ?? tenant?.logo}
         logoAlt={tenant?.productName}
       />
+      <TocGiveawayBanner />
       <MeetCoachesSection coaches={featuredCoaches} />
       <EcosystemSection />
       <ParentReviewsCarousel reviews={homeReviews} stats={reviewStats} />

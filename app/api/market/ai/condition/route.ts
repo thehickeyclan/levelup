@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     listingId?: string;
     wear_state?: MarketWearState;
+    seller_note?: string;
   };
   const listingId = body.listingId?.trim();
   if (!listingId) return NextResponse.json({ error: 'listingId required' }, { status: 400 });
@@ -116,7 +117,16 @@ export async function POST(req: NextRequest) {
 
   const textBlock = {
     type: 'text' as const,
-    text: `Seller declares: ${wearStateLabel(wearState)}. Description: ${listing.description || 'None provided'}.`,
+    text: [
+      `Seller declares: ${wearStateLabel(wearState)}.`,
+      body.seller_note?.trim() ? `Seller personal note: ${body.seller_note.trim()}` : null,
+      `Description: ${listing.description || 'None provided'}.`,
+      wearState === 'bnib' || wearState === 'new_no_box'
+        ? 'Instruction: Do not reject or block seller-declared new inventory from incomplete photos. Ask for clearer proof only as a seller tip.'
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n'),
   };
 
   const claude = await callClaude(promptForWearState(wearState), [...visionBlocks, textBlock]);

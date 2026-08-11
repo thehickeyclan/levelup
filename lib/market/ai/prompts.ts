@@ -36,8 +36,9 @@ Return ONLY a valid JSON object. Do not wrap it in markdown. Use this exact shap
 }`;
 
 export const BNIB_CONDITION_PROMPT = `You are verifying a BNIB (brand new in box) wrestling shoe listing for The Guild Market.
-Seller declares: unworn, original box included. Verify from photos: box present, shoes look unworn, tags if visible.
-Return wrestle_score and cosmetic_score (expect 9–10 if truly BNIB). Note any red flags (no box visible, clear wear).
+Seller declares: unworn, original box included. Treat the seller's declaration as the source of truth unless photos clearly prove otherwise.
+Important: photos are often incomplete. A missing box in the photos means "box not pictured", NOT "no box exists." Do not reject, block, or say a listing cannot be published.
+Return wrestle_score and cosmetic_score (expect 9–10 for declared BNIB). If there is uncertainty, write a short seller-facing note asking for one more confirming photo, but keep the listing BNIB.
 Return ONLY a valid JSON object. Do not wrap it in markdown. Use this exact shape:
 {
   "wrestle_score": 10,
@@ -54,8 +55,9 @@ Return ONLY a valid JSON object. Do not wrap it in markdown. Use this exact shap
 }`;
 
 export const NEW_NO_BOX_CONDITION_PROMPT = `You are verifying a brand-new without box wrestling shoe listing for The Guild Market.
-Seller declares: unworn deadstock, no box. Verify shoes look unworn; do not penalize missing box.
-Return wrestle_score and cosmetic_score (expect 8–10 if unworn). Note any wear that contradicts "new".
+Seller declares: unworn deadstock, no box. Treat the seller's declaration as the source of truth unless photos clearly prove otherwise.
+Important: photos are often incomplete. Do not reject, block, or say a listing cannot be published.
+Return wrestle_score and cosmetic_score (expect 8–10 for declared unworn). If there is uncertainty, write a short seller-facing note asking for one more confirming photo, but keep the listing new.
 Return ONLY a valid JSON object. Do not wrap it in markdown. Use this exact shape:
 {
   "wrestle_score": 9,
@@ -95,6 +97,7 @@ Format rules:
 - Open: "The {Brand} {Model} in the "{Colorway}" colorway is…" when colorway is known.
 - Cover upper, fit/lockdown, sole/traction, on-mat performance, and colorway look — use catalog upper/sole facts when provided.
 - Tight, specific wrestling-shoe copy. No filler.
+- Never return only "see photos", "unworn in box", or generic stock-condition copy. Even BNIB listings need specific model/colorway/performance context.
 
 DO NOT include:
 - Bullet lists, section headers, or field labels (Size, Model, Condition, Details, Collector Notes)

@@ -916,7 +916,11 @@ export default function NewListingPage() {
         const res = await fetch('/api/market/ai/condition', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ listingId: id, wear_state: merged.wear_state }),
+          body: JSON.stringify({
+            listingId: id,
+            wear_state: merged.wear_state,
+            seller_note: agentInput.trim() || undefined,
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -940,7 +944,7 @@ export default function NewListingPage() {
       }
       return { patch: {}, analysis: null };
     },
-    [form, mergeFormPatch]
+    [agentInput, form, mergeFormPatch]
   );
 
   const applyShoeIdToForm = useCallback(

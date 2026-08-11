@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import {
   ActivityIndicator,
@@ -52,6 +52,12 @@ type ListingImageResponse = {
     use_clean?: boolean | null;
   };
 };
+type UploadedListingImage = NonNullable<ListingImageResponse['image']>;
+type CleanImageResponse = {
+  success?: boolean;
+  cleanUrl?: string;
+  error?: string;
+};
 type PriceResponse = {
   price?: {
     suggested_mid_cents?: number;
@@ -89,13 +95,17 @@ export default function AddShoeScreen() {
   const [condition, setCondition] = useState('good');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionTouched, setDescriptionTouched] = useState(false);
+  const [aiSellerNote, setAiSellerNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [aiRefreshing, setAiRefreshing] = useState(false);
   const [draftListingId, setDraftListingId] = useState<string | null>(null);
   const [uploadedPhotoCount, setUploadedPhotoCount] = useState(0);
-  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<UploadedListingImage[]>([]);
+  const [cleanBackground, setCleanBackground] = useState(false);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const photosRef = useRef<PickedPhoto[]>([]);
 
   useEffect(() => {
     if (mode === 'sell' || mode === 'trade' || mode === 'collection') {
@@ -103,24 +113,50 @@ export default function AddShoeScreen() {
     }
   }, [mode]);
 
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+
+  function isGenericDescription(text: string) {
+    const value = text.trim().toLowerCase();
+    if (!value) return true;
+    if (value.length < 90) return true;
+    return (
+      value.includes('see photos') ||
+      value === 'unworn in box' ||
+      value.includes('unworn with original box') ||
+      value.includes('unworn deadstock without box') ||
+      value.includes('see photos for exact wear')
+    );
+  }
+
   function addPickedPhotos(assets: ImagePicker.ImagePickerAsset[]) {
+    const currentCount = photosRef.current.length;
+    const slotsRemaining = Math.max(0, 6 - currentCount);
+    const nextAssets = assets.slice(0, slotsRemaining);
+    const nextCount = Math.min(6, currentCount + nextAssets.length);
     if (draftListingId) {
       setAiMessage('Photos changed. Run AI refresh again if you want updated guidance before publishing.');
     }
-    setPhotos((current) => [
-      ...current,
-      ...assets.slice(0, 6 - current.length).map((asset) => ({
+    setPhotos((current) => {
+      const nextPhotos = [
+        ...current,
+        ...nextAssets.map((asset) => ({
         uri: asset.uri,
         fileName: asset.fileName,
         mimeType: asset.mimeType,
         base64: asset.base64,
       })),
-    ]);
+      ];
+      photosRef.current = nextPhotos;
+      return nextPhotos;
+    });
     setStep('confirm');
+    return nextCount;
   }
 
-  async function takePhoto() {
-    if (photos.length >= 6) {
+  async function takePhoto(askForAnother = true) {
+    if (photosRef.current.length >= 6) {
       setError('You can add up to 6 photos.');
       return;
     }
@@ -136,7 +172,13 @@ export default function AddShoeScreen() {
       base64: true,
     });
     if (!result.canceled) {
-      addPickedPhotos(result.assets);
+      const nextCount = addPickedPhotos(result.assets);
+      if (askForAnother && nextCount < 6) {
+        Alert.alert('Photo added', 'Take another angle?', [
+          { text: 'Done', style: 'cancel' },
+          { text: 'Take another', onPress: () => void takePhoto(true) },
+        ]);
+      }
     }
   }
 
@@ -183,6 +225,29 @@ export default function AddShoeScreen() {
     };
   }
 
+  function displayUrlForUploadedImage(image: UploadedListingImage) {
+    return image.use_clean
+      ? image.clean_public_url || image.public_url || ''
+      : image.public_url || image.clean_public_url || '';
+  }
+
+  async function cleanUploadedImage(listingId: string, image: UploadedListingImage) {
+    if (!cleanBackground || !image.id) return image;
+    if (image.clean_public_url && image.use_clean) return image;
+    const cleaned = await apiFetch<CleanImageResponse>(
+      `/api/market/listings/${listingId}/images/${image.id}/clean`,
+      { method: 'POST' }
+    );
+    if (!cleaned.success || !cleaned.cleanUrl) {
+      throw new Error(cleaned.error || 'Clean background failed — try again or turn it off.');
+    }
+    return {
+      ...image,
+      clean_public_url: cleaned.cleanUrl,
+      use_clean: true,
+    };
+  }
+
   async function ensureDraftWithPhotos() {
     if (!brand.trim() || !model.trim() || !size.trim()) {
       throw new Error('Enter brand, model, and size first — then AI can refresh from the corrected details.');
@@ -206,7 +271,7 @@ export default function AddShoeScreen() {
       });
     }
 
-    const urls = [...uploadedImageUrls];
+    const imageRows = [...uploadedImages];
     for (let index = uploadedPhotoCount; index < photos.length; index += 1) {
       const photo = photos[index];
       if (!photo.base64) {
@@ -220,14 +285,18 @@ export default function AddShoeScreen() {
           base64: photo.base64,
         }),
       });
-      const imageUrl = uploaded.image?.use_clean
-        ? uploaded.image.clean_public_url || uploaded.image.public_url
-        : uploaded.image?.public_url || uploaded.image?.clean_public_url;
-      if (imageUrl) urls.push(imageUrl);
+      const image = uploaded.image ? await cleanUploadedImage(listingId, uploaded.image) : null;
+      if (image) imageRows.push(image);
+    }
+
+    if (cleanBackground && imageRows.length) {
+      for (let index = 0; index < imageRows.length; index += 1) {
+        imageRows[index] = await cleanUploadedImage(listingId, imageRows[index]);
+      }
     }
 
     setUploadedPhotoCount(photos.length);
-    setUploadedImageUrls(urls);
+    setUploadedImages(imageRows);
     return { listingId };
   }
 
@@ -256,13 +325,18 @@ export default function AddShoeScreen() {
 
       const conditionResult = await apiFetch<ConditionResponse>('/api/market/ai/condition', {
         method: 'POST',
-        body: JSON.stringify({ listingId, wear_state: wearState }),
+        body: JSON.stringify({
+          listingId,
+          wear_state: wearState,
+          seller_note: aiSellerNote.trim() || undefined,
+        }),
       });
       const nextCondition = conditionResult.analysis?.grade || condition;
-      if (conditionResult.analysis?.grade) {
+      if (wearState === 'used' && conditionResult.analysis?.grade) {
         setCondition(conditionResult.analysis.grade);
       }
-      if (!description.trim() && conditionResult.suggested_description) {
+      const descriptionBeforeAi = description.trim();
+      if (!descriptionBeforeAi && conditionResult.suggested_description) {
         setDescription(conditionResult.suggested_description);
       }
 
@@ -301,13 +375,17 @@ export default function AddShoeScreen() {
               {
                 role: 'user',
                 content: [
-                  'Write the buyer-facing listing description/history for this wrestling shoe.',
+                  'Write one buyer-facing wrestling shoe listing paragraph, 60–100 words.',
+                  'Do not write filler like "see photos" as the description. Include model context, on-mat use, fit/lockdown, traction/sole, and colorway look when known.',
+                  'If exact history is uncertain, stay factual and restrained instead of inventing collector claims.',
                   `Brand: ${brand.trim()}`,
                   `Model: ${model.trim()}`,
                   colorway.trim() ? `Colorway: ${colorway.trim()}` : null,
                   `Size: ${size}`,
                   `Wear state: ${wearState}`,
                   `Condition: ${nextCondition}`,
+                  aiSellerNote.trim() ? `Seller personal note: ${aiSellerNote.trim()}` : null,
+                  'Return valid JSON with has_draft true and draft.description.',
                 ]
                   .filter(Boolean)
                   .join('\n'),
@@ -318,8 +396,12 @@ export default function AddShoeScreen() {
         if (agentResult.draft?.colorway && !colorway.trim()) {
           setColorway(agentResult.draft.colorway);
         }
-        if (agentResult.draft?.description && !description.trim()) {
+        if (
+          agentResult.draft?.description &&
+          (!descriptionTouched || isGenericDescription(descriptionBeforeAi))
+        ) {
           setDescription(agentResult.draft.description);
+          setDescriptionTouched(false);
         }
       } catch {
         descriptionNote = ' Description/history did not refresh; you can try again.';
@@ -485,6 +567,13 @@ export default function AddShoeScreen() {
               </Pressable>
             ))}
           </ScrollView>
+          <Pressable style={styles.cleanToggleRow} onPress={() => setCleanBackground((value) => !value)}>
+            <View style={[styles.toggleDot, cleanBackground && styles.toggleDotOn]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toggleTitle}>Clean background</Text>
+              <Text style={styles.toggleMeta}>Remove messy backgrounds after upload and use a clean white shoe photo.</Text>
+            </View>
+          </Pressable>
         </>
       ) : null}
 
@@ -520,6 +609,14 @@ export default function AddShoeScreen() {
             <Text style={styles.aiCopy}>
               AI uses your confirmed brand, model, colorway, photos, and condition to draft history and suggest value.
             </Text>
+            <TextInput
+              value={aiSellerNote}
+              onChangeText={setAiSellerNote}
+              placeholder="Personal note for AI — e.g. brand new, box not pictured"
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              style={[styles.input, styles.aiNoteInput]}
+            />
             <Pressable
               style={[styles.aiButton, (aiRefreshing || saving) && styles.disabled]}
               onPress={() => void refreshAiFromCurrentDetails()}
@@ -579,7 +676,10 @@ export default function AddShoeScreen() {
           <Text style={styles.label}>DESCRIPTION (OPTIONAL)</Text>
           <TextInput
             value={description}
-            onChangeText={setDescription}
+            onChangeText={(value) => {
+              setDescriptionTouched(true);
+              setDescription(value);
+            }}
             placeholder="Fit, wear, history, or anything a buyer should know"
             placeholderTextColor={colors.textSecondary}
             multiline
@@ -710,7 +810,9 @@ const styles = StyleSheet.create({
   feeTitle: { ...typography.bodySemi, color: colors.text, fontSize: 13 },
   feeAmount: { ...typography.bodyBold, color: colors.text, fontSize: 16 },
   feeCopy: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 5 },
+  aiNoteInput: { minHeight: 74, paddingTop: 10, textAlignVertical: 'top', marginTop: 10, marginBottom: 10 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 10, padding: 12, marginTop: 12 },
+  cleanToggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 10, padding: 12, marginTop: 12 },
   toggleDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border },
   toggleDotOn: { borderColor: colors.accent, backgroundColor: colors.accent },
   toggleTitle: { ...typography.bodyBold, color: colors.text, fontSize: 13 },

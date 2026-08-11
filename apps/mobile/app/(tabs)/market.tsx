@@ -63,6 +63,12 @@ function listingMeta(listing: Listing) {
 }
 
 type MarketFilter = 'available' | 'sell' | 'trade' | 'collection' | 'all';
+type TocProgress = {
+  authenticated: boolean;
+  followCount: number;
+  followGoal: number;
+  qualified: boolean;
+};
 
 export default function MarketScreen() {
   const router = useRouter();
@@ -71,12 +77,17 @@ export default function MarketScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<MarketFilter>('available');
+  const [tocProgress, setTocProgress] = useState<TocProgress | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await apiFetch<{ listings: Listing[] }>('/api/market/listings?limit=150');
+      const [res, progress] = await Promise.all([
+        apiFetch<{ listings: Listing[] }>('/api/market/listings?limit=150'),
+        apiFetch<TocProgress>('/api/toc-giveaway/progress').catch(() => null),
+      ]);
       setListings(res.listings ?? []);
+      setTocProgress(progress);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load market');
     } finally {
@@ -163,6 +174,11 @@ export default function MarketScreen() {
             </View>
           </View>
           <Text style={styles.sub}>Buy, trade, follow shoes, and manage your own collection.</Text>
+          <TocProgressCard
+            progress={tocProgress}
+            onFollowShoes={() => setFilter('collection')}
+            onViewFollows={() => router.push('/my-market')}
+          />
           <View style={styles.actionRow}>
             <Pressable style={styles.primaryAction} onPress={() => router.push('/my-market')}>
               <Text style={styles.primaryActionText}>My Market</Text>
@@ -341,6 +357,17 @@ const styles = StyleSheet.create({
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },
   sub: { ...typography.body, color: colors.textMuted, marginTop: 6, fontSize: 14 },
+  tocCard: { borderWidth: 1, borderColor: 'rgba(184,157,96,0.38)', backgroundColor: 'rgba(184,157,96,0.10)', borderRadius: 14, padding: 13, marginTop: 15 },
+  tocKicker: { ...typography.brand, color: colors.accent, fontSize: 9, marginBottom: 6 },
+  tocTitle: { ...typography.bodyBold, color: colors.text, fontSize: 15 },
+  tocText: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 5 },
+  progressTrack: { height: 7, borderRadius: 999, backgroundColor: colors.surface, overflow: 'hidden', marginTop: 10 },
+  progressFill: { height: '100%', borderRadius: 999, backgroundColor: colors.accent },
+  tocActions: { flexDirection: 'row', gap: 8, marginTop: 11 },
+  tocPrimary: { flex: 1, borderRadius: 999, backgroundColor: colors.accent, alignItems: 'center', paddingVertical: 9 },
+  tocPrimaryText: { ...typography.bodyBold, color: colors.black, fontSize: 11 },
+  tocSecondary: { flex: 1, borderRadius: 999, borderWidth: 1, borderColor: colors.accent, alignItems: 'center', paddingVertical: 9 },
+  tocSecondaryText: { ...typography.bodyBold, color: colors.accent, fontSize: 11 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   primaryAction: { flex: 1, minHeight: 62, backgroundColor: colors.accent, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
   secondaryAction: { flex: 1, minHeight: 62, borderWidth: 1, borderColor: colors.accent, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
@@ -406,3 +433,41 @@ const styles = StyleSheet.create({
   collectionTitle: { ...typography.bodyBold, color: colors.text, fontSize: 12, lineHeight: 16, paddingHorizontal: 10, paddingTop: 10 },
   collectionMeta: { ...typography.body, color: colors.textMuted, fontSize: 10, paddingHorizontal: 10, paddingTop: 4, paddingBottom: 12 },
 });
+
+function TocProgressCard({
+  progress,
+  onFollowShoes,
+  onViewFollows,
+}: {
+  progress: TocProgress | null;
+  onFollowShoes: () => void;
+  onViewFollows: () => void;
+}) {
+  const goal = progress?.followGoal ?? 5;
+  const count = progress?.followCount ?? 0;
+  const percent = Math.min(100, Math.round((count / goal) * 100));
+  const qualified = progress?.qualified ?? false;
+
+  return (
+    <View style={styles.tocCard}>
+      <Text style={styles.tocKicker}>TOC MARKET CHALLENGE</Text>
+      <Text style={styles.tocTitle}>
+        {qualified ? 'You’re qualified for the raffle.' : 'Follow 5 shoes for the raffle.'}
+      </Text>
+      <Text style={styles.tocText}>
+        Follow The Guild on Instagram, then follow shoes you like in Market. Progress: {count}/{goal}.
+      </Text>
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${percent}%` }]} />
+      </View>
+      <View style={styles.tocActions}>
+        <Pressable style={styles.tocPrimary} onPress={onFollowShoes}>
+          <Text style={styles.tocPrimaryText}>Follow shoes</Text>
+        </Pressable>
+        <Pressable style={styles.tocSecondary} onPress={onViewFollows}>
+          <Text style={styles.tocSecondaryText}>My follows</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}

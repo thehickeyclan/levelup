@@ -313,7 +313,7 @@ export default function ListingDetailScreen() {
         <>
           <Pressable style={styles.watchButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
             <Text style={styles.watchButtonText}>
-              {savingFollow ? 'Saving…' : following ? 'Watching · Alerts on' : 'Watch this pair'}
+              {savingFollow ? 'Saving…' : following ? 'Following · Alerts on' : 'Follow this pair'}
             </Text>
           </Pressable>
           <View style={styles.askCard}>

@@ -108,7 +108,7 @@ export default function MyMarketScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.kicker}>MY MARKET</Text>
               <Text style={styles.heading}>Your shoe room</Text>
-              <Text style={styles.sub}>Watch, collect, sell, and trade in one place.</Text>
+              <Text style={styles.sub}>Follow, collect, sell, and trade in one place.</Text>
             </View>
             <Pressable
               style={styles.addButton}
@@ -133,6 +133,7 @@ export default function MyMarketScreen() {
               <Text style={styles.quickMeta}>Trade or trade + cash</Text>
             </Pressable>
           </View>
+          <MarketChallengeCard followCount={data?.watching.length ?? 0} />
           <Pressable style={styles.offersButton} onPress={() => router.push('/market-offers')}>
             <Text style={styles.offersButtonText}>Offers</Text>
             <Text style={styles.offersButtonMeta}>Review bids you received or sent</Text>
@@ -188,10 +189,32 @@ export default function MyMarketScreen() {
   );
 }
 
+function MarketChallengeCard({ followCount }: { followCount: number }) {
+  const goal = 5;
+  const percent = Math.min(100, Math.round((followCount / goal) * 100));
+  const qualified = followCount >= goal;
+
+  return (
+    <View style={styles.challengeCard}>
+      <Text style={styles.challengeKicker}>TOC MARKET CHALLENGE</Text>
+      <Text style={styles.challengeTitle}>
+        {qualified ? 'You followed 5 shoes.' : `Follow ${goal} shoes to qualify.`}
+      </Text>
+      <Text style={styles.challengeText}>
+        Your followed shoes count toward the Tournament of Champions training-credit raffle.
+      </Text>
+      <View style={styles.challengeTrack}>
+        <View style={[styles.challengeFill, { width: `${percent}%` }]} />
+      </View>
+      <Text style={styles.challengeCount}>{followCount}/{goal} followed</Text>
+    </View>
+  );
+}
+
 function Empty({ tab }: { tab: Tab }) {
   const copy =
     tab === 'watching'
-      ? 'Tap Watch on a shoe to save it here and get alerts when it goes for sale.'
+      ? 'Tap Follow on a shoe to save it here and get alerts when it goes for sale.'
       : tab === 'collection'
         ? 'Add shoes you own even if they are not for sale. Other members can still follow them.'
         : tab === 'selling'
@@ -225,6 +248,13 @@ const styles = StyleSheet.create({
   quickTitle: { ...typography.bodyBold, color: colors.black, fontSize: 14 },
   quickTitleAlt: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
   quickMeta: { ...typography.body, color: colors.textSecondary, fontSize: 10, marginTop: 5 },
+  challengeCard: { marginTop: 12, borderRadius: 13, borderWidth: 1, borderColor: 'rgba(184,157,96,0.38)', backgroundColor: 'rgba(184,157,96,0.10)', padding: 13 },
+  challengeKicker: { ...typography.brand, color: colors.accent, fontSize: 9, marginBottom: 6 },
+  challengeTitle: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
+  challengeText: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 5 },
+  challengeTrack: { height: 7, borderRadius: 999, backgroundColor: colors.surface, overflow: 'hidden', marginTop: 10 },
+  challengeFill: { height: '100%', borderRadius: 999, backgroundColor: colors.accent },
+  challengeCount: { ...typography.bodySemi, color: colors.accent, fontSize: 10, marginTop: 7 },
   offersButton: { marginTop: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 13, padding: 13 },
   offersButtonText: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
   offersButtonMeta: { ...typography.body, color: colors.textMuted, fontSize: 11, marginTop: 4 },

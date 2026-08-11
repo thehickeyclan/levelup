@@ -77,12 +77,49 @@ export default function AddShoeScreen() {
     }
   }, [mode]);
 
+  function addPickedPhotos(assets: ImagePicker.ImagePickerAsset[]) {
+    if (draftListingId) {
+      setAiMessage('Photos changed. Run AI refresh again if you want updated guidance before publishing.');
+    }
+    setPhotos((current) => [
+      ...current,
+      ...assets.slice(0, 6 - current.length).map((asset) => ({
+        uri: asset.uri,
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
+        base64: asset.base64,
+      })),
+    ]);
+  }
+
+  async function takePhoto() {
+    if (photos.length >= 6) {
+      setError('You can add up to 6 photos.');
+      return;
+    }
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setError('Camera access is required to take shoe photos.');
+      return;
+    }
+    setError(null);
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.82,
+      base64: true,
+    });
+    if (!result.canceled) {
+      addPickedPhotos(result.assets);
+    }
+  }
+
   async function pickPhotos() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       setError('Photo access is required to add a shoe.');
       return;
     }
+    setError(null);
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
@@ -91,18 +128,7 @@ export default function AddShoeScreen() {
       base64: true,
     });
     if (!result.canceled) {
-      if (draftListingId) {
-        setAiMessage('Photos changed. Run AI refresh again if you want updated guidance before publishing.');
-      }
-      setPhotos((current) => [
-        ...current,
-        ...result.assets.slice(0, 6 - current.length).map((asset) => ({
-          uri: asset.uri,
-          fileName: asset.fileName,
-          mimeType: asset.mimeType,
-          base64: asset.base64,
-        })),
-      ]);
+      addPickedPhotos(result.assets);
     }
   }
 
@@ -352,9 +378,13 @@ export default function AddShoeScreen() {
 
       <Text style={styles.label}>PHOTOS · {photos.length}/6</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
-        <Pressable style={styles.addPhoto} onPress={() => void pickPhotos()}>
-          <Text style={styles.addPhotoPlus}>+</Text>
-          <Text style={styles.addPhotoText}>Add photos</Text>
+        <Pressable style={styles.addPhoto} onPress={() => void takePhoto()}>
+          <Text style={styles.addPhotoPlus}>📷</Text>
+          <Text style={styles.addPhotoText}>Camera</Text>
+        </Pressable>
+        <Pressable style={styles.addPhotoSecondary} onPress={() => void pickPhotos()}>
+          <Text style={styles.addPhotoPlus}>＋</Text>
+          <Text style={styles.addPhotoText}>Library</Text>
         </Pressable>
         {photos.map((photo, index) => (
           <Pressable key={`${photo.uri}-${index}`} onPress={() => setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index))}>
@@ -466,6 +496,7 @@ const styles = StyleSheet.create({
   modeHelp: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 10 },
   photoRow: { gap: 9 },
   addPhoto: { width: 98, height: 98, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.accent, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  addPhotoSecondary: { width: 98, height: 98, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   addPhotoPlus: { ...typography.body, color: colors.accent, fontSize: 27 },
   addPhotoText: { ...typography.bodySemi, color: colors.accent, fontSize: 10 },
   photo: { width: 98, height: 98, borderRadius: 10, backgroundColor: colors.surface, resizeMode: 'cover' },

@@ -1105,6 +1105,7 @@ export default function EditListingPage() {
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/*"
+          capture="environment"
           multiple
           className="hidden"
           onChange={onPhoto}

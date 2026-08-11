@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { BackLink } from '@/components/back-link';
+import { TOC_MARKET_FOLLOW_GOAL } from '@/lib/toc-giveaway';
 import { TocGiveawayClient, type TocGiveawayEntry } from './toc-giveaway-client';
 
 export default async function AdminTocGiveawayPage() {
@@ -31,6 +32,36 @@ export default async function AdminTocGiveawayPage() {
 
   if (error) console.error('TOC giveaway entries fetch error:', error);
 
+  const entries = (data ?? []) as TocGiveawayEntry[];
+  const userIds = entries.map((entry) => entry.user_id);
+  let followCounts = new Map<string, number>();
+
+  if (userIds.length > 0) {
+    const { data: follows, error: followsError } = await admin
+      .from('market_listing_follows')
+      .select('follower_id')
+      .in('follower_id', userIds);
+
+    if (followsError) {
+      console.error('TOC giveaway market follow count error:', followsError);
+    } else {
+      followCounts = new Map<string, number>();
+      for (const follow of follows ?? []) {
+        const followerId = follow.follower_id as string;
+        followCounts.set(followerId, (followCounts.get(followerId) ?? 0) + 1);
+      }
+    }
+  }
+
+  const enrichedEntries = entries.map((entry) => {
+    const shoeFollowCount = followCounts.get(entry.user_id) ?? 0;
+    return {
+      ...entry,
+      shoe_follow_count: shoeFollowCount,
+      market_qualified: shoeFollowCount >= TOC_MARKET_FOLLOW_GOAL,
+    };
+  });
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-4">
@@ -42,7 +73,7 @@ export default async function AdminTocGiveawayPage() {
           Track eligible wrestler signups, select the 10 winners, and grant $100 Guild training credits.
         </p>
       </div>
-      <TocGiveawayClient initialEntries={((data ?? []) as TocGiveawayEntry[])} />
+      <TocGiveawayClient initialEntries={enrichedEntries} />
     </div>
   );
 }

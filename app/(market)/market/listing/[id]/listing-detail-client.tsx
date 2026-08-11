@@ -711,12 +711,12 @@ export default function ListingDetailClient() {
                         className={cn('h-4 w-4 shrink-0', following && 'text-accent')}
                         strokeWidth={following ? 2.25 : 1.75}
                       />
-                      {following ? 'Watching' : 'Watch'}
+                      {following ? 'Following' : 'Follow'}
                     </button>
                   ) : null}
                   {followerCount > 0 ? (
                     <span className="text-[10px] text-muted-foreground">
-                      {followerCount} watching
+                      {followerCount} following
                     </span>
                   ) : null}
                   {viewsCount > 0 && !isCollection ? (
@@ -805,7 +805,7 @@ export default function ListingDetailClient() {
                 </div>
                 <div className="bg-card border border-border rounded-xl p-3 text-center">
                   <p className="text-lg font-bold text-foreground">{followerCount}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Watching</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Following</p>
                 </div>
               </div>
             ) : null}

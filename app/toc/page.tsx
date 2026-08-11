@@ -1,12 +1,24 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { TOC_GIVEAWAY_DEADLINE_LABEL } from '@/lib/toc-giveaway';
+import {
+  TOC_GIVEAWAY_DEADLINE_LABEL,
+  TOC_INSTAGRAM_URL,
+  TOC_MARKET_FOLLOW_GOAL,
+} from '@/lib/toc-giveaway';
 
 const details = [
   '$1,000 committed to North Carolina wrestling',
   '10 wrestlers will each receive $100 in Guild training credit',
   `Create a free wrestler account by ${TOC_GIVEAWAY_DEADLINE_LABEL}`,
+  `Follow ${TOC_MARKET_FOLLOW_GOAL} shoes in Guild Market`,
+];
+
+const steps = [
+  'Download the free iPhone app',
+  'Create a free wrestler account',
+  'Follow The Wrestling Guild on Instagram',
+  `Follow ${TOC_MARKET_FOLLOW_GOAL} shoes in Guild Market`,
   'No purchase necessary',
 ];
 
@@ -24,6 +36,7 @@ export default function TocGiveawayPage() {
           <p className="mt-6 max-w-2xl text-xl leading-relaxed text-white/70">
             The Guild is giving $1,000 back to wrestlers at the Tournament of Champions:
             10 North Carolina wrestlers will each win $100 in training credit with Guild coaches.
+            Create a free account, follow The Guild, and follow shoes in the marketplace to join the launch raffle.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg" className="bg-accent text-black hover:bg-accent-hover">
@@ -38,6 +51,16 @@ export default function TocGiveawayPage() {
               <Link href="/training">See Guild training</Link>
             </Button>
           </div>
+          <div className="mt-3">
+            <Link
+              href={TOC_INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-semibold text-accent underline underline-offset-4"
+            >
+              Follow @WrestlingGuild on Instagram
+            </Link>
+          </div>
         </div>
 
         <div className="mt-12 grid gap-4 md:grid-cols-4">
@@ -48,6 +71,20 @@ export default function TocGiveawayPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        <div className="mt-12 rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+          <h2 className="font-serif text-2xl font-semibold">How to enter the Market launch raffle</h2>
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            {steps.map((step, index) => (
+              <div key={step} className="rounded-xl border border-white/10 bg-black/30 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent">
+                  Step {index + 1}
+                </p>
+                <p className="mt-2 text-sm font-medium leading-relaxed text-white/80">{step}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="mt-12 max-w-3xl rounded-2xl border border-accent/30 bg-accent/10 p-5">

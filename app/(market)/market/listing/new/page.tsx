@@ -1307,6 +1307,7 @@ export default function NewListingPage() {
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/*"
+          capture="environment"
           multiple
           className="hidden"
           onChange={onPhoto}

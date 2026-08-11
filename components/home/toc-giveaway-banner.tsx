@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Trophy } from 'lucide-react';
+import { TOC_MARKET_FOLLOW_GOAL } from '@/lib/toc-giveaway';
 
 export function TocGiveawayBanner() {
   return (
@@ -18,7 +19,8 @@ export function TocGiveawayBanner() {
             </h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-white/65">
               10 wrestlers will each win $100 in Guild training credit. Create a free wrestler
-              account by Sept. 15. No purchase necessary.
+              account, follow The Guild, and follow {TOC_MARKET_FOLLOW_GOAL} shoes in Guild Market.
+              No purchase necessary.
             </p>
           </div>
         </div>

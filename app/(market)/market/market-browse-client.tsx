@@ -45,6 +45,8 @@ export function MarketBrowseClient({
   pendingOffers = 0,
   browsePairCount = 0,
   myCollectionCount = 0,
+  tocMarketFollowCount = 0,
+  tocMarketFollowGoal = 5,
 }: {
   initialListings: MarketBrowseListing[];
   collectionListings?: MarketBrowseListing[];
@@ -53,6 +55,8 @@ export function MarketBrowseClient({
   pendingOffers?: number;
   browsePairCount?: number;
   myCollectionCount?: number;
+  tocMarketFollowCount?: number;
+  tocMarketFollowGoal?: number;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -150,6 +154,7 @@ export function MarketBrowseClient({
 
   const listingTypeCounts = useMemo(() => summarizeListingTypes(initialListings), [initialListings]);
   const browseCount = browsePairCount > 0 ? browsePairCount : listingTypeCounts.total;
+  const tocProgressPercent = Math.min(100, Math.round((tocMarketFollowCount / tocMarketFollowGoal) * 100));
 
   const filtered = useMemo(() => {
     const min = minPrice ? Number(minPrice) : undefined;
@@ -202,6 +207,31 @@ export function MarketBrowseClient({
       </div>
 
       <div className="max-w-4xl mx-auto px-4">
+        <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/10 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+                TOC Market Challenge
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-foreground">
+                Follow 5 shoes for the $100 training-credit raffle.
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Create a free account, follow The Guild on Instagram, then follow shoes you like in
+                Guild Market. You’re at {tocMarketFollowCount}/{tocMarketFollowGoal}.
+              </p>
+            </div>
+            <Button asChild className="shrink-0 rounded-full bg-accent text-black hover:bg-accent/90">
+              <Link href="/toc">See raffle</Link>
+            </Button>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/40">
+            <div
+              className="h-full rounded-full bg-accent transition-all"
+              style={{ width: `${tocProgressPercent}%` }}
+            />
+          </div>
+        </div>
         <MarketFilters
           type={type}
           brand={brand}

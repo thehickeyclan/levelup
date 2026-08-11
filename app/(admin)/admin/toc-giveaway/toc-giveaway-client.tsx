@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { TOC_MARKET_FOLLOW_GOAL } from '@/lib/toc-giveaway';
 
 export type TocGiveawayEntry = {
   id: string;
@@ -19,6 +20,8 @@ export type TocGiveawayEntry = {
   created_at: string;
   selected_at: string | null;
   credited_at: string | null;
+  shoe_follow_count?: number;
+  market_qualified?: boolean;
 };
 
 function nameFor(entry: TocGiveawayEntry) {
@@ -35,9 +38,10 @@ export function TocGiveawayClient({ initialEntries }: { initialEntries: TocGivea
   const [actingId, setActingId] = useState<string | null>(null);
   const stats = useMemo(() => {
     const eligible = entries.filter((e) => e.eligible).length;
+    const marketQualified = entries.filter((e) => e.market_qualified).length;
     const winners = entries.filter((e) => e.winner).length;
     const credited = entries.filter((e) => e.credit_granted).length;
-    return { eligible, winners, credited };
+    return { eligible, marketQualified, winners, credited };
   }, [entries]);
 
   const updateWinner = async (entry: TocGiveawayEntry, winner: boolean) => {
@@ -94,10 +98,14 @@ export function TocGiveawayClient({ initialEntries }: { initialEntries: TocGivea
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm uppercase tracking-wide text-muted-foreground">Eligible entries</p>
           <p className="mt-2 text-3xl font-semibold text-foreground">{stats.eligible}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-sm uppercase tracking-wide text-muted-foreground">Followed 5 shoes</p>
+          <p className="mt-2 text-3xl font-semibold text-foreground">{stats.marketQualified}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm uppercase tracking-wide text-muted-foreground">Selected winners</p>
@@ -116,6 +124,7 @@ export function TocGiveawayClient({ initialEntries }: { initialEntries: TocGivea
               <th className="px-4 py-3">Wrestler</th>
               <th className="px-4 py-3">Contact</th>
               <th className="px-4 py-3">ZIP</th>
+              <th className="px-4 py-3">Market follows</th>
               <th className="px-4 py-3">Signed up</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -133,9 +142,24 @@ export function TocGiveawayClient({ initialEntries }: { initialEntries: TocGivea
                   <p>{entry.phone || 'No phone'}</p>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{entry.zip_code || '—'}</td>
+                <td className="px-4 py-3">
+                  <div className="min-w-28">
+                    <p className="font-medium text-foreground">
+                      {entry.shoe_follow_count ?? 0}/{TOC_MARKET_FOLLOW_GOAL}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.market_qualified ? 'Raffle qualified' : 'Needs more follows'}
+                    </p>
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-muted-foreground">{shortDate(entry.created_at)}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">
+                    {entry.market_qualified && (
+                      <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-1 text-xs font-medium text-sky-300">
+                        5 shoes
+                      </span>
+                    )}
                     {entry.winner && (
                       <span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-1 text-xs font-medium text-accent">
                         Winner
@@ -177,7 +201,7 @@ export function TocGiveawayClient({ initialEntries }: { initialEntries: TocGivea
             ))}
             {entries.length === 0 && (
               <tr>
-                <td className="px-4 py-10 text-center text-muted-foreground" colSpan={6}>
+                <td className="px-4 py-10 text-center text-muted-foreground" colSpan={7}>
                   No Tournament of Champions entries yet.
                 </td>
               </tr>

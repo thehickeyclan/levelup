@@ -304,6 +304,7 @@ export function QuickTradeListingSheet({
               ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              capture="environment"
               multiple
               className="hidden"
               onChange={onPhoto}

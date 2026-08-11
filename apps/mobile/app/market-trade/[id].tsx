@@ -28,6 +28,7 @@ type Trade = {
   id: string;
   status: string;
   boot_amount_cents?: number | null;
+  viewer_side?: 'initiator' | 'receiver' | null;
   initiator_fee_paid?: boolean | null;
   receiver_fee_paid?: boolean | null;
   viewer_fee_paid?: boolean | null;
@@ -40,9 +41,23 @@ type Trade = {
   receiver_listing?: TradeListing | null;
 };
 
+const MARKET_TRADE_FEE_CENTS = 499;
+const MARKET_TRADE_BOOT_FEE_RATE = 0.03;
+
 function money(cents?: number | null) {
   if (!cents) return '$0';
   return `$${Math.round(cents / 100)}`;
+}
+
+function moneyExact(cents?: number | null) {
+  return `$${((cents ?? 0) / 100).toFixed(2)}`;
+}
+
+function tradeFeeTotalCents(trade: Trade) {
+  const bootCents = Math.max(0, Number(trade.boot_amount_cents ?? 0));
+  const bootFeeCents =
+    trade.viewer_side === 'initiator' ? Math.round(bootCents * MARKET_TRADE_BOOT_FEE_RATE) : 0;
+  return MARKET_TRADE_FEE_CENTS + bootFeeCents;
 }
 
 function titleFor(listing?: TradeListing | null) {
@@ -136,6 +151,8 @@ export default function MarketTradeScreen() {
   }
 
   const canAct = ['receiver_accepted', 'fees_pending'].includes(trade.status);
+  const feeTotal = tradeFeeTotalCents(trade);
+  const cashSideName = trade.initiator_name || 'The cash side';
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -152,7 +169,13 @@ export default function MarketTradeScreen() {
         <TradeCard listing={trade.receiver_listing} />
         {trade.boot_amount_cents ? (
           <View style={styles.bootRow}>
-            <Text style={styles.bootLabel}>Cash included</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bootLabel}>Cash included</Text>
+              <Text style={styles.bootCopy}>
+                {cashSideName} adds {money(trade.boot_amount_cents)}. Both sides pay $4.99;
+                the cash side also pays 3% on the cash kicker. No fee on shoe value.
+              </Text>
+            </View>
             <Text style={styles.bootValue}>{money(trade.boot_amount_cents)}</Text>
           </View>
         ) : null}
@@ -166,7 +189,7 @@ export default function MarketTradeScreen() {
 
       {canAct && !trade.viewer_fee_paid ? (
         <Pressable style={styles.primaryButton} onPress={() => void payFee()} disabled={busy}>
-          {busy ? <ActivityIndicator color={colors.black} /> : <Text style={styles.primaryText}>Pay $4.99 trade fee</Text>}
+          {busy ? <ActivityIndicator color={colors.black} /> : <Text style={styles.primaryText}>Pay {moneyExact(feeTotal)} trade fee</Text>}
         </Pressable>
       ) : null}
 
@@ -230,6 +253,7 @@ const styles = StyleSheet.create({
   swap: { ...typography.display, color: colors.accent, fontSize: 26, textAlign: 'center', marginVertical: 10 },
   bootRow: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bootLabel: { ...typography.bodySemi, color: colors.textMuted, fontSize: 12 },
+  bootCopy: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4, paddingRight: 10 },
   bootValue: { ...typography.display, color: colors.accent, fontSize: 24 },
   progressCard: { marginTop: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 16, padding: 14, gap: 12 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

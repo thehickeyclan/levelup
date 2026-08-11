@@ -15,6 +15,7 @@ import {
 import { MessageThread } from '@/components/guild/message-thread';
 import { TradeOfferListingReviewCard } from '@/components/market/trade-offer-listing-review';
 import type { TradeOfferListingReview } from '@/lib/market/trade-listing-review';
+import { calcMarketTradeFees } from '@/lib/market/fees';
 import { cn } from '@/lib/utils';
 
 export type TradeListingCard = TradeOfferListingReview;
@@ -68,6 +69,11 @@ export function TradeStatusClient({
     trade.viewer_fee_paid &&
     !(trade.initiator_fee_paid && trade.receiver_fee_paid);
   const otherPaidFee = trade.initiator_fee_paid || trade.receiver_fee_paid;
+  const tradeFeePreview = calcMarketTradeFees({
+    bootAmountCents: trade.boot_amount_cents,
+    paysBootFee: trade.viewer_side === 'initiator',
+  });
+  const cashSideName = trade.initiator_name;
 
   const payFee = async () => {
     setActing(true);
@@ -152,9 +158,15 @@ export function TradeStatusClient({
       </div>
 
       {trade.boot_amount_cents > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {trade.initiator_name} adds ${(trade.boot_amount_cents / 100).toFixed(0)} boot cash (settle off-platform)
-        </p>
+        <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground space-y-1">
+          <p>
+            {cashSideName} adds ${(trade.boot_amount_cents / 100).toFixed(0)} boot cash.
+          </p>
+          <p>
+            Both sides pay a $4.99 trade protection fee. {cashSideName} also pays 3% on the cash kicker.
+            No Guild fee is charged on the shoe value.
+          </p>
+        </div>
       ) : null}
 
       <div className="flex justify-between gap-1">
@@ -199,7 +211,7 @@ export function TradeStatusClient({
           disabled={acting}
           onClick={payFee}
         >
-          Pay $4.99 platform fee
+          Pay ${(tradeFeePreview.totalFeeCents / 100).toFixed(2)} trade fee
         </Button>
       ) : null}
 

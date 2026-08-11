@@ -195,7 +195,7 @@ export async function terminateActiveTrade(
 
     const otherRefundBody = paidSide
       ? refunded
-        ? 'The other party cancelled this trade. Your $4.99 fee has been refunded.'
+        ? 'The other party cancelled this trade. Your trade fee has been refunded.'
         : 'The other party cancelled this trade. Contact support if your fee was not refunded.'
       : 'The other party cancelled this trade.';
 

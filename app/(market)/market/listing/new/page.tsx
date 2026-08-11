@@ -65,6 +65,11 @@ import {
 } from '@/components/market/bnib-size-inventory-editor';
 import { supportsMultiSizeInventory, formatMarketShoeSizeFieldLabel } from '@/lib/market/listing-sizes';
 import { ShoeSizeSelect } from '@/components/market/shoe-size-select';
+import {
+  calcMarketFees,
+  MARKET_EBAY_DISCOUNT_TARGET,
+  MARKET_EBAY_STYLE_SELLER_FEE_RATE,
+} from '@/lib/market/fees';
 
 const MAX_PHOTOS = 6;
 const BREAKDOWN_KEYS = ['sole', 'upper', 'midsole', 'laces'] as const;
@@ -1292,6 +1297,14 @@ export default function NewListingPage() {
   };
 
   const midPrice = aiPrice ? Math.round(aiPrice.suggested_mid_cents / 100) : 0;
+  const previewPriceCents = Math.round(Number(form.price_cents || 0) * 100);
+  const sellerFeePreview =
+    isPricedListing && Number.isFinite(previewPriceCents) && previewPriceCents > 0
+      ? calcMarketFees(previewPriceCents)
+      : null;
+  const ebayBenchmarkFeeCents =
+    sellerFeePreview && Math.round(previewPriceCents * MARKET_EBAY_STYLE_SELLER_FEE_RATE);
+  const ebayDiscountPct = Math.round(MARKET_EBAY_DISCOUNT_TARGET * 100);
   const wizardStepIndex = SELLER_WIZARD_STEPS.findIndex((step) => step.key === wizardStep);
   const identityReady = Boolean(form.brand.trim() && form.model.trim());
   const isBusy = uploading || analyzing || identifyingShoe || catalogEnriching || agentLoading;
@@ -2038,6 +2051,23 @@ export default function NewListingPage() {
                 inputMode="decimal"
               />
             </div>
+            {sellerFeePreview ? (
+              <div className="col-span-2 rounded-xl border border-accent/30 bg-accent/5 px-3 py-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-foreground">Seller receives</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    ${(sellerFeePreview.payoutCents / 100).toFixed(2)}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                  Guild fee {(sellerFeePreview.rate * 100).toFixed(0)}% · at least {ebayDiscountPct}% cheaper
+                  than an eBay-style {(MARKET_EBAY_STYLE_SELLER_FEE_RATE * 100).toFixed(1)}% marketplace fee
+                  {ebayBenchmarkFeeCents
+                    ? ` (you keep about $${((ebayBenchmarkFeeCents - sellerFeePreview.feeCents) / 100).toFixed(2)} more vs. that benchmark).`
+                    : '.'}
+                </p>
+              </div>
+            ) : null}
           </div>
         ) : form.listing_type === 'trade' ? (
           <p className="text-sm text-muted-foreground rounded-xl border border-border bg-card/60 px-3 py-3">

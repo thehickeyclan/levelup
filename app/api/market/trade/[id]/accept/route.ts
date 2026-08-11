@@ -39,13 +39,13 @@ export async function POST(
     user_id: trade.initiator_id,
     type: 'market_trade_accepted',
     title: 'Trade accepted',
-    body: 'Your trade offer was accepted. Pay the $4.99 fee to complete.',
+    body: 'Your trade offer was accepted. Pay the Guild trade fee to complete.',
     data: { trade_id: tradeId, link: `/market/trade/${tradeId}` },
   });
 
   const phone = normalizePhone(initiator?.phone as string | null | undefined);
   if (phone) {
-    void sendSms(phone, 'Your Guild Market trade was accepted. Pay the $4.99 fee in the app to complete.', {
+    void sendSms(phone, 'Your Guild Market trade was accepted. Pay the Guild trade fee in the app to complete.', {
       admin,
       messageType: 'market_trade_accepted',
       recipientId: trade.initiator_id as string,

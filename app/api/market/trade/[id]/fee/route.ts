@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
-import { MARKET_TRADE_FEE_CENTS } from '@/lib/market/fees';
+import { calcMarketTradeFees } from '@/lib/market/fees';
 import { getStripeInstance } from '@/lib/stripe/webhooks';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
 
@@ -18,7 +18,7 @@ export async function POST(
 
   const { data: trade } = await admin
     .from('market_trades')
-    .select('id, initiator_id, receiver_id, status, initiator_fee_paid, receiver_fee_paid')
+    .select('id, initiator_id, receiver_id, status, boot_amount_cents, initiator_fee_paid, receiver_fee_paid')
     .eq('id', tradeId)
     .maybeSingle();
 
@@ -50,6 +50,10 @@ export async function POST(
   const host = headersList.get('host') || '';
   const origin = publicOriginForStripeRedirect(host, _req);
   const stripe = getStripeInstance(tenant.slug);
+  const tradeFees = calcMarketTradeFees({
+    bootAmountCents: trade.boot_amount_cents as number | null,
+    paysBootFee: payerSide === 'initiator',
+  });
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
@@ -57,11 +61,23 @@ export async function POST(
       {
         price_data: {
           currency: 'usd',
-          product_data: { name: 'Guild Market trade fee' },
-          unit_amount: MARKET_TRADE_FEE_CENTS,
+          product_data: { name: 'Guild Market trade protection fee' },
+          unit_amount: tradeFees.baseFeeCents,
         },
         quantity: 1,
       },
+      ...(tradeFees.bootFeeCents > 0
+        ? [
+            {
+              price_data: {
+                currency: 'usd',
+                product_data: { name: 'Cash kicker fee (3%)' },
+                unit_amount: tradeFees.bootFeeCents,
+              },
+              quantity: 1,
+            },
+          ]
+        : []),
     ],
     success_url: `${origin}/market/trade/${tradeId}?fee_paid=true`,
     cancel_url: `${origin}/market/trade/${tradeId}`,
@@ -72,6 +88,10 @@ export async function POST(
       trade_id: tradeId,
       payer_id: user!.id,
       payer_side: payerSide,
+      boot_amount_cents: String(trade.boot_amount_cents ?? 0),
+      base_fee_cents: String(tradeFees.baseFeeCents),
+      boot_fee_cents: String(tradeFees.bootFeeCents),
+      total_fee_cents: String(tradeFees.totalFeeCents),
     },
   });
 

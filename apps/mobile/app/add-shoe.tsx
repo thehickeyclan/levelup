@@ -20,6 +20,30 @@ type ListingType = 'collection' | 'sell' | 'trade';
 type WearState = 'bnib' | 'new_no_box' | 'used';
 type AddShoeStep = 'photos' | 'confirm' | 'condition' | 'review';
 type PickedPhoto = { uri: string; fileName?: string | null; mimeType?: string | null; base64?: string | null };
+
+const MARKET_EBAY_STYLE_SELLER_FEE_RATE = 0.1325;
+const MARKET_EBAY_DISCOUNT_TARGET = 0.2;
+const MARKET_MAX_SELLER_FEE_RATE = MARKET_EBAY_STYLE_SELLER_FEE_RATE * (1 - MARKET_EBAY_DISCOUNT_TARGET);
+
+function getMarketFeeRate(priceCents: number) {
+  const rate =
+    priceCents < 10000
+      ? 0.1
+      : priceCents < 20000
+        ? 0.08
+        : priceCents < 40000
+          ? 0.07
+          : 0.06;
+
+  return Math.min(rate, MARKET_MAX_SELLER_FEE_RATE);
+}
+
+function calcMarketFees(priceCents: number) {
+  const rate = getMarketFeeRate(priceCents);
+  const feeCents = Math.round(priceCents * rate);
+  return { feeCents, payoutCents: priceCents - feeCents, rate };
+}
+
 type ListingImageResponse = {
   image?: {
     id: string;
@@ -400,6 +424,11 @@ export default function AddShoeScreen() {
         : step === 'condition'
           ? 'Review listing'
           : '';
+  const priceCents = Math.round(Number(price || 0) * 100);
+  const sellerFeePreview =
+    listingType === 'sell' && Number.isFinite(priceCents) && priceCents > 0
+      ? calcMarketFees(priceCents)
+      : null;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -505,7 +534,10 @@ export default function AddShoeScreen() {
             {aiMessage ? <Text style={styles.aiMessage}>{aiMessage}</Text> : null}
           </View>
           {listingType === 'sell' ? (
-            <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
+            <>
+              <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
+              <SellerFeePreview preview={sellerFeePreview} priceCents={priceCents} />
+            </>
           ) : null}
         </>
       ) : null}
@@ -534,6 +566,7 @@ export default function AddShoeScreen() {
           {listingType === 'sell' ? (
             <>
               <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
+              <SellerFeePreview preview={sellerFeePreview} priceCents={priceCents} />
               <Pressable style={styles.toggleRow} onPress={() => setAcceptsOffers((value) => !value)}>
                 <View style={[styles.toggleDot, acceptsOffers && styles.toggleDotOn]} />
                 <View style={{ flex: 1 }}>
@@ -565,6 +598,33 @@ export default function AddShoeScreen() {
         </Pressable>
       )}
     </ScrollView>
+  );
+}
+
+function SellerFeePreview({
+  preview,
+  priceCents,
+}: {
+  preview: ReturnType<typeof calcMarketFees> | null;
+  priceCents: number;
+}) {
+  if (!preview) return null;
+
+  const ebayBenchmarkFeeCents = Math.round(priceCents * MARKET_EBAY_STYLE_SELLER_FEE_RATE);
+  const sellerKeepsMoreCents = Math.max(0, ebayBenchmarkFeeCents - preview.feeCents);
+
+  return (
+    <View style={styles.feeBox}>
+      <View style={styles.feeRow}>
+        <Text style={styles.feeTitle}>Seller receives</Text>
+        <Text style={styles.feeAmount}>${(preview.payoutCents / 100).toFixed(2)}</Text>
+      </View>
+      <Text style={styles.feeCopy}>
+        Guild fee {(preview.rate * 100).toFixed(0)}% · at least {Math.round(MARKET_EBAY_DISCOUNT_TARGET * 100)}%
+        cheaper than an eBay-style {(MARKET_EBAY_STYLE_SELLER_FEE_RATE * 100).toFixed(1)}% marketplace fee. You
+        keep about ${(sellerKeepsMoreCents / 100).toFixed(2)} more vs. that benchmark.
+      </Text>
+    </View>
   );
 }
 
@@ -638,6 +698,18 @@ const styles = StyleSheet.create({
   fieldInput: { ...typography.body, flex: 1, color: colors.text, fontSize: 14, paddingHorizontal: 6 },
   input: { ...typography.body, minHeight: 49, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, color: colors.text, paddingHorizontal: 12 },
   textarea: { height: 94, paddingTop: 12, textAlignVertical: 'top' },
+  feeBox: {
+    borderWidth: 1,
+    borderColor: colors.accentLight,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 10,
+  },
+  feeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  feeTitle: { ...typography.bodySemi, color: colors.text, fontSize: 13 },
+  feeAmount: { ...typography.bodyBold, color: colors.text, fontSize: 16 },
+  feeCopy: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 5 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 10, padding: 12, marginTop: 12 },
   toggleDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border },
   toggleDotOn: { borderColor: colors.accent, backgroundColor: colors.accent },

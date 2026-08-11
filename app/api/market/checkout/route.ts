@@ -12,15 +12,17 @@ import {
 import { resolvePayoutRecipientId } from '@/lib/market/seller';
 import { getStripeInstance } from '@/lib/stripe/webhooks';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
+import type { ShippingAddress } from '@/lib/market/shipping';
 
-type ShippingAddress = {
-  name?: string;
-  line1?: string;
-  line2?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-};
+function hasCompleteShippingAddress(address: ShippingAddress | null | undefined) {
+  return Boolean(
+    address?.name?.trim() &&
+      address?.line1?.trim() &&
+      address?.city?.trim() &&
+      address?.state?.trim() &&
+      address?.zip?.trim()
+  );
+}
 
 async function createCheckoutSession(
   admin: ReturnType<typeof createAdminClient>,
@@ -28,7 +30,8 @@ async function createCheckoutSession(
   host: string,
   req: NextRequest,
   order: { id: string; order_ref: string; amount_cents: number; shipping_cents: number; listing_id: string; buyer_id: string; seller_id: string; platform_fee_cents: number; seller_payout_cents: number },
-  listingTitle: string
+  listingTitle: string,
+  options: { collectShippingAddress?: boolean } = {}
 ) {
   const stripeEnabled = process.env.STRIPE_CHECKOUT_ENABLED === 'true';
   if (!stripeEnabled) {
@@ -65,6 +68,24 @@ async function createCheckoutSession(
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     line_items: lineItems,
+    ...(options.collectShippingAddress
+      ? {
+          shipping_address_collection: {
+            allowed_countries: ['US'],
+          },
+        }
+      : {}),
+    payment_intent_data: {
+      metadata: {
+        app: 'guild-market',
+        market_checkout: 'true',
+        tenant_slug: tenantSlug,
+        market_order_id: order.id,
+        listing_id: order.listing_id,
+        buyer_id: order.buyer_id,
+        seller_id: order.seller_id,
+      },
+    },
     success_url: `${origin}/market/orders?success=true&order=${order.order_ref}`,
     cancel_url: `${origin}/market/listing/${order.listing_id}/checkout?order=${order.id}`,
     metadata: {
@@ -114,7 +135,7 @@ export async function POST(req: NextRequest) {
   if (orderId) {
     const { data: order } = await admin
       .from('market_orders')
-      .select('id, order_ref, amount_cents, shipping_cents, listing_id, buyer_id, seller_id, platform_fee_cents, seller_payout_cents, status')
+      .select('id, order_ref, amount_cents, shipping_cents, listing_id, buyer_id, seller_id, platform_fee_cents, seller_payout_cents, status, shipping_address')
       .eq('id', orderId)
       .eq('listing_id', listingId)
       .eq('buyer_id', user!.id)
@@ -141,7 +162,12 @@ export async function POST(req: NextRequest) {
       host,
       req,
       order as Parameters<typeof createCheckoutSession>[4],
-      (listing?.title as string) || 'Guild Market item'
+      (listing?.title as string) || 'Guild Market item',
+      {
+        collectShippingAddress: !hasCompleteShippingAddress(
+          shippingAddress ?? (order.shipping_address as ShippingAddress | null)
+        ),
+      }
     );
     if ('error' in result && result.error) return result.error;
     return NextResponse.json({ checkoutUrl: result.checkoutUrl, orderRef: order.order_ref });
@@ -271,7 +297,8 @@ export async function POST(req: NextRequest) {
     host,
     req,
     order as Parameters<typeof createCheckoutSession>[4],
-    (listing.title as string) || 'Guild Market item'
+    (listing.title as string) || 'Guild Market item',
+    { collectShippingAddress: !hasCompleteShippingAddress(shippingAddress) }
   );
   if ('error' in result && result.error) return result.error;
   return NextResponse.json({ checkoutUrl: result.checkoutUrl, orderRef: order.order_ref });

@@ -135,7 +135,7 @@ export default function MarketTradeScreen() {
     );
   }
 
-  const canAct = ['accepted', 'pending_payment'].includes(trade.status);
+  const canAct = ['receiver_accepted', 'fees_pending'].includes(trade.status);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>

@@ -112,7 +112,7 @@ export async function POST(
 
     acceptedOrderId = order.id;
     buyerRedirectUrl = `/market/listing/${offer.listing_id}/checkout?order=${order.id}`;
-    redirectUrl = buyerRedirectUrl;
+    redirectUrl = `/market/orders/${order.id}`;
   }
 
   if (offerType === 'trade' || offerType === 'cash_and_trade') {
@@ -166,8 +166,8 @@ export async function POST(
     });
 
     acceptedTradeId = trade.id;
-    redirectUrl = `/market/trade/${trade.id}`;
-    buyerRedirectUrl = redirectUrl;
+    if (!redirectUrl) redirectUrl = `/market/trade/${trade.id}`;
+    if (!buyerRedirectUrl) buyerRedirectUrl = redirectUrl;
   }
 
   await admin

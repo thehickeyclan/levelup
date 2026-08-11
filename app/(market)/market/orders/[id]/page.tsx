@@ -49,27 +49,35 @@ export default function MarketOrderDetailPage() {
   const [carrier, setCarrier] = useState<MarketShippingCarrier>('usps');
   const [tracking, setTracking] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [receiving, setReceiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [disputeThreadId, setDisputeThreadId] = useState<string | null>(null);
   const [openingDispute, setOpeningDispute] = useState(false);
+  const [disputeDetails, setDisputeDetails] = useState('');
 
-  const load = () => {
-    fetch(`/api/market/orders/${orderId}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.order) {
-          setOrder(d.order);
-          if (d.order.tracking_number) setTracking(d.order.tracking_number);
-          if (d.order.shipping_carrier) setCarrier(d.order.shipping_carrier);
-        }
-      });
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/market/orders/${orderId}`);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Could not load order');
+      if (!d.order) throw new Error('Order not found');
+      setOrder(d.order);
+      if (d.order.tracking_number) setTracking(d.order.tracking_number);
+      if (d.order.shipping_carrier) setCarrier(d.order.shipping_carrier);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load order');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, [orderId]);
 
   const onLabelPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,7 +105,7 @@ export default function MarketOrderDetailPage() {
       } else {
         setError(data.error || 'Could not read label');
       }
-      load();
+      void load();
     } catch {
       setError('Upload failed');
     } finally {
@@ -117,7 +125,7 @@ export default function MarketOrderDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
-      load();
+      void load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed');
     } finally {
@@ -145,8 +153,11 @@ export default function MarketOrderDetailPage() {
   };
 
   const openDispute = async () => {
-    const details = window.prompt('Tell Guild staff what went wrong with this order.');
-    if (details === null) return;
+    const details = disputeDetails.trim();
+    if (!details) {
+      setError('Add a short note so Guild staff know what happened.');
+      return;
+    }
     setOpeningDispute(true);
     setError(null);
     try {
@@ -158,6 +169,7 @@ export default function MarketOrderDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not open dispute');
       setDisputeThreadId(data.threadId);
+      setDisputeDetails('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not open dispute');
     } finally {
@@ -165,11 +177,26 @@ export default function MarketOrderDetailPage() {
     }
   };
 
-  if (!order) {
+  if (loading && !order) {
     return (
       <div className="px-4 py-8">
         <BackLink fallbackHref="/market/orders" label="Back" />
         <p className="mt-4 text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="px-4 py-8 max-w-lg mx-auto space-y-4">
+        <BackLink fallbackHref="/market/orders" label="Back" />
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+          <p className="text-sm font-medium text-destructive">Could not load this order.</p>
+          <p className="text-sm text-muted-foreground mt-1">{error || 'Try again in a moment.'}</p>
+        </div>
+        <Button variant="outline" onClick={() => void load()}>
+          Retry
+        </Button>
       </div>
     );
   }
@@ -310,6 +337,12 @@ export default function MarketOrderDetailPage() {
         <p className="text-xs text-muted-foreground">
           Open a private dispute record for Guild staff while keeping communication attached to the order.
         </p>
+        <textarea
+          value={disputeDetails}
+          onChange={(e) => setDisputeDetails(e.target.value)}
+          className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder="What happened? Missing shipment, wrong item, condition issue…"
+        />
         <Button variant="outline" onClick={() => void openDispute()} disabled={openingDispute}>
           {openingDispute ? 'Opening…' : 'Open a dispute'}
         </Button>

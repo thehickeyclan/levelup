@@ -511,6 +511,10 @@ export default function ListingDetailClient() {
     inventorySizes.length > 0 && selectedSizeUs != null
       ? `/market/listing/${id}/checkout?size=${selectedSizeUs}`
       : `/market/listing/${id}/checkout`;
+  const needsSizeSelection =
+    inventorySizes.length > 0 &&
+    supportsMultiSizeInventory(wearState) &&
+    selectedSizeUs == null;
 
   const ctaBlock = (
     <>
@@ -549,9 +553,7 @@ export default function ListingDetailClient() {
               onChange={setSelectedSizeUs}
             />
           ) : null}
-          {inventorySizes.length > 0 &&
-          supportsMultiSizeInventory(wearState) &&
-          selectedSizeUs == null ? (
+          {needsSizeSelection ? (
             <Button
               disabled
               className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full text-base opacity-50"
@@ -942,11 +944,20 @@ export default function ListingDetailClient() {
             </Button>
           ) : showBuyCta ? (
             <div className="space-y-2">
-              <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
-                <Link href={checkoutHref}>
-                  Buy now — ${(priceCents! / 100).toFixed(0)}
-                </Link>
-              </Button>
+              {needsSizeSelection ? (
+                <Button
+                  disabled
+                  className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full opacity-50"
+                >
+                  Select a size to buy
+                </Button>
+              ) : (
+                <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
+                  <Link href={checkoutHref}>
+                    Buy now — ${(priceCents! / 100).toFixed(0)}
+                  </Link>
+                </Button>
+              )}
               {showSellMakeOfferCta ? (
                 <Button
                   asChild
@@ -968,7 +979,7 @@ export default function ListingDetailClient() {
             </div>
           ) : (
             <Button asChild className="w-full min-h-[52px] bg-accent text-accent-foreground font-semibold rounded-full">
-              <Link href={`/market/listing/${id}/checkout`}>
+              <Link href={checkoutHref}>
                 Buy now — ${(priceCents! / 100).toFixed(0)}
               </Link>
             </Button>

@@ -151,6 +151,9 @@ export function ListingCheckoutClient({ summary }: { summary: CheckoutSummary })
           <div>
             <Label htmlFor="city">City</Label>
             <Input id="city" className="mt-1" {...form.register('city')} />
+            {form.formState.errors.city ? (
+              <p className="text-xs text-destructive mt-1">{form.formState.errors.city.message}</p>
+            ) : null}
           </div>
           <div>
             <Label htmlFor="state">State</Label>
@@ -166,11 +169,17 @@ export function ListingCheckoutClient({ summary }: { summary: CheckoutSummary })
                 </option>
               ))}
             </select>
+            {form.formState.errors.state ? (
+              <p className="text-xs text-destructive mt-1">{form.formState.errors.state.message}</p>
+            ) : null}
           </div>
         </div>
         <div>
           <Label htmlFor="zip">ZIP</Label>
           <Input id="zip" className="mt-1" {...form.register('zip')} />
+          {form.formState.errors.zip ? (
+            <p className="text-xs text-destructive mt-1">{form.formState.errors.zip.message}</p>
+          ) : null}
         </div>
 
         <p className="text-xs text-muted-foreground">

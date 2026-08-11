@@ -13,6 +13,37 @@ import { listingInventoryDepleted, restoreListingSize } from '@/lib/market/listi
 import { completeTradeListings } from '@/lib/market/trade-lifecycle';
 import { findOrCreateThread } from '@/lib/guild-messaging';
 import { normalizePhone, sendSms } from '@/lib/twilio';
+import type { ShippingAddress } from '@/lib/market/shipping';
+
+function stripeSessionShippingAddress(session: Stripe.Checkout.Session): ShippingAddress | null {
+  const checkoutSession = session as Stripe.Checkout.Session & {
+    shipping_details?: {
+      name?: string | null;
+      address?: {
+        line1?: string | null;
+        line2?: string | null;
+        city?: string | null;
+        state?: string | null;
+        postal_code?: string | null;
+      } | null;
+    } | null;
+  };
+  const details = checkoutSession.shipping_details;
+  const address = details?.address ?? session.customer_details?.address;
+  if (!address) return null;
+  const name = details?.name ?? session.customer_details?.name ?? undefined;
+  const normalized: ShippingAddress = {
+    name: name ?? undefined,
+    line1: address.line1 ?? undefined,
+    line2: address.line2 ?? undefined,
+    city: address.city ?? undefined,
+    state: address.state ?? undefined,
+    zip: address.postal_code ?? undefined,
+  };
+  return normalized.line1 && normalized.city && normalized.state && normalized.zip
+    ? normalized
+    : null;
+}
 
 function getMarketWebhookSecret(tenantSlug: string): string {
   const key =
@@ -132,13 +163,16 @@ export async function POST(req: NextRequest) {
     const paymentIntentId =
       typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
 
-    await supabase
-      .from('market_orders')
-      .update({
-        status: 'paid',
-        stripe_payment_intent_id: paymentIntentId ?? null,
-      })
-      .eq('id', orderId);
+    const orderUpdates: Record<string, unknown> = {
+      status: 'paid',
+      stripe_payment_intent_id: paymentIntentId ?? null,
+    };
+    const collectedShippingAddress = stripeSessionShippingAddress(session);
+    if (collectedShippingAddress) {
+      orderUpdates.shipping_address = collectedShippingAddress;
+    }
+
+    await supabase.from('market_orders').update(orderUpdates).eq('id', orderId);
 
     const depleted = await listingInventoryDepleted(supabase, listingId);
     if (depleted) {

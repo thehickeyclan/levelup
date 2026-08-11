@@ -88,6 +88,19 @@ type AiPrice = {
   comps: PriceComp[];
 };
 
+type SellerWizardStep = 'photos' | 'confirm' | 'condition' | 'review';
+
+const SELLER_WIZARD_STEPS: Array<{
+  key: SellerWizardStep;
+  label: string;
+  title: string;
+}> = [
+  { key: 'photos', label: 'Photos', title: 'Add photos' },
+  { key: 'confirm', label: 'Confirm', title: 'Confirm the shoe' },
+  { key: 'condition', label: 'Value', title: 'Condition & value' },
+  { key: 'review', label: 'Publish', title: 'Review & publish' },
+];
+
 function visionDisagreesWithForm(
   result: ShoeIdResult,
   current: { brand: string; model: string }
@@ -162,6 +175,7 @@ export default function NewListingPage() {
   const [agentInput, setAgentInput] = useState('');
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentReply, setAgentReply] = useState<string | null>(null);
+  const [wizardStep, setWizardStep] = useState<SellerWizardStep>('photos');
 
   const [purchaseNotes, setPurchaseNotes] = useState<CollectionPurchaseNotes>(
     emptyCollectionPurchaseNotes()
@@ -391,6 +405,7 @@ export default function NewListingPage() {
         if (!shoeIdentityLocked) {
           setIdentityConfirmed(false);
         }
+        setWizardStep('photos');
       }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Could not remove photo');
@@ -474,6 +489,7 @@ export default function NewListingPage() {
       descriptionAutoKey.current = null;
 
       await runSequentialListingPipeline({ imageOverride: mergedImages });
+      setWizardStep('confirm');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed';
       setUploadError(msg);
@@ -1276,6 +1292,81 @@ export default function NewListingPage() {
   };
 
   const midPrice = aiPrice ? Math.round(aiPrice.suggested_mid_cents / 100) : 0;
+  const wizardStepIndex = SELLER_WIZARD_STEPS.findIndex((step) => step.key === wizardStep);
+  const identityReady = Boolean(form.brand.trim() && form.model.trim());
+  const isBusy = uploading || analyzing || identifyingShoe || catalogEnriching || agentLoading;
+  const canContinueWizard =
+    wizardStep === 'photos'
+      ? images.length > 0 && !uploading
+      : wizardStep === 'confirm'
+        ? identityReady && !identifyingShoe && !identitySaving
+        : wizardStep === 'condition'
+          ? identityReady && !isBusy
+          : true;
+  const wizardCopy =
+    wizardStep === 'photos'
+      ? 'Start with photos. The Guild will try to identify the shoe and tee up the listing.'
+      : wizardStep === 'confirm'
+        ? 'Confirm or correct the brand, model, and colorway. If you correct it, AI refreshes from that truth.'
+        : wizardStep === 'condition'
+          ? 'Set condition and value. AI can suggest, but the seller makes the call.'
+          : 'Choose collection, sale, or trade, then review the buyer-facing story before publishing.';
+  const nextWizardLabel =
+    wizardStep === 'photos'
+      ? 'Confirm shoe'
+      : wizardStep === 'confirm'
+        ? 'Condition & value'
+        : wizardStep === 'condition'
+          ? 'Review listing'
+          : '';
+  const showPhotoAiSection =
+    wizardStep === 'photos' ||
+    wizardStep === 'confirm' ||
+    uploading ||
+    analyzing ||
+    identifyingShoe ||
+    catalogEnriching ||
+    pricing ||
+    agentLoading ||
+    Boolean(aiCondition) ||
+    Boolean(aiPrice);
+  const highestAvailableWizardIndex = !images.length ? 0 : identityReady ? 3 : 1;
+
+  const goToWizardStep = (step: SellerWizardStep) => {
+    setWizardStep(step);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const continueWizard = () => {
+    setError(null);
+    if (wizardStep === 'photos') {
+      if (!images.length) {
+        setError('Add at least one photo before continuing.');
+        return;
+      }
+      goToWizardStep('confirm');
+      return;
+    }
+    if (wizardStep === 'confirm') {
+      if (!identityReady) {
+        setError('Confirm the brand and model before continuing.');
+        return;
+      }
+      confirmIdentity();
+      void runSequentialListingPipeline({
+        skipShoeId: true,
+        overwriteCatalogFields: true,
+        refreshDescription: true,
+      });
+      goToWizardStep('condition');
+      return;
+    }
+    if (wizardStep === 'condition') {
+      goToWizardStep('review');
+    }
+  };
 
   return (
     <div className="min-h-screen pb-28 px-4 pt-4 max-w-lg mx-auto space-y-5">
@@ -1286,22 +1377,66 @@ export default function NewListingPage() {
 
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">
-          {isCollection ? 'Add to your collection' : 'List a pair'}
+          {SELLER_WIZARD_STEPS[wizardStepIndex]?.title ??
+            (isCollection ? 'Add to your collection' : 'List a pair')}
         </h1>
         <p className="text-sm text-muted-foreground leading-snug">
-          {isCollection
-            ? 'Add brand, model, and colorway. AI writes the story, checks photos for condition, and suggests value.'
-            : 'Add brand, model, and colorway. AI writes the description, checks condition, and suggests price — you stay in control.'}
+          {wizardCopy}
         </p>
       </header>
 
+      <nav
+        aria-label="Listing progress"
+        className="rounded-2xl border border-border bg-card p-3 space-y-3"
+      >
+        <div className="grid grid-cols-4 gap-2">
+          {SELLER_WIZARD_STEPS.map((step, index) => {
+            const active = step.key === wizardStep;
+            const complete = index < wizardStepIndex;
+            return (
+              <button
+                key={step.key}
+                type="button"
+                disabled={index > highestAvailableWizardIndex}
+                onClick={() => {
+                  if (index <= highestAvailableWizardIndex) goToWizardStep(step.key);
+                }}
+                className={cn(
+                  'rounded-xl px-2 py-2 text-[11px] font-semibold transition-colors',
+                  active
+                    ? 'bg-accent text-accent-foreground'
+                    : complete
+                      ? 'bg-accent/10 text-accent'
+                      : 'bg-muted/60 text-muted-foreground',
+                  index > highestAvailableWizardIndex && 'opacity-50'
+                )}
+              >
+                {step.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-accent transition-all"
+            style={{
+              width: `${((wizardStepIndex + 1) / SELLER_WIZARD_STEPS.length) * 100}%`,
+            }}
+          />
+        </div>
+      </nav>
+
       {/* —— 1. Photos + AI —— */}
-      <section className="space-y-3" aria-label="Photos">
+      <section className={cn('space-y-3', !showPhotoAiSection && 'hidden')} aria-label="Photos">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-foreground">Photos</h2>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {images.length}/{MAX_PHOTOS}
-          </span>
+          <h2 className="text-sm font-semibold text-foreground">
+            {wizardStep === 'condition' || wizardStep === 'review' ? 'AI summary' : 'Photos'}
+          </h2>
+          {wizardStep === 'photos' || wizardStep === 'confirm' ? (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {images.length}/{MAX_PHOTOS}
+            </span>
+          ) : null}
         </div>
         <input
           ref={fileInputRef}
@@ -1313,43 +1448,45 @@ export default function NewListingPage() {
           onChange={onPhoto}
           disabled={uploading || images.length >= MAX_PHOTOS}
         />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading || images.length >= MAX_PHOTOS}
-          className={cn(
-            'w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors touch-manipulation active:scale-[0.99]',
-            images.length === 0 ? 'min-h-[168px] py-6' : 'py-4 border-dashed',
-            error && images.length === 0
-              ? 'border-destructive/50 text-destructive bg-destructive/5'
-              : uploadError
-                ? 'border-destructive/50 text-destructive'
-                : images.length === 0
-                  ? 'border-accent/40 bg-accent/5 text-accent hover:bg-accent/10'
-                  : 'border-border text-muted-foreground hover:border-accent/50'
-          )}
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="text-sm font-medium">{uploadProgress ?? 'Uploading…'}</span>
-            </>
-          ) : (
-            <>
-              <Plus className={cn('shrink-0', images.length === 0 ? 'h-8 w-8' : 'h-5 w-5')} />
-              <span className="text-sm font-medium">
-                {images.length
-                  ? `Add photo (${images.length}/${MAX_PHOTOS})`
-                  : 'Tap to add photos'}
-              </span>
-              {images.length === 0 ? (
-                <span className="text-xs text-muted-foreground px-4 text-center leading-snug">
-                  Clear shot on a plain background works best
+        {wizardStep === 'photos' || wizardStep === 'confirm' ? (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading || images.length >= MAX_PHOTOS}
+            className={cn(
+              'w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors touch-manipulation active:scale-[0.99]',
+              images.length === 0 ? 'min-h-[168px] py-6' : 'py-4 border-dashed',
+              error && images.length === 0
+                ? 'border-destructive/50 text-destructive bg-destructive/5'
+                : uploadError
+                  ? 'border-destructive/50 text-destructive'
+                  : images.length === 0
+                    ? 'border-accent/40 bg-accent/5 text-accent hover:bg-accent/10'
+                    : 'border-border text-muted-foreground hover:border-accent/50'
+            )}
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="text-sm font-medium">{uploadProgress ?? 'Uploading…'}</span>
+              </>
+            ) : (
+              <>
+                <Plus className={cn('shrink-0', images.length === 0 ? 'h-8 w-8' : 'h-5 w-5')} />
+                <span className="text-sm font-medium">
+                  {images.length
+                    ? `Add photo (${images.length}/${MAX_PHOTOS})`
+                    : 'Tap to add photos'}
                 </span>
-              ) : null}
-            </>
-          )}
-        </button>
+                {images.length === 0 ? (
+                  <span className="text-xs text-muted-foreground px-4 text-center leading-snug">
+                    Clear shot on a plain background works best
+                  </span>
+                ) : null}
+              </>
+            )}
+          </button>
+        ) : null}
         {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
         {aiPipelineError ? (
           <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 space-y-2">
@@ -1365,7 +1502,7 @@ export default function NewListingPage() {
             </button>
           </div>
         ) : null}
-        {images.length > 0 && listingId ? (
+        {images.length > 0 && listingId && (wizardStep === 'photos' || wizardStep === 'confirm') ? (
           <ListingPhotoGrid
             listingId={listingId}
             images={images}
@@ -1375,7 +1512,7 @@ export default function NewListingPage() {
           />
         ) : null}
 
-        {listingId && images.length > 0 ? (
+        {listingId && images.length > 0 && wizardStep === 'confirm' ? (
           <ShoeIdCard
             listingId={listingId}
             images={images}
@@ -1396,6 +1533,7 @@ export default function NewListingPage() {
               mergeFormPatch(shoeOverrides);
               if (!opts?.colorwayOnly) {
                 confirmIdentity();
+                setWizardStep('condition');
                 setShoeIdAutoApplied(true);
                 void runSequentialListingPipeline({ skipShoeId: true, overwriteCatalogFields: true });
               }
@@ -1403,7 +1541,7 @@ export default function NewListingPage() {
           />
         ) : null}
 
-        {shoeIdResult && !identityConfirmed && !identifyingShoe ? (
+        {shoeIdResult && !identityConfirmed && !identifyingShoe && wizardStep === 'confirm' ? (
           <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 space-y-2">
             {visionDisagreesWithForm(shoeIdResult, form) ? (
               <p className="text-sm text-foreground">
@@ -1433,6 +1571,7 @@ export default function NewListingPage() {
               onClick={() => {
                 applyShoeIdToForm(shoeIdResult);
                 confirmIdentity();
+                setWizardStep('condition');
                 void runSequentialListingPipeline({ skipShoeId: true, overwriteCatalogFields: true });
               }}
             >
@@ -1481,7 +1620,7 @@ export default function NewListingPage() {
           <AiSpinner label="Step 2 — looking up catalog metadata…" />
         ) : null}
 
-        {aiCondition && !analyzing ? (
+        {aiCondition && !analyzing && (wizardStep === 'condition' || wizardStep === 'review') ? (
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-sm font-medium">
@@ -1543,7 +1682,7 @@ export default function NewListingPage() {
 
         {pricing && !isCollection ? <AiSpinner label="Checking market prices…" /> : null}
 
-        {aiPrice && !pricing && !isCollection ? (
+        {aiPrice && !pricing && !isCollection && (wizardStep === 'condition' || wizardStep === 'review') ? (
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-1.5 text-sm font-medium">
               <Sparkles className="h-4 w-4 text-accent" />
@@ -1585,7 +1724,10 @@ export default function NewListingPage() {
 
       {/* —— 2. Shoe details —— */}
       <section
-        className="rounded-xl border border-border bg-card p-4 space-y-4"
+        className={cn(
+          'rounded-xl border border-border bg-card p-4 space-y-4',
+          wizardStep !== 'confirm' && wizardStep !== 'condition' && 'hidden'
+        )}
         aria-label="Shoe details"
       >
         <h2 className="text-sm font-semibold text-foreground">Shoe details</h2>
@@ -1772,7 +1914,10 @@ export default function NewListingPage() {
       </section>
 
       {/* —— 3. How to list —— */}
-      <section className="space-y-3" aria-label="Listing type">
+      <section
+        className={cn('space-y-3', wizardStep !== 'review' && 'hidden')}
+        aria-label="Listing type"
+      >
         <h2 className="text-sm font-semibold text-foreground">How should this show up?</h2>
         <div className="grid grid-cols-2 gap-2">
           {SELLER_LISTING_TYPE_OPTIONS.map((opt) => (
@@ -1865,7 +2010,13 @@ export default function NewListingPage() {
       </section>
 
       {/* —— 4. Price & description —— */}
-      <section className="space-y-4" aria-label="Price and description">
+      <section
+        className={cn(
+          'space-y-4',
+          wizardStep !== 'condition' && wizardStep !== 'review' && 'hidden'
+        )}
+        aria-label="Price and description"
+      >
         {isPricedListing ? (
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1964,13 +2115,23 @@ export default function NewListingPage() {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <Button
-        className="w-full min-h-[52px] rounded-xl bg-accent text-accent-foreground font-semibold text-base touch-manipulation"
-        onClick={publish}
-        disabled={uploading || analyzing || identifyingShoe}
-      >
-        {isCollection ? 'Add to collection' : 'Publish listing'}
-      </Button>
+      {wizardStep === 'review' ? (
+        <Button
+          className="w-full min-h-[52px] rounded-xl bg-accent text-accent-foreground font-semibold text-base touch-manipulation"
+          onClick={publish}
+          disabled={uploading || analyzing || identifyingShoe}
+        >
+          {isCollection ? 'Add to collection' : 'Publish listing'}
+        </Button>
+      ) : (
+        <Button
+          className="w-full min-h-[52px] rounded-xl bg-accent text-accent-foreground font-semibold text-base touch-manipulation"
+          onClick={continueWizard}
+          disabled={!canContinueWizard}
+        >
+          {nextWizardLabel}
+        </Button>
+      )}
 
       <p className="text-xs text-muted-foreground">{SELLER_AI_DISCLAIMER}</p>
     </div>

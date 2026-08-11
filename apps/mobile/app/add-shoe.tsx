@@ -18,6 +18,7 @@ import { marketColors as colors, typography } from '@/lib/theme';
 
 type ListingType = 'collection' | 'sell' | 'trade';
 type WearState = 'bnib' | 'new_no_box' | 'used';
+type AddShoeStep = 'photos' | 'confirm' | 'condition' | 'review';
 type PickedPhoto = { uri: string; fileName?: string | null; mimeType?: string | null; base64?: string | null };
 type ListingImageResponse = {
   image?: {
@@ -52,6 +53,7 @@ type AgentResponse = {
 export default function AddShoeScreen() {
   const router = useRouter();
   const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const [step, setStep] = useState<AddShoeStep>('photos');
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [listingType, setListingType] = useState<ListingType>('collection');
   const [wearState, setWearState] = useState<WearState>('used');
@@ -90,6 +92,7 @@ export default function AddShoeScreen() {
         base64: asset.base64,
       })),
     ]);
+    setStep('confirm');
   }
 
   async function takePhoto() {
@@ -350,114 +353,217 @@ export default function AddShoeScreen() {
     }
   }
 
+  function continueStep() {
+    setError(null);
+    if (step === 'photos') {
+      if (photos.length === 0) {
+        setError('Add at least one photo before continuing.');
+        return;
+      }
+      setStep('confirm');
+      return;
+    }
+    if (step === 'confirm') {
+      if (!brand.trim() || !model.trim() || !size.trim()) {
+        setError('Enter brand, model, and size.');
+        return;
+      }
+      setStep('condition');
+      return;
+    }
+    if (step === 'condition') {
+      setStep('review');
+    }
+  }
+
+  const steps: Array<{ key: AddShoeStep; label: string }> = [
+    { key: 'photos', label: 'Photos' },
+    { key: 'confirm', label: 'Confirm' },
+    { key: 'condition', label: 'Value' },
+    { key: 'review', label: 'Publish' },
+  ];
+  const stepIndex = steps.findIndex((item) => item.key === step);
+  const highestStepIndex = !photos.length ? 0 : brand.trim() && model.trim() && size.trim() ? 3 : 1;
+  const stepCopy =
+    step === 'photos'
+      ? 'Start with clear photos. Camera works best.'
+      : step === 'confirm'
+        ? 'Confirm brand, model, colorway, and size.'
+        : step === 'condition'
+          ? 'Set condition, then let AI draft history and value.'
+          : 'Choose collection, sale, or trade and publish.';
+  const nextLabel =
+    step === 'photos'
+      ? 'Confirm shoe'
+      : step === 'confirm'
+        ? 'Condition & value'
+        : step === 'condition'
+          ? 'Review listing'
+          : '';
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.kicker}>MY MARKET</Text>
-      <Text style={styles.heading}>Add a shoe</Text>
-      <Text style={styles.sub}>Start in your collection, list it for sale, or make it available for trade.</Text>
-
-      <Text style={styles.label}>WHAT DO YOU WANT TO DO?</Text>
-      <View style={styles.choices}>
-        {([
-          ['collection', 'Collect'],
-          ['sell', 'Sell'],
-          ['trade', 'Trade'],
-        ] as [ListingType, string][]).map(([value, label]) => (
-          <Pressable key={value} style={[styles.choice, listingType === value && styles.choiceSelected]} onPress={() => setListingType(value)}>
-            <Text style={[styles.choiceText, listingType === value && styles.choiceTextSelected]}>{label}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <Text style={styles.modeHelp}>
-        {listingType === 'collection'
-          ? 'Collection keeps it in your shoe room. Members can follow it and you can list it later.'
-          : listingType === 'sell'
-            ? 'Sell makes the pair visible for purchase and offers.'
-            : 'Trade tells the Guild you are looking for swaps or trade + cash.'}
+      <Text style={styles.heading}>
+        {step === 'photos'
+          ? 'Add photos'
+          : step === 'confirm'
+            ? 'Confirm shoe'
+            : step === 'condition'
+              ? 'Condition & value'
+              : 'Review & publish'}
       </Text>
+      <Text style={styles.sub}>{stepCopy}</Text>
 
-      <Text style={styles.label}>PHOTOS · {photos.length}/6</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
-        <Pressable style={styles.addPhoto} onPress={() => void takePhoto()}>
-          <Text style={styles.addPhotoPlus}>📷</Text>
-          <Text style={styles.addPhotoText}>Camera</Text>
-        </Pressable>
-        <Pressable style={styles.addPhotoSecondary} onPress={() => void pickPhotos()}>
-          <Text style={styles.addPhotoPlus}>＋</Text>
-          <Text style={styles.addPhotoText}>Library</Text>
-        </Pressable>
-        {photos.map((photo, index) => (
-          <Pressable key={`${photo.uri}-${index}`} onPress={() => setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index))}>
-            <Image source={{ uri: photo.uri }} style={styles.photo} />
-            <View style={styles.remove}><Text style={styles.removeText}>×</Text></View>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      <Field label="BRAND" value={brand} onChangeText={setBrand} placeholder="Adidas, Nike, Rudis…" />
-      <Field label="MODEL" value={model} onChangeText={setModel} placeholder="Combat Speed 4" />
-      <Field label="COLORWAY (OPTIONAL)" value={colorway} onChangeText={setColorway} placeholder="Black / gold, white / royal…" />
-      <Field label="SIZE" value={size} onChangeText={setSize} placeholder="10.5" keyboardType="decimal-pad" />
-
-      <Text style={styles.label}>CONDITION</Text>
-      <View style={styles.choices}>
-        {([
-          ['bnib', 'New in box'],
-          ['new_no_box', 'New'],
-          ['used', 'Used'],
-        ] as [WearState, string][]).map(([value, label]) => (
-          <Pressable key={value} style={[styles.choice, wearState === value && styles.choiceSelected]} onPress={() => setWearState(value)}>
-            <Text style={[styles.choiceText, wearState === value && styles.choiceTextSelected]}>{label}</Text>
+      <View style={styles.stepNav}>
+        {steps.map((item, index) => (
+          <Pressable
+            key={item.key}
+            disabled={index > highestStepIndex}
+            onPress={() => setStep(item.key)}
+            style={[
+              styles.stepPill,
+              item.key === step && styles.stepPillActive,
+              index > highestStepIndex && styles.stepPillDisabled,
+            ]}
+          >
+            <Text style={[styles.stepPillText, item.key === step && styles.stepPillTextActive]}>
+              {item.label}
+            </Text>
           </Pressable>
         ))}
       </View>
-
-      {wearState === 'used' ? (
-        <Field label="CONDITION NOTES" value={condition} onChangeText={setCondition} placeholder="Good" />
-      ) : null}
-      <View style={styles.aiBox}>
-        <Text style={styles.aiTitle}>AI listing assistant</Text>
-        <Text style={styles.aiCopy}>
-          Enter brand, model, and colorway first. AI writes the description/history, checks photo condition, and suggests price.
-        </Text>
-        <Pressable
-          style={[styles.aiButton, (aiRefreshing || saving) && styles.disabled]}
-          onPress={() => void refreshAiFromCurrentDetails()}
-          disabled={aiRefreshing || saving}
-        >
-          {aiRefreshing ? (
-            <ActivityIndicator color={colors.black} />
-          ) : (
-            <Text style={styles.aiButtonText}>Refresh AI from these details</Text>
-          )}
-        </Pressable>
-        {aiMessage ? <Text style={styles.aiMessage}>{aiMessage}</Text> : null}
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${((stepIndex + 1) / steps.length) * 100}%` }]} />
       </View>
-      {listingType === 'sell' ? (
+
+      {step === 'photos' ? (
         <>
-          <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
-          <Pressable style={styles.toggleRow} onPress={() => setAcceptsOffers((value) => !value)}>
-            <View style={[styles.toggleDot, acceptsOffers && styles.toggleDotOn]} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.toggleTitle}>Accept offers</Text>
-              <Text style={styles.toggleMeta}>Let members make a lower bid or start a conversation.</Text>
-            </View>
-          </Pressable>
+          <Text style={styles.label}>PHOTOS · {photos.length}/6</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
+            <Pressable style={styles.addPhoto} onPress={() => void takePhoto()}>
+              <Text style={styles.addPhotoPlus}>📷</Text>
+              <Text style={styles.addPhotoText}>Camera</Text>
+            </Pressable>
+            <Pressable style={styles.addPhotoSecondary} onPress={() => void pickPhotos()}>
+              <Text style={styles.addPhotoPlus}>＋</Text>
+              <Text style={styles.addPhotoText}>Library</Text>
+            </Pressable>
+            {photos.map((photo, index) => (
+              <Pressable key={`${photo.uri}-${index}`} onPress={() => setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index))}>
+                <Image source={{ uri: photo.uri }} style={styles.photo} />
+                <View style={styles.remove}><Text style={styles.removeText}>×</Text></View>
+              </Pressable>
+            ))}
+          </ScrollView>
         </>
       ) : null}
-      <Text style={styles.label}>DESCRIPTION (OPTIONAL)</Text>
-      <TextInput
-        value={description}
-        onChangeText={setDescription}
-        placeholder="Fit, wear, history, or anything a buyer should know"
-        placeholderTextColor={colors.textSecondary}
-        multiline
-        style={[styles.input, styles.textarea]}
-      />
+
+      {step === 'confirm' ? (
+        <>
+          <Field label="BRAND" value={brand} onChangeText={setBrand} placeholder="Adidas, Nike, Rudis…" />
+          <Field label="MODEL" value={model} onChangeText={setModel} placeholder="Combat Speed 4" />
+          <Field label="COLORWAY (OPTIONAL)" value={colorway} onChangeText={setColorway} placeholder="Black / gold, white / royal…" />
+          <Field label="SIZE" value={size} onChangeText={setSize} placeholder="10.5" keyboardType="decimal-pad" />
+        </>
+      ) : null}
+
+      {step === 'condition' ? (
+        <>
+          <Text style={styles.label}>CONDITION</Text>
+          <View style={styles.choices}>
+            {([
+              ['bnib', 'New in box'],
+              ['new_no_box', 'New'],
+              ['used', 'Used'],
+            ] as [WearState, string][]).map(([value, label]) => (
+              <Pressable key={value} style={[styles.choice, wearState === value && styles.choiceSelected]} onPress={() => setWearState(value)}>
+                <Text style={[styles.choiceText, wearState === value && styles.choiceTextSelected]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {wearState === 'used' ? (
+            <Field label="CONDITION NOTES" value={condition} onChangeText={setCondition} placeholder="Good" />
+          ) : null}
+          <View style={styles.aiBox}>
+            <Text style={styles.aiTitle}>AI listing assistant</Text>
+            <Text style={styles.aiCopy}>
+              AI uses your confirmed brand, model, colorway, photos, and condition to draft history and suggest value.
+            </Text>
+            <Pressable
+              style={[styles.aiButton, (aiRefreshing || saving) && styles.disabled]}
+              onPress={() => void refreshAiFromCurrentDetails()}
+              disabled={aiRefreshing || saving}
+            >
+              {aiRefreshing ? (
+                <ActivityIndicator color={colors.black} />
+              ) : (
+                <Text style={styles.aiButtonText}>Refresh AI from confirmed details</Text>
+              )}
+            </Pressable>
+            {aiMessage ? <Text style={styles.aiMessage}>{aiMessage}</Text> : null}
+          </View>
+          {listingType === 'sell' ? (
+            <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
+          ) : null}
+        </>
+      ) : null}
+
+      {step === 'review' ? (
+        <>
+          <Text style={styles.label}>WHAT DO YOU WANT TO DO?</Text>
+          <View style={styles.choices}>
+            {([
+              ['collection', 'Collect'],
+              ['sell', 'Sell'],
+              ['trade', 'Trade'],
+            ] as [ListingType, string][]).map(([value, label]) => (
+              <Pressable key={value} style={[styles.choice, listingType === value && styles.choiceSelected]} onPress={() => setListingType(value)}>
+                <Text style={[styles.choiceText, listingType === value && styles.choiceTextSelected]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.modeHelp}>
+            {listingType === 'collection'
+              ? 'Collection keeps it in your shoe room. Members can follow it and you can list it later.'
+              : listingType === 'sell'
+                ? 'Sell makes the pair visible for purchase and offers.'
+                : 'Trade tells the Guild you are looking for swaps or trade + cash.'}
+          </Text>
+          {listingType === 'sell' ? (
+            <>
+              <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
+              <Pressable style={styles.toggleRow} onPress={() => setAcceptsOffers((value) => !value)}>
+                <View style={[styles.toggleDot, acceptsOffers && styles.toggleDotOn]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>Accept offers</Text>
+                  <Text style={styles.toggleMeta}>Let members make a lower bid or start a conversation.</Text>
+                </View>
+              </Pressable>
+            </>
+          ) : null}
+          <Text style={styles.label}>DESCRIPTION (OPTIONAL)</Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Fit, wear, history, or anything a buyer should know"
+            placeholderTextColor={colors.textSecondary}
+            multiline
+            style={[styles.input, styles.textarea]}
+          />
+        </>
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable style={[styles.publish, saving && styles.disabled]} onPress={() => void publish()} disabled={saving}>
-        {saving ? <ActivityIndicator color={colors.black} /> : <Text style={styles.publishText}>Add to My Market</Text>}
-      </Pressable>
+      {step === 'review' ? (
+        <Pressable style={[styles.publish, saving && styles.disabled]} onPress={() => void publish()} disabled={saving}>
+          {saving ? <ActivityIndicator color={colors.black} /> : <Text style={styles.publishText}>Add to My Market</Text>}
+        </Pressable>
+      ) : (
+        <Pressable style={styles.publish} onPress={continueStep}>
+          <Text style={styles.publishText}>{nextLabel}</Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -487,6 +593,31 @@ const styles = StyleSheet.create({
   kicker: { ...typography.brand, color: colors.accent, fontSize: 10, marginBottom: 8 },
   heading: { ...typography.display, color: colors.text, fontSize: 29 },
   sub: { ...typography.body, color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 7 },
+  stepNav: { flexDirection: 'row', gap: 6, marginTop: 16 },
+  stepPill: {
+    flex: 1,
+    minHeight: 34,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  stepPillActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  stepPillDisabled: { opacity: 0.45 },
+  stepPillText: { ...typography.bodySemi, color: colors.textMuted, fontSize: 10 },
+  stepPillTextActive: { color: colors.black },
+  progressTrack: {
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+    marginTop: 10,
+    marginBottom: 4,
+    overflow: 'hidden',
+  },
+  progressFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 999 },
   label: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 9, letterSpacing: 1, marginTop: 18, marginBottom: 8 },
   choices: { flexDirection: 'row', gap: 7 },
   choice: { flex: 1, minHeight: 45, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },

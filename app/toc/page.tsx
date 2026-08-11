@@ -11,14 +11,14 @@ const details = [
   '$1,000 committed to North Carolina wrestling',
   '10 wrestlers will each receive $100 in Guild training credit',
   `Create a free wrestler account by ${TOC_GIVEAWAY_DEADLINE_LABEL}`,
-  `Follow ${TOC_MARKET_FOLLOW_GOAL} shoes in Guild Market`,
+  `Favorite ${TOC_MARKET_FOLLOW_GOAL} shoes in Guild Market`,
 ];
 
 const steps = [
   'Download the free iPhone app',
   'Create a free wrestler account',
   'Follow The Wrestling Guild on Instagram',
-  `Follow ${TOC_MARKET_FOLLOW_GOAL} shoes in Guild Market`,
+  `Favorite ${TOC_MARKET_FOLLOW_GOAL} shoes in Guild Market`,
   'No purchase necessary',
 ];
 
@@ -36,7 +36,7 @@ export default function TocGiveawayPage() {
           <p className="mt-6 max-w-2xl text-xl leading-relaxed text-white/70">
             The Guild is giving $1,000 back to wrestlers at the Tournament of Champions:
             10 North Carolina wrestlers will each win $100 in training credit with Guild coaches.
-            Create a free account, follow The Guild, and follow shoes in the marketplace to join the launch raffle.
+            Create a free account, follow The Guild, and favorite shoes in the marketplace to join the launch raffle.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg" className="bg-accent text-black hover:bg-accent-hover">

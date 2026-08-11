@@ -26,6 +26,7 @@ type MarketItem = {
   primary_image_url?: string | null;
   condition_label?: string | null;
   pending_offer_count?: number;
+  open_to_trade?: boolean | null;
 };
 type Order = {
   id: string;
@@ -36,6 +37,22 @@ type Order = {
   amount_cents: number;
   is_buyer: boolean;
 };
+type TradeHistory = {
+  id: string;
+  status: string;
+  boot_amount_cents: number;
+  other_party_name?: string | null;
+  your_listing?: {
+    title: string;
+    size?: number | null;
+    image_url?: string | null;
+  } | null;
+  their_listing?: {
+    title: string;
+    size?: number | null;
+    image_url?: string | null;
+  } | null;
+};
 type Payload = {
   groups: {
     pairs: MarketItem[];
@@ -45,8 +62,9 @@ type Payload = {
   };
   watching: MarketItem[];
   orders: Order[];
+  trades?: TradeHistory[];
 };
-type Tab = 'watching' | 'collection' | 'selling' | 'trades' | 'sold' | 'orders';
+type Tab = 'watching' | 'mine' | 'selling' | 'history';
 
 export default function MyMarketScreen() {
   const router = useRouter();
@@ -73,12 +91,18 @@ export default function MyMarketScreen() {
   const items = useMemo(() => {
     const active = data?.groups.pairs ?? [];
     if (tab === 'watching') return data?.watching ?? [];
-    if (tab === 'collection') return active.filter((item) => item.listing_type === 'collection' || item.listing_type === 'vault');
+    if (tab === 'mine') return [...active, ...(data?.groups.drafts ?? [])];
     if (tab === 'selling') {
-      return [...active.filter((item) => item.listing_type === 'sell'), ...(data?.groups.drafts ?? [])];
+      return [
+        ...active.filter((item) =>
+          item.listing_type === 'sell' ||
+          item.listing_type === 'trade' ||
+          item.listing_type === 'trade_only' ||
+          item.open_to_trade === true
+        ),
+        ...(data?.groups.drafts ?? []),
+      ];
     }
-    if (tab === 'trades') return active.filter((item) => item.listing_type === 'trade' || item.listing_type === 'trade_only');
-    if (tab === 'sold') return data?.groups.soldTraded ?? [];
     return [];
   }, [data, tab]);
 
@@ -87,18 +111,16 @@ export default function MyMarketScreen() {
   }
 
   const tabs: [Tab, string][] = [
-    ['watching', 'Following'],
-    ['collection', 'Collection'],
-    ['selling', 'Selling'],
-    ['trades', 'Trading'],
-    ['sold', 'History'],
-    ['orders', 'Orders'],
+    ['watching', 'Favorites'],
+    ['mine', 'My shoes'],
+    ['selling', 'Selling / trade'],
+    ['history', 'History'],
   ];
 
   return (
     <FlatList
       style={styles.screen}
-      data={tab === 'orders' ? [] : items}
+      data={tab === 'history' ? [] : items}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />}
@@ -108,7 +130,7 @@ export default function MyMarketScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.kicker}>MY MARKET</Text>
               <Text style={styles.heading}>Your shoe room</Text>
-              <Text style={styles.sub}>Follow, collect, sell, and trade in one place.</Text>
+              <Text style={styles.sub}>Favorite, collect, sell, and trade in one place.</Text>
             </View>
             <Pressable
               style={styles.addButton}
@@ -150,7 +172,7 @@ export default function MyMarketScreen() {
             ))}
           </ScrollView>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          {tab === 'orders' ? (
+          {tab === 'history' ? (
             <View style={styles.orders}>
               {(data?.orders ?? []).map((order) => (
                 <Pressable key={order.id} style={styles.row} onPress={() => router.push(`/order/${order.id}`)}>
@@ -164,7 +186,27 @@ export default function MyMarketScreen() {
                   <Text style={styles.price}>${Math.round(order.amount_cents / 100)}</Text>
                 </Pressable>
               ))}
-              {(data?.orders ?? []).length === 0 ? <Empty tab={tab} /> : null}
+              {(data?.trades ?? []).map((trade) => (
+                <Pressable key={trade.id} style={styles.row} onPress={() => router.push(`/market-trade/${trade.id}`)}>
+                  {trade.their_listing?.image_url ? (
+                    <Image source={{ uri: trade.their_listing.image_url }} style={styles.thumb} resizeMode="contain" />
+                  ) : (
+                    <View style={styles.thumb} />
+                  )}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.itemTitle} numberOfLines={1}>
+                      Trade with {trade.other_party_name ?? 'Guild member'}
+                    </Text>
+                    <Text style={styles.itemMeta} numberOfLines={2}>
+                      {trade.your_listing?.title ?? 'Your pair'} ↔ {trade.their_listing?.title ?? 'Their pair'} · {trade.status.replaceAll('_', ' ')}
+                    </Text>
+                  </View>
+                  <Text style={styles.price}>
+                    {trade.boot_amount_cents > 0 ? `+$${Math.round(trade.boot_amount_cents / 100)}` : 'Trade'}
+                  </Text>
+                </Pressable>
+              ))}
+              {(data?.orders ?? []).length === 0 && (data?.trades ?? []).length === 0 ? <Empty tab={tab} /> : null}
             </View>
           ) : null}
         </View>
@@ -184,7 +226,7 @@ export default function MyMarketScreen() {
           <Text style={styles.price}>{item.price_cents != null ? `$${Math.round(item.price_cents / 100)}` : 'View'}</Text>
         </Pressable>
       )}
-      ListEmptyComponent={tab !== 'orders' ? <Empty tab={tab} /> : null}
+      ListEmptyComponent={tab !== 'history' ? <Empty tab={tab} /> : null}
     />
   );
 }
@@ -198,15 +240,15 @@ function MarketChallengeCard({ followCount }: { followCount: number }) {
     <View style={styles.challengeCard}>
       <Text style={styles.challengeKicker}>TOC MARKET CHALLENGE</Text>
       <Text style={styles.challengeTitle}>
-        {qualified ? 'You followed 5 shoes.' : `Follow ${goal} shoes to qualify.`}
+        {qualified ? 'You favorited 5 shoes.' : `Favorite ${goal} shoes to qualify.`}
       </Text>
       <Text style={styles.challengeText}>
-        Your followed shoes count toward the Tournament of Champions training-credit raffle.
+        Your favorited shoes count toward the Tournament of Champions training-credit raffle.
       </Text>
       <View style={styles.challengeTrack}>
         <View style={[styles.challengeFill, { width: `${percent}%` }]} />
       </View>
-      <Text style={styles.challengeCount}>{followCount}/{goal} followed</Text>
+      <Text style={styles.challengeCount}>{followCount}/{goal} favorited</Text>
     </View>
   );
 }
@@ -214,16 +256,12 @@ function MarketChallengeCard({ followCount }: { followCount: number }) {
 function Empty({ tab }: { tab: Tab }) {
   const copy =
     tab === 'watching'
-      ? 'Tap Follow on a shoe to save it here and get alerts when it goes for sale.'
-      : tab === 'collection'
-        ? 'Add shoes you own even if they are not for sale. Other members can still follow them.'
+      ? 'Tap Favorite on a shoe to save it here and get alerts when it goes for sale.'
+      : tab === 'mine'
+        ? 'Add shoes you own. Keep them as collection pieces, list them for sale, or open them to trade.'
         : tab === 'selling'
-          ? 'List a pair when you are ready to take offers or sell.'
-          : tab === 'trades'
-            ? 'Mark a pair as trade-ready when you want swaps or trade + cash.'
-            : tab === 'orders'
-              ? 'Marketplace purchases and sales will appear here.'
-              : 'Sold and traded history will appear here.';
+          ? 'Pairs you are selling or trading will appear here.'
+          : 'Purchases, sales, trades, and reviews will appear here.';
   return (
     <View style={styles.empty}>
       <Text style={styles.emptyTitle}>Nothing here yet</Text>

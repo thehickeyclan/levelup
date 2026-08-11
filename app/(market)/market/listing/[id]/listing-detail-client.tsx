@@ -438,7 +438,7 @@ export default function ListingDetailClient() {
     <div className="bg-card border border-border rounded-xl p-4 text-center">
       <p className="text-muted-foreground text-sm mb-1">Not for sale</p>
       <p className="text-muted-foreground text-xs">
-        Add to your watch list — get notified when it goes on sale, gets a first offer, drops in price, or sells.
+        Add to your favorites — get notified when it goes on sale, gets a first offer, drops in price, or sells.
       </p>
     </div>
   );
@@ -700,23 +700,23 @@ export default function ListingDetailClient() {
                           ? 'border-accent bg-accent/15 text-accent'
                           : 'border-border bg-card text-muted-foreground hover:border-accent/50 hover:text-accent'
                       )}
-                      aria-label={following ? 'Remove from watch list' : 'Add to watch list'}
+                      aria-label={following ? 'Remove from favorites' : 'Add to favorites'}
                       title={
                         following
-                          ? 'On your watch list — tap to remove'
-                          : 'Add to watch list for price and status updates'
+                          ? 'Favorited — tap to remove'
+                          : 'Favorite this pair for price and status updates'
                       }
                     >
                       <Eye
                         className={cn('h-4 w-4 shrink-0', following && 'text-accent')}
                         strokeWidth={following ? 2.25 : 1.75}
                       />
-                      {following ? 'Following' : 'Follow'}
+                      {following ? 'Favorited' : 'Favorite'}
                     </button>
                   ) : null}
                   {followerCount > 0 ? (
                     <span className="text-[10px] text-muted-foreground">
-                      {followerCount} following
+                      {followerCount} favorite{followerCount !== 1 ? 's' : ''}
                     </span>
                   ) : null}
                   {viewsCount > 0 && !isCollection ? (
@@ -805,7 +805,7 @@ export default function ListingDetailClient() {
                 </div>
                 <div className="bg-card border border-border rounded-xl p-3 text-center">
                   <p className="text-lg font-bold text-foreground">{followerCount}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Following</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Favorites</p>
                 </div>
               </div>
             ) : null}

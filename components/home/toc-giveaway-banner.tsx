@@ -19,7 +19,7 @@ export function TocGiveawayBanner() {
             </h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-white/65">
               10 wrestlers will each win $100 in Guild training credit. Create a free wrestler
-              account, follow The Guild, and follow {TOC_MARKET_FOLLOW_GOAL} shoes in Guild Market.
+              account, follow The Guild, and favorite {TOC_MARKET_FOLLOW_GOAL} shoes in Guild Market.
               No purchase necessary.
             </p>
           </div>

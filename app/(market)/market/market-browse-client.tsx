@@ -214,10 +214,10 @@ export function MarketBrowseClient({
                 TOC Market Challenge
               </p>
               <h2 className="mt-1 text-lg font-bold text-foreground">
-                Follow 5 shoes for the $100 training-credit raffle.
+                Favorite 5 shoes for the $100 training-credit raffle.
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Create a free account, follow The Guild on Instagram, then follow shoes you like in
+                Create a free account, follow The Guild on Instagram, then favorite shoes you like in
                 Guild Market. You’re at {tocMarketFollowCount}/{tocMarketFollowGoal}.
               </p>
             </div>
@@ -247,7 +247,7 @@ export function MarketBrowseClient({
         />
         {isCollectors ? (
           <p className="text-xs text-muted-foreground mt-3 mb-1">
-            Browse Guild Collections. Tap a profile to see every pair, follow shoes, or ask if the owner would consider offers.
+            Browse Guild Collections. Tap a profile to see every pair, favorite shoes, or ask if the owner would consider offers.
           </p>
         ) : type === 'all' ? (
           <p className="text-xs text-muted-foreground mt-3 mb-1">

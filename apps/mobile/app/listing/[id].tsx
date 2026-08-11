@@ -126,6 +126,23 @@ export default function ListingDetailScreen() {
     );
   }
 
+  const listingType = listing.listing_type ?? '';
+  const isCollection = listingType === 'collection' || listingType === 'vault';
+  const isTradeOnly = listingType === 'trade' || listingType === 'trade_only';
+  const canBuy = listing.price_cents != null && !isCollection && !isTradeOnly;
+  const canMakeOffer = listing.accepts_offers !== false && !isOwner && (
+    !isCollection ||
+    listing.open_to_trade === true ||
+    listing.price_cents != null
+  );
+  const offerLabel = isTradeOnly
+    ? 'Make trade offer'
+    : listing.open_to_trade
+      ? 'Offer or trade'
+      : isCollection
+        ? 'Ask if available'
+        : 'Make offer';
+
   async function toggleFollow() {
     if (savingFollow) return;
     setSavingFollow(true);
@@ -134,7 +151,7 @@ export default function ListingDetailScreen() {
       await apiFetch(`/api/market/listings/${id}/follow`, { method: following ? 'DELETE' : 'POST' });
       setFollowing(!following);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not update watch list');
+      setError(e instanceof Error ? e.message : 'Could not update favorites');
     } finally {
       setSavingFollow(false);
     }
@@ -278,10 +295,6 @@ export default function ListingDetailScreen() {
         {listing.open_to_trade ? <DetailBadge text="Open to trade" accent /> : null}
       </View>
 
-      <Pressable style={styles.shareButton} onPress={() => void shareListing()}>
-        <Text style={styles.shareButtonText}>Share listing</Text>
-      </Pressable>
-
       {seller ? (
         <View style={styles.sellerCard}>
           {seller.photoUrl ? (
@@ -306,20 +319,68 @@ export default function ListingDetailScreen() {
         </View>
       ) : null}
       {isOwner ? (
-        <Pressable style={styles.button} onPress={() => router.push(`/manage-listing/${id}`)}>
-          <Text style={styles.buttonText}>Manage this listing</Text>
-        </Pressable>
+        <View style={styles.actionGrid}>
+          <Pressable style={[styles.actionButton, styles.actionButtonPrimary]} onPress={() => router.push(`/manage-listing/${id}`)}>
+            <Text style={styles.buttonText}>Manage listing</Text>
+          </Pressable>
+          <Pressable style={[styles.actionButton, styles.actionButtonSecondary]} onPress={() => void shareListing()}>
+            <Text style={styles.actionButtonSecondaryText}>Share</Text>
+          </Pressable>
+        </View>
       ) : (
         <>
-          <Pressable style={styles.watchButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
-            <Text style={styles.watchButtonText}>
-              {savingFollow ? 'Saving…' : following ? 'Following · Alerts on' : 'Follow this pair'}
-            </Text>
-          </Pressable>
+          <View style={styles.actionPanel}>
+            <View style={styles.actionGridCompact}>
+              {canBuy ? (
+                <Pressable
+                  style={[styles.actionButton, styles.actionButtonPrimary]}
+                  onPress={() => void buyNow()}
+                  disabled={checkingOut}
+                >
+                  {checkingOut ? (
+                    <ActivityIndicator color={colors.black} />
+                  ) : (
+                    <Text style={styles.buttonText}>Buy now</Text>
+                  )}
+                </Pressable>
+              ) : null}
+              {canMakeOffer ? (
+                <Pressable
+                  style={[
+                    styles.actionButton,
+                    canBuy ? styles.actionButtonSecondary : styles.actionButtonPrimary,
+                  ]}
+                  onPress={() => router.push(`/make-offer/${id}`)}
+                >
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      canBuy && styles.actionButtonSecondaryText,
+                    ]}
+                  >
+                    {offerLabel}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {isCollection && !canMakeOffer ? (
+              <Text style={styles.actionHint}>This pair is shown as a collection piece. Message the owner if you want to ask about it.</Text>
+            ) : null}
+            <View style={styles.utilityGrid}>
+              <Pressable style={styles.utilityButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
+                <Text style={styles.utilityButtonText}>
+                  {savingFollow ? 'Saving…' : following ? 'Favorited' : 'Favorite'}
+                </Text>
+              </Pressable>
+              <Pressable style={styles.utilityButton} onPress={() => void shareListing()}>
+                <Text style={styles.utilityButtonText}>Share</Text>
+              </Pressable>
+            </View>
+          </View>
           <View style={styles.askCard}>
             <Text style={styles.sectionLabel}>ASK THE SELLER</Text>
             <Text style={styles.askHelp}>
-              Ask about fit, condition, trades, or whether they would take an offer.
+              Ask about fit, condition, shipping, trades, or whether they would consider selling.
             </Text>
             <TextInput
               value={question}
@@ -337,40 +398,8 @@ export default function ListingDetailScreen() {
               {sendingQuestion ? (
                 <ActivityIndicator color={colors.black} />
               ) : (
-                <Text style={styles.buttonText}>Send message</Text>
+                <Text style={styles.buttonText}>Send seller message</Text>
               )}
-            </Pressable>
-          </View>
-          <View style={styles.actionGrid}>
-            {listing.price_cents != null ? (
-              <Pressable
-                style={[styles.actionButton, styles.actionButtonPrimary]}
-                onPress={() => void buyNow()}
-                disabled={checkingOut}
-              >
-                {checkingOut ? (
-                  <ActivityIndicator color={colors.black} />
-                ) : (
-                  <Text style={styles.buttonText}>Buy now</Text>
-                )}
-              </Pressable>
-            ) : null}
-            <Pressable
-              style={[
-                styles.actionButton,
-                listing.price_cents == null && styles.actionButtonPrimary,
-                listing.price_cents != null && styles.actionButtonSecondary,
-              ]}
-              onPress={() => router.push(`/make-offer/${id}`)}
-            >
-              <Text
-                style={[
-                  styles.buttonText,
-                  listing.price_cents != null && styles.actionButtonSecondaryText,
-                ]}
-              >
-                Make offer / trade
-              </Text>
             </Pressable>
           </View>
         </>
@@ -490,7 +519,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  actionPanel: { marginTop: 20, gap: 10 },
   actionGrid: { flexDirection: 'row', gap: 10, marginTop: 22 },
+  actionGridCompact: { flexDirection: 'row', gap: 10 },
   actionButton: {
     flex: 1,
     borderRadius: 10,
@@ -500,7 +531,20 @@ const styles = StyleSheet.create({
   },
   actionButtonPrimary: { backgroundColor: colors.accent },
   actionButtonSecondary: { borderWidth: 1, borderColor: colors.accent, backgroundColor: colors.background },
-  actionButtonSecondaryText: { color: colors.accent },
+  actionButtonSecondaryText: { ...typography.bodyBold, color: colors.accent, fontSize: 14 },
+  actionHint: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16 },
+  utilityGrid: { flexDirection: 'row', gap: 10 },
+  utilityButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  utilityButtonText: { ...typography.bodyBold, color: colors.text, fontSize: 12 },
   button: {
     marginTop: 24,
     backgroundColor: colors.accent,

@@ -104,7 +104,7 @@ export function TocGiveawayClient({ initialEntries }: { initialEntries: TocGivea
           <p className="mt-2 text-3xl font-semibold text-foreground">{stats.eligible}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-sm uppercase tracking-wide text-muted-foreground">Followed 5 shoes</p>
+          <p className="text-sm uppercase tracking-wide text-muted-foreground">Favorited 5 shoes</p>
           <p className="mt-2 text-3xl font-semibold text-foreground">{stats.marketQualified}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
@@ -124,7 +124,7 @@ export function TocGiveawayClient({ initialEntries }: { initialEntries: TocGivea
               <th className="px-4 py-3">Wrestler</th>
               <th className="px-4 py-3">Contact</th>
               <th className="px-4 py-3">ZIP</th>
-              <th className="px-4 py-3">Market follows</th>
+              <th className="px-4 py-3">Market favorites</th>
               <th className="px-4 py-3">Signed up</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -148,7 +148,7 @@ export function TocGiveawayClient({ initialEntries }: { initialEntries: TocGivea
                       {entry.shoe_follow_count ?? 0}/{TOC_MARKET_FOLLOW_GOAL}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {entry.market_qualified ? 'Raffle qualified' : 'Needs more follows'}
+                      {entry.market_qualified ? 'Raffle qualified' : 'Needs more favorites'}
                     </p>
                   </div>
                 </td>

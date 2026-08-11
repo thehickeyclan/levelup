@@ -58,6 +58,7 @@ function serializeOrder(
     can_add_tracking: role === 'seller' && order.status === 'paid',
     can_mark_received: role === 'buyer' && order.status === 'shipped',
     can_review: role === 'buyer' && order.status === 'completed',
+    can_review_counterparty: order.status === 'completed',
     thread_id: threadId,
     viewer_id: null as string | null,
   };

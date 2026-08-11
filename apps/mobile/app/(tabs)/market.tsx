@@ -42,7 +42,7 @@ function listingPriceLabel(listing: Listing) {
     (listing.listing_type === 'trade'
       ? 'Trade'
       : isCollection
-        ? 'Guild Collection'
+        ? 'Collection'
         : 'Make offer')
   );
 }
@@ -62,6 +62,14 @@ function listingMeta(listing: Listing) {
   return pieces.join(' · ');
 }
 
+function marketRank(listing: Listing) {
+  if (listing.listing_type === 'sell') return 0;
+  if (listing.listing_type === 'trade') return 1;
+  if (listing.open_to_trade) return 2;
+  if (listing.listing_type === 'collection' || listing.listing_type === 'vault') return 3;
+  return 4;
+}
+
 type MarketFilter = 'available' | 'sell' | 'trade' | 'collection' | 'all';
 type TocProgress = {
   authenticated: boolean;
@@ -76,7 +84,7 @@ export default function MarketScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<MarketFilter>('available');
+  const [filter, setFilter] = useState<MarketFilter>('all');
   const [tocProgress, setTocProgress] = useState<TocProgress | null>(null);
 
   const load = useCallback(async () => {
@@ -104,24 +112,26 @@ export default function MarketScreen() {
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return listings.filter((listing) => {
-      if (filter === 'available') {
-        const type = listing.listing_type;
-        const isCollection = type === 'collection' || type === 'vault';
-        const isAvailable = type === 'sell' || type === 'trade' || (!isCollection && listing.open_to_trade === true);
-        if (!isAvailable) return false;
-      } else if (filter === 'collection') {
-        if (listing.listing_type !== 'collection' && listing.listing_type !== 'vault') return false;
-      } else if (filter !== 'all' && listing.listing_type !== filter) {
-        return false;
-      }
-      if (!normalizedQuery) return true;
-      return [listing.title, listing.brand, listing.model, listing.condition, listing.size]
-        .filter((value) => value != null)
-        .join(' ')
-        .toLowerCase()
-        .includes(normalizedQuery);
-    });
+    return listings
+      .filter((listing) => {
+        if (filter === 'available') {
+          const type = listing.listing_type;
+          const isCollection = type === 'collection' || type === 'vault';
+          const isAvailable = type === 'sell' || type === 'trade' || (!isCollection && listing.open_to_trade === true);
+          if (!isAvailable) return false;
+        } else if (filter === 'collection') {
+          if (listing.listing_type !== 'collection' && listing.listing_type !== 'vault') return false;
+        } else if (filter !== 'all' && listing.listing_type !== filter) {
+          return false;
+        }
+        if (!normalizedQuery) return true;
+        return [listing.title, listing.brand, listing.model, listing.condition, listing.size]
+          .filter((value) => value != null)
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedQuery);
+      })
+      .sort((a, b) => marketRank(a) - marketRank(b));
   }, [filter, listings, query]);
   const featured = filtered[0] ?? null;
   const gridListings = featured ? filtered.slice(1) : [];
@@ -173,7 +183,7 @@ export default function MarketScreen() {
               <Text style={styles.heading}>Guild Market</Text>
             </View>
           </View>
-          <Text style={styles.sub}>Buy, trade, follow shoes, and manage your own collection.</Text>
+          <Text style={styles.sub}>Buy, trade, favorite shoes, and manage your own collection.</Text>
           <TocProgressCard
             progress={tocProgress}
             onFollowShoes={() => setFilter('collection')}
@@ -182,7 +192,7 @@ export default function MarketScreen() {
           <View style={styles.actionRow}>
             <Pressable style={styles.primaryAction} onPress={() => router.push('/my-market')}>
               <Text style={styles.primaryActionText}>My Market</Text>
-              <Text style={styles.actionHint}>Following · collection · sales</Text>
+              <Text style={styles.actionHint}>Favorites · collection · sales</Text>
             </Pressable>
             <Pressable
               style={styles.secondaryAction}
@@ -206,11 +216,11 @@ export default function MarketScreen() {
             contentContainerStyle={styles.filters}
           >
             {([
-              ['available', 'Available now'],
+              ['all', 'All'],
               ['sell', 'For sale'],
               ['trade', 'Trade'],
               ['collection', 'Guild Collections'],
-              ['all', 'All'],
+              ['available', 'Available now'],
             ] as [MarketFilter, string][]).map(([value, label]) => {
               const selected = filter === value;
               return (
@@ -245,10 +255,12 @@ export default function MarketScreen() {
               </View>
               <View style={styles.featuredInfo}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.featuredTitle}>{listingName(featured)}</Text>
-                  <Text style={styles.featuredMeta}>{listingMeta(featured) || 'Guild listing'}</Text>
+                  <Text style={styles.featuredTitle} numberOfLines={2}>{listingName(featured)}</Text>
+                  <Text style={styles.featuredMeta} numberOfLines={1}>{listingMeta(featured) || 'Guild listing'}</Text>
                 </View>
-                <Text style={styles.featuredPrice}>{listingPriceLabel(featured)}</Text>
+                <View style={styles.featuredStatusPill}>
+                  <Text style={styles.featuredPrice} numberOfLines={1}>{listingPriceLabel(featured)}</Text>
+                </View>
               </View>
             </Pressable>
           ) : null}
@@ -290,20 +302,20 @@ export default function MarketScreen() {
             </Text>
             <Text style={styles.emptyText}>
               {filter === 'available'
-                ? 'Browse Guild Collections below, follow a pair, or ask if the owner would consider offers.'
+                ? 'Browse Guild Collections below, favorite a pair, or ask if the owner would consider offers.'
                 : 'Try another search or market filter.'}
             </Text>
           </View>
         ) : null
       }
       ListFooterComponent={
-        filter === 'available' && collectionListings.length > 0 ? (
+        filter !== 'collection' && collectionListings.length > 0 ? (
           <View style={styles.collectionsSection}>
             <View style={styles.collectionsHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.sectionTitle}>GUILD COLLECTIONS</Text>
                 <Text style={styles.collectionsSub}>
-                  Follow shoes from the community. Ask if they’d consider offers.
+                  Favorite shoes from the community. Ask if they’d consider offers.
                 </Text>
               </View>
               <Pressable onPress={() => setFilter('collection')}>
@@ -386,10 +398,11 @@ const styles = StyleSheet.create({
   featuredImage: { width: '100%', height: '100%', backgroundColor: colors.surfaceRaised },
   featuredBadge: { position: 'absolute', left: 12, top: 12, backgroundColor: colors.accent, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
   featuredBadgeText: { ...typography.bodyBold, color: colors.black, fontSize: 8, letterSpacing: 0.9 },
-  featuredInfo: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 14 },
-  featuredTitle: { ...typography.bodyBold, color: colors.text, fontSize: 16 },
+  featuredInfo: { gap: 10, alignItems: 'stretch', padding: 14 },
+  featuredTitle: { ...typography.bodyBold, color: colors.text, fontSize: 18, lineHeight: 22 },
   featuredMeta: { ...typography.body, color: colors.textMuted, fontSize: 11, marginTop: 4 },
-  featuredPrice: { ...typography.display, color: colors.accent, fontSize: 22 },
+  featuredStatusPill: { alignSelf: 'flex-start', borderRadius: 999, borderWidth: 1, borderColor: colors.accent, backgroundColor: 'rgba(184,157,96,0.12)', paddingHorizontal: 10, paddingVertical: 5 },
+  featuredPrice: { ...typography.bodyBold, color: colors.accent, fontSize: 11, letterSpacing: 0.4, textTransform: 'uppercase' },
   sectionTitle: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 10, letterSpacing: 1.2, marginTop: 22, marginBottom: 10 },
   card: {
     width: '48.3%',
@@ -452,20 +465,20 @@ function TocProgressCard({
     <View style={styles.tocCard}>
       <Text style={styles.tocKicker}>TOC MARKET CHALLENGE</Text>
       <Text style={styles.tocTitle}>
-        {qualified ? 'You’re qualified for the raffle.' : 'Follow 5 shoes for the raffle.'}
+        {qualified ? 'You’re qualified for the raffle.' : 'Favorite 5 shoes for the raffle.'}
       </Text>
       <Text style={styles.tocText}>
-        Follow The Guild on Instagram, then follow shoes you like in Market. Progress: {count}/{goal}.
+        Follow The Guild on Instagram, then favorite shoes you like in Market. Progress: {count}/{goal}.
       </Text>
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${percent}%` }]} />
       </View>
       <View style={styles.tocActions}>
         <Pressable style={styles.tocPrimary} onPress={onFollowShoes}>
-          <Text style={styles.tocPrimaryText}>Follow shoes</Text>
+          <Text style={styles.tocPrimaryText}>Find shoes</Text>
         </Pressable>
         <Pressable style={styles.tocSecondary} onPress={onViewFollows}>
-          <Text style={styles.tocSecondaryText}>My follows</Text>
+          <Text style={styles.tocSecondaryText}>My favorites</Text>
         </Pressable>
       </View>
     </View>

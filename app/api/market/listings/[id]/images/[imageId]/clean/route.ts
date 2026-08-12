@@ -67,10 +67,14 @@ export async function POST(
 
     if (!rbgRes.ok) {
       console.error('remove.bg:', rbgRes.status, await rbgRes.text().catch(() => ''));
-      return NextResponse.json({
-        success: false,
-        error: 'Background removal failed — use original',
-      });
+      // remove.bg free tier: ~1 request/minute and monthly credit cap — say which wall we hit.
+      const error =
+        rbgRes.status === 429
+          ? 'Background cleaner is busy — try again in about a minute.'
+          : rbgRes.status === 402
+            ? 'Monthly background-clean limit reached — original photo used.'
+            : 'Background removal failed — use original';
+      return NextResponse.json({ success: false, error, code: rbgRes.status });
     }
 
     const cleanBuffer = await rbgRes.arrayBuffer();

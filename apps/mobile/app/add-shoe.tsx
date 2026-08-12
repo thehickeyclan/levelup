@@ -309,23 +309,17 @@ export default function AddShoeScreen() {
           base64: photo.base64,
         }),
       });
-      const image = uploaded.image
-        ? await cleanUploadedImage(listingId, uploaded.image, cleanFailures)
-        : null;
-      if (image) imageRows.push(image);
+      if (uploaded.image) imageRows.push(uploaded.image);
     }
 
+    // The background cleaner allows roughly one call a minute, so clean the cover photo only.
     if (cleanBackground && imageRows.length) {
-      setUploadProgress('Cleaning photo backgrounds…');
-      for (let index = 0; index < imageRows.length; index += 1) {
-        imageRows[index] = await cleanUploadedImage(listingId, imageRows[index], cleanFailures);
-      }
+      setUploadProgress('Cleaning the cover photo background…');
+      imageRows[0] = await cleanUploadedImage(listingId, imageRows[0], cleanFailures);
     }
     setUploadProgress(null);
     if (cleanFailures.count > 0) {
-      setAiMessage(
-        `Background clean did not work for ${cleanFailures.count} photo${cleanFailures.count === 1 ? '' : 's'} — the original photo${cleanFailures.count === 1 ? ' is' : 's are'} used instead.`
-      );
+      setAiMessage('Cover photo could not be cleaned right now — the original photo is used instead.');
     }
 
     setUploadedPhotoCount(photos.length);
@@ -661,10 +655,10 @@ export default function AddShoeScreen() {
           <Pressable style={styles.cleanToggleRow} onPress={() => setCleanBackground((value) => !value)}>
             <View style={[styles.toggleDot, cleanBackground && styles.toggleDotOn]} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.toggleTitle}>Clean background</Text>
+              <Text style={styles.toggleTitle}>Clean cover photo</Text>
               <Text style={styles.toggleMeta}>
-                On by default — messy backgrounds are removed after upload. If a photo can't be cleaned, the
-                original is used.
+                Your first photo gets a clean white background — it's the one buyers see in Market. If
+                cleaning fails, the original is used.
               </Text>
             </View>
           </Pressable>
@@ -762,8 +756,11 @@ export default function AddShoeScreen() {
             </Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
-            {photos.map((photo, index) => (
-              <Image key={`${photo.uri}-review-${index}`} source={{ uri: photo.uri }} style={styles.reviewPhoto} />
+            {(uploadedImages.length
+              ? uploadedImages.map((image) => displayUrlForUploadedImage(image)).filter(Boolean)
+              : photos.map((photo) => photo.uri)
+            ).map((uri, index) => (
+              <Image key={`review-${index}-${uri}`} source={{ uri }} style={styles.reviewPhoto} />
             ))}
           </ScrollView>
           <Text style={styles.label}>WHAT DO YOU WANT TO DO?</Text>

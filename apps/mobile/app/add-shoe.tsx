@@ -95,7 +95,8 @@ export default function AddShoeScreen() {
   const [step, setStep] = useState<AddShoeStep>('photos');
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [listingType, setListingType] = useState<ListingType>('collection');
-  const [wearState, setWearState] = useState<WearState>('used');
+  // No default: value/condition AI waits until the seller says new vs used.
+  const [wearState, setWearState] = useState<WearState | null>(null);
   const [acceptsOffers, setAcceptsOffers] = useState(true);
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
@@ -226,7 +227,7 @@ export default function AddShoeScreen() {
       colorway: colorway.trim() || null,
       size: Number.isFinite(numericSize) && numericSize > 0 ? numericSize : 10,
       condition,
-      wear_state: wearState,
+      wear_state: wearState ?? 'used',
       listing_type: listingType,
       price_cents:
         listingType === 'sell' && Number.isFinite(numericPrice) && numericPrice > 0
@@ -312,14 +313,19 @@ export default function AddShoeScreen() {
       if (uploaded.image) imageRows.push(uploaded.image);
     }
 
-    // The background cleaner allows roughly one call a minute, so clean the cover photo only.
+    // Paid remove.bg plan: clean every photo, with a short gap between calls.
     if (cleanBackground && imageRows.length) {
-      setUploadProgress('Cleaning the cover photo background…');
-      imageRows[0] = await cleanUploadedImage(listingId, imageRows[0], cleanFailures);
+      for (let index = 0; index < imageRows.length; index += 1) {
+        setUploadProgress(`Cleaning photo ${index + 1} of ${imageRows.length}…`);
+        imageRows[index] = await cleanUploadedImage(listingId, imageRows[index], cleanFailures);
+        if (index < imageRows.length - 1) await new Promise((r) => setTimeout(r, 2000));
+      }
     }
     setUploadProgress(null);
     if (cleanFailures.count > 0) {
-      setAiMessage('Cover photo could not be cleaned right now — the original photo is used instead.');
+      setAiMessage(
+        `${cleanFailures.count} photo${cleanFailures.count === 1 ? '' : 's'} could not be cleaned right now — the original${cleanFailures.count === 1 ? ' is' : 's are'} used instead.`
+      );
     }
 
     setUploadedPhotoCount(photos.length);
@@ -379,7 +385,12 @@ export default function AddShoeScreen() {
     }
   }
 
-  async function refreshAiFromCurrentDetails() {
+  async function refreshAiFromCurrentDetails(wearOverride?: WearState) {
+    const wear = wearOverride ?? wearState;
+    if (!wear) {
+      setError('Choose New in box, New, or Used first — AI values the pair from that.');
+      return;
+    }
     if (aiRefreshing || saving) return;
     setAiRefreshing(true);
     setError(null);
@@ -406,12 +417,12 @@ export default function AddShoeScreen() {
         method: 'POST',
         body: JSON.stringify({
           listingId,
-          wear_state: wearState,
+          wear_state: wear,
           seller_note: aiSellerNote.trim() || undefined,
         }),
       });
       const nextCondition = conditionResult.analysis?.grade || condition;
-      if (wearState === 'used' && conditionResult.analysis?.grade) {
+      if (wear === 'used' && conditionResult.analysis?.grade) {
         setCondition(conditionResult.analysis.grade);
       }
       const descriptionBeforeAi = description.trim();
@@ -432,7 +443,7 @@ export default function AddShoeScreen() {
             condition: nextCondition,
             listing_type: listingType,
             description: description.trim(),
-            wear_state: wearState,
+            wear_state: wear,
             model_year: catalog.model_year ?? null,
             colorway: colorway.trim() || catalog.colorway || undefined,
           }),
@@ -465,7 +476,7 @@ export default function AddShoeScreen() {
                   `Model: ${model.trim()}`,
                   colorway.trim() ? `Colorway: ${colorway.trim()}` : null,
                   `Size: ${size}`,
-                  `Wear state: ${wearState}`,
+                  `Wear state: ${wear}`,
                   `Condition: ${nextCondition}`,
                   aiSellerNote.trim() ? `Seller personal note: ${aiSellerNote.trim()}` : null,
                   'Return valid JSON with has_draft true and draft.description.',
@@ -553,17 +564,27 @@ export default function AddShoeScreen() {
         setError('Enter brand, model, and size.');
         return;
       }
+      // Value/condition AI waits for the new-vs-used choice on the next step.
       setStep('condition');
-      // Identity confirmed — refresh condition, value, and description when it changed.
-      const identity = `${brand.trim()}|${model.trim()}|${colorway.trim()}|${wearState}`;
-      if (lastAiIdentity.current !== identity) {
-        lastAiIdentity.current = identity;
-        void refreshAiFromCurrentDetails();
-      }
       return;
     }
     if (step === 'condition') {
+      if (!wearState) {
+        setError('Choose New in box, New, or Used first.');
+        return;
+      }
       setStep('review');
+    }
+  }
+
+  /** Picking new/used is what kicks off condition, value, and description AI. */
+  function chooseWearState(value: WearState) {
+    setWearState(value);
+    setError(null);
+    const identity = `${brand.trim()}|${model.trim()}|${colorway.trim()}|${value}`;
+    if (lastAiIdentity.current !== identity) {
+      lastAiIdentity.current = identity;
+      void refreshAiFromCurrentDetails(value);
     }
   }
 
@@ -655,10 +676,10 @@ export default function AddShoeScreen() {
           <Pressable style={styles.cleanToggleRow} onPress={() => setCleanBackground((value) => !value)}>
             <View style={[styles.toggleDot, cleanBackground && styles.toggleDotOn]} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.toggleTitle}>Clean cover photo</Text>
+              <Text style={styles.toggleTitle}>Clean backgrounds</Text>
               <Text style={styles.toggleMeta}>
-                Your first photo gets a clean white background — it's the one buyers see in Market. If
-                cleaning fails, the original is used.
+                Every photo gets a clean white background. If a photo can't be cleaned, the original is
+                used.
               </Text>
             </View>
           </Pressable>
@@ -692,7 +713,7 @@ export default function AddShoeScreen() {
               ['new_no_box', 'New'],
               ['used', 'Used'],
             ] as [WearState, string][]).map(([value, label]) => (
-              <Pressable key={value} style={[styles.choice, wearState === value && styles.choiceSelected]} onPress={() => setWearState(value)}>
+              <Pressable key={value} style={[styles.choice, wearState === value && styles.choiceSelected]} onPress={() => chooseWearState(value)}>
                 <Text style={[styles.choiceText, wearState === value && styles.choiceTextSelected]}>{label}</Text>
               </Pressable>
             ))}

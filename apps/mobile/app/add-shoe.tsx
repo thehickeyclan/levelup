@@ -313,19 +313,15 @@ export default function AddShoeScreen() {
       if (uploaded.image) imageRows.push(uploaded.image);
     }
 
-    // Paid remove.bg plan: clean every photo, with a short gap between calls.
+    // Cover photo only: it's what buyers see in the Market grid, and each
+    // clean costs a remove.bg credit — one per listing keeps the budget sane.
     if (cleanBackground && imageRows.length) {
-      for (let index = 0; index < imageRows.length; index += 1) {
-        setUploadProgress(`Cleaning photo ${index + 1} of ${imageRows.length}…`);
-        imageRows[index] = await cleanUploadedImage(listingId, imageRows[index], cleanFailures);
-        if (index < imageRows.length - 1) await new Promise((r) => setTimeout(r, 2000));
-      }
+      setUploadProgress('Cleaning the cover photo background…');
+      imageRows[0] = await cleanUploadedImage(listingId, imageRows[0], cleanFailures);
     }
     setUploadProgress(null);
     if (cleanFailures.count > 0) {
-      setAiMessage(
-        `${cleanFailures.count} photo${cleanFailures.count === 1 ? '' : 's'} could not be cleaned right now — the original${cleanFailures.count === 1 ? ' is' : 's are'} used instead.`
-      );
+      setAiMessage('Cover photo could not be cleaned right now — the original photo is used instead.');
     }
 
     setUploadedPhotoCount(photos.length);
@@ -676,10 +672,10 @@ export default function AddShoeScreen() {
           <Pressable style={styles.cleanToggleRow} onPress={() => setCleanBackground((value) => !value)}>
             <View style={[styles.toggleDot, cleanBackground && styles.toggleDotOn]} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.toggleTitle}>Clean backgrounds</Text>
+              <Text style={styles.toggleTitle}>Clean cover photo</Text>
               <Text style={styles.toggleMeta}>
-                Every photo gets a clean white background. If a photo can't be cleaned, the original is
-                used.
+                Your first photo gets a clean white background — it's the one buyers see in Market. If
+                cleaning fails, the original is used.
               </Text>
             </View>
           </Pressable>

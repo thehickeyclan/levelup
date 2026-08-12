@@ -79,6 +79,15 @@ type AgentResponse = {
     colorway?: string;
   };
 };
+type ShoeIdResponse = {
+  result?: {
+    brand?: string | null;
+    model?: string | null;
+    colorway?: string | null;
+    era?: string | null;
+  };
+  error?: string;
+};
 
 export default function AddShoeScreen() {
   const router = useRouter();
@@ -105,6 +114,10 @@ export default function AddShoeScreen() {
   const [cleanBackground, setCleanBackground] = useState(false);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [identifying, setIdentifying] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [aiGuess, setAiGuess] = useState<{ brand: string; model: string; colorway: string | null } | null>(null);
+  const lastAiIdentity = useRef<string | null>(null);
   const photosRef = useRef<PickedPhoto[]>([]);
 
   useEffect(() => {
@@ -151,7 +164,6 @@ export default function AddShoeScreen() {
       photosRef.current = nextPhotos;
       return nextPhotos;
     });
-    setStep('confirm');
     return nextCount;
   }
 
@@ -231,29 +243,38 @@ export default function AddShoeScreen() {
       : image.public_url || image.clean_public_url || '';
   }
 
-  async function cleanUploadedImage(listingId: string, image: UploadedListingImage) {
+  /** Clean is best-effort: a remove.bg failure keeps the original photo and never blocks the flow. */
+  async function cleanUploadedImage(
+    listingId: string,
+    image: UploadedListingImage,
+    failures?: { count: number }
+  ) {
     if (!cleanBackground || !image.id) return image;
     if (image.clean_public_url && image.use_clean) return image;
-    const cleaned = await apiFetch<CleanImageResponse>(
-      `/api/market/listings/${listingId}/images/${image.id}/clean`,
-      { method: 'POST' }
-    );
-    if (!cleaned.success || !cleaned.cleanUrl) {
-      throw new Error(cleaned.error || 'Clean background failed — try again or turn it off.');
+    try {
+      const cleaned = await apiFetch<CleanImageResponse>(
+        `/api/market/listings/${listingId}/images/${image.id}/clean`,
+        { method: 'POST' }
+      );
+      if (!cleaned.success || !cleaned.cleanUrl) throw new Error(cleaned.error || 'clean failed');
+      return {
+        ...image,
+        clean_public_url: cleaned.cleanUrl,
+        use_clean: true,
+      };
+    } catch {
+      if (failures) failures.count += 1;
+      return image;
     }
-    return {
-      ...image,
-      clean_public_url: cleaned.cleanUrl,
-      use_clean: true,
-    };
   }
 
-  async function ensureDraftWithPhotos() {
-    if (!brand.trim() || !model.trim() || !size.trim()) {
+  async function ensureDraftWithPhotos(options: { requireIdentity?: boolean } = {}) {
+    const requireIdentity = options.requireIdentity !== false;
+    if (requireIdentity && (!brand.trim() || !model.trim() || !size.trim())) {
       throw new Error('Enter brand, model, and size first — then AI can refresh from the corrected details.');
     }
     if (photos.length === 0) {
-      throw new Error('Add at least one photo before AI refresh.');
+      throw new Error('Add at least one photo first.');
     }
 
     let listingId = draftListingId;
@@ -271,12 +292,14 @@ export default function AddShoeScreen() {
       });
     }
 
+    const cleanFailures = { count: 0 };
     const imageRows = [...uploadedImages];
     for (let index = uploadedPhotoCount; index < photos.length; index += 1) {
       const photo = photos[index];
       if (!photo.base64) {
         throw new Error('Could not read one of the photos. Please pick it again from your camera roll.');
       }
+      setUploadProgress(`Uploading photo ${index + 1} of ${photos.length}…`);
       const uploaded = await apiFetch<ListingImageResponse>(`/api/market/listings/${listingId}/images`, {
         method: 'POST',
         body: JSON.stringify({
@@ -285,19 +308,80 @@ export default function AddShoeScreen() {
           base64: photo.base64,
         }),
       });
-      const image = uploaded.image ? await cleanUploadedImage(listingId, uploaded.image) : null;
+      const image = uploaded.image
+        ? await cleanUploadedImage(listingId, uploaded.image, cleanFailures)
+        : null;
       if (image) imageRows.push(image);
     }
 
     if (cleanBackground && imageRows.length) {
+      setUploadProgress('Cleaning photo backgrounds…');
       for (let index = 0; index < imageRows.length; index += 1) {
-        imageRows[index] = await cleanUploadedImage(listingId, imageRows[index]);
+        imageRows[index] = await cleanUploadedImage(listingId, imageRows[index], cleanFailures);
       }
+    }
+    setUploadProgress(null);
+    if (cleanFailures.count > 0) {
+      setAiMessage(
+        `Background clean did not work for ${cleanFailures.count} photo${cleanFailures.count === 1 ? '' : 's'} — the original photo${cleanFailures.count === 1 ? ' is' : 's are'} used instead.`
+      );
     }
 
     setUploadedPhotoCount(photos.length);
     setUploadedImages(imageRows);
-    return { listingId };
+    return { listingId, imageRows };
+  }
+
+  /** Photos → AI identification → Confirm step with fields pre-filled. Failure still advances, manual entry. */
+  async function identifyAndContinue() {
+    if (identifying || saving) return;
+    if (photos.length === 0) {
+      setError('Add at least one photo before continuing.');
+      return;
+    }
+    setIdentifying(true);
+    setError(null);
+    try {
+      const { listingId, imageRows } = await ensureDraftWithPhotos({ requireIdentity: false });
+      const imageUrls = imageRows
+        .map((image) => (image.use_clean ? image.clean_public_url : image.public_url) || image.public_url)
+        .filter((u): u is string => Boolean(u))
+        .slice(0, 6);
+
+      setUploadProgress('AI is identifying the shoe from your photos…');
+      const idResult = await apiFetch<ShoeIdResponse>('/api/market/shoe-id', {
+        method: 'POST',
+        body: JSON.stringify({
+          listingId,
+          images: imageUrls,
+          brandHint: brand.trim() || undefined,
+          modelHint: model.trim() || undefined,
+        }),
+      });
+      const guessBrand = idResult.result?.brand?.trim() || '';
+      const guessModel = idResult.result?.model?.trim() || '';
+      const guessColorway = idResult.result?.colorway?.trim() || '';
+      if (guessBrand || guessModel) {
+        if (guessBrand && !brand.trim()) setBrand(guessBrand);
+        if (guessModel && !model.trim()) setModel(guessModel);
+        if (guessColorway && !colorway.trim()) setColorway(guessColorway);
+        setAiGuess({ brand: guessBrand, model: guessModel, colorway: guessColorway || null });
+      } else {
+        setAiGuess(null);
+        setAiMessage('AI could not identify this pair from the photos — enter the details yourself.');
+      }
+    } catch (e) {
+      setAiGuess(null);
+      setAiMessage(
+        e instanceof Error && e.message.includes('photo')
+          ? e.message
+          : 'AI identification is unavailable right now — enter the details yourself.'
+      );
+    } finally {
+      setUploadProgress(null);
+      setIdentifying(false);
+      setStep('confirm');
+    }
   }
 
   async function refreshAiFromCurrentDetails() {
@@ -462,11 +546,7 @@ export default function AddShoeScreen() {
   function continueStep() {
     setError(null);
     if (step === 'photos') {
-      if (photos.length === 0) {
-        setError('Add at least one photo before continuing.');
-        return;
-      }
-      setStep('confirm');
+      void identifyAndContinue();
       return;
     }
     if (step === 'confirm') {
@@ -475,6 +555,12 @@ export default function AddShoeScreen() {
         return;
       }
       setStep('condition');
+      // Identity confirmed — refresh condition, value, and description when it changed.
+      const identity = `${brand.trim()}|${model.trim()}|${colorway.trim()}|${wearState}`;
+      if (lastAiIdentity.current !== identity) {
+        lastAiIdentity.current = identity;
+        void refreshAiFromCurrentDetails();
+      }
       return;
     }
     if (step === 'condition') {
@@ -500,9 +586,9 @@ export default function AddShoeScreen() {
           : 'Choose collection, sale, or trade and publish.';
   const nextLabel =
     step === 'photos'
-      ? 'Confirm shoe'
+      ? 'Identify shoe'
       : step === 'confirm'
-        ? 'Condition & value'
+        ? 'Looks right — value it'
         : step === 'condition'
           ? 'Review listing'
           : '';
@@ -579,6 +665,15 @@ export default function AddShoeScreen() {
 
       {step === 'confirm' ? (
         <>
+          {aiGuess ? (
+            <View style={styles.aiBox}>
+              <Text style={styles.aiTitle}>
+                AI identified: {[aiGuess.brand, aiGuess.model].filter(Boolean).join(' ')}
+                {aiGuess.colorway ? ` · ${aiGuess.colorway}` : ''}
+              </Text>
+              <Text style={styles.aiCopy}>Fix anything that looks wrong — your corrections win.</Text>
+            </View>
+          ) : null}
           <Field label="BRAND" value={brand} onChangeText={setBrand} placeholder="Adidas, Nike, Rudis…" />
           <Field label="MODEL" value={model} onChangeText={setModel} placeholder="Combat Speed 4" />
           <Field label="COLORWAY (OPTIONAL)" value={colorway} onChangeText={setColorway} placeholder="Black / gold, white / royal…" />
@@ -641,6 +736,20 @@ export default function AddShoeScreen() {
 
       {step === 'review' ? (
         <>
+          <View style={styles.aiBox}>
+            <Text style={styles.aiTitle}>
+              {[brand.trim(), model.trim()].filter(Boolean).join(' ') || 'Your shoe'}
+              {colorway.trim() ? ` · ${colorway.trim()}` : ''}
+            </Text>
+            <Text style={styles.aiCopy}>
+              Size {size || '—'} · {wearState === 'bnib' ? 'New in box' : wearState === 'new_no_box' ? 'New' : `Used · ${condition}`} · {photos.length} photo{photos.length === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
+            {photos.map((photo, index) => (
+              <Image key={`${photo.uri}-review-${index}`} source={{ uri: photo.uri }} style={styles.reviewPhoto} />
+            ))}
+          </ScrollView>
           <Text style={styles.label}>WHAT DO YOU WANT TO DO?</Text>
           <View style={styles.choices}>
             {([
@@ -687,14 +796,23 @@ export default function AddShoeScreen() {
           />
         </>
       ) : null}
+      {uploadProgress ? <Text style={styles.aiMessage}>{uploadProgress}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {step === 'review' ? (
         <Pressable style={[styles.publish, saving && styles.disabled]} onPress={() => void publish()} disabled={saving}>
           {saving ? <ActivityIndicator color={colors.black} /> : <Text style={styles.publishText}>Add to My Market</Text>}
         </Pressable>
       ) : (
-        <Pressable style={styles.publish} onPress={continueStep}>
-          <Text style={styles.publishText}>{nextLabel}</Text>
+        <Pressable
+          style={[styles.publish, (identifying || (step === 'photos' && photos.length === 0)) && styles.disabled]}
+          onPress={continueStep}
+          disabled={identifying || (step === 'photos' && photos.length === 0)}
+        >
+          {identifying ? (
+            <ActivityIndicator color={colors.black} />
+          ) : (
+            <Text style={styles.publishText}>{nextLabel}</Text>
+          )}
         </Pressable>
       )}
     </ScrollView>
@@ -791,6 +909,7 @@ const styles = StyleSheet.create({
   addPhotoPlus: { ...typography.body, color: colors.accent, fontSize: 27 },
   addPhotoText: { ...typography.bodySemi, color: colors.accent, fontSize: 10 },
   photo: { width: 98, height: 98, borderRadius: 10, backgroundColor: colors.surface, resizeMode: 'cover' },
+  reviewPhoto: { width: 64, height: 64, borderRadius: 8, backgroundColor: colors.surface, resizeMode: 'cover' },
   remove: { position: 'absolute', right: 5, top: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' },
   removeText: { color: colors.white, fontSize: 17, lineHeight: 19 },
   field: { minHeight: 49, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, paddingHorizontal: 12 },

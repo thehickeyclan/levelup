@@ -50,6 +50,8 @@ export async function POST(
       return NextResponse.json({
         success: false,
         error: 'Background removal failed — use original',
+        stage: 'source-fetch',
+        detail: imgRes.status,
       });
     }
     const buffer = await imgRes.arrayBuffer();
@@ -80,7 +82,10 @@ export async function POST(
     const cleanBuffer = await rbgRes.arrayBuffer();
     const cleanStoragePath = `${tenant.slug}/${user!.id}/${listingId}/${imageId}-clean.jpg`;
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // Storage writes go through the admin client (bucket RLS blocks user-scoped
+    // uploads) — same as the original photo upload route. Seller is verified above.
+    const adminStorage = createAdminClient(tenant.slug);
+    const { data: uploadData, error: uploadError } = await adminStorage.storage
       .from('market-listing-photos')
       .upload(cleanStoragePath, Buffer.from(cleanBuffer), {
         contentType: 'image/jpeg',
@@ -93,26 +98,33 @@ export async function POST(
       return NextResponse.json({
         success: false,
         error: 'Background removal failed — use original',
+        stage: 'storage-upload',
+        detail: uploadError.message,
       });
     }
 
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = adminStorage.storage
       .from('market-listing-photos')
       .getPublicUrl(uploadData.path);
 
-    const { error: updateErr } = await supabase
+    // Admin client here too: RLS silently no-ops user-scoped updates on this
+    // table (no error, zero rows), which lost the cleaned URL.
+    const { error: updateErr } = await adminStorage
       .from('market_listing_images')
       .update({
         clean_storage_path: cleanStoragePath,
         clean_public_url: urlData.publicUrl,
         use_clean: true,
       })
-      .eq('id', imageId);
+      .eq('id', imageId)
+      .eq('listing_id', listingId);
 
     if (updateErr) {
       return NextResponse.json({
         success: false,
         error: 'Background removal failed — use original',
+        stage: 'db-update',
+        detail: updateErr.message,
       });
     }
 
@@ -133,6 +145,8 @@ export async function POST(
     return NextResponse.json({
       success: false,
       error: 'Background removal failed — use original',
+      stage: 'exception',
+      detail: e instanceof Error ? e.message : String(e),
     });
   }
 }

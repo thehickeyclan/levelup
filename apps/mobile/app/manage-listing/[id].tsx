@@ -54,6 +54,33 @@ export default function ManageListingScreen() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Could not load listing'));
   }, [id]);
 
+  function confirmDelete() {
+    if (saving) return;
+    Alert.alert('Delete this pair?', 'This removes the listing and its photos from Guild Market. This cannot be undone.', [
+      { text: 'Keep pair', style: 'cancel' },
+      {
+        text: 'Delete pair',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setSaving(true);
+            setError(null);
+            try {
+              await apiFetch(`/api/market/listings/${id}`, { method: 'DELETE' });
+              Alert.alert('Pair deleted', 'The listing was removed from your Market.', [
+                { text: 'Done', onPress: () => router.replace('/my-market') },
+              ]);
+            } catch (e) {
+              setError(e instanceof Error ? e.message : 'Could not delete this listing');
+            } finally {
+              setSaving(false);
+            }
+          })();
+        },
+      },
+    ]);
+  }
+
   async function save(nextStatus?: 'active' | 'archived') {
     if (!listing || saving) return;
     const numericPrice = Number(price);
@@ -140,6 +167,9 @@ export default function ManageListingScreen() {
           <Text style={styles.archiveText}>Archive listing</Text>
         </Pressable>
       ) : null}
+      <Pressable style={styles.deleteRow} onPress={confirmDelete} disabled={saving || !listing}>
+        <Text style={styles.deleteText}>Delete pair</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -170,5 +200,7 @@ const styles = StyleSheet.create({
   saveText: { ...typography.bodyBold, color: colors.black, fontSize: 14 },
   archive: { minHeight: 50, borderRadius: 9, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   archiveText: { ...typography.bodySemi, color: colors.danger, fontSize: 13 },
+  deleteRow: { minHeight: 46, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  deleteText: { ...typography.bodySemi, color: colors.danger, fontSize: 13 },
   disabled: { opacity: 0.5 },
 });

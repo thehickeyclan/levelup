@@ -111,7 +111,8 @@ export default function AddShoeScreen() {
   const [draftListingId, setDraftListingId] = useState<string | null>(null);
   const [uploadedPhotoCount, setUploadedPhotoCount] = useState(0);
   const [uploadedImages, setUploadedImages] = useState<UploadedListingImage[]>([]);
-  const [cleanBackground, setCleanBackground] = useState(false);
+  const [cleanBackground, setCleanBackground] = useState(true);
+  const [valueEstimate, setValueEstimate] = useState<number | null>(null);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(false);
@@ -424,8 +425,9 @@ export default function AddShoeScreen() {
         setDescription(conditionResult.suggested_description);
       }
 
+      // Value runs for every listing type — collection pairs get an estimate too.
       let priceNote = '';
-      if (listingType === 'sell') {
+      try {
         const priceResult = await apiFetch<PriceResponse>('/api/market/ai/price', {
           method: 'POST',
           body: JSON.stringify({
@@ -444,9 +446,12 @@ export default function AddShoeScreen() {
         const mid = priceResult.price?.suggested_mid_cents;
         if (typeof mid === 'number' && mid > 0) {
           const dollars = Math.round(mid / 100);
-          setPrice(String(dollars));
-          priceNote = ` Suggested price: $${dollars}.`;
+          setValueEstimate(mid);
+          if (!price.trim()) setPrice(String(dollars));
+          priceNote = ` Guild value estimate: ~$${dollars}.`;
         }
+      } catch {
+        priceNote = ' Value estimate unavailable right now.';
       }
 
       let descriptionNote = '';
@@ -657,7 +662,10 @@ export default function AddShoeScreen() {
             <View style={[styles.toggleDot, cleanBackground && styles.toggleDotOn]} />
             <View style={{ flex: 1 }}>
               <Text style={styles.toggleTitle}>Clean background</Text>
-              <Text style={styles.toggleMeta}>Remove messy backgrounds after upload and use a clean white shoe photo.</Text>
+              <Text style={styles.toggleMeta}>
+                On by default — messy backgrounds are removed after upload. If a photo can't be cleaned, the
+                original is used.
+              </Text>
             </View>
           </Pressable>
         </>
@@ -698,6 +706,14 @@ export default function AddShoeScreen() {
 
           {wearState === 'used' ? (
             <Field label="CONDITION NOTES" value={condition} onChangeText={setCondition} placeholder="Good" />
+          ) : null}
+          {valueEstimate != null ? (
+            <View style={styles.aiBox}>
+              <Text style={styles.aiTitle}>Guild value estimate: ~${Math.round(valueEstimate / 100)}</Text>
+              <Text style={styles.aiCopy}>
+                Based on this model, condition, and Guild sale history. You set the final price if you sell.
+              </Text>
+            </View>
           ) : null}
           <View style={styles.aiBox}>
             <Text style={styles.aiTitle}>AI listing assistant</Text>

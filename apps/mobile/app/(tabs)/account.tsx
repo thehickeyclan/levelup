@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { GuildLogo } from '@/components/guild-logo';
+import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { registerForPushNotifications } from '@/lib/push';
 import { colors, typography } from '@/lib/theme';
@@ -49,6 +50,34 @@ export default function AccountScreen() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function onDeleteAccount() {
+    Alert.alert(
+      'Delete your account?',
+      'Your account is locked immediately and your personal data is removed within 30 days. Order and booking history that involves other families is retained. This cannot be undone.',
+      [
+        { text: 'Keep my account', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setBusy(true);
+              try {
+                await apiFetch('/api/mobile/account/delete', { method: 'POST' });
+                await signOut();
+                router.replace('/(auth)/login');
+              } catch (e) {
+                setPushMsg(e instanceof Error ? e.message : 'Could not delete the account — try again.');
+              } finally {
+                setBusy(false);
+              }
+            })();
+          },
+        },
+      ]
+    );
   }
 
   return (
@@ -235,6 +264,9 @@ export default function AccountScreen() {
       <Pressable style={styles.danger} onPress={() => void onSignOut()} disabled={busy}>
         <Text style={styles.dangerText}>Sign out</Text>
       </Pressable>
+      <Pressable style={styles.deleteAccount} onPress={onDeleteAccount} disabled={busy}>
+        <Text style={styles.deleteAccountText}>Delete account</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -298,4 +330,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dangerText: { ...typography.bodyBold, color: colors.danger },
+  deleteAccount: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 2, marginBottom: 24 },
+  deleteAccountText: { ...typography.bodyMedium, color: colors.textSecondary, fontSize: 13, textDecorationLine: 'underline' },
 });

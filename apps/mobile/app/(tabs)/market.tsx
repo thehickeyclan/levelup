@@ -242,7 +242,7 @@ export default function MarketScreen() {
               <View style={styles.featuredImageWrap}>
                 {featured.primary_original_image_url || featured.primary_image_url ? (
                   <Image
-                    source={{ uri: featured.primary_original_image_url ?? featured.primary_image_url! }}
+                    source={{ uri: featured.primary_image_url ?? featured.primary_original_image_url! }}
                     style={styles.featuredImage}
                     resizeMode="contain"
                   />
@@ -276,7 +276,7 @@ export default function MarketScreen() {
           <View style={styles.imageWrap}>
             {item.primary_original_image_url || item.primary_image_url ? (
               <Image
-                source={{ uri: item.primary_original_image_url ?? item.primary_image_url! }}
+                source={{ uri: item.primary_image_url ?? item.primary_original_image_url! }}
                 style={styles.image}
                 resizeMode="contain"
               />
@@ -332,7 +332,7 @@ export default function MarketScreen() {
                   <View style={styles.collectionImageWrap}>
                     {item.primary_original_image_url || item.primary_image_url ? (
                       <Image
-                        source={{ uri: item.primary_original_image_url ?? item.primary_image_url! }}
+                        source={{ uri: item.primary_image_url ?? item.primary_original_image_url! }}
                         style={styles.collectionImage}
                         resizeMode="contain"
                       />

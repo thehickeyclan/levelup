@@ -1489,6 +1489,29 @@ export default function EditListingPage() {
         {saving ? 'Saving…' : status === 'draft' ? 'Save & publish' : 'Save changes'}
       </Button>
 
+      <Button
+        variant="ghost"
+        className="w-full min-h-[44px] text-destructive hover:text-destructive"
+        disabled={saving}
+        onClick={() => {
+          if (!window.confirm('Delete this pair? The listing and its photos are removed. This cannot be undone.')) {
+            return;
+          }
+          void (async () => {
+            try {
+              const res = await fetch(`/api/market/listings/${listingId}`, { method: 'DELETE' });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok || data.error) throw new Error(data.error || 'Could not delete this listing');
+              router.replace('/market/my-listings');
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Could not delete this listing');
+            }
+          })();
+        }}
+      >
+        Delete pair
+      </Button>
+
       <p className="text-xs text-muted-foreground">{SELLER_AI_DISCLAIMER}</p>
     </div>
   );

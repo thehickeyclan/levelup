@@ -252,7 +252,7 @@ export default function ManageListingScreen() {
           colorway: colorway.trim() || null,
           size: numericSize,
           wear_state: wearState,
-          condition: wearState === 'used' ? condition : wearState === 'bnib' ? 'new_in_box' : 'new',
+          condition: wearState === 'used' ? condition : 'new',
           description: description.trim() || null,
           listing_type: listingType,
           price_cents: listingType === 'sell' ? Math.round(numericPrice * 100) : null,
@@ -317,7 +317,15 @@ export default function ManageListingScreen() {
           </Pressable>
         ))}
       </View>
-      {wearState === 'used' ? <Field label="Condition details" value={condition} onChangeText={setCondition} placeholder="Good" /> : null}
+      {wearState === 'used' ? (
+        <View style={[styles.choices, { marginTop: 8 }]}>
+          {([['like_new', 'Like new'], ['good', 'Good'], ['fair', 'Fair']] as [string, string][]).map(([value, label]) => (
+            <Pressable key={value} style={[styles.choice, condition === value && styles.choiceSelected]} onPress={() => setCondition(value)}>
+              <Text style={[styles.choiceText, condition === value && styles.choiceTextSelected]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <Text style={styles.label}>DESCRIPTION</Text>
       <TextInput

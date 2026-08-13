@@ -750,7 +750,16 @@ export default function AddShoeScreen() {
           </View>
 
           {wearState === 'used' ? (
-            <Field label="CONDITION NOTES" value={condition} onChangeText={setCondition} placeholder="Good" />
+            <>
+              <Text style={styles.label}>CONDITION</Text>
+              <View style={styles.choices}>
+                {([['like_new', 'Like new'], ['good', 'Good'], ['fair', 'Fair']] as [string, string][]).map(([value, label]) => (
+                  <Pressable key={value} style={[styles.choice, condition === value && styles.choiceSelected]} onPress={() => setCondition(value)}>
+                    <Text style={[styles.choiceText, condition === value && styles.choiceTextSelected]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
           ) : null}
           {valueEstimate != null ? (
             <View style={styles.aiBox}>

@@ -10,8 +10,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
+import { hideThread, reportContent } from '@/lib/moderation';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 import { typography } from '@/lib/theme';
@@ -29,6 +30,7 @@ type Message = {
 };
 
 export default function ThreadScreen() {
+  const router = useRouter();
   const { id, draft: initialDraft } = useLocalSearchParams<{ id: string; draft?: string }>();
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -135,6 +137,22 @@ export default function ThreadScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}
     >
+      <Pressable
+        style={moderationStyles.reportRow}
+        onPress={() =>
+          reportContent('thread', id ?? '', {
+            extraAction: {
+              label: 'Block & report',
+              run: async () => {
+                await hideThread(id ?? '');
+                router.back();
+              },
+            },
+          })
+        }
+      >
+        <Text style={moderationStyles.reportText}>Report or block this conversation</Text>
+      </Pressable>
       <FlatList
         ref={listRef}
         data={messages}
@@ -268,4 +286,9 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: { opacity: 0.45 },
   sendText: { ...typography.bodyBold, color: colors.background, fontSize: 13 },
+});
+
+const moderationStyles = StyleSheet.create({
+  reportRow: { alignItems: 'center', paddingVertical: 6 },
+  reportText: { ...typography.body, color: colors.textSecondary, fontSize: 11, textDecorationLine: 'underline' },
 });

@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { GuildLogo } from '@/components/guild-logo';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -41,6 +42,7 @@ export default function SignupScreen() {
   const [school, setSchool] = useState('');
   const [bio, setBio] = useState('');
   const [venmoHandle, setVenmoHandle] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +58,9 @@ export default function SignupScreen() {
       return setError('Enter a valid 5-digit home ZIP code.');
     }
     if (password.length < 8) return setError('Password must be at least 8 characters.');
+    if (role === 'youth_wrestler' && !ageConfirmed) {
+      return setError('Athlete accounts are for wrestlers 13 and older — younger wrestlers are managed from a parent account.');
+    }
     if (isCoach) {
       if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateOfBirth.trim())) {
         return setError('Enter your date of birth as MM/DD/YYYY.');
@@ -182,6 +187,22 @@ export default function SignupScreen() {
 
         <Input label="PASSWORD" value={password} onChangeText={setPassword} placeholder="At least 8 characters" secureTextEntry />
 
+        {role === 'youth_wrestler' ? (
+          <Pressable style={styles.attestRow} onPress={() => setAgeConfirmed((v) => !v)}>
+            <View style={[styles.attestDot, ageConfirmed && styles.attestDotOn]} />
+            <Text style={styles.attestText}>
+              I am 13 or older. Younger wrestlers are added and managed from a parent account.
+            </Text>
+          </Pressable>
+        ) : null}
+
+        <Text style={styles.termsText}>
+          By creating an account you agree to the Guild{' '}
+          <Text style={styles.termsLink} onPress={() => void WebBrowser.openBrowserAsync('https://www.wrestlingguild.com/terms')}>Terms</Text>
+          {' '}and{' '}
+          <Text style={styles.termsLink} onPress={() => void WebBrowser.openBrowserAsync('https://www.wrestlingguild.com/privacy')}>Privacy Policy</Text>.
+        </Text>
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable style={[styles.button, submitting && styles.buttonDisabled]} onPress={() => void onSubmit()} disabled={submitting}>
@@ -222,6 +243,12 @@ function Input({
 }
 
 const styles = StyleSheet.create({
+  attestRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface },
+  attestDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
+  attestDotOn: { borderColor: colors.accent, backgroundColor: colors.accent },
+  attestText: { ...typography.body, color: colors.textMuted, fontSize: 12, flex: 1, lineHeight: 17 },
+  termsText: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 16, textAlign: 'center', lineHeight: 17 },
+  termsLink: { ...typography.bodySemi, color: colors.accent },
   root: { flex: 1, backgroundColor: colors.background },
   content: { padding: 24, paddingBottom: 48 },
   hero: { alignItems: 'center', marginTop: 24, marginBottom: 20 },

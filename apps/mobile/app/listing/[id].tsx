@@ -16,6 +16,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { apiFetch } from '@/lib/api';
+import { reportContent } from '@/lib/moderation';
 import { marketColors as colors, typography } from '@/lib/theme';
 
 type Listing = {
@@ -235,6 +236,18 @@ export default function ListingDetailScreen() {
               </View>
             )}
           />
+          {!isOwner ? (
+            <Pressable
+              style={styles.heartButton}
+              hitSlop={8}
+              onPress={() => void toggleFollow()}
+              disabled={savingFollow}
+            >
+              <Text style={[styles.heart, following && styles.heartActive]}>
+                {following ? '\u2665' : '\u2661'}
+              </Text>
+            </Pressable>
+          ) : null}
           <View style={styles.galleryFooter}>
             <View style={styles.dots}>
               {images.map((image, index) => (
@@ -363,10 +376,8 @@ export default function ListingDetailScreen() {
               <Text style={styles.actionHint}>This pair is shown as a collection piece. Message the owner if you want to ask about it.</Text>
             ) : null}
             <View style={styles.utilityGrid}>
-              <Pressable style={styles.utilityButton} onPress={() => void toggleFollow()} disabled={savingFollow}>
-                <Text style={styles.utilityButtonText}>
-                  {savingFollow ? 'Saving…' : following ? 'Favorited' : 'Favorite'}
-                </Text>
+              <Pressable style={styles.utilityButton} onPress={() => reportContent('listing', listing?.id ?? '')}>
+                <Text style={styles.utilityButtonText}>Report</Text>
               </Pressable>
               <Pressable style={styles.utilityButton} onPress={() => void shareListing()}>
                 <Text style={styles.utilityButtonText}>Share</Text>
@@ -449,6 +460,9 @@ function marketListingShareMessage(listing: Listing, shareUrl = marketListingSha
 }
 
 const styles = StyleSheet.create({
+  heartButton: { position: 'absolute', top: 10, right: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  heart: { fontSize: 22, color: '#8a8a8a', lineHeight: 24 },
+  heartActive: { color: '#e0245e' },
   screen: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.background },
   container: { padding: 20, paddingBottom: 48 },

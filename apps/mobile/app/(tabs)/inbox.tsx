@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
+import { getHiddenThreadIds } from '@/lib/moderation';
 import { colors, typography } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { MIN_TOUCH_TARGET } from '@/lib/accessibility';
@@ -82,7 +83,8 @@ export default function InboxScreen() {
       const res = await apiFetch<{ threads?: Thread[]; inbox?: Thread[] }>(
         `/api/guild/messages/inbox${search.trim() ? `?q=${encodeURIComponent(search.trim())}` : ''}`
       );
-      setThreads(res.threads ?? res.inbox ?? []);
+      const hidden = await getHiddenThreadIds();
+      setThreads((res.threads ?? res.inbox ?? []).filter((thread) => !hidden.has(thread.id)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load inbox');
     } finally {

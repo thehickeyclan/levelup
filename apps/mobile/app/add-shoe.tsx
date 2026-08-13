@@ -169,6 +169,30 @@ export default function AddShoeScreen() {
     return nextCount;
   }
 
+  function removePhoto(index: number) {
+    setPhotos((current) => {
+      const next = current.filter((_, photoIndex) => photoIndex !== index);
+      photosRef.current = next;
+      return next;
+    });
+  }
+
+  /** Move a photo to the front — the cover is what buyers see and what gets background-cleaned. */
+  function makeCover(index: number) {
+    if (index === 0) return;
+    if (uploadedPhotoCount > 0) {
+      setAiMessage(
+        'Photos are already uploaded for this draft — remove and re-add them in the order you want instead.'
+      );
+      return;
+    }
+    setPhotos((current) => {
+      const next = [current[index], ...current.filter((_, photoIndex) => photoIndex !== index)];
+      photosRef.current = next;
+      return next;
+    });
+  }
+
   async function takePhoto(askForAnother = true) {
     if (photosRef.current.length >= 6) {
       setError('You can add up to 6 photos.');
@@ -663,12 +687,22 @@ export default function AddShoeScreen() {
               <Text style={styles.addPhotoText}>Library</Text>
             </Pressable>
             {photos.map((photo, index) => (
-              <Pressable key={`${photo.uri}-${index}`} onPress={() => setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index))}>
+              <Pressable key={`${photo.uri}-${index}`} onPress={() => makeCover(index)}>
                 <Image source={{ uri: photo.uri }} style={styles.photo} />
-                <View style={styles.remove}><Text style={styles.removeText}>×</Text></View>
+                {index === 0 ? (
+                  <View style={styles.coverBadge}>
+                    <Text style={styles.coverBadgeText}>COVER</Text>
+                  </View>
+                ) : null}
+                <Pressable style={styles.remove} hitSlop={8} onPress={() => removePhoto(index)}>
+                  <Text style={styles.removeText}>×</Text>
+                </Pressable>
               </Pressable>
             ))}
           </ScrollView>
+          {photos.length > 1 ? (
+            <Text style={styles.photoHint}>Tap a photo to make it the cover · × removes it</Text>
+          ) : null}
           <Pressable style={styles.cleanToggleRow} onPress={() => setCleanBackground((value) => !value)}>
             <View style={[styles.toggleDot, cleanBackground && styles.toggleDotOn]} />
             <View style={{ flex: 1 }}>
@@ -941,6 +975,17 @@ const styles = StyleSheet.create({
   photo: { width: 98, height: 98, borderRadius: 10, backgroundColor: colors.surface, resizeMode: 'cover' },
   reviewPhoto: { width: 64, height: 64, borderRadius: 8, backgroundColor: colors.surface, resizeMode: 'cover' },
   remove: { position: 'absolute', right: 5, top: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' },
+  coverBadge: {
+    position: 'absolute',
+    left: 5,
+    bottom: 5,
+    backgroundColor: colors.accent,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  coverBadgeText: { ...typography.bodyBold, color: colors.black, fontSize: 8, letterSpacing: 0.8 },
+  photoHint: { ...typography.body, color: colors.textMuted, fontSize: 11, marginTop: 8 },
   removeText: { color: colors.white, fontSize: 17, lineHeight: 19 },
   field: { minHeight: 49, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, paddingHorizontal: 12 },
   prefix: { ...typography.bodySemi, color: colors.accent, fontSize: 16 },

@@ -4,7 +4,6 @@ import {
   Alert,
   FlatList,
   Image,
-  Platform,
   Pressable,
   Share,
   ScrollView,
@@ -205,17 +204,13 @@ export default function ListingDetailScreen() {
       const title = marketListingShareTitle(currentListing);
       const coverVersion = images[0]?.id;
       const url = marketListingShareUrl(currentListing.id, coverVersion);
-      await Share.share(
-        Platform.OS === 'ios'
-          ? {
-              title,
-              url,
-            }
-          : {
-              title,
-              message: marketListingShareMessage(currentListing),
-            }
-      );
+      // React Native's iOS `url` share field can be serialized as an Apple
+      // binary plist by some share targets. A plain-text message keeps the
+      // URL readable and still lets Messages generate its link preview.
+      await Share.share({
+        title,
+        message: marketListingShareMessage(currentListing, url),
+      });
     } catch (e) {
       Alert.alert('Could not share', e instanceof Error ? e.message : 'Try again in a moment.');
     }
@@ -439,7 +434,7 @@ function marketListingShareStatus(listing: Listing) {
   return 'Make an offer';
 }
 
-function marketListingShareMessage(listing: Listing) {
+function marketListingShareMessage(listing: Listing, shareUrl = marketListingShareUrl(listing.id)) {
   const details = [listing.size ? `Size ${listing.size}` : null, marketListingShareStatus(listing)]
     .filter(Boolean)
     .join(' · ');
@@ -447,7 +442,7 @@ function marketListingShareMessage(listing: Listing) {
     marketListingShareTitle(listing),
     details,
     'See it on Guild Market:',
-    marketListingShareUrl(listing.id),
+    shareUrl,
   ]
     .filter(Boolean)
     .join('\n');

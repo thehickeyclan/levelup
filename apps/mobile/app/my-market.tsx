@@ -69,7 +69,7 @@ type Tab = 'watching' | 'mine' | 'selling' | 'history';
 export default function MyMarketScreen() {
   const router = useRouter();
   const [data, setData] = useState<Payload | null>(null);
-  const [tab, setTab] = useState<Tab>('watching');
+  const [tab, setTab] = useState<Tab>('mine');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,8 +111,8 @@ export default function MyMarketScreen() {
   }
 
   const tabs: [Tab, string][] = [
-    ['watching', 'Favorites'],
     ['mine', 'My shoes'],
+    ['watching', 'Favorites'],
     ['selling', 'Selling / trade'],
     ['history', 'History'],
   ];

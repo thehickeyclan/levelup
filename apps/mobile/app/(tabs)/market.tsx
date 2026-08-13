@@ -71,13 +71,6 @@ function marketRank(listing: Listing) {
 }
 
 type MarketFilter = 'available' | 'sell' | 'trade' | 'collection' | 'all';
-type TocProgress = {
-  authenticated: boolean;
-  followCount: number;
-  followGoal: number;
-  qualified: boolean;
-};
-
 export default function MarketScreen() {
   const router = useRouter();
   const [listings, setListings] = useState<Listing[]>([]);
@@ -85,17 +78,12 @@ export default function MarketScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<MarketFilter>('all');
-  const [tocProgress, setTocProgress] = useState<TocProgress | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [res, progress] = await Promise.all([
-        apiFetch<{ listings: Listing[] }>('/api/market/listings?limit=150'),
-        apiFetch<TocProgress>('/api/toc-giveaway/progress').catch(() => null),
-      ]);
+      const res = await apiFetch<{ listings: Listing[] }>('/api/market/listings?limit=150');
       setListings(res.listings ?? []);
-      setTocProgress(progress);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load market');
     } finally {
@@ -184,11 +172,6 @@ export default function MarketScreen() {
             </View>
           </View>
           <Text style={styles.sub}>Buy, trade, favorite shoes, and manage your own collection.</Text>
-          <TocProgressCard
-            progress={tocProgress}
-            onFollowShoes={() => setFilter('collection')}
-            onViewFollows={() => router.push('/my-market')}
-          />
           <View style={styles.actionRow}>
             <Pressable style={styles.primaryAction} onPress={() => router.push('/my-market')}>
               <Text style={styles.primaryActionText}>My Market</Text>
@@ -447,40 +430,3 @@ const styles = StyleSheet.create({
   collectionMeta: { ...typography.body, color: colors.textMuted, fontSize: 10, paddingHorizontal: 10, paddingTop: 4, paddingBottom: 12 },
 });
 
-function TocProgressCard({
-  progress,
-  onFollowShoes,
-  onViewFollows,
-}: {
-  progress: TocProgress | null;
-  onFollowShoes: () => void;
-  onViewFollows: () => void;
-}) {
-  const goal = progress?.followGoal ?? 5;
-  const count = progress?.followCount ?? 0;
-  const percent = Math.min(100, Math.round((count / goal) * 100));
-  const qualified = progress?.qualified ?? false;
-
-  return (
-    <View style={styles.tocCard}>
-      <Text style={styles.tocKicker}>TOC MARKET CHALLENGE</Text>
-      <Text style={styles.tocTitle}>
-        {qualified ? 'You’re qualified for the raffle.' : 'Favorite 5 shoes for the raffle.'}
-      </Text>
-      <Text style={styles.tocText}>
-        Follow The Guild on Instagram, then favorite shoes you like in Market. Progress: {count}/{goal}.
-      </Text>
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${percent}%` }]} />
-      </View>
-      <View style={styles.tocActions}>
-        <Pressable style={styles.tocPrimary} onPress={onFollowShoes}>
-          <Text style={styles.tocPrimaryText}>Find shoes</Text>
-        </Pressable>
-        <Pressable style={styles.tocSecondary} onPress={onViewFollows}>
-          <Text style={styles.tocSecondaryText}>My favorites</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}

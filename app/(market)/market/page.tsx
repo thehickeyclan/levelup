@@ -6,7 +6,6 @@ import { getTenantByDomain } from '@/config/tenants';
 import { fetchMarketBrowseListings } from '@/lib/market/browse-listings';
 import { fetchMarketCollectorBrowseData } from '@/lib/market/collector-browse';
 import { fetchMarketBrandCatalog } from '@/lib/market/market-brand-catalog';
-import { TOC_MARKET_FOLLOW_GOAL } from '@/lib/toc-giveaway';
 import { MarketBrowseClient } from './market-browse-client';
 
 async function fetchPendingOfferCount(tenantSlug: string, userId: string): Promise<number> {
@@ -55,7 +54,6 @@ export default async function MarketPage({
   let pendingOffers = 0;
   let browsePairCount = 0;
   let myCollectionCount = 0;
-  let tocMarketFollowCount = 0;
 
   if (tenant) {
     const supabase = await createClient(tenant.slug);
@@ -94,25 +92,19 @@ export default async function MarketPage({
     if (user) {
       try {
         const admin = createAdminClient(tenant.slug);
-        const [offers, collectionCountResult, tocFollowCountResult] = await Promise.all([
+        const [offers, collectionCountResult] = await Promise.all([
           fetchPendingOfferCount(tenant.slug, user.id),
           supabase
             .from('market_listings')
             .select('id', { count: 'exact', head: true })
             .eq('seller_id', user.id)
             .eq('status', 'active'),
-          admin
-            .from('market_listing_follows')
-            .select('listing_id', { count: 'exact', head: true })
-            .eq('follower_id', user.id),
         ]);
         pendingOffers = offers;
         myCollectionCount = collectionCountResult.count ?? 0;
-        tocMarketFollowCount = tocFollowCountResult.count ?? 0;
       } catch {
         pendingOffers = 0;
         myCollectionCount = 0;
-        tocMarketFollowCount = 0;
       }
     }
   }
@@ -133,8 +125,6 @@ export default async function MarketPage({
         pendingOffers={pendingOffers}
         browsePairCount={browsePairCount}
         myCollectionCount={myCollectionCount}
-        tocMarketFollowCount={tocMarketFollowCount}
-        tocMarketFollowGoal={TOC_MARKET_FOLLOW_GOAL}
       />
     </Suspense>
   );

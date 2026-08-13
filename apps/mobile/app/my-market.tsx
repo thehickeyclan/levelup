@@ -155,7 +155,6 @@ export default function MyMarketScreen() {
               <Text style={styles.quickMeta}>Trade or trade + cash</Text>
             </Pressable>
           </View>
-          <MarketChallengeCard followCount={data?.watching.length ?? 0} />
           <Pressable style={styles.offersButton} onPress={() => router.push('/market-offers')}>
             <Text style={styles.offersButtonText}>Offers</Text>
             <Text style={styles.offersButtonMeta}>Review bids you received or sent</Text>
@@ -231,27 +230,6 @@ export default function MyMarketScreen() {
   );
 }
 
-function MarketChallengeCard({ followCount }: { followCount: number }) {
-  const goal = 5;
-  const percent = Math.min(100, Math.round((followCount / goal) * 100));
-  const qualified = followCount >= goal;
-
-  return (
-    <View style={styles.challengeCard}>
-      <Text style={styles.challengeKicker}>TOC MARKET CHALLENGE</Text>
-      <Text style={styles.challengeTitle}>
-        {qualified ? 'You favorited 5 shoes.' : `Favorite ${goal} shoes to qualify.`}
-      </Text>
-      <Text style={styles.challengeText}>
-        Your favorited shoes count toward the Tournament of Champions training-credit raffle.
-      </Text>
-      <View style={styles.challengeTrack}>
-        <View style={[styles.challengeFill, { width: `${percent}%` }]} />
-      </View>
-      <Text style={styles.challengeCount}>{followCount}/{goal} favorited</Text>
-    </View>
-  );
-}
 
 function Empty({ tab }: { tab: Tab }) {
   const copy =

@@ -71,8 +71,13 @@ type MarketListingShareInput = {
   accepts_offers?: boolean | null;
 };
 
-function marketListingShareUrl(listingId: string, origin = 'https://www.wrestlingguild.com') {
-  return `${origin.replace(/\/$/, '')}/market/listing/${listingId}`;
+function marketListingShareUrl(
+  listingId: string,
+  origin = 'https://www.wrestlingguild.com',
+  coverVersion?: string
+) {
+  const url = `${origin.replace(/\/$/, '')}/share/listing/${listingId}`;
+  return coverVersion ? `${url}?cover=${encodeURIComponent(coverVersion)}` : url;
 }
 
 function marketListingShareTitle(listing: MarketListingShareInput) {
@@ -92,7 +97,8 @@ function marketListingShareStatus(listing: MarketListingShareInput) {
 
 function marketListingShareMessage(
   listing: MarketListingShareInput & { id: string },
-  origin = 'https://www.wrestlingguild.com'
+  origin = 'https://www.wrestlingguild.com',
+  coverVersion?: string
 ) {
   const details = [listing.size ? `Size ${listing.size}` : null, marketListingShareStatus(listing)]
     .filter(Boolean)
@@ -101,7 +107,7 @@ function marketListingShareMessage(
     marketListingShareTitle(listing),
     details,
     'See it on Guild Market:',
-    marketListingShareUrl(listing.id, origin),
+    marketListingShareUrl(listing.id, origin, coverVersion),
   ]
     .filter(Boolean)
     .join('\n');
@@ -470,7 +476,8 @@ export default function ListingDetailClient() {
   async function shareListing() {
     const origin =
       typeof window !== 'undefined' ? window.location.origin : 'https://www.wrestlingguild.com';
-    const url = marketListingShareUrl(id, origin);
+    const coverVersion = images[0]?.id;
+    const url = marketListingShareUrl(id, origin, coverVersion);
     const title = marketListingShareTitle({
       title: l.title as string | undefined,
       brand: l.brand as string | null,
@@ -487,7 +494,8 @@ export default function ListingDetailClient() {
         listing_type: listingType,
         accepts_offers: l.accepts_offers as boolean | null,
       },
-      origin
+      origin,
+      coverVersion
     );
 
     try {

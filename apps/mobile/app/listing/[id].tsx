@@ -203,7 +203,8 @@ export default function ListingDetailScreen() {
     if (!currentListing) return;
     try {
       const title = marketListingShareTitle(currentListing);
-      const url = marketListingShareUrl(currentListing.id);
+      const coverVersion = images[0]?.id;
+      const url = marketListingShareUrl(currentListing.id, coverVersion);
       await Share.share(
         Platform.OS === 'ios'
           ? {
@@ -416,8 +417,11 @@ function DetailBadge({ text, accent = false }: { text: string; accent?: boolean 
   );
 }
 
-function marketListingShareUrl(listingId: string) {
-  return `https://www.wrestlingguild.com/market/listing/${listingId}`;
+function marketListingShareUrl(listingId: string, coverVersion?: string) {
+  // Public share page: crawlable by iMessage/social previews (the /market
+  // routes are login-gated, which blanks link cards for recipients).
+  const url = `https://www.wrestlingguild.com/share/listing/${listingId}`;
+  return coverVersion ? `${url}?cover=${encodeURIComponent(coverVersion)}` : url;
 }
 
 function marketListingShareTitle(listing: Listing) {

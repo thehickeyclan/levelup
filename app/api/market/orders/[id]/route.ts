@@ -55,6 +55,20 @@ function serializeOrder(
     shipping_address: role === 'seller' ? addr : null,
     shipping_address_formatted: role === 'seller' ? formatShippingAddress(addr) : null,
     label_image_url: labelSignedUrl,
+    // Seller-only payout visibility: amount, and whether the Guild has sent it yet.
+    payout_cents: role === 'seller' ? ((order.seller_payout_cents as number) ?? null) : null,
+    payout_paid_at: role === 'seller' ? ((order.seller_paid_at as string) ?? null) : null,
+    payout_method: role === 'seller' ? ((order.seller_payout_method as string) ?? null) : null,
+    payout_status:
+      role !== 'seller'
+        ? null
+        : order.seller_paid_at
+          ? 'paid'
+          : order.status === 'completed' || order.status === 'delivered'
+            ? 'ready'
+            : order.status === 'cancelled' || order.status === 'refunded'
+              ? 'na'
+              : 'pending',
     can_add_tracking: role === 'seller' && order.status === 'paid',
     can_mark_received: role === 'buyer' && order.status === 'shipped',
     can_review: role === 'buyer' && order.status === 'completed',

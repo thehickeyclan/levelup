@@ -32,7 +32,24 @@ type OrderDetail = {
   thread_id: string | null;
   viewer_id: string | null;
   shipped_at: string | null;
+  payout_cents: number | null;
+  payout_paid_at: string | null;
+  payout_method: string | null;
+  payout_status: 'paid' | 'ready' | 'pending' | 'na' | null;
 };
+
+function payoutStatusLine(order: OrderDetail): string {
+  if (order.payout_status === 'paid') {
+    const when = order.payout_paid_at
+      ? new Date(order.payout_paid_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      : '';
+    const method = order.payout_method && order.payout_method !== 'other' ? ` via ${order.payout_method}` : '';
+    return `Sent${method}${when ? ` · ${when}` : ''}`;
+  }
+  if (order.payout_status === 'ready') return 'Processing — the Guild sends payouts within a few days of completion.';
+  if (order.payout_status === 'na') return 'No payout — this order was cancelled or refunded.';
+  return 'Held until the buyer confirms delivery, then sent within a few days.';
+}
 
 type LabelScan = {
   tracking_number: string;
@@ -220,6 +237,15 @@ export default function MarketOrderDetailPage() {
       <p className="text-sm">
         ${((order.amount_cents + order.shipping_cents) / 100).toFixed(2)} total
       </p>
+
+      {order.role === 'seller' && order.payout_cents != null && order.payout_status !== 'na' ? (
+        <div className="rounded-lg border border-border p-4 space-y-1">
+          <p className="text-sm font-medium">
+            Your payout: ${(order.payout_cents / 100).toFixed(2)}
+          </p>
+          <p className="text-sm text-muted-foreground">{payoutStatusLine(order)}</p>
+        </div>
+      ) : null}
 
       {order.role === 'seller' && order.shipping_address_formatted ? (
         <div className="rounded-lg border border-border p-4 space-y-2">

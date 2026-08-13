@@ -38,7 +38,25 @@ type OrderDetail = {
   can_mark_received?: boolean;
   can_review_counterparty?: boolean;
   thread_id?: string | null;
+  payout_cents?: number | null;
+  payout_paid_at?: string | null;
+  payout_method?: string | null;
+  payout_status?: 'paid' | 'ready' | 'pending' | 'na' | null;
 };
+
+function payoutStatusLine(order: OrderDetail): string {
+  if (order.payout_status === 'paid') {
+    const when = order.payout_paid_at
+      ? new Date(order.payout_paid_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      : '';
+    const method =
+      order.payout_method && order.payout_method !== 'other' ? ` via ${order.payout_method}` : '';
+    return `Sent${method}${when ? ` · ${when}` : ''}`;
+  }
+  if (order.payout_status === 'ready')
+    return 'Processing — the Guild sends payouts within a few days of completion.';
+  return 'Held until the buyer confirms delivery, then sent within a few days.';
+}
 
 type ReviewState = {
   canReviewCounterparty: boolean;
@@ -237,6 +255,13 @@ export default function OrderDetailScreen() {
       {order.role === 'seller' ? (
         <View style={styles.panel}>
           <Text style={styles.panelTitle}>Seller checklist</Text>
+          {order.payout_cents != null && order.payout_status !== 'na' ? (
+            <>
+              <Text style={styles.label}>Your payout</Text>
+              <Text style={styles.payoutAmount}>${(order.payout_cents / 100).toFixed(2)}</Text>
+              <Text style={styles.payoutNote}>{payoutStatusLine(order)}</Text>
+            </>
+          ) : null}
           {order.shipping_address_formatted ? (
             <>
               <Text style={styles.label}>Ship to</Text>
@@ -362,6 +387,8 @@ const styles = StyleSheet.create({
   statusText: { ...typography.bodyBold, color: colors.accent, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 },
   line: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 6 },
   label: { ...typography.bodyBold, color: colors.text, fontSize: 12, marginTop: 8, marginBottom: 5 },
+  payoutAmount: { ...typography.bodyBold, color: colors.accent, fontSize: 20 },
+  payoutNote: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 3, marginBottom: 4 },
   address: { ...typography.body, color: colors.text, fontSize: 12, lineHeight: 18, backgroundColor: colors.surfaceRaised, borderRadius: 12, padding: 10 },
   input: { ...typography.body, minHeight: 46, color: colors.text, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, fontSize: 13 },
   commentInput: { minHeight: 94, paddingTop: 12, textAlignVertical: 'top', marginTop: 10 },

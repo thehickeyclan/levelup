@@ -210,26 +210,69 @@ export default function MyMarketScreen() {
           ) : null}
         </View>
       }
-      renderItem={({ item }) => (
-        <Pressable style={styles.row} onPress={() => router.push(`/listing/${item.id}`)}>
-          {item.primary_image_url ? <Image source={{ uri: item.primary_image_url }} style={styles.thumb} resizeMode="contain" /> : <View style={styles.thumb} />}
-          <View style={{ flex: 1 }}>
-            <Text style={styles.itemTitle} numberOfLines={1}>{item.model || item.title}</Text>
-            <Text style={styles.itemMeta}>
-              {[item.size ? `Size ${item.size}` : null, item.condition_label, item.status].filter(Boolean).join(' · ')}
-            </Text>
-            {(item.pending_offer_count ?? 0) > 0 ? (
-              <Text style={styles.offer}>{item.pending_offer_count} pending offer{item.pending_offer_count === 1 ? '' : 's'}</Text>
-            ) : null}
-          </View>
-          <Text style={styles.price}>{item.price_cents != null ? `$${Math.round(item.price_cents / 100)}` : 'View'}</Text>
-        </Pressable>
-      )}
+      renderItem={({ item }) => {
+        const mode = listingMode(item);
+        const mine = tab === 'mine' || tab === 'selling';
+        return (
+          <Pressable style={styles.row} onPress={() => router.push(`/listing/${item.id}`)}>
+            {item.primary_image_url ? <Image source={{ uri: item.primary_image_url }} style={styles.thumb} resizeMode="contain" /> : <View style={styles.thumb} />}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.itemTitle} numberOfLines={1}>{item.model || item.title}</Text>
+              <View style={styles.chipRow}>
+                <View style={[styles.modeChip, mode.style === 'sell' ? styles.modeChipSell : mode.style === 'trade' ? styles.modeChipTrade : styles.modeChipCollection]}>
+                  <Text style={[styles.modeChipText, mode.style === 'sell' && styles.modeChipTextSell]}>{mode.label}</Text>
+                </View>
+                {mode.state ? <Text style={styles.stateText}>{mode.state}</Text> : null}
+              </View>
+              <Text style={styles.itemMeta}>
+                {[item.size ? `Size ${item.size}` : null, item.condition_label].filter(Boolean).join(' · ')}
+              </Text>
+              {(item.pending_offer_count ?? 0) > 0 ? (
+                <Text style={styles.offer}>{item.pending_offer_count} pending offer{item.pending_offer_count === 1 ? '' : 's'}</Text>
+              ) : null}
+            </View>
+            {mine ? (
+              <Pressable style={styles.manageButton} hitSlop={6} onPress={() => router.push(`/manage-listing/${item.id}`)}>
+                <Text style={styles.manageButtonText}>Manage</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.price}>{item.price_cents != null ? `$${Math.round(item.price_cents / 100)}` : 'View'}</Text>
+            )}
+          </Pressable>
+        );
+      }}
       ListEmptyComponent={tab !== 'history' ? <Empty tab={tab} /> : null}
     />
   );
 }
 
+
+/** One glance = one truth: how this pair is listed, and any non-live state. */
+function listingMode(item: {
+  listing_type?: string | null;
+  open_to_trade?: boolean | null;
+  status?: string | null;
+  price_cents?: number | null;
+}): { label: string; style: 'sell' | 'trade' | 'collection'; state: string | null } {
+  const state =
+    item.status === 'draft'
+      ? 'Draft'
+      : item.status === 'archived'
+        ? 'Archived'
+        : item.status === 'pending_sale'
+          ? 'Sale pending'
+          : item.status === 'sold'
+            ? 'Sold'
+            : null;
+  if (item.listing_type === 'sell') {
+    const price = item.price_cents != null ? ` · $${Math.round(item.price_cents / 100)}` : '';
+    return { label: `For sale${price}`, style: 'sell', state };
+  }
+  if (item.listing_type === 'trade' || item.listing_type === 'trade_only' || item.open_to_trade) {
+    return { label: 'Trade', style: 'trade', state };
+  }
+  return { label: 'Collection', style: 'collection', state };
+}
 
 function Empty({ tab }: { tab: Tab }) {
   const copy =
@@ -249,6 +292,16 @@ function Empty({ tab }: { tab: Tab }) {
 }
 
 const styles = StyleSheet.create({
+  chipRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
+  modeChip: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, borderWidth: 1 },
+  modeChipSell: { backgroundColor: colors.accent, borderColor: colors.accent },
+  modeChipTrade: { backgroundColor: 'transparent', borderColor: colors.accent },
+  modeChipCollection: { backgroundColor: 'transparent', borderColor: colors.border },
+  modeChipText: { ...typography.bodyBold, fontSize: 10, color: colors.textMuted, letterSpacing: 0.4 },
+  modeChipTextSell: { color: colors.black },
+  stateText: { ...typography.bodySemi, fontSize: 10, color: colors.danger },
+  manageButton: { borderWidth: 1, borderColor: colors.accent, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  manageButtonText: { ...typography.bodyBold, color: colors.accent, fontSize: 12 },
   screen: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   content: { padding: 20, paddingBottom: 48 },

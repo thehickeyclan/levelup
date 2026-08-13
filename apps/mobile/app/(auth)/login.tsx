@@ -47,7 +47,10 @@ export default function LoginScreen() {
       <View style={styles.hero}>
         <GuildLogo size={180} />
         <Text style={styles.brand}>THE GUILD</Text>
-        <Text style={styles.headline}>Join small groups.{'\n'}Train with elite coaches.</Text>
+        <Text style={styles.headline}>Train with the best.</Text>
+        <Text style={styles.tagline}>
+          Elite college wrestlers coaching your kid — small groups, privates, and partner sessions.
+        </Text>
       </View>
 
       <View style={styles.form}>
@@ -96,6 +99,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  tagline: { ...typography.body, color: colors.textMuted, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 10, maxWidth: 300 },
   signupRow: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   signupText: { ...typography.body, color: colors.textMuted, fontSize: 14 },
   signupLink: { ...typography.bodyBold, color: colors.accent },

@@ -85,12 +85,20 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Sign in</Text>
           )}
         </Pressable>
+        <Pressable style={styles.signupRow} onPress={() => router.push('/(auth)/signup')}>
+          <Text style={styles.signupText}>
+            New to the Guild? <Text style={styles.signupLink}>Create your account</Text>
+          </Text>
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  signupRow: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
+  signupText: { ...typography.body, color: colors.textMuted, fontSize: 14 },
+  signupLink: { ...typography.bodyBold, color: colors.accent },
   root: { flex: 1, backgroundColor: colors.background, padding: 24, justifyContent: 'center' },
   hero: { marginBottom: 36, alignItems: 'center' },
   brand: {

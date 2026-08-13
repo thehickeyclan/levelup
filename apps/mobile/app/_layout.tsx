@@ -90,6 +90,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)/login" options={{ title: 'Sign in', headerShown: false }} />
+          <Stack.Screen name="(auth)/signup" options={{ title: 'Join the Guild', headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="coach/[id]" options={{ title: 'Coach' }} />
           <Stack.Screen name="coach-small-groups/[id]" options={{ title: 'Small groups' }} />

@@ -22,6 +22,8 @@ export default function Index() {
     );
   }
 
-  if (!session) return <Redirect href="/(auth)/login" />;
+  // Guests land straight in the browse experience (Training tab); sign-in is
+  // reachable from the Join tab and any gated action — never a login wall.
+  if (!session) return <Redirect href="/(tabs)/find" />;
   return <Redirect href="/(tabs)" />;
 }

@@ -10,6 +10,7 @@ import {
   isLegacyPromotionCreditsEnabled,
   isRewardsProgramEnabled,
   REFERRAL_CREDIT_AMOUNT,
+  REFERRAL_SIGNUP_CREDIT_AMOUNT,
 } from '@/lib/rewards';
 
 export async function GET() {
@@ -41,6 +42,7 @@ export async function GET() {
         nextMilestone: null,
         sessionMilestoneRewardsEnabled: false,
         referralCreditAmountDefault: REFERRAL_CREDIT_AMOUNT,
+        referralSignupCreditAmount: REFERRAL_SIGNUP_CREDIT_AMOUNT,
       });
     }
 
@@ -94,6 +96,7 @@ export async function GET() {
       nextMilestone,
       sessionMilestoneRewardsEnabled: milestonesOn,
       referralCreditAmountDefault: REFERRAL_CREDIT_AMOUNT,
+      referralSignupCreditAmount: REFERRAL_SIGNUP_CREDIT_AMOUNT,
     });
   } catch (e) {
     console.error('referrals/me GET:', e);

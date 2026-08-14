@@ -47,7 +47,7 @@ export default function InviteScreen() {
   const shareLink = useCallback(async () => {
     if (!link) return;
     await Share.share({
-      message: `My kid trains with Division I wrestlers through The Guild — small groups and privates near us. Sign up with my link and book your first session: ${link}`,
+      message: `My kid trains with Division I wrestlers through The Guild — small groups and privates near us. Join with my link and get $${amount} toward your first session: ${link}`,
     });
   }, [link]);
 
@@ -58,10 +58,11 @@ export default function InviteScreen() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />}
     >
       <Text style={styles.kicker}>INVITE & EARN</Text>
-      <Text style={styles.heading}>Give the Guild, get ${amount}</Text>
+      <Text style={styles.heading}>Give ${amount}, get ${amount}</Text>
       <Text style={styles.sub}>
-        Share your link with another wrestling family. When they join and book their first
-        session, you get ${amount} in Guild credits — applied automatically at checkout.
+        Share your link with another wrestling family. They get ${amount} toward their first
+        session the moment they join — and when they book, you get ${amount} in training
+        credits, applied automatically at checkout.
       </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -99,11 +100,15 @@ export default function InviteScreen() {
 
           <View style={styles.howCard}>
             <Text style={styles.howTitle}>How it works</Text>
-            <Text style={styles.howStep}>1. Send your link to a wrestling family.</Text>
-            <Text style={styles.howStep}>2. They create an account with it and book any session.</Text>
+            <Text style={styles.howStep}>
+              1. Send your link to a wrestling family — they get ${amount} toward their first session
+              just for joining with it.
+            </Text>
+            <Text style={styles.howStep}>2. They book any session — small group, private, or partner.</Text>
             <Text style={styles.howStep}>
               3. ${amount} in credits lands in your wallet a few days after their first session is paid.
             </Text>
+            <Text style={styles.howNote}>Credits apply to training only, not the Guild Market.</Text>
           </View>
         </>
       ) : null}
@@ -158,4 +163,5 @@ const styles = StyleSheet.create({
   },
   howTitle: { ...typography.bodyBold, color: colors.text, fontSize: 16, marginBottom: 8 },
   howStep: { ...typography.body, color: colors.textSecondary, fontSize: 13, marginBottom: 6, lineHeight: 20 },
+  howNote: { ...typography.body, color: colors.textSecondary, fontSize: 11, marginTop: 8, fontStyle: 'italic' },
 });

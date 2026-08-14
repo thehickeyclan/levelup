@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { GuildLogo } from '@/components/guild-logo';
 import { apiFetch } from '@/lib/api';
@@ -26,6 +27,23 @@ export default function AccountScreen() {
   const { count: cartCount } = useMobileCart();
   const [busy, setBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
+  const [sharingInvite, setSharingInvite] = useState(false);
+
+  const shareInviteLink = async () => {
+    if (sharingInvite) return;
+    setSharingInvite(true);
+    try {
+      const me = await apiFetch<{ referralLink: string | null }>('/api/referrals/me');
+      if (!me.referralLink) throw new Error('No invite link yet');
+      await Share.share({
+        message: `My kid trains with Division I wrestlers through The Guild — small groups and privates near us. Join with my link and get $10 toward your first session: ${me.referralLink}`,
+      });
+    } catch {
+      Alert.alert('Invite link unavailable', 'Please try again in a moment.');
+    } finally {
+      setSharingInvite(false);
+    }
+  };
 
   const isRealCoach = role === 'coach' || role === 'admin';
 
@@ -101,6 +119,30 @@ export default function AccountScreen() {
 
       {!isCoachView ? (
         <>
+          <Text style={styles.referKicker}>REFER & EARN</Text>
+          <Pressable style={styles.referCardFilled} onPress={() => router.push('/invite')}>
+            <Ionicons name="gift-outline" size={26} color={colors.black} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.referFilledTitle}>GIVE $10, GET $10</Text>
+              <Text style={styles.referFilledMeta}>
+                They get $10 toward their first session — you get $10 in training credits when they book
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable
+            style={styles.referCardOutline}
+            onPress={() => void shareInviteLink()}
+            disabled={sharingInvite}
+          >
+            <Ionicons name="paper-plane-outline" size={24} color={colors.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.referOutlineTitle}>SHARE YOUR INVITE LINK</Text>
+              <Text style={styles.referOutlineMeta}>
+                {sharingInvite ? 'Opening…' : 'Text it to your wrestling community'}
+              </Text>
+            </View>
+          </Pressable>
+
           <Pressable style={styles.menuRow} onPress={() => router.push('/(tabs)/cart')}>
             <View>
               <Text style={styles.menuTitle}>Training Cart{cartCount > 0 ? ` (${cartCount})` : ''}</Text>
@@ -132,10 +174,6 @@ export default function AccountScreen() {
           </Pressable>
           <Pressable style={styles.menuRow} onPress={() => router.push('/wallet')}>
             <View><Text style={styles.menuTitle}>Wallet</Text><Text style={styles.menuMeta}>Credits and payment activity</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/invite')}>
-            <View><Text style={styles.menuTitle}>Invite & earn $25</Text><Text style={styles.menuMeta}>Share the Guild with another wrestling family</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
         </>
@@ -290,6 +328,32 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     paddingVertical: 12,
   },
+  referKicker: { ...typography.brand, color: colors.accent, fontSize: 11, alignSelf: 'flex-start', marginTop: 22, marginBottom: 10 },
+  referCardFilled: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    alignSelf: 'stretch',
+    backgroundColor: colors.accent,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+  },
+  referFilledTitle: { ...typography.bodyBold, color: colors.black, fontSize: 15, letterSpacing: 0.5 },
+  referFilledMeta: { ...typography.body, color: colors.black, fontSize: 12, marginTop: 3, opacity: 0.75 },
+  referCardOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    alignSelf: 'stretch',
+    borderColor: colors.accent,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 6,
+  },
+  referOutlineTitle: { ...typography.bodyBold, color: colors.text, fontSize: 14, letterSpacing: 0.5 },
+  referOutlineMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 3 },
   menuTitle: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
   menuMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 3 },
   menuArrow: { ...typography.body, color: colors.accent, fontSize: 26 },

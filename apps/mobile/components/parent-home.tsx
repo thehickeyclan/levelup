@@ -271,8 +271,8 @@ export function ParentHomeScreen() {
       {!isAthlete ? (
         <Pressable style={styles.inviteCard} onPress={() => router.push('/invite')}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.inviteTitle}>Invite a wrestling family, earn $25</Text>
-            <Text style={styles.cardMeta}>They book their first session — you get $25 in credits.</Text>
+            <Text style={styles.inviteTitle}>Give $10, get $10</Text>
+            <Text style={styles.cardMeta}>Invite a wrestling family — they get $10 toward their first session, you get $10 when they book.</Text>
           </View>
           <Text style={styles.inviteArrow}>›</Text>
         </Pressable>

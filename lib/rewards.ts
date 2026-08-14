@@ -21,7 +21,9 @@ export function isLegacyPromotionCreditsEnabled(): boolean {
 }
 
 export const SESSION_CASHBACK_RATE = 0.05;
-export const REFERRAL_CREDIT_AMOUNT = 25;
+export const REFERRAL_CREDIT_AMOUNT = 10;
+/** Welcome credit granted to the referred family at signup ("give $10, get $10") */
+export const REFERRAL_SIGNUP_CREDIT_AMOUNT = 10;
 /** Days after referred family's first paid booking before referrer credit is released */
 export const REFERRAL_CREDIT_HOLD_DAYS = 3;
 
@@ -74,7 +76,7 @@ export async function grantRewardCredit(
   if (opts.amount < 0.01) return {};
 
   const legacy = isLegacyPromotionCreditsEnabled();
-  const isReferral = opts.rewardType === 'referral_sent';
+  const isReferral = opts.rewardType === 'referral_sent' || opts.rewardType === 'referral_received';
   const isManual = opts.rewardType === 'manual' && opts.adminManualGrant === true;
   if (!legacy && !isReferral && !isManual) {
     return {
@@ -609,6 +611,18 @@ export async function createReferralAttributionOnSignup(
   }
 
   await admin.from('users').update({ signup_referral_code: code }).eq('id', opts.referredUserId);
+
+  // Give $10, get $10: the invited family's welcome credit lands immediately so it
+  // auto-applies to their first checkout. Only granted when the referral row is new,
+  // so a duplicate attribution attempt can't double-credit.
+  const welcome = await grantRewardCredit(admin, {
+    parentId: opts.referredUserId,
+    amount: REFERRAL_SIGNUP_CREDIT_AMOUNT,
+    rewardType: 'referral_received',
+    description: 'Welcome credit — invited by a Guild family',
+  });
+  if (welcome.error) console.error('referral welcome credit:', welcome.error);
+
   return { ok: true };
 }
 

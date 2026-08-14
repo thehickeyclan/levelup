@@ -129,10 +129,11 @@ export function AccountRewardsSection() {
             <Coins className="h-7 w-7 text-[#E8D38A] stroke-[1.25]" aria-hidden />
             <div>
               <p className="text-sm font-bold tracking-wide text-white uppercase mt-3">
-                Get ${creditUsd.toFixed(0)} wallet credit
+                Give ${creditUsd.toFixed(0)}, get ${creditUsd.toFixed(0)}
               </p>
               <p className="text-xs text-zinc-200/85 mt-1 leading-relaxed">
-                Refer a family; credit hits your wallet after their first paid booking.
+                They get ${creditUsd.toFixed(0)} toward their first session; yours hits your wallet
+                after their first paid booking. Training credits only.
               </p>
             </div>
           </button>

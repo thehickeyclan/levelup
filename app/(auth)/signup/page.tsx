@@ -325,8 +325,9 @@ export default function SignupPage() {
 
               {referralLinkActive && (
                 <p className="text-sm text-muted-foreground rounded-md border border-border bg-muted/40 px-3 py-2">
-                  You&apos;re signing up through a referral link — that&apos;s already applied. Leave the field
-                  below blank unless you also have a separate Guild promo or discount code.
+                  You&apos;re signing up through a referral link — $10 toward your first session will be
+                  added to your account automatically. Leave the field below blank unless you also have
+                  a separate Guild promo or discount code.
                 </p>
               )}
 

@@ -83,10 +83,10 @@ export default async function HomePage({
       <EcosystemSection />
       <ParentReviewsCarousel reviews={homeReviews} stats={reviewStats} />
       <TrainingPathsSection />
-      <MarketSection />
       {tenant && (
         <CoachMapSection tenantSlug={tenant.slug} openSessionsRowFilter={openSessionsRowFilter} />
       )}
+      <MarketSection />
       <CoachApplySection />
       <StickyMobileBar />
     </main>

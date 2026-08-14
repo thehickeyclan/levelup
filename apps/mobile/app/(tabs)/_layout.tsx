@@ -1,5 +1,6 @@
 import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { colors, marketColors, typography } from '@/lib/theme';
 import { useMobileCart } from '@/lib/mobile-cart';
@@ -8,24 +9,32 @@ import { BADGE_TEXT_MAX_SCALE, MIN_TOUCH_TARGET, NAV_TEXT_MAX_SCALE } from '@/li
 
 function TabLabel({
   label,
+  icon,
   focused,
   badge,
   lightMode = false,
 }: {
   label: string;
+  icon: string;
   focused: boolean;
   badge?: number;
   lightMode?: boolean;
 }) {
+  const color = focused ? colors.accent : lightMode ? marketColors.textMuted : colors.textSecondary;
   return (
     <View style={styles.tabLabelWrap}>
+      <Ionicons
+        name={(focused ? icon : `${icon}-outline`) as keyof typeof Ionicons.glyphMap}
+        size={22}
+        color={color}
+      />
       <Text
         numberOfLines={1}
         maxFontSizeMultiplier={NAV_TEXT_MAX_SCALE}
         style={{
-          fontSize: 11,
+          fontSize: 10,
           fontFamily: focused ? 'Inter_700Bold' : 'Inter_500Medium',
-          color: focused ? colors.accent : lightMode ? marketColors.textMuted : colors.textSecondary,
+          color,
           letterSpacing: 0.3,
         }}
       >
@@ -93,7 +102,7 @@ export default function TabsLayout() {
           title: 'Home',
           href: isGuest ? null : undefined,
           tabBarAccessibilityLabel: 'Home tab',
-          tabBarIcon: ({ focused }) => <TabLabel label="Home" focused={focused} lightMode={isMarketTab} />,
+          tabBarIcon: ({ focused }) => <TabLabel label="Home" icon="home" focused={focused} lightMode={isMarketTab} />,
         }}
       />
       <Tabs.Screen
@@ -102,7 +111,7 @@ export default function TabsLayout() {
           title: isCoachView ? 'Create' : 'Training',
           href: isGuest || isCoachView ? null : undefined,
           tabBarAccessibilityLabel: 'Training tab',
-          tabBarIcon: ({ focused }) => <TabLabel label="Training" focused={focused} lightMode={isMarketTab} />,
+          tabBarIcon: ({ focused }) => <TabLabel label="Training" icon="barbell" focused={focused} lightMode={isMarketTab} />,
         }}
       />
       <Tabs.Screen
@@ -112,7 +121,7 @@ export default function TabsLayout() {
           href: isGuest || !isCoachView ? null : undefined,
           tabBarAccessibilityLabel: isCoachView ? 'Schedule tab' : 'Bookings tab',
           tabBarIcon: ({ focused }) => (
-            <TabLabel label={isCoachView ? 'Schedule' : 'Bookings'} focused={focused} lightMode={isMarketTab} />
+            <TabLabel label={isCoachView ? 'Schedule' : 'Bookings'} icon="calendar" focused={focused} lightMode={isMarketTab} />
           ),
         }}
       />
@@ -125,7 +134,7 @@ export default function TabsLayout() {
             ? `Inbox tab, ${inboxUnreadCount} unread`
             : 'Inbox tab',
           tabBarIcon: ({ focused }) => (
-            <TabLabel label="Inbox" focused={focused} badge={inboxUnreadCount} lightMode={isMarketTab} />
+            <TabLabel label="Inbox" icon="chatbubbles" focused={focused} badge={inboxUnreadCount} lightMode={isMarketTab} />
           ),
         }}
       />
@@ -134,7 +143,7 @@ export default function TabsLayout() {
         options={{
           title: 'Market',
           tabBarAccessibilityLabel: 'Market tab',
-          tabBarIcon: ({ focused }) => <TabLabel label="Market" focused={focused} lightMode={isMarketTab} />,
+          tabBarIcon: ({ focused }) => <TabLabel label="Market" icon="storefront" focused={focused} lightMode={isMarketTab} />,
         }}
       />
       <Tabs.Screen
@@ -150,7 +159,7 @@ export default function TabsLayout() {
           title: 'More',
           href: isGuest ? null : undefined,
           tabBarAccessibilityLabel: 'More tab',
-          tabBarIcon: ({ focused }) => <TabLabel label="More" focused={focused} lightMode={isMarketTab} />,
+          tabBarIcon: ({ focused }) => <TabLabel label="More" icon="menu" focused={focused} lightMode={isMarketTab} />,
         }}
       />
       </Tabs>
@@ -174,7 +183,7 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   rootMarket: { backgroundColor: marketColors.background },
-  tabLabelWrap: { minWidth: 56, minHeight: 36, alignItems: 'center', justifyContent: 'center' },
+  tabLabelWrap: { minWidth: 56, minHeight: 44, alignItems: 'center', justifyContent: 'center', gap: 2 },
   inboxBadge: {
     position: 'absolute',
     right: -2,

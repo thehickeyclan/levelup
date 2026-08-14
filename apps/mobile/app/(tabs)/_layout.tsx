@@ -157,6 +157,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="signup"
+        options={{
+          title: 'Create account',
+          headerShown: false,
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="cart"
         options={{
           title: 'Cart',

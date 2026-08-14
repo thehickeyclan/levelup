@@ -169,7 +169,7 @@ export default function MarketScreen() {
       ListHeaderComponent={
         <View style={styles.header}>
           {!session ? (
-            <Pressable style={styles.guestBanner} onPress={() => router.push('/(auth)/signup')}>
+            <Pressable style={styles.guestBanner} onPress={() => router.push('/(tabs)/signup')}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.guestBannerTitle}>New to the Guild?</Text>
                 <Text style={styles.guestBannerMeta}>

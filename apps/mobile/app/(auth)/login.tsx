@@ -98,7 +98,7 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Sign in</Text>
           )}
         </Pressable>
-        <Pressable style={styles.signupButton} onPress={() => router.push('/(auth)/signup')}>
+        <Pressable style={styles.signupButton} onPress={() => router.push('/(tabs)/signup')}>
           <Text style={styles.signupButtonText}>Create your free account</Text>
         </Pressable>
         <Pressable style={styles.guestRow} onPress={() => router.replace('/(tabs)/find')}>

@@ -8,6 +8,6 @@ export function promptSignIn(router: Router, action = 'do that') {
   Alert.alert('Join the Guild', `Create a free account or sign in to ${action}.`, [
     { text: 'Not now', style: 'cancel' },
     { text: 'Sign in', onPress: () => router.push('/(auth)/login') },
-    { text: 'Create account', onPress: () => router.push('/(auth)/signup') },
+    { text: 'Create account', onPress: () => router.push('/(tabs)/signup') },
   ]);
 }

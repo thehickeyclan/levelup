@@ -134,7 +134,13 @@ export default function SignupScreen() {
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
-          <GuildLogo size={84} variant="mark" />
+          <Pressable
+            onPress={() => router.replace('/(tabs)/join')}
+            accessibilityRole="link"
+            accessibilityLabel="Back to home"
+          >
+            <GuildLogo size={84} variant="mark" />
+          </Pressable>
           <Text style={styles.kicker}>JOIN THE GUILD</Text>
           <Text style={styles.heading}>Create your account</Text>
         </View>
@@ -226,7 +232,7 @@ export default function SignupScreen() {
           )}
         </Pressable>
 
-        <Pressable style={styles.signinRow} onPress={() => router.back()}>
+        <Pressable style={styles.signinRow} onPress={() => router.replace('/(tabs)/join')}>
           <Text style={styles.signinText}>
             Already in the Guild? <Text style={styles.signinLink}>Sign in</Text>
           </Text>

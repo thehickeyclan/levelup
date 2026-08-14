@@ -22,8 +22,8 @@ export default function Index() {
     );
   }
 
-  // Guests land straight in the browse experience (Training tab); sign-in is
-  // reachable from the Join tab and any gated action — never a login wall.
-  if (!session) return <Redirect href="/(tabs)/find" />;
+  // Signed-out users land on the Login tab: the branded sign-in / signup page
+  // with the guest tab bar (Training / Market / Login) underneath.
+  if (!session) return <Redirect href="/(tabs)/join" />;
   return <Redirect href="/(tabs)" />;
 }

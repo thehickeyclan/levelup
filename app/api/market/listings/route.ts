@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
   const brand = sp.get('brand');
   const listingType = sp.get('listing_type');
   const size = sp.get('size');
-  const requestedLimit = Number(sp.get('limit'));
+  // Number(null) is 0, so a missing param must stay NaN to hit the 50 default.
+  const requestedLimit = sp.get('limit') == null ? NaN : Number(sp.get('limit'));
   const limit = Number.isFinite(requestedLimit)
     ? Math.min(Math.max(Math.floor(requestedLimit), 1), 150)
     : 50;

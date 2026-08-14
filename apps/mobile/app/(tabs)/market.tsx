@@ -168,6 +168,19 @@ export default function MarketScreen() {
       }
       ListHeaderComponent={
         <View style={styles.header}>
+          {!session ? (
+            <Pressable style={styles.guestBanner} onPress={() => router.push('/(auth)/signup')}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.guestBannerTitle}>New to the Guild?</Text>
+                <Text style={styles.guestBannerMeta}>
+                  Create a free account to book training, buy, sell, and trade.
+                </Text>
+              </View>
+              <View style={styles.guestBannerButton}>
+                <Text style={styles.guestBannerButtonText}>Sign up</Text>
+              </View>
+            </Pressable>
+          ) : null}
           <View style={styles.marketTopRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.kicker}>MARKET</Text>
@@ -351,6 +364,26 @@ const styles = StyleSheet.create({
   list: { padding: 20, paddingBottom: 40 },
   columns: { gap: 12 },
   header: { marginBottom: 14, width: '100%' },
+  guestBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.accent,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+  guestBannerTitle: { ...typography.bodyBold, color: colors.text, fontSize: 15 },
+  guestBannerMeta: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  guestBannerButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  guestBannerButtonText: { ...typography.bodyBold, color: colors.black, fontSize: 13 },
   marketTopRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },

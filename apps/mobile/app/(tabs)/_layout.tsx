@@ -147,6 +147,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="join"
+        options={{
+          title: 'Join',
+          href: isGuest ? undefined : null,
+          tabBarAccessibilityLabel: 'Join the Guild tab',
+          tabBarIcon: ({ focused }) => <TabLabel label="Join" icon="person-add" focused={focused} lightMode={isMarketTab} />,
+        }}
+      />
+      <Tabs.Screen
         name="cart"
         options={{
           title: 'Cart',

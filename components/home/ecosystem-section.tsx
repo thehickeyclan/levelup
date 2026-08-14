@@ -4,7 +4,7 @@ import { MapPin, Users } from 'lucide-react';
 const BEATS = [
   {
     title: 'NCAA athletes and elite coaches',
-    body: 'Real programs. Real credentials. Wrestling backgrounds your kid can look up to.',
+    body: 'Real programs. Real credentials. Wrestling backgrounds young wrestlers look up to.',
     icon: 'schools' as const,
   },
   {

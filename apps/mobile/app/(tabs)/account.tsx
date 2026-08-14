@@ -36,7 +36,7 @@ export default function AccountScreen() {
       const me = await apiFetch<{ referralLink: string | null }>('/api/referrals/me');
       if (!me.referralLink) throw new Error('No invite link yet');
       await Share.share({
-        message: `My kid trains with Division I wrestlers through The Guild — small groups and privates near us. Join with my link and get $10 toward your first session: ${me.referralLink}`,
+        message: `We train with current and former NCAA athletes and elite coaches through The Guild — small groups and privates near us. Join with my link and get $10 toward your first session: ${me.referralLink}`,
       });
     } catch {
       Alert.alert('Invite link unavailable', 'Please try again in a moment.');

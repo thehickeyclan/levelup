@@ -47,7 +47,7 @@ export default function InviteScreen() {
   const shareLink = useCallback(async () => {
     if (!link) return;
     await Share.share({
-      message: `My kid trains with Division I wrestlers through The Guild — small groups and privates near us. Join with my link and get $${amount} toward your first session: ${link}`,
+      message: `We train with current and former NCAA athletes and elite coaches through The Guild — small groups and privates near us. Join with my link and get $${amount} toward your first session: ${link}`,
     });
   }, [link]);
 

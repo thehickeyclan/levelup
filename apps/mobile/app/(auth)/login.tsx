@@ -49,7 +49,8 @@ export default function LoginScreen() {
         <Text style={styles.brand}>THE GUILD</Text>
         <Text style={styles.headline}>Train with the best.</Text>
         <Text style={styles.tagline}>
-          Elite college wrestlers coaching your kid — small groups, privates, and partner sessions.
+          Current and former NCAA athletes and elite coaches — small groups, privates, and
+          partner sessions. Personal development that jumps levels.
         </Text>
       </View>
 

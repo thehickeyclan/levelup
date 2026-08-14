@@ -101,6 +101,7 @@ export default function RootLayout() {
           <Stack.Screen name="book/[athleteId]" options={{ title: 'Book private' }} />
           <Stack.Screen name="session/[id]" options={{ title: 'Session' }} />
           <Stack.Screen name="booking/[id]" options={{ title: 'Booking' }} />
+          <Stack.Screen name="invite" options={{ title: 'Invite & earn' }} />
           <Stack.Screen name="notifications" options={{ title: 'Alerts' }} />
           <Stack.Screen name="notification-settings" options={{ title: 'Notification settings' }} />
           <Stack.Screen name="thread/[id]" options={{ title: 'Messages' }} />

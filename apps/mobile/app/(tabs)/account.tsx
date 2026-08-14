@@ -134,6 +134,10 @@ export default function AccountScreen() {
             <View><Text style={styles.menuTitle}>Wallet</Text><Text style={styles.menuMeta}>Credits and payment activity</Text></View>
             <Text style={styles.menuArrow}>›</Text>
           </Pressable>
+          <Pressable style={styles.menuRow} onPress={() => router.push('/invite')}>
+            <View><Text style={styles.menuTitle}>Invite & earn $25</Text><Text style={styles.menuMeta}>Share the Guild with another wrestling family</Text></View>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
         </>
       ) : null}
 

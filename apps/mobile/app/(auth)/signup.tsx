@@ -36,6 +36,7 @@ export default function SignupScreen() {
   const [phone, setPhone] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   // Coach application extras
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [coachType, setCoachType] = useState<'ncaa_athlete' | 'club_hs_coach'>('ncaa_athlete');
@@ -99,6 +100,9 @@ export default function SignupScreen() {
             phone: phone.trim(),
             zipCode: zipCode.trim(),
             password,
+            ...(role === 'parent' && referralCode.trim()
+              ? { referralCode: referralCode.trim() }
+              : {}),
           }),
         });
       }
@@ -159,6 +163,15 @@ export default function SignupScreen() {
         <Input label="CELL PHONE" value={phone} onChangeText={setPhone} placeholder="(919) 555-1234" keyboardType="phone-pad" />
         {!isCoach ? (
           <Input label="HOME ZIP CODE" value={zipCode} onChangeText={setZipCode} placeholder="27601" keyboardType="number-pad" />
+        ) : null}
+        {role === 'parent' ? (
+          <Input
+            label="REFERRAL CODE (OPTIONAL)"
+            value={referralCode}
+            onChangeText={setReferralCode}
+            placeholder="From a friend's invite link"
+            autoCapitalize="none"
+          />
         ) : null}
 
         {isCoach ? (

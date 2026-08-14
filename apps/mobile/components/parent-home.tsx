@@ -268,6 +268,16 @@ export function ParentHomeScreen() {
         </>
       ) : null}
 
+      {!isAthlete ? (
+        <Pressable style={styles.inviteCard} onPress={() => router.push('/invite')}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inviteTitle}>Invite a wrestling family, earn $25</Text>
+            <Text style={styles.cardMeta}>They book their first session — you get $25 in credits.</Text>
+          </View>
+          <Text style={styles.inviteArrow}>›</Text>
+        </Pressable>
+      ) : null}
+
       {loading ? <ActivityIndicator color={colors.accent} style={{ marginTop: 18 }} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </ScrollView>
@@ -325,6 +335,9 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', borderRadius: 99, backgroundColor: colors.accent },
   journeyMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 9 },
   nextCard: { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 1, borderRadius: 6, padding: 16, marginTop: 22 },
+  inviteCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 1, borderRadius: 6, padding: 16, marginTop: 28, gap: 12 },
+  inviteTitle: { ...typography.bodyBold, color: colors.accent, fontSize: 15, marginBottom: 2 },
+  inviteArrow: { ...typography.bodyBold, color: colors.accent, fontSize: 22 },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 28, marginBottom: 8 },
   sectionHeaderCopy: { flex: 1, minWidth: 0 },
   sectionKicker: { ...typography.brand, color: colors.accent, fontSize: 10, marginBottom: 5 },

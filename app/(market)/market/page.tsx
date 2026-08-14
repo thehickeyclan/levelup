@@ -60,14 +60,17 @@ export default async function MarketPage({
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    // Browsing is public, but RLS hides listings from the anon client — read
+    // the shared browse data through the admin client for logged-out visitors.
+    const db = user ? supabase : createAdminClient(tenant.slug);
 
     const [fetchedListings, browseCountResult] = await Promise.all([
-      fetchMarketBrowseListings(supabase, tenant.slug, {
+      fetchMarketBrowseListings(db, tenant.slug, {
         allTypes: true,
         limit: 150,
         ...browseFilters,
       }),
-      supabase
+      db
         .from('market_listings')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_slug', tenant.slug)
@@ -78,8 +81,8 @@ export default async function MarketPage({
 
     try {
       const [collectorData, brandCatalog] = await Promise.all([
-        fetchMarketCollectorBrowseData(supabase, tenant.slug),
-        fetchMarketBrandCatalog(supabase, tenant.slug),
+        fetchMarketCollectorBrowseData(db, tenant.slug),
+        fetchMarketBrandCatalog(db, tenant.slug),
       ]);
       collectors = collectorData.collectors;
       collectionListings = collectorData.listings;

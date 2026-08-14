@@ -109,7 +109,7 @@ export default function TabsLayout() {
         name="find"
         options={{
           title: isCoachView ? 'Create' : 'Training',
-          href: isGuest || isCoachView ? null : undefined,
+          href: isCoachView ? null : undefined,
           tabBarAccessibilityLabel: 'Training tab',
           tabBarIcon: ({ focused }) => <TabLabel label="Training" icon="barbell" focused={focused} lightMode={isMarketTab} />,
         }}

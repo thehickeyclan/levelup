@@ -89,8 +89,8 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Sign in</Text>
           )}
         </Pressable>
-        <Pressable style={styles.guestRow} onPress={() => router.replace('/(tabs)/market')}>
-          <Text style={styles.guestText}>Browse Guild Market without an account →</Text>
+        <Pressable style={styles.guestRow} onPress={() => router.replace('/(tabs)/find')}>
+          <Text style={styles.guestText}>Browse coaches and the Guild Market without an account →</Text>
         </Pressable>
         <Pressable style={styles.signupRow} onPress={() => router.push('/(auth)/signup')}>
           <Text style={styles.signupText}>

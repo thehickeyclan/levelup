@@ -50,32 +50,25 @@ function unwrapOne<T>(value: T | T[] | null | undefined): T | null {
 }
 
 /** Upcoming joinable small groups (primary parent product). */
-export async function fetchOpenSmallGroupSessions(): Promise<OpenSmallGroupSession[]> {
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from('sessions')
-    .select(
-      `
-      id,
-      athlete_id,
-      scheduled_datetime,
-      focus_area,
-      current_participants,
-      max_participants,
-      price_per_participant,
-      total_price,
-      athletes(id, first_name, last_name, school, photo_url),
-      facilities(name, address)
-    `
-    )
-    .in('session_type', ['group', 'small_group'])
-    .eq('status', 'scheduled')
-    .in('join_policy', ['public', 'invite_only'])
-    .gte('scheduled_datetime', now)
-    .order('scheduled_datetime', { ascending: true })
-    .limit(40);
+type OpenSessionApiRow = {
+  id: string;
+  athlete_id: string | null;
+  scheduled_datetime: string;
+  focus_area: string | null;
+  current_participants: number | null;
+  max_participants: number | null;
+  price_per_participant: number | null;
+  total_price: number | null;
+  athletes: unknown;
+  facilities: unknown;
+};
 
-  if (error) throw new Error(error.message);
+export async function fetchOpenSmallGroupSessions(): Promise<OpenSmallGroupSession[]> {
+  // RLS hides sessions from the anon client, so browse (guest or member) goes
+  // through the public API instead of a direct table read.
+  const { sessions: data } = await apiFetch<{ sessions: OpenSessionApiRow[] }>(
+    '/api/mobile/open-sessions'
+  );
 
   return (data ?? [])
     .map((s) => {

@@ -22,6 +22,7 @@ import {
 import { apiFetch } from '@/lib/api';
 import { colors, typography } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
+import { promptSignIn } from '@/lib/guest';
 import { statusLabel } from '@/components/session-detail-view';
 import { useMobileCart } from '@/lib/mobile-cart';
 import { MIN_TOUCH_TARGET } from '@/lib/accessibility';
@@ -127,6 +128,7 @@ export default function FindScreen() {
   );
 
   const messageCoach = async (coachId: string) => {
+    if (!user) return promptSignIn(router, 'message a coach');
     if (openingMessageId) return;
     setOpeningMessageId(coachId);
     setError(null);
@@ -144,6 +146,7 @@ export default function FindScreen() {
   };
 
   const addTrainingToCart = async (sessionId: string) => {
+    if (!user) return promptSignIn(router, 'book training');
     if (addingSessionId) return;
     setAddingSessionId(sessionId);
     setError(null);
@@ -202,6 +205,7 @@ export default function FindScreen() {
           <Pressable
             style={[styles.segmentBtn, tab === 'mine' && styles.segmentBtnActive]}
             onPress={() => {
+              if (!user) return promptSignIn(router, 'see your training');
               setTab('mine');
               router.setParams({ tab: 'mine' });
             }}
@@ -280,7 +284,11 @@ export default function FindScreen() {
                   <View style={styles.sessionActions}>
                     <Pressable
                       style={styles.sessionSecondaryButton}
-                      onPress={() => router.push(`/session/${item.id}`)}
+                      onPress={() =>
+                        user
+                          ? router.push(`/session/${item.id}`)
+                          : promptSignIn(router, 'view session details')
+                      }
                     >
                       <Text style={styles.sessionSecondaryText}>View session</Text>
                     </Pressable>

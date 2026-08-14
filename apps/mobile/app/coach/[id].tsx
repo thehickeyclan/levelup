@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { API_URL } from '@/lib/config';
 import { useAuth } from '@/lib/auth';
+import { promptSignIn } from '@/lib/guest';
 import { colors, typography } from '@/lib/theme';
 
 type Coach = {
@@ -97,6 +98,7 @@ export default function CoachDetailScreen() {
   const isSelf = currentCoachId === coachId;
 
   async function messageCoach() {
+    if (!user) return promptSignIn(router, 'message a coach');
     if (openingMessage) return;
     setOpeningMessage(true);
     setMessageError(null);
@@ -124,6 +126,7 @@ export default function CoachDetailScreen() {
   }
 
   async function toggleFollow() {
+    if (!user) return promptSignIn(router, 'follow a coach');
     if (savingFollow || isSelf) return;
     setSavingFollow(true);
     setError(null);
@@ -188,7 +191,9 @@ export default function CoachDetailScreen() {
         onPress={() =>
           isCoachView
             ? router.push(`/coach-public-availability/${coach.id}`)
-            : router.push(`/book/${coach.id}`)
+            : user
+              ? router.push(`/book/${coach.id}`)
+              : promptSignIn(router, 'book a private session')
         }
       >
         <Text style={styles.buttonText}>

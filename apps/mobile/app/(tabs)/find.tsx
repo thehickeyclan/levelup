@@ -20,6 +20,7 @@ import {
   type OpenSmallGroupSession,
 } from '@/lib/parent-data';
 import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { apiFetch } from '@/lib/api';
 import { colors, typography } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
@@ -27,6 +28,10 @@ import { promptSignIn } from '@/lib/guest';
 
 type CoachMapPin = {
   pinKey: string;
+  coachId: string;
+  firstName: string;
+  lastName: string;
+  facilityName: string;
   latitude: number;
   longitude: number;
   hasOpenSession: boolean;
@@ -83,6 +88,7 @@ export default function FindScreen() {
   const [sessions, setSessions] = useState<OpenSmallGroupSession[]>([]);
   const [coaches, setCoaches] = useState<MobileCoach[]>([]);
   const [pins, setPins] = useState<CoachMapPin[]>([]);
+  const [coachView, setCoachView] = useState<'list' | 'map'>('list');
   const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [openingMessageId, setOpeningMessageId] = useState<string | null>(null);
@@ -233,6 +239,24 @@ export default function FindScreen() {
             </Text>
           </Pressable>
         </View>
+        {tab === 'request' ? (
+          <View style={styles.viewToggle}>
+            <Pressable
+              style={[styles.viewToggleBtn, coachView === 'list' && styles.viewToggleBtnActive]}
+              onPress={() => setCoachView('list')}
+            >
+              <Ionicons name="list" size={14} color={coachView === 'list' ? colors.black : colors.textSecondary} />
+              <Text style={[styles.viewToggleText, coachView === 'list' && styles.viewToggleTextActive]}>List</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.viewToggleBtn, coachView === 'map' && styles.viewToggleBtnActive]}
+              onPress={() => setCoachView('map')}
+            >
+              <Ionicons name="map-outline" size={14} color={coachView === 'map' ? colors.black : colors.textSecondary} />
+              <Text style={[styles.viewToggleText, coachView === 'map' && styles.viewToggleTextActive]}>Map</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
 
@@ -354,6 +378,32 @@ export default function FindScreen() {
             </View>
           }
         />
+      ) : tab === 'request' && coachView === 'map' ? (
+        <View style={styles.mapFull}>
+          <MapView style={StyleSheet.absoluteFill} initialRegion={NC_REGION} userInterfaceStyle="dark">
+            {pins.map((pin) => (
+              <Marker
+                key={pin.pinKey}
+                coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
+                pinColor={pin.hasOpenSession ? '#22C55E' : '#B89D60'}
+                title={`${pin.firstName} ${pin.lastName}`}
+                description={pin.hasOpenSession ? `${pin.facilityName} · open sessions` : pin.facilityName}
+                onCalloutPress={() => router.push(`/coach/${pin.coachId}`)}
+              />
+            ))}
+          </MapView>
+          <View style={styles.mapLegend}>
+            <View style={styles.mapLegendRow}>
+              <View style={[styles.mapLegendDot, { backgroundColor: '#22C55E' }]} />
+              <Text style={styles.mapLegendText}>Has open sessions</Text>
+            </View>
+            <View style={styles.mapLegendRow}>
+              <View style={[styles.mapLegendDot, { backgroundColor: '#B89D60' }]} />
+              <Text style={styles.mapLegendText}>Coach location</Text>
+            </View>
+            <Text style={styles.mapLegendHint}>Tap a pin, then the name card, to open the coach.</Text>
+          </View>
+        </View>
       ) : tab === 'request' ? (
         <FlatList
           data={visibleCoaches}
@@ -361,27 +411,6 @@ export default function FindScreen() {
           contentContainerStyle={styles.list}
           ListHeaderComponent={
             <View style={styles.coachListIntro}>
-              <Pressable style={styles.mapPreview} onPress={() => router.push('/coach-map')}>
-                <MapView
-                  style={StyleSheet.absoluteFill}
-                  initialRegion={NC_REGION}
-                  userInterfaceStyle="dark"
-                  pointerEvents="none"
-                >
-                  {pins.map((pin) => (
-                    <Marker
-                      key={pin.pinKey}
-                      coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
-                      pinColor={pin.hasOpenSession ? '#22C55E' : '#B89D60'}
-                    />
-                  ))}
-                </MapView>
-                <View style={styles.mapPreviewLabel}>
-                  <Text style={styles.mapPreviewText}>
-                    {pins.length > 0 ? `Coaches across the state — tap to explore` : 'Coach map'}
-                  </Text>
-                </View>
-              </Pressable>
               <Text style={styles.coachListIntroTitle}>
                 {isAthlete ? 'Find coaches to follow and train with' : 'Choose your coach'}
               </Text>
@@ -606,24 +635,35 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 4,
   },
-  mapPreview: {
-    height: 180,
-    overflow: 'hidden',
-    borderRadius: 6,
-    borderWidth: 1,
+  viewToggle: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  viewToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderColor: colors.border,
-    marginBottom: 14,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
-  mapPreviewLabel: {
+  viewToggleBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  viewToggleText: { ...typography.bodyMedium, color: colors.textSecondary, fontSize: 12 },
+  viewToggleTextActive: { ...typography.bodyBold, color: colors.black },
+  mapFull: { flex: 1 },
+  mapLegend: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    paddingVertical: 8,
+    left: 12,
+    bottom: 12,
+    backgroundColor: 'rgba(0,0,0,0.78)',
+    borderRadius: 8,
     paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
   },
-  mapPreviewText: { ...typography.bodySemi, color: colors.accent, fontSize: 12 },
+  mapLegendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  mapLegendDot: { width: 10, height: 10, borderRadius: 5 },
+  mapLegendText: { ...typography.bodyMedium, color: colors.text, fontSize: 12 },
+  mapLegendHint: { ...typography.body, color: colors.textMuted, fontSize: 10, marginTop: 4 },
   coachListIntroTitle: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
   coachListIntroText: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 3 },
   coachRow: {

@@ -19,10 +19,25 @@ import {
   type MobileCoach,
   type OpenSmallGroupSession,
 } from '@/lib/parent-data';
+import MapView, { Marker } from 'react-native-maps';
 import { apiFetch } from '@/lib/api';
 import { colors, typography } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
 import { promptSignIn } from '@/lib/guest';
+
+type CoachMapPin = {
+  pinKey: string;
+  latitude: number;
+  longitude: number;
+  hasOpenSession: boolean;
+};
+
+const NC_REGION = {
+  latitude: 35.5,
+  longitude: -79.4,
+  latitudeDelta: 4.4,
+  longitudeDelta: 5.6,
+};
 import { statusLabel } from '@/components/session-detail-view';
 import { useMobileCart } from '@/lib/mobile-cart';
 import { MIN_TOUCH_TARGET } from '@/lib/accessibility';
@@ -67,6 +82,7 @@ export default function FindScreen() {
   const [tab, setTab] = useState<Tab>(() => parseTab(params.tab));
   const [sessions, setSessions] = useState<OpenSmallGroupSession[]>([]);
   const [coaches, setCoaches] = useState<MobileCoach[]>([]);
+  const [pins, setPins] = useState<CoachMapPin[]>([]);
   const [bookings, setBookings] = useState<MobileBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [openingMessageId, setOpeningMessageId] = useState<string | null>(null);
@@ -76,14 +92,16 @@ export default function FindScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [groupList, coachList, bookingList] = await Promise.all([
+      const [groupList, coachList, bookingList, mapData] = await Promise.all([
         fetchOpenSmallGroupSessions(),
         fetchActiveCoaches(),
         user ? fetchFamilyBookings(user.id) : Promise.resolve([]),
+        apiFetch<{ pins: CoachMapPin[] }>('/api/map/coach-pins').catch(() => ({ pins: [] })),
       ]);
       setSessions(groupList);
       setCoaches(coachList);
       setBookings(bookingList);
+      setPins(mapData.pins ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load training');
     } finally {
@@ -343,6 +361,27 @@ export default function FindScreen() {
           contentContainerStyle={styles.list}
           ListHeaderComponent={
             <View style={styles.coachListIntro}>
+              <Pressable style={styles.mapPreview} onPress={() => router.push('/coach-map')}>
+                <MapView
+                  style={StyleSheet.absoluteFill}
+                  initialRegion={NC_REGION}
+                  userInterfaceStyle="dark"
+                  pointerEvents="none"
+                >
+                  {pins.map((pin) => (
+                    <Marker
+                      key={pin.pinKey}
+                      coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
+                      pinColor={pin.hasOpenSession ? '#22C55E' : '#B89D60'}
+                    />
+                  ))}
+                </MapView>
+                <View style={styles.mapPreviewLabel}>
+                  <Text style={styles.mapPreviewText}>
+                    {pins.length > 0 ? `Coaches across the state — tap to explore` : 'Coach map'}
+                  </Text>
+                </View>
+              </Pressable>
               <Text style={styles.coachListIntroTitle}>
                 {isAthlete ? 'Find coaches to follow and train with' : 'Choose your coach'}
               </Text>
@@ -567,6 +606,24 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 4,
   },
+  mapPreview: {
+    height: 180,
+    overflow: 'hidden',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 14,
+  },
+  mapPreviewLabel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  mapPreviewText: { ...typography.bodySemi, color: colors.accent, fontSize: 12 },
   coachListIntroTitle: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
   coachListIntroText: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 3 },
   coachRow: {

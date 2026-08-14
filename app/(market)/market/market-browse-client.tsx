@@ -31,8 +31,9 @@ function summarizeListingTypes(listings: MarketBrowseListing[]) {
   let collection = 0;
   for (const l of listings) {
     if (l.listing_type === 'sell') sell += 1;
-    else if (l.listing_type === 'trade') trade += 1;
     else if (l.listing_type === 'collection' || l.listing_type === 'vault') collection += 1;
+    // Trade counts formal trade listings plus open-to-trade pairs of any type.
+    if (l.listing_type === 'trade' || l.open_to_trade === true) trade += 1;
   }
   return { sell, trade, collection, total: listings.length };
 }
@@ -158,7 +159,8 @@ export function MarketBrowseClient({
     const result = sourceListings.filter((l) => {
       if (!isCollectors) {
         if (type === 'buy' && l.listing_type !== 'sell') return false;
-        if (type === 'trade' && l.listing_type !== 'trade') return false;
+        // Trade shows formal trade listings plus any pair whose owner is open to trades.
+        if (type === 'trade' && l.listing_type !== 'trade' && l.open_to_trade !== true) return false;
       }
       if (brand !== 'all' && l.brand !== brand) return false;
       if (color !== 'all' && !matchesBrowseColorFilter(color, l.browse_colors)) return false;

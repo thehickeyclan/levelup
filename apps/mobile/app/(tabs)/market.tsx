@@ -72,7 +72,7 @@ function marketRank(listing: Listing) {
   return 4;
 }
 
-type MarketFilter = 'available' | 'sell' | 'trade' | 'collection' | 'all';
+type MarketFilter = 'sell' | 'trade' | 'collection' | 'all';
 export default function MarketScreen() {
   const router = useRouter();
   const { session } = useAuth();
@@ -105,11 +105,9 @@ export default function MarketScreen() {
     const normalizedQuery = query.trim().toLowerCase();
     return listings
       .filter((listing) => {
-        if (filter === 'available') {
-          const type = listing.listing_type;
-          const isCollection = type === 'collection' || type === 'vault';
-          const isAvailable = type === 'sell' || type === 'trade' || (!isCollection && listing.open_to_trade === true);
-          if (!isAvailable) return false;
+        if (filter === 'trade') {
+          // Trade shows formal trade listings plus any pair whose owner is open to trades.
+          if (listing.listing_type !== 'trade' && listing.open_to_trade !== true) return false;
         } else if (filter === 'collection') {
           if (listing.listing_type !== 'collection' && listing.listing_type !== 'vault') return false;
         } else if (filter !== 'all' && listing.listing_type !== filter) {
@@ -219,7 +217,6 @@ export default function MarketScreen() {
               ['sell', 'For sale'],
               ['trade', 'Trade'],
               ['collection', 'Guild Collections'],
-              ['available', 'Available now'],
             ] as [MarketFilter, string][]).map(([value, label]) => {
               const selected = filter === value;
               return (
@@ -264,9 +261,7 @@ export default function MarketScreen() {
             </Pressable>
           ) : null}
           {gridListings.length > 0 ? (
-            <Text style={styles.sectionTitle}>
-              {filter === 'available' ? 'MORE AVAILABLE NOW' : 'MORE IN MARKET'}
-            </Text>
+            <Text style={styles.sectionTitle}>MORE IN MARKET</Text>
           ) : null}
         </View>
       }
@@ -296,14 +291,8 @@ export default function MarketScreen() {
       ListEmptyComponent={
         !featured ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>
-              {filter === 'available' ? 'No available pairs yet' : 'No matching listings'}
-            </Text>
-            <Text style={styles.emptyText}>
-              {filter === 'available'
-                ? 'Browse Guild Collections below, favorite a pair, or ask if the owner would consider offers.'
-                : 'Try another search or market filter.'}
-            </Text>
+            <Text style={styles.emptyTitle}>No matching listings</Text>
+            <Text style={styles.emptyText}>Try another search or market filter.</Text>
           </View>
         ) : null
       }

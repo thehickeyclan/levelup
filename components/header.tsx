@@ -337,14 +337,14 @@ export function Header() {
                   <NotificationBell count={bellCount} onRefresh={refreshBell} />
                 </>
               )}
+              <Link
+                href="/market"
+                className="text-accent font-semibold hover:text-accent/90 transition-colors"
+              >
+                Guild Market
+              </Link>
               {effectiveRole === 'admin' && (
                 <>
-                  <Link
-                    href="/market"
-                    className="text-accent font-semibold hover:text-accent/90 transition-colors"
-                  >
-                    Guild Market
-                  </Link>
                   <Link
                     href="/dashboard"
                     className="text-white hover:text-accent transition-colors font-medium"
@@ -496,6 +496,12 @@ export function Header() {
                 className="text-white hover:text-accent transition-colors font-medium"
               >
                 Browse Coaches
+              </Link>
+              <Link
+                href="/market"
+                className="text-accent font-semibold hover:text-accent/90 transition-colors"
+              >
+                Guild Market
               </Link>
               <Link
                 href="/coaches"

@@ -47,6 +47,9 @@ export function PublicHeaderMobile({ variant = 'public' }: Props) {
             <Link href="/training?tab=coaches" className={linkClass} onClick={close}>
               Browse Coaches
             </Link>
+            <Link href="/market" className={`${linkClass} text-accent font-semibold`} onClick={close}>
+              Guild Market
+            </Link>
             <Link
               href="/coaches"
               className={`${linkClass} text-accent font-semibold`}

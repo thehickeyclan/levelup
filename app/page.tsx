@@ -7,6 +7,7 @@ import { MeetCoachesSection } from '@/components/home/meet-coaches-section';
 import { EcosystemSection } from '@/components/home/ecosystem-section';
 import { ParentReviewsCarousel } from '@/components/home/parent-reviews-carousel';
 import { TrainingPathsSection } from '@/components/home/training-paths-section';
+import { MarketSection } from '@/components/home/market-section';
 import { TocGiveawayBanner } from '@/components/home/toc-giveaway-banner';
 import { CoachMapSection } from '@/components/map/coach-map-section';
 import { CoachApplySection } from '@/components/home/coach-apply-section';
@@ -82,6 +83,7 @@ export default async function HomePage({
       <EcosystemSection />
       <ParentReviewsCarousel reviews={homeReviews} stats={reviewStats} />
       <TrainingPathsSection />
+      <MarketSection />
       {tenant && (
         <CoachMapSection tenantSlug={tenant.slug} openSessionsRowFilter={openSessionsRowFilter} />
       )}

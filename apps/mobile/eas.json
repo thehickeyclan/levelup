@@ -19,6 +19,7 @@
     },
     "simulator": {
       "distribution": "internal",
+      "environment": "production",
       "ios": {
         "simulator": true,
         "resourceClass": "m-medium"

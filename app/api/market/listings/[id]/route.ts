@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient, createAdminClientIfAvailable } from '@/lib/supabase/admin';
-import { requireMarketUser } from '@/lib/market/auth';
+import { requireMarketUser, optionalMarketUser } from '@/lib/market/auth';
 import { getSellerProfile, sellerFallbackDisplayName } from '@/lib/market/seller';
 import { fetchMarketSellerStats } from '@/lib/market/seller-reputation';
 import { notifySellerDropFollowers } from '@/lib/market/notify-seller-drop';
@@ -99,9 +99,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const ctx = await requireMarketUser();
-    if (ctx.error) return ctx.error;
-    const { supabase, tenant, user, role } = ctx;
+    // Listing pages are public; owner tools and follow state need sign-in.
+    const ctx = await optionalMarketUser();
+    if ('error' in ctx && ctx.error) return ctx.error;
+    const { db, tenant, user } = ctx;
+    const supabase = db;
     const { id } = await params;
 
     const listing = await fetchListingForDetail(supabase, id);
@@ -109,7 +111,7 @@ export async function GET(
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
     }
 
-    const isOwner = listing.seller_id === user!.id;
+    const isOwner = user != null && listing.seller_id === user.id;
     if (
       !isOwner &&
       listing.status !== 'active' &&
@@ -117,6 +119,16 @@ export async function GET(
       listing.status !== 'traded'
     ) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+    }
+
+    let viewerIsAdmin = false;
+    if (user) {
+      const { data: viewerRow } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+      viewerIsAdmin = viewerRow?.role === 'admin';
     }
 
     const sellerId = listing.seller_id as string;
@@ -160,12 +172,12 @@ export async function GET(
       .eq('listing_id', id);
 
     let following = false;
-    if (!isOwner) {
+    if (!isOwner && user) {
       const { data: followRow } = await supabase
         .from('market_listing_follows')
         .select('id')
         .eq('listing_id', id)
-        .eq('follower_id', user!.id)
+        .eq('follower_id', user?.id ?? '00000000-0000-0000-0000-000000000000')
         .maybeSingle();
       following = Boolean(followRow);
     }
@@ -241,9 +253,10 @@ export async function GET(
       following,
       follower_count: followerCount ?? 0,
       viewer: {
-        id: user!.id,
+        id: user?.id ?? null,
+        authenticated: user != null,
         isSeller: isOwner,
-        isAdmin: role === 'admin',
+        isAdmin: viewerIsAdmin,
         can_change_mode: modeConstraints?.can_change_mode ?? true,
         mode_blocked_reason: modeConstraints?.blocked_reason ?? null,
         active_trade_id: modeConstraints?.active_trade_id ?? null,

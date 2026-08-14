@@ -31,6 +31,25 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
+  // Public market browsing, private market actions: paths below need a session.
+  // Cookie presence is a UX gate only — APIs and pages still verify real auth.
+  const marketPrivate = [
+    /^\/market\/my-listings/, /^\/market\/offers/, /^\/market\/orders/,
+    /^\/market\/checkout/, /^\/market\/trade\//, /^\/market\/listing\/new/,
+    /^\/market\/listing\/[^/]+\/(edit|checkout|offer)/,
+  ];
+  if (marketPrivate.some((re) => re.test(req.nextUrl.pathname))) {
+    const hasSession = req.cookies.getAll().some(
+      (c) => c.name.startsWith('sb-') && c.name.includes('-auth-token')
+    );
+    if (!hasSession) {
+      const login = req.nextUrl.clone();
+      login.pathname = '/login';
+      login.search = `?redirect=${encodeURIComponent(req.nextUrl.pathname)}`;
+      return NextResponse.redirect(login);
+    }
+  }
+
   // Add tenant slug + pathname for Server Components (cell-phone gate, analytics, etc.).
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-tenant-slug', tenant.slug);

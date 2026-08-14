@@ -6,11 +6,13 @@ import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/marke
 import { isMissingColumnError, withoutColorFamily, withoutColumn, isMissingPurchasePrivateListingColumnError, withoutPurchasePrivateListingFields, hasPurchasePrivateListingFields } from '@/lib/market/listing-column-fallback';
 import { normalizeMarketRarity } from '@/lib/market/rarity';
 import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
+import { optionalMarketUser } from '@/lib/market/auth';
 
 export async function GET(req: NextRequest) {
-  const ctx = await requireMarketUser();
-  if (ctx.error) return ctx.error;
-  const { supabase } = ctx;
+  // Browsing is public; seller=me and non-active statuses still require sign-in.
+  const ctx = await optionalMarketUser();
+  if ('error' in ctx && ctx.error) return ctx.error;
+  const { db: supabase, user } = ctx;
 
   const sp = req.nextUrl.searchParams;
   const sellerMe = sp.get('seller') === 'me';
@@ -37,7 +39,8 @@ export async function GET(req: NextRequest) {
     .limit(limit);
 
   if (sellerMe) {
-    q = q.eq('seller_id', ctx.user!.id);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    q = q.eq('seller_id', user.id);
     if (status) q = q.eq('status', status);
   } else {
     q = q.eq('status', 'active');

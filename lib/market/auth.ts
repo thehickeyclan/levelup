@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantFromRequestHeaders } from '@/config/tenants';
 
 export async function requireMarketUser() {
@@ -25,4 +26,21 @@ export async function requireMarketUser() {
   }
 
   return { supabase, tenant, user, role: role as string };
+}
+
+/**
+ * Public-market variant: resolves the tenant and the user if one is signed in.
+ * Anonymous readers get the admin client for reads (RLS select is
+ * authenticated-only) — callers MUST keep anon queries to public data.
+ */
+export async function optionalMarketUser() {
+  const headersList = await headers();
+  const tenant = getTenantFromRequestHeaders(headersList);
+  if (!tenant) {
+    return { error: NextResponse.json({ error: 'Tenant not found' }, { status: 404 }) } as const;
+  }
+  const supabase = await createClient(tenant.slug);
+  const { data: { user } } = await supabase.auth.getUser();
+  const db = user ? supabase : createAdminClient(tenant.slug);
+  return { tenant, user: user ?? null, supabase, db } as const;
 }

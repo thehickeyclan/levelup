@@ -55,7 +55,8 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const isMarketTab = pathname === '/market';
 
-  if (!loading && !session) return <Redirect href="/(auth)/login" />;
+  // Guests may browse the Market tab; every other tab requires an account.
+  const isGuest = !loading && !session;
 
   const showFloatingCart = !isCoachView && cartCount > 0 && !pathname.endsWith('/cart');
 
@@ -90,6 +91,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
+          href: isGuest ? null : undefined,
           tabBarAccessibilityLabel: 'Home tab',
           tabBarIcon: ({ focused }) => <TabLabel label="Home" focused={focused} lightMode={isMarketTab} />,
         }}
@@ -98,7 +100,7 @@ export default function TabsLayout() {
         name="find"
         options={{
           title: isCoachView ? 'Create' : 'Training',
-          href: isCoachView ? null : undefined,
+          href: isGuest || isCoachView ? null : undefined,
           tabBarAccessibilityLabel: 'Training tab',
           tabBarIcon: ({ focused }) => <TabLabel label="Training" focused={focused} lightMode={isMarketTab} />,
         }}
@@ -107,7 +109,7 @@ export default function TabsLayout() {
         name="bookings"
         options={{
           title: isCoachView ? 'Schedule' : 'Bookings',
-          href: isCoachView ? undefined : null,
+          href: isGuest || !isCoachView ? null : undefined,
           tabBarAccessibilityLabel: isCoachView ? 'Schedule tab' : 'Bookings tab',
           tabBarIcon: ({ focused }) => (
             <TabLabel label={isCoachView ? 'Schedule' : 'Bookings'} focused={focused} lightMode={isMarketTab} />
@@ -118,6 +120,7 @@ export default function TabsLayout() {
         name="inbox"
         options={{
           title: 'Inbox',
+          href: isGuest ? null : undefined,
           tabBarAccessibilityLabel: inboxUnreadCount > 0
             ? `Inbox tab, ${inboxUnreadCount} unread`
             : 'Inbox tab',
@@ -145,6 +148,7 @@ export default function TabsLayout() {
         name="account"
         options={{
           title: 'More',
+          href: isGuest ? null : undefined,
           tabBarAccessibilityLabel: 'More tab',
           tabBarIcon: ({ focused }) => <TabLabel label="More" focused={focused} lightMode={isMarketTab} />,
         }}

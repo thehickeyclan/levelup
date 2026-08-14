@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { promptSignIn } from '@/lib/guest';
 import { marketColors as colors, typography } from '@/lib/theme';
 
 type Listing = {
@@ -73,6 +75,7 @@ function marketRank(listing: Listing) {
 type MarketFilter = 'available' | 'sell' | 'trade' | 'collection' | 'all';
 export default function MarketScreen() {
   const router = useRouter();
+  const { session } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -173,13 +176,13 @@ export default function MarketScreen() {
           </View>
           <Text style={styles.sub}>Buy, trade, favorite shoes, and manage your own collection.</Text>
           <View style={styles.actionRow}>
-            <Pressable style={styles.primaryAction} onPress={() => router.push('/my-market')}>
+            <Pressable style={styles.primaryAction} onPress={() => (session ? router.push('/my-market') : promptSignIn(router, 'manage your shoe room'))}>
               <Text style={styles.primaryActionText}>My Market</Text>
               <Text style={styles.actionHint}>Favorites · collection · sales</Text>
             </Pressable>
             <Pressable
               style={styles.secondaryAction}
-              onPress={() => router.push({ pathname: '/add-shoe', params: { mode: 'collection' } })}
+              onPress={() => (session ? router.push({ pathname: '/add-shoe', params: { mode: 'collection' } }) : promptSignIn(router, 'add your shoes'))}
             >
               <Text style={styles.secondaryActionText}>+ Add shoe</Text>
               <Text style={styles.actionHint}>Sell or showcase</Text>

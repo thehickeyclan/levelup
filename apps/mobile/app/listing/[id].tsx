@@ -16,6 +16,8 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { promptSignIn } from '@/lib/guest';
 import { reportContent } from '@/lib/moderation';
 import { marketColors as colors, typography } from '@/lib/theme';
 
@@ -54,6 +56,7 @@ type Seller = {
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { session } = useAuth();
   const { width } = useWindowDimensions();
   const [listing, setListing] = useState<Listing | null>(null);
   const [seller, setSeller] = useState<Seller | null>(null);
@@ -144,6 +147,7 @@ export default function ListingDetailScreen() {
         : 'Make offer';
 
   async function toggleFollow() {
+    if (!session) return promptSignIn(router, 'favorite this pair');
     if (savingFollow) return;
     setSavingFollow(true);
     setError(null);
@@ -158,6 +162,7 @@ export default function ListingDetailScreen() {
   }
 
   async function askSeller() {
+    if (!session) return promptSignIn(router, 'message the seller');
     const text = question.trim();
     if (!text || sendingQuestion) return;
     setSendingQuestion(true);
@@ -181,6 +186,7 @@ export default function ListingDetailScreen() {
   }
 
   async function buyNow() {
+    if (!session) return promptSignIn(router, 'buy this pair');
     if (checkingOut) return;
     setCheckingOut(true);
     setError(null);
@@ -359,7 +365,7 @@ export default function ListingDetailScreen() {
                     styles.actionButton,
                     canBuy ? styles.actionButtonSecondary : styles.actionButtonPrimary,
                   ]}
-                  onPress={() => router.push(`/make-offer/${id}`)}
+                  onPress={() => (session ? router.push(`/make-offer/${id}`) : promptSignIn(router, 'make an offer'))}
                 >
                   <Text
                     style={[

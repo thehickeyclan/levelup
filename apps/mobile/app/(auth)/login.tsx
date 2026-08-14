@@ -88,6 +88,9 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Sign in</Text>
           )}
         </Pressable>
+        <Pressable style={styles.guestRow} onPress={() => router.replace('/(tabs)/market')}>
+          <Text style={styles.guestText}>Browse Guild Market without an account →</Text>
+        </Pressable>
         <Pressable style={styles.signupRow} onPress={() => router.push('/(auth)/signup')}>
           <Text style={styles.signupText}>
             New to the Guild? <Text style={styles.signupLink}>Create your account</Text>
@@ -99,6 +102,8 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  guestRow: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  guestText: { ...typography.bodyMedium, color: colors.textMuted, fontSize: 13 },
   tagline: { ...typography.body, color: colors.textMuted, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 10, maxWidth: 300 },
   signupRow: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   signupText: { ...typography.body, color: colors.textMuted, fontSize: 14 },

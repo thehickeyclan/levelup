@@ -9,6 +9,57 @@ import { registerForPushNotifications } from '@/lib/push';
 import { colors, typography } from '@/lib/theme';
 import { useMobileCart } from '@/lib/mobile-cart';
 
+type IconName = keyof typeof Ionicons.glyphMap;
+
+/** Ocean-style grouped settings: section label above a rounded card of rows. */
+function SectionLabel({ children }: { children: string }) {
+  return <Text style={styles.sectionLabel}>{children}</Text>;
+}
+
+function Group({ children }: { children: React.ReactNode }) {
+  return <View style={styles.group}>{children}</View>;
+}
+
+function Row({
+  icon,
+  title,
+  meta,
+  onPress,
+  last = false,
+  destructive = false,
+  loading = false,
+  chevron = true,
+}: {
+  icon: IconName;
+  title: string;
+  meta?: string;
+  onPress: () => void;
+  last?: boolean;
+  destructive?: boolean;
+  loading?: boolean;
+  chevron?: boolean;
+}) {
+  return (
+    <Pressable style={[styles.row, !last && styles.rowDivider]} onPress={onPress} disabled={loading}>
+      <Ionicons
+        name={icon}
+        size={20}
+        color={destructive ? colors.danger : colors.accent}
+        style={styles.rowIcon}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowTitle, destructive && { color: colors.danger }]}>{title}</Text>
+        {meta ? <Text style={styles.rowMeta}>{meta}</Text> : null}
+      </View>
+      {loading ? (
+        <ActivityIndicator color={colors.accent} />
+      ) : chevron ? (
+        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+      ) : null}
+    </Pressable>
+  );
+}
+
 export default function AccountScreen() {
   const {
     user,
@@ -100,26 +151,31 @@ export default function AccountScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <GuildLogo size={72} variant="mark" />
-      <Text style={styles.kicker}>MORE</Text>
-      <Text style={styles.heading}>Account & activity</Text>
-      <Text style={styles.meta}>{user?.email}</Text>
-      <Text style={styles.meta}>
-        Role: {role ?? '…'}{previewAthleteView ? ' · previewing athlete' : previewParentView ? ' · previewing parent' : previewCoachView ? ' · previewing coach' : ''}
-      </Text>
+      <View style={styles.header}>
+        <GuildLogo size={64} variant="mark" />
+        <Text style={styles.heading}>Account</Text>
+        <Text style={styles.meta}>{user?.email}</Text>
+        <Text style={styles.metaSmall}>
+          {role ?? '…'}
+          {previewAthleteView ? ' · previewing athlete' : previewParentView ? ' · previewing parent' : previewCoachView ? ' · previewing coach' : ''}
+        </Text>
+      </View>
+
       {role === 'admin' && isCoachView ? (
-        <Pressable style={styles.menuRow} onPress={() => router.push('/select-coach')}>
-          <View>
-            <Text style={styles.menuTitle}>Coach being previewed</Text>
-            <Text style={styles.menuMeta}>{selectedCoachName ?? 'Choose a coach'}</Text>
-          </View>
-          <Text style={styles.menuArrow}>›</Text>
-        </Pressable>
+        <Group>
+          <Row
+            icon="swap-horizontal-outline"
+            title="Coach being previewed"
+            meta={selectedCoachName ?? 'Choose a coach'}
+            onPress={() => router.push('/select-coach')}
+            last
+          />
+        </Group>
       ) : null}
 
       {!isCoachView ? (
         <>
-          <Text style={styles.referKicker}>REFER & EARN</Text>
+          <SectionLabel>REFER & EARN</SectionLabel>
           <Pressable style={styles.referCardFilled} onPress={() => router.push('/invite')}>
             <Ionicons name="gift-outline" size={26} color={colors.black} />
             <View style={{ flex: 1 }}>
@@ -143,56 +199,53 @@ export default function AccountScreen() {
             </View>
           </Pressable>
 
-          <Pressable style={styles.menuRow} onPress={() => router.push('/(tabs)/cart')}>
-            <View>
-              <Text style={styles.menuTitle}>Training Cart{cartCount > 0 ? ` (${cartCount})` : ''}</Text>
-              <Text style={styles.menuMeta}>Review training spots and checkout</Text>
-            </View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable
-            style={styles.menuRow}
-            onPress={() => router.push({ pathname: '/(tabs)/bookings', params: { view: 'past' } })}
-          >
-            <View>
-              <Text style={styles.menuTitle}>Training history</Text>
-              <Text style={styles.menuMeta}>Past sessions and reviews</Text>
-            </View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/my-wrestlers')}>
-            <View><Text style={styles.menuTitle}>My wrestlers</Text><Text style={styles.menuMeta}>Add kids, photos, and profile details</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/activity')}>
-            <View><Text style={styles.menuTitle}>Activity & photos</Text><Text style={styles.menuMeta}>See the feed and share session photos</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/my-coaches')}>
-            <View><Text style={styles.menuTitle}>My coaches</Text><Text style={styles.menuMeta}>Coaches you follow and train with</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/wallet')}>
-            <View><Text style={styles.menuTitle}>Wallet</Text><Text style={styles.menuMeta}>Credits and payment activity</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
+          <SectionLabel>TRAINING</SectionLabel>
+          <Group>
+            <Row
+              icon="cart-outline"
+              title={`Training Cart${cartCount > 0 ? ` (${cartCount})` : ''}`}
+              meta="Review training spots and checkout"
+              onPress={() => router.push('/(tabs)/cart')}
+            />
+            <Row
+              icon="time-outline"
+              title="Training history"
+              meta="Past sessions and reviews"
+              onPress={() => router.push({ pathname: '/(tabs)/bookings', params: { view: 'past' } })}
+            />
+            <Row
+              icon="people-outline"
+              title="My wrestlers"
+              meta="Add kids, photos, and profile details"
+              onPress={() => router.push('/my-wrestlers')}
+            />
+            <Row
+              icon="school-outline"
+              title="My coaches"
+              meta="Coaches you follow and train with"
+              onPress={() => router.push('/my-coaches')}
+            />
+            <Row
+              icon="images-outline"
+              title="Activity & photos"
+              meta="See the feed and share session photos"
+              onPress={() => router.push('/activity')}
+              last
+            />
+          </Group>
+
+          <SectionLabel>PAYMENTS AND BILLING</SectionLabel>
+          <Group>
+            <Row
+              icon="wallet-outline"
+              title="Wallet"
+              meta="Credits and payment activity"
+              onPress={() => router.push('/wallet')}
+              last
+            />
+          </Group>
         </>
       ) : null}
-
-      <Pressable style={styles.menuRow} onPress={() => router.push('/notifications')}>
-        <View>
-          <Text style={styles.menuTitle}>Alerts</Text>
-          <Text style={styles.menuMeta}>Bookings and session updates</Text>
-        </View>
-        <Text style={styles.menuArrow}>›</Text>
-      </Pressable>
-      <Pressable style={styles.menuRow} onPress={() => router.push('/notification-settings')}>
-        <View>
-          <Text style={styles.menuTitle}>Notification settings</Text>
-          <Text style={styles.menuMeta}>Choose app, push, and SMS alerts</Text>
-        </View>
-        <Text style={styles.menuArrow}>›</Text>
-      </Pressable>
 
       {isCoachView ? (
         <>
@@ -202,133 +255,184 @@ export default function AccountScreen() {
               <Text style={styles.shareTitle}>Share my coaching page</Text>
               <Text style={styles.shareMeta}>QR + one link for your profile and every upcoming session</Text>
             </View>
-            <Text style={styles.shareArrow}>›</Text>
+            <Ionicons name="chevron-forward" size={22} color={colors.black} />
           </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-directory')}>
-            <View><Text style={styles.menuTitle}>Coach Directory</Text><Text style={styles.menuMeta}>Profiles, referrals, messaging, and Coach Playbook</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-athletes')}>
-            <View><Text style={styles.menuTitle}>My Athletes</Text><Text style={styles.menuMeta}>History, weight, skill, milestones, and messaging</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-playbook')}>
-            <View><Text style={styles.menuTitle}>Coach Playbook</Text><Text style={styles.menuMeta}>Private 60-second tips from Guild coaches</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-earnings')}>
-            <View><Text style={styles.menuTitle}>Earnings</Text><Text style={styles.menuMeta}>Week, month, all time, and payouts</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/activity')}>
-            <View><Text style={styles.menuTitle}>Activity</Text><Text style={styles.menuMeta}>Share photos and see Guild activity</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-availability-custom')}>
-            <View><Text style={styles.menuTitle}>Calendar & availability</Text><Text style={styles.menuMeta}>Keep at least one week open for families</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-locations')}>
-            <View><Text style={styles.menuTitle}>Training locations</Text><Text style={styles.menuMeta}>Add gyms, schools, and wrestling rooms</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          <Pressable style={styles.menuRow} onPress={() => router.push('/coach-profile-edit')}>
-            <View><Text style={styles.menuTitle}>Coach profile</Text><Text style={styles.menuMeta}>Photo, bio, schools, and training locations</Text></View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
+
+          <SectionLabel>COACHING</SectionLabel>
+          <Group>
+            <Row
+              icon="people-outline"
+              title="Coach Directory"
+              meta="Profiles, referrals, messaging, and Coach Playbook"
+              onPress={() => router.push('/coach-directory')}
+            />
+            <Row
+              icon="body-outline"
+              title="My Athletes"
+              meta="History, weight, skill, milestones, and messaging"
+              onPress={() => router.push('/coach-athletes')}
+            />
+            <Row
+              icon="book-outline"
+              title="Coach Playbook"
+              meta="Private 60-second tips from Guild coaches"
+              onPress={() => router.push('/coach-playbook')}
+            />
+            <Row
+              icon="cash-outline"
+              title="Earnings"
+              meta="Week, month, all time, and payouts"
+              onPress={() => router.push('/coach-earnings')}
+            />
+            <Row
+              icon="images-outline"
+              title="Activity"
+              meta="Share photos and see Guild activity"
+              onPress={() => router.push('/activity')}
+              last
+            />
+          </Group>
+
+          <SectionLabel>SCHEDULE AND PROFILE</SectionLabel>
+          <Group>
+            <Row
+              icon="calendar-outline"
+              title="Calendar & availability"
+              meta="Keep at least one week open for families"
+              onPress={() => router.push('/coach-availability-custom')}
+            />
+            <Row
+              icon="location-outline"
+              title="Training locations"
+              meta="Add gyms, schools, and wrestling rooms"
+              onPress={() => router.push('/coach-locations')}
+            />
+            <Row
+              icon="person-circle-outline"
+              title="Coach profile"
+              meta="Photo, bio, schools, and training locations"
+              onPress={() => router.push('/coach-profile-edit')}
+              last
+            />
+          </Group>
         </>
       ) : null}
 
-      {!isRealCoach ? (
-        <>
-          <Pressable
-            style={previewCoachView ? styles.button : styles.buttonSecondary}
+      <SectionLabel>PREFERENCES AND NOTIFICATIONS</SectionLabel>
+      <Group>
+        <Row
+          icon="notifications-outline"
+          title="Alerts"
+          meta="Bookings and session updates"
+          onPress={() => router.push('/notifications')}
+        />
+        <Row
+          icon="options-outline"
+          title="Notification settings"
+          meta="Choose app, push, and SMS alerts"
+          onPress={() => router.push('/notification-settings')}
+        />
+        <Row
+          icon="phone-portrait-outline"
+          title="Enable push alerts"
+          meta={pushMsg ?? 'Turn on booking and message notifications'}
+          onPress={() => void onEnablePush()}
+          loading={busy}
+          chevron={false}
+          last
+        />
+      </Group>
+
+      <SectionLabel>VIEW AS</SectionLabel>
+      <Group>
+        {!isRealCoach ? (
+          <Row
+            icon="swap-horizontal-outline"
+            title={previewCoachView ? 'Exit coach preview' : 'Preview coach view'}
             onPress={() => {
               setPreviewCoachView(!previewCoachView);
               router.replace('/(tabs)');
             }}
-          >
-            <Text style={previewCoachView ? styles.buttonText : styles.buttonSecondaryText}>
-              {previewCoachView ? 'Exit coach preview' : 'Preview coach view'}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={previewAthleteView ? styles.button : styles.buttonSecondary}
-            onPress={() => {
-              const enteringAthleteView = !previewAthleteView;
-              setPreviewAthleteView(enteringAthleteView);
-              router.replace('/(tabs)');
-            }}
-          >
-            <Text style={previewAthleteView ? styles.buttonText : styles.buttonSecondaryText}>
-              {previewAthleteView ? 'Exit athlete preview' : 'Preview athlete view'}
-            </Text>
-          </Pressable>
-        </>
-      ) : (
-        <>
-          <Pressable
-            style={previewParentView ? styles.button : styles.buttonSecondary}
-            onPress={() => {
-              const enteringParentView = !previewParentView;
-              setPreviewParentView(enteringParentView);
-              router.replace('/(tabs)');
-            }}
-          >
-            <Text style={previewParentView ? styles.buttonText : styles.buttonSecondaryText}>
-              {previewParentView ? 'Exit parent preview' : 'Preview parent view'}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={previewAthleteView ? styles.button : styles.buttonSecondary}
-            onPress={() => {
-              const enteringAthleteView = !previewAthleteView;
-              setPreviewAthleteView(enteringAthleteView);
-              router.replace('/(tabs)');
-            }}
-          >
-            <Text style={previewAthleteView ? styles.buttonText : styles.buttonSecondaryText}>
-              {previewAthleteView ? 'Exit athlete preview' : 'Preview athlete view'}
-            </Text>
-          </Pressable>
-        </>
-      )}
-
-      <Pressable style={styles.buttonSecondary} onPress={() => void onEnablePush()} disabled={busy}>
-        {busy ? (
-          <ActivityIndicator color={colors.accent} />
+          />
         ) : (
-          <Text style={styles.buttonSecondaryText}>Enable push alerts</Text>
+          <Row
+            icon="swap-horizontal-outline"
+            title={previewParentView ? 'Exit parent preview' : 'Preview parent view'}
+            onPress={() => {
+              setPreviewParentView(!previewParentView);
+              router.replace('/(tabs)');
+            }}
+          />
         )}
-      </Pressable>
-      {pushMsg ? <Text style={styles.meta}>{pushMsg}</Text> : null}
+        <Row
+          icon="swap-vertical-outline"
+          title={previewAthleteView ? 'Exit athlete preview' : 'Preview athlete view'}
+          onPress={() => {
+            setPreviewAthleteView(!previewAthleteView);
+            router.replace('/(tabs)');
+          }}
+          last
+        />
+      </Group>
 
-      <Pressable style={styles.danger} onPress={() => void onSignOut()} disabled={busy}>
-        <Text style={styles.dangerText}>Sign out</Text>
-      </Pressable>
-      <Pressable style={styles.deleteAccount} onPress={onDeleteAccount} disabled={busy}>
-        <Text style={styles.deleteAccountText}>Delete account</Text>
-      </Pressable>
+      <SectionLabel>ACCOUNT</SectionLabel>
+      <Group>
+        <Row
+          icon="log-out-outline"
+          title="Sign out"
+          onPress={() => void onSignOut()}
+          loading={busy}
+          chevron={false}
+          destructive
+        />
+        <Row
+          icon="trash-outline"
+          title="Delete account"
+          meta="Permanently remove account and data"
+          onPress={onDeleteAccount}
+          chevron={false}
+          destructive
+          last
+        />
+      </Group>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, padding: 20, paddingBottom: 48, gap: 12, backgroundColor: colors.background },
-  kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginTop: 8 },
-  heading: { ...typography.display, fontSize: 28, color: colors.text },
-  meta: { ...typography.body, color: colors.textSecondary, fontSize: 14 },
-  menuRow: {
-    minHeight: 64,
+  container: { flexGrow: 1, padding: 20, paddingBottom: 48, backgroundColor: colors.background },
+  header: { alignItems: 'center', marginBottom: 6 },
+  heading: { ...typography.display, fontSize: 30, color: colors.text, marginTop: 10 },
+  meta: { ...typography.body, color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+  metaSmall: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
+  sectionLabel: {
+    ...typography.brand,
+    color: colors.accent,
+    fontSize: 11,
+    letterSpacing: 1.6,
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  group: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  row: {
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 12,
   },
-  referKicker: { ...typography.brand, color: colors.accent, fontSize: 11, alignSelf: 'flex-start', marginTop: 22, marginBottom: 10 },
+  rowDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  rowIcon: { width: 24, textAlign: 'center' },
+  rowTitle: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
+  rowMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 2 },
   referCardFilled: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,54 +454,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     padding: 16,
-    marginBottom: 6,
   },
   referOutlineTitle: { ...typography.bodyBold, color: colors.text, fontSize: 14, letterSpacing: 0.5 },
   referOutlineMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 3 },
-  menuTitle: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
-  menuMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 3 },
-  menuArrow: { ...typography.body, color: colors.accent, fontSize: 26 },
   shareRow: {
     minHeight: 92,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.accent,
-    borderRadius: 6,
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
+    marginTop: 18,
   },
   shareCopy: { flex: 1, paddingRight: 12 },
   shareEyebrow: { ...typography.brand, color: colors.black, fontSize: 8 },
   shareTitle: { ...typography.bodyBold, color: colors.black, fontSize: 18, marginTop: 3 },
   shareMeta: { ...typography.body, color: colors.black, opacity: 0.75, fontSize: 12, marginTop: 3 },
-  shareArrow: { ...typography.body, color: colors.black, fontSize: 34 },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: 4,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-  buttonText: { ...typography.bodyBold, color: colors.black },
-  buttonSecondary: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 4,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  buttonSecondaryText: { ...typography.bodyBold, color: colors.accent },
-  danger: {
-    marginTop: 24,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dangerText: { ...typography.bodyBold, color: colors.danger },
-  deleteAccount: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 2, marginBottom: 24 },
-  deleteAccountText: { ...typography.bodyMedium, color: colors.textSecondary, fontSize: 13, textDecorationLine: 'underline' },
 });

@@ -16,8 +16,9 @@ function typeBadge(listing: MarketBrowseListing): {
 } {
   if (isCollectionListingType(listing.listing_type)) {
     const offersOpen = collectionAcceptsOffers(listing);
+    // Gold + explicit label when the owner takes offers; quiet outline for display-only.
     return {
-      label: 'Collection',
+      label: offersOpen ? 'Collection · Offers OK' : 'Collection',
       className: offersOpen
         ? 'bg-accent/90 text-accent-foreground'
         : 'bg-card border border-border text-muted-foreground',

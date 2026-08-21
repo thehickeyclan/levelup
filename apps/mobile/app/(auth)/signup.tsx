@@ -42,7 +42,9 @@ export default function SignupScreen() {
   const [coachType, setCoachType] = useState<'ncaa_athlete' | 'club_hs_coach'>('ncaa_athlete');
   const [school, setSchool] = useState('');
   const [bio, setBio] = useState('');
+  const [payoutMethod, setPayoutMethod] = useState<'venmo' | 'zelle'>('venmo');
   const [venmoHandle, setVenmoHandle] = useState('');
+  const [zelleContact, setZelleContact] = useState('');
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +70,12 @@ export default function SignupScreen() {
       }
       if (!school.trim()) return setError('Enter your school or club.');
       if (!bio.trim()) return setError('Add a short coaching bio.');
-      if (!venmoHandle.trim()) return setError('Enter your Venmo handle for session payouts.');
+      if (payoutMethod === 'venmo' && !venmoHandle.trim()) {
+        return setError('Enter your Venmo handle for session payouts.');
+      }
+      if (payoutMethod === 'zelle' && !zelleContact.trim()) {
+        return setError('Enter the email or phone number connected to Zelle.');
+      }
     }
 
     setSubmitting(true);
@@ -85,7 +92,9 @@ export default function SignupScreen() {
             coachType,
             school: school.trim(),
             bio: bio.trim(),
-            venmoHandle: venmoHandle.trim(),
+            payoutMethod,
+            venmoHandle: payoutMethod === 'venmo' ? venmoHandle.trim() : null,
+            zelleContact: payoutMethod === 'zelle' ? zelleContact.trim() : null,
             password,
           }),
         });
@@ -200,7 +209,32 @@ export default function SignupScreen() {
             </View>
             <Input label="SCHOOL / CLUB" value={school} onChangeText={setSchool} placeholder="NC State" />
             <Input label="COACHING BIO" value={bio} onChangeText={setBio} placeholder="Credentials, style, what families should know" multiline />
-            <Input label="VENMO HANDLE (SESSION PAYOUTS)" value={venmoHandle} onChangeText={setVenmoHandle} placeholder="@your-venmo" autoCapitalize="none" />
+            <Text style={styles.label}>SESSION PAYOUT METHOD</Text>
+            <View style={styles.roleRow}>
+              <Pressable
+                style={[styles.roleChip, payoutMethod === 'venmo' && styles.roleChipActive]}
+                onPress={() => setPayoutMethod('venmo')}
+              >
+                <Text style={[styles.roleChipText, payoutMethod === 'venmo' && styles.roleChipTextActive]}>Venmo</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.roleChip, payoutMethod === 'zelle' && styles.roleChipActive]}
+                onPress={() => setPayoutMethod('zelle')}
+              >
+                <Text style={[styles.roleChipText, payoutMethod === 'zelle' && styles.roleChipTextActive]}>Zelle</Text>
+              </Pressable>
+            </View>
+            {payoutMethod === 'venmo' ? (
+              <Input label="VENMO HANDLE" value={venmoHandle} onChangeText={setVenmoHandle} placeholder="@your-venmo" autoCapitalize="none" />
+            ) : (
+              <Input
+                label="ZELLE EMAIL OR PHONE"
+                value={zelleContact}
+                onChangeText={setZelleContact}
+                placeholder="you@email.com or (919) 555-1234"
+                autoCapitalize="none"
+              />
+            )}
           </>
         ) : null}
 

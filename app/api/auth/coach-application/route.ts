@@ -47,6 +47,10 @@ export async function POST(req: NextRequest) {
       zelleContact,
       password,
     } = body;
+    // Older native builds collected only a Venmo handle and did not send the
+    // payoutMethod field. Infer it so those installed builds can still submit
+    // applications while newer builds expose an explicit Venmo/Zelle choice.
+    const resolvedPayoutMethod = payoutMethod || (venmoHandle ? 'venmo' : zelleContact ? 'zelle' : null);
 
     // Validate required fields
     if (!firstName || !lastName || !email || !phone || !dateOfBirth || !coachType || !school || !bio || !password) {
@@ -61,15 +65,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid coach type' }, { status: 400 });
     }
 
-    if (!['venmo', 'zelle'].includes(payoutMethod)) {
+    if (!resolvedPayoutMethod || !['venmo', 'zelle'].includes(resolvedPayoutMethod)) {
       return NextResponse.json({ error: 'Invalid payout method' }, { status: 400 });
     }
 
-    if (payoutMethod === 'venmo' && !venmoHandle) {
+    if (resolvedPayoutMethod === 'venmo' && !venmoHandle) {
       return NextResponse.json({ error: 'Venmo handle is required' }, { status: 400 });
     }
 
-    if (payoutMethod === 'zelle' && !zelleContact) {
+    if (resolvedPayoutMethod === 'zelle' && !zelleContact) {
       return NextResponse.json({ error: 'Zelle contact is required' }, { status: 400 });
     }
 
@@ -135,7 +139,7 @@ export async function POST(req: NextRequest) {
         weightClass: weightClass || null,
         bio,
         dateOfBirth,
-        payoutMethod,
+        payoutMethod: resolvedPayoutMethod,
         venmoHandle: venmoHandle ?? null,
         zelleContact: zelleContact ?? null,
         hasSafeSport: bodyBool(hasSafeSport),

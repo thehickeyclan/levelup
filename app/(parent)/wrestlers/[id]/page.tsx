@@ -72,7 +72,9 @@ export default async function YouthWrestlerProfilePage({
   let parents: { parentId: string; email: string; isPrimary: boolean }[] = [];
   const { data: links } = await supabase.from('youth_wrestler_parents').select('parent_id').eq('youth_wrestler_id', id);
   const linkedIds = (links ?? []).map((r) => r.parent_id);
-  const allParentIds = [youthWrestler.parent_id, ...linkedIds];
+  // Older/admin-created data can contain the primary parent in the additional
+  // links table. Show each account once and keep the primary designation.
+  const allParentIds = [...new Set([youthWrestler.parent_id, ...linkedIds].filter(Boolean))];
   if (allParentIds.length > 0) {
     const { data: users } = await supabase.from('users').select('id, email').in('id', allParentIds);
     const byId = new Map((users ?? []).map((u) => [u.id, u]));
@@ -419,4 +421,3 @@ export default async function YouthWrestlerProfilePage({
     </div>
   );
 }
-

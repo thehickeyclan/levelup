@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { getWrestlersForParentUser } from '@/lib/wrestlers-for-parent';
 
@@ -20,7 +21,11 @@ export async function GET() {
   }
 
   try {
-    const rows = await getWrestlersForParentUser(supabase, user.id);
+    // Authenticate with the caller's session, then resolve family links with the
+    // service client. This avoids linked-parent rows disappearing behind RLS
+    // while still scoping every query to the authenticated user's id.
+    const admin = createAdminClient(tenant.slug);
+    const rows = await getWrestlersForParentUser(admin, user.id);
     const wrestlers = rows.map(({ id, first_name, last_name }) => ({ id, first_name, last_name }));
     return NextResponse.json({ wrestlers });
   } catch (e) {

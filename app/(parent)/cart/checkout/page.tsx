@@ -42,7 +42,7 @@ export default async function CartCheckoutPage() {
     await ensureAutoFamilyDiscountForParent(admin, user.id, user.email);
   }
 
-  const wrestlerRows = await getWrestlersForParentUser(supabase, user.id);
+  const wrestlerRows = await getWrestlersForParentUser(admin, user.id);
   const wrestlers = wrestlerRows.map((w) => ({
     id: w.id,
     first_name: w.first_name,

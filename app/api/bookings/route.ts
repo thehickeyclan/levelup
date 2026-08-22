@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
         );
       }
       if (roleBooking === 'parent' || roleBooking === 'admin') {
-        const ok = await verifyWrestlerBelongsToParentOrSelf(supabase, user.id, ywId);
+        const ok = await verifyWrestlerBelongsToParentOrSelf(admin, user.id, ywId);
         if (!ok) {
           return NextResponse.json({ error: 'One or more athletes are not on your account.' }, { status: 403 });
         }

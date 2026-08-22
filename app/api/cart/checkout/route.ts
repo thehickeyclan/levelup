@@ -12,6 +12,7 @@ import { ensureAutoFamilyDiscountForParent } from '@/lib/family-auto-discount';
 import { checkoutAllowSavedAccountPercent, resolveCheckoutPercentOff } from '@/lib/checkout-promo';
 import { createNotification } from '@/lib/notifications';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
+import { notifyAthleteFollowersJoinedSession } from '@/lib/notify-athlete-followers';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
 import {
   buildGuildCheckoutMetadata,
@@ -89,6 +90,7 @@ export async function POST(req: NextRequest) {
     }
 
     const uniqueWrestlerIds = [...new Set(lines.map((l) => l.wrestlerId))];
+    const admin = createAdminClient(tenant.slug);
     for (const wid of uniqueWrestlerIds) {
       if (role === 'youth_wrestler' && wid !== user.id) {
         return NextResponse.json(
@@ -96,13 +98,12 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
-      const ok = await verifyWrestlerBelongsToParentOrSelf(supabase, user.id, wid);
+      const ok = await verifyWrestlerBelongsToParentOrSelf(admin, user.id, wid);
       if (!ok) {
         return NextResponse.json({ error: 'Wrestler not found or not yours' }, { status: 400 });
       }
     }
 
-    const admin = createAdminClient(tenant.slug);
     if (role === 'parent' && checkoutAllowSavedAccountPercent()) {
       await ensureAutoFamilyDiscountForParent(admin, user.id, user.email);
     }
@@ -386,6 +387,11 @@ export async function POST(req: NextRequest) {
             }).catch(() => {});
           }
         }
+        await notifyAthleteFollowersJoinedSession(
+          admin,
+          meta.wrestler_id,
+          meta.session_id
+        ).catch((e) => console.warn('Cart credits: follower notification failed', e));
       }
 
       return NextResponse.json({

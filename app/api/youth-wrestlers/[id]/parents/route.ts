@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 
 /** GET - list linked parents for this youth wrestler (primary parent can see all; linked parents see themselves and primary). */
@@ -19,18 +20,23 @@ export async function GET(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { data: yw } = await supabase.from('youth_wrestlers').select('parent_id').eq('id', youthWrestlerId).single();
+    // RLS lets each parent read only their own rows, so the primary parent
+    // would see an empty link list and a linked parent may not see the
+    // wrestler row at all. Authenticate with the user client above, then read
+    // with the admin client and authorize explicitly below.
+    const admin = createAdminClient(tenant.slug);
+    const { data: yw } = await admin.from('youth_wrestlers').select('parent_id').eq('id', youthWrestlerId).single();
     if (!yw) return NextResponse.json({ error: 'Youth wrestler not found' }, { status: 404 });
 
     const isPrimary = yw.parent_id === user.id;
-    const { data: links } = await supabase.from('youth_wrestler_parents').select('parent_id, added_at').eq('youth_wrestler_id', youthWrestlerId);
+    const { data: links } = await admin.from('youth_wrestler_parents').select('parent_id, added_at').eq('youth_wrestler_id', youthWrestlerId);
     const linkedParentIds = (links ?? []).map((r) => r.parent_id);
     if (!isPrimary && !linkedParentIds.includes(user.id)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const allParentIds = [yw.parent_id, ...linkedParentIds];
-    const { data: users } = await supabase.from('users').select('id, email').in('id', allParentIds);
+    const { data: users } = await admin.from('users').select('id, email').in('id', allParentIds);
     const byId = new Map((users ?? []).map((u) => [u.id, u]));
 
     const parents = allParentIds.map((pid) => {

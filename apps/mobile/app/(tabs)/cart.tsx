@@ -72,10 +72,13 @@ export default function CartScreen() {
     if (!isCoachView) void loadWrestlers();
   }, [isCoachView, loadWrestlers]);
 
+  // Refetch wrestlers on every focus: a newly linked wrestler (added on web or
+  // by the other parent) must show up without force-quitting the app.
   useFocusEffect(
     useCallback(() => {
       void refresh();
-    }, [refresh])
+      if (!isCoachView) void loadWrestlers();
+    }, [refresh, isCoachView, loadWrestlers])
   );
 
   const allAssigned = useMemo(

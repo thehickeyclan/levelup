@@ -12,7 +12,6 @@ import { ensureAutoFamilyDiscountForParent } from '@/lib/family-auto-discount';
 import { checkoutAllowSavedAccountPercent, resolveCheckoutPercentOff } from '@/lib/checkout-promo';
 import { createNotification } from '@/lib/notifications';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
-import { notifyAthleteFollowersJoinedSession } from '@/lib/notify-athlete-followers';
 import { publicOriginForStripeRedirect } from '@/lib/stripe-redirect-origin';
 import {
   buildGuildCheckoutMetadata,
@@ -387,11 +386,6 @@ export async function POST(req: NextRequest) {
             }).catch(() => {});
           }
         }
-        await notifyAthleteFollowersJoinedSession(
-          admin,
-          meta.wrestler_id,
-          meta.session_id
-        ).catch((e) => console.warn('Cart credits: follower notification failed', e));
       }
 
       return NextResponse.json({

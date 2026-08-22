@@ -23,7 +23,7 @@ type SignupRole = 'parent' | 'youth_wrestler' | 'coach';
 const ROLE_OPTIONS: { value: SignupRole; label: string; hint: string }[] = [
   { value: 'parent', label: 'Parent', hint: 'Book training and shop for your wrestler' },
   { value: 'youth_wrestler', label: 'Athlete', hint: 'Wrestlers with their own account' },
-  { value: 'coach', label: 'Coach', hint: 'College athletes and club coaches — apply to coach' },
+  { value: 'coach', label: 'Coach', hint: 'Run your privates and small-group business' },
 ];
 
 export default function SignupScreen() {
@@ -37,14 +37,14 @@ export default function SignupScreen() {
   const [zipCode, setZipCode] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
-  // Coach application extras
+  // Coach business signup extras
   const [dateOfBirth, setDateOfBirth] = useState('');
-  const [coachType, setCoachType] = useState<'ncaa_athlete' | 'club_hs_coach'>('ncaa_athlete');
+  const [coachType, setCoachType] = useState<'ncaa_athlete' | 'former_college_athlete' | 'club_hs_coach'>('ncaa_athlete');
   const [school, setSchool] = useState('');
   const [bio, setBio] = useState('');
-  const [payoutMethod, setPayoutMethod] = useState<'venmo' | 'zelle'>('venmo');
-  const [venmoHandle, setVenmoHandle] = useState('');
-  const [zelleContact, setZelleContact] = useState('');
+  const [hasSafeSport, setHasSafeSport] = useState(false);
+  const [hasUsaWrestling, setHasUsaWrestling] = useState(false);
+  const [hasBackgroundCheck, setHasBackgroundCheck] = useState(false);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,13 +69,6 @@ export default function SignupScreen() {
         return setError('Enter your date of birth as MM/DD/YYYY.');
       }
       if (!school.trim()) return setError('Enter your school or club.');
-      if (!bio.trim()) return setError('Add a short coaching bio.');
-      if (payoutMethod === 'venmo' && !venmoHandle.trim()) {
-        return setError('Enter your Venmo handle for session payouts.');
-      }
-      if (payoutMethod === 'zelle' && !zelleContact.trim()) {
-        return setError('Enter the email or phone number connected to Zelle.');
-      }
     }
 
     setSubmitting(true);
@@ -92,9 +85,9 @@ export default function SignupScreen() {
             coachType,
             school: school.trim(),
             bio: bio.trim(),
-            payoutMethod,
-            venmoHandle: payoutMethod === 'venmo' ? venmoHandle.trim() : null,
-            zelleContact: payoutMethod === 'zelle' ? zelleContact.trim() : null,
+            hasSafeSport,
+            hasUsaWrestling,
+            hasBackgroundCheck,
             password,
           }),
         });
@@ -127,8 +120,8 @@ export default function SignupScreen() {
         router.replace('/(tabs)');
       } else {
         Alert.alert(
-          'Application received',
-          'Welcome to the Guild. You can browse now — full coach tools unlock as soon as an admin approves your application.',
+          'Coach account created',
+          'Welcome to the Guild. Finish your profile, rates, locations, payout, and normal weekly hours while we verify your coaching account.',
           [{ text: 'Let’s go', onPress: () => router.replace('/(tabs)') }]
         );
       }
@@ -151,7 +144,8 @@ export default function SignupScreen() {
             <GuildLogo size={84} variant="mark" />
           </Pressable>
           <Text style={styles.kicker}>JOIN THE GUILD</Text>
-          <Text style={styles.heading}>Create your account</Text>
+          <Text style={styles.heading}>{isCoach ? 'Create your coaching business' : 'Create your account'}</Text>
+          {isCoach ? <Text style={styles.coachIntro}>Manage availability, bookings, athletes, messages, earnings, and one shareable schedule.</Text> : null}
         </View>
 
         <Text style={styles.label}>I AM A…</Text>
@@ -201,40 +195,25 @@ export default function SignupScreen() {
                 <Text style={[styles.roleChipText, coachType === 'ncaa_athlete' && styles.roleChipTextActive]}>College athlete</Text>
               </Pressable>
               <Pressable
+                style={[styles.roleChip, coachType === 'former_college_athlete' && styles.roleChipActive]}
+                onPress={() => setCoachType('former_college_athlete')}
+              >
+                <Text style={[styles.roleChipText, coachType === 'former_college_athlete' && styles.roleChipTextActive]}>Former college</Text>
+              </Pressable>
+              <Pressable
                 style={[styles.roleChip, coachType === 'club_hs_coach' && styles.roleChipActive]}
                 onPress={() => setCoachType('club_hs_coach')}
               >
                 <Text style={[styles.roleChipText, coachType === 'club_hs_coach' && styles.roleChipTextActive]}>Club / HS coach</Text>
               </Pressable>
             </View>
-            <Input label="SCHOOL / CLUB" value={school} onChangeText={setSchool} placeholder="NC State" />
-            <Input label="COACHING BIO" value={bio} onChangeText={setBio} placeholder="Credentials, style, what families should know" multiline />
-            <Text style={styles.label}>SESSION PAYOUT METHOD</Text>
-            <View style={styles.roleRow}>
-              <Pressable
-                style={[styles.roleChip, payoutMethod === 'venmo' && styles.roleChipActive]}
-                onPress={() => setPayoutMethod('venmo')}
-              >
-                <Text style={[styles.roleChipText, payoutMethod === 'venmo' && styles.roleChipTextActive]}>Venmo</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.roleChip, payoutMethod === 'zelle' && styles.roleChipActive]}
-                onPress={() => setPayoutMethod('zelle')}
-              >
-                <Text style={[styles.roleChipText, payoutMethod === 'zelle' && styles.roleChipTextActive]}>Zelle</Text>
-              </Pressable>
-            </View>
-            {payoutMethod === 'venmo' ? (
-              <Input label="VENMO HANDLE" value={venmoHandle} onChangeText={setVenmoHandle} placeholder="@your-venmo" autoCapitalize="none" />
-            ) : (
-              <Input
-                label="ZELLE EMAIL OR PHONE"
-                value={zelleContact}
-                onChangeText={setZelleContact}
-                placeholder="you@email.com or (919) 555-1234"
-                autoCapitalize="none"
-              />
-            )}
+            <Input label="SCHOOL / COLLEGE / CLUB" value={school} onChangeText={setSchool} placeholder="NC State" />
+            <Input label="SHORT INTRO (OPTIONAL)" value={bio} onChangeText={setBio} placeholder="What do you coach best? You can finish this later." multiline />
+            <Text style={styles.label}>CREDENTIALS YOU HAVE TODAY (OPTIONAL)</Text>
+            <Attestation label="SafeSport trained" value={hasSafeSport} onPress={() => setHasSafeSport((value) => !value)} />
+            <Attestation label="USA Wrestling coaching credential" value={hasUsaWrestling} onPress={() => setHasUsaWrestling((value) => !value)} />
+            <Attestation label="Current background check" value={hasBackgroundCheck} onPress={() => setHasBackgroundCheck((value) => !value)} />
+            <Text style={styles.credentialNote}>Self-reported until verified. None are required to create your account.</Text>
           </>
         ) : null}
 
@@ -262,7 +241,7 @@ export default function SignupScreen() {
           {submitting ? (
             <ActivityIndicator color={colors.black} />
           ) : (
-            <Text style={styles.buttonText}>{isCoach ? 'Apply to coach' : 'Create account'}</Text>
+            <Text style={styles.buttonText}>{isCoach ? 'Create coach account' : 'Create account'}</Text>
           )}
         </Pressable>
 
@@ -295,6 +274,15 @@ function Input({
   );
 }
 
+function Attestation({ label, value, onPress }: { label: string; value: boolean; onPress: () => void }) {
+  return (
+    <Pressable style={styles.attestRow} onPress={onPress} accessibilityRole="checkbox" accessibilityState={{ checked: value }}>
+      <View style={[styles.attestDot, value && styles.attestDotOn]} />
+      <Text style={styles.attestText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   attestRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface },
   attestDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
@@ -307,12 +295,14 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', marginTop: 24, marginBottom: 20 },
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginTop: 12 },
   heading: { ...typography.display, fontSize: 28, color: colors.text, marginTop: 6 },
+  coachIntro: { ...typography.body, color: colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 8, maxWidth: 340 },
   label: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 10, letterSpacing: 1, marginTop: 14, marginBottom: 6 },
   roleRow: { flexDirection: 'row', gap: 8 },
   roleChip: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   roleChipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   roleChipText: { ...typography.bodySemi, color: colors.textMuted, fontSize: 12 },
   roleChipTextActive: { color: colors.black },
+  credentialNote: { ...typography.body, color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 8 },
   roleHint: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 8 },
   nameRow: { flexDirection: 'row', gap: 10 },
   inputWrap: {},

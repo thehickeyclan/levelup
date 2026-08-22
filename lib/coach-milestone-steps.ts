@@ -13,20 +13,20 @@ export type CoachMilestoneStep = {
 export const COACH_APPLICATION_SUBMITTED_STEPS: CoachMilestoneStep[] = [
   {
     id: 'submitted',
-    title: 'Application received',
-    description: 'Your profile and payout details are on file.',
+    title: 'Coach account created',
+    description: 'Your basic business profile is live in your account.',
     icon: PartyPopper,
   },
   {
     id: 'review',
-    title: 'Guild review',
-    description: 'We typically respond within 24–48 hours.',
+    title: 'Guild verification',
+    description: 'We verify identity and submitted credentials, usually within 24–48 hours.',
     icon: Sparkles,
   },
   {
     id: 'approved',
-    title: 'Get approved & go live',
-    description: 'Open your calendar, post sessions, and share your booking link.',
+    title: 'Enable paid bookings',
+    description: 'Finish your calendar, post sessions, and share your booking link.',
     icon: Calendar,
   },
 ];

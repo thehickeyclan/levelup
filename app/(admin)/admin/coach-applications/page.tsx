@@ -37,6 +37,8 @@ export default async function CoachApplicationsPage() {
       active,
       safesport_certified,
       safesport_expiration,
+      usa_wrestling_certified,
+      usa_wrestling_expiration,
       background_check,
       background_check_expiration,
       payout_method,
@@ -62,6 +64,7 @@ export default async function CoachApplicationsPage() {
     return {
       ...app,
       safesport_expiry: (row.safesport_expiration ?? row.safesport_expiry ?? null) as string | null,
+      usa_wrestling_expiry: (row.usa_wrestling_expiration ?? null) as string | null,
       background_check_date: (row.background_check_expiration ?? row.background_check_date ?? null) as string | null,
       zelle_contact: (row.zelle_email ?? row.zelle_contact ?? null) as string | null,
       users,
@@ -71,8 +74,8 @@ export default async function CoachApplicationsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-serif font-bold text-foreground">Coach Applications</h1>
-        <p className="text-muted-foreground">Review and approve coach applications</p>
+        <h1 className="text-2xl font-serif font-bold text-foreground">Coach Signups</h1>
+        <p className="text-muted-foreground">Verify coach identities and credentials to enable bookings</p>
       </div>
 
       <CoachApplicationsClient applications={applications || []} />

@@ -43,6 +43,8 @@ interface CoachApplication {
   active: boolean;
   safesport_certified: boolean;
   safesport_expiry: string | null;
+  usa_wrestling_certified: boolean;
+  usa_wrestling_expiry: string | null;
   background_check: boolean;
   background_check_date: string | null;
   payout_method: string;
@@ -156,9 +158,8 @@ export function CoachApplicationsClient({ applications }: Props) {
             <CardDescription className="flex items-center gap-2">
               <School className="h-3 w-3" />
               {app.school}
-              {app.coach_type === 'ncaa_athlete' && (
-                <Badge variant="secondary" className="text-xs">NCAA</Badge>
-              )}
+              {app.coach_type === 'ncaa_athlete' ? <Badge variant="secondary" className="text-xs">Active college</Badge> : null}
+              {app.coach_type === 'former_college_athlete' ? <Badge variant="secondary" className="text-xs">Former college</Badge> : null}
             </CardDescription>
           </div>
           <Badge
@@ -232,7 +233,7 @@ export function CoachApplicationsClient({ applications }: Props) {
             </div>
             <div>
               <span className="text-muted-foreground">Coach Type:</span>
-              <p>{app.coach_type === 'ncaa_athlete' ? 'NCAA Athlete' : 'Club/HS Coach'}</p>
+              <p>{app.coach_type === 'ncaa_athlete' ? 'Active College Athlete' : app.coach_type === 'former_college_athlete' ? 'Former College Athlete' : 'Club/HS Coach'}</p>
             </div>
           </div>
         </div>
@@ -263,6 +264,15 @@ export function CoachApplicationsClient({ applications }: Props) {
                   (expires {app.safesport_expiry})
                 </span>
               )}
+            </div>
+            <div className="flex items-center gap-2">
+              {app.usa_wrestling_certified ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <XCircle className="h-4 w-4 text-red-500" />
+              )}
+              <span>USA Wrestling</span>
+              {app.usa_wrestling_expiry ? <span className="text-xs text-muted-foreground">(expires {app.usa_wrestling_expiry})</span> : null}
             </div>
             <div className="flex items-center gap-2">
               {app.background_check ? (

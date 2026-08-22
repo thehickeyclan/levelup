@@ -19,7 +19,7 @@ export const revalidate = 0;
 export const metadata = {
   title: 'Coach with The Guild | You Coach, We Handle the Rest',
   description:
-    'Apply to coach on The Wrestling Guild. Set your rates, open your schedule, and let parents book online. NCAA wrestlers and elite club coaches welcome — any location.',
+    'Run your private coaching business with The Wrestling Guild. Publish availability, accept bookings, manage athletes, message families, and share one booking link.',
 };
 
 export default async function CoachesPage() {

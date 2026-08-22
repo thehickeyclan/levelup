@@ -47,9 +47,9 @@ export function HomeHero({ coaches, logoSrc, logoAlt }: Props) {
         </Button>
       </div>
       <p className="mt-5 text-center text-sm text-white/55">
-        Division I wrestler or elite coach?{' '}
+        College wrestler or experienced coach?{' '}
         <Link href="/coaches" className="font-semibold text-accent hover:underline">
-          Apply to coach →
+          Run your coaching business →
         </Link>
       </p>
 

@@ -43,6 +43,18 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error. Please contact support.' }, { status: 500 });
     }
 
+    const { data: athlete } = await supabaseAdmin
+      .from('athletes')
+      .select('status')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (makePublic && athlete?.status !== 'active') {
+      return NextResponse.json(
+        { error: 'Guild verification is required before your public booking profile can go live.' },
+        { status: 403 }
+      );
+    }
+
     const { error: updateError } = await supabaseAdmin
       .from('athletes')
       .update({ active: makePublic })

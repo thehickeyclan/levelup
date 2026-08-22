@@ -93,9 +93,9 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      if (!['ncaa_athlete', 'club_hs_coach'].includes(coachType)) {
+      if (!['ncaa_athlete', 'former_college_athlete', 'club_hs_coach'].includes(coachType)) {
         return NextResponse.json(
-          { error: 'Please select whether you are an Active NCAA Athlete or Club/HS Coach' },
+          { error: 'Select active college athlete, former college athlete, or club/high school coach' },
           { status: 400 }
         );
       }

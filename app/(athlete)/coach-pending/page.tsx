@@ -65,9 +65,9 @@ export default async function CoachPendingPage({ searchParams }: Props) {
             <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
               <Mail className="h-8 w-8 text-destructive" />
             </div>
-            <CardTitle className="font-serif text-destructive">Application Not Approved</CardTitle>
+            <CardTitle className="font-serif text-destructive">Verification Not Completed</CardTitle>
             <CardDescription>
-              Unfortunately, your coach application was not approved at this time.
+              We could not verify your coach account for paid bookings at this time.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -93,14 +93,14 @@ export default async function CoachPendingPage({ searchParams }: Props) {
   const title = justSubmitted
     ? firstName
       ? `Nice work, ${firstName}!`
-      : 'Application received!'
+      : 'Coach account created!'
     : firstName
       ? `Hang tight, ${firstName}`
-      : 'Application under review';
+      : 'Verification in progress';
 
   const description = justSubmitted
-    ? 'You’re in the queue. The Guild reviews every coach — we’ll email you within 24–48 hours when there’s an update.'
-    : 'Thanks for applying! We’re reviewing your application and will email you when there’s an update.';
+    ? 'Your business profile is started. We’ll verify your identity and credentials, usually within 24–48 hours, before enabling paid bookings.'
+    : 'We’re verifying your coach account and will email you when paid bookings are enabled.';
 
   return (
     <CoachMilestoneScreen
@@ -122,20 +122,18 @@ export default async function CoachPendingPage({ searchParams }: Props) {
           <div className="rounded-lg bg-muted/50 p-4 text-left">
             <p className="text-sm text-muted-foreground">
               We&apos;ll email{' '}
-              <span className="font-medium text-foreground">{user.email}</span> when your application is
-              reviewed.
+              <span className="font-medium text-foreground">{user.email}</span> when verification is complete.
             </p>
           </div>
           {justSubmitted ? (
             <CoachMilestoneFooterActions
-              primary={{ label: 'Got it', href: '/coach-pending' }}
-              secondary={{ label: 'Coach FAQ', href: '/coaches' }}
+              primary={{ label: 'Finish my profile', href: '/profile' }}
+              secondary={{ label: 'See the coach business tools', href: '/coaches' }}
             />
           ) : (
-            <div className="flex justify-center">
-              <Button asChild variant="outline" size="sm">
-                <Link href="/coaches">How approval works</Link>
-              </Button>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button asChild size="sm"><Link href="/profile">Finish my profile</Link></Button>
+              <Button asChild variant="outline" size="sm"><Link href="/coaches">How verification works</Link></Button>
             </div>
           )}
         </div>

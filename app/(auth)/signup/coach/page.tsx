@@ -1,741 +1,254 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenant } from '@/components/theme-provider';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { GuildIndependentContractorAgreement } from '@/components/guild-independent-contractor-agreement';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
-import { GuildIndependentContractorAgreement } from '@/components/guild-independent-contractor-agreement';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { zOptionalCheckbox, zRequiredAgreementCheckbox } from '@/lib/zod-checkbox';
 
-const coachApplicationSchema = z.object({
-  // Step 1: Basic Info
+const coachSignupSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Invalid email address'),
-  phone: z
-    .string()
-    .min(1, 'Cell phone is required')
-    .refine((v) => v.replace(/\D/g, '').length >= 10, 'Enter a valid 10-digit cell number'),
+  email: z.string().email('Enter a valid email'),
+  phone: z.string().refine((v) => v.replace(/\D/g, '').length >= 10, 'Enter a valid cell number'),
   dateOfBirth: z.string().min(1, 'Date of birth is required'),
-  
-  // Step 2: Background
-  coachType: z.enum(['ncaa_athlete', 'club_hs_coach'], { required_error: 'Please select your coach type' }),
-  school: z.string().min(1, 'School or club is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string(),
+  coachType: z.enum(['ncaa_athlete', 'former_college_athlete', 'club_hs_coach']),
+  school: z.string().min(1, 'School, college, or club is required'),
   weightClass: z.string().optional(),
-  
-  // Step 3: Photo & Bio
-  bio: z.string().min(50, 'Bio must be at least 50 characters'),
-  
-  // Step 4: Safety & Certs (+ optional t-shirt) — attestations optional; never block application (see validateCurrentStep case 4)
+  bio: z.string().max(800, 'Keep your bio under 800 characters').optional(),
   hasSafeSport: zOptionalCheckbox,
   safeSportExpiry: z.string().optional(),
+  hasUsaWrestling: zOptionalCheckbox,
+  usaWrestlingExpiry: z.string().optional(),
   hasBackgroundCheck: zOptionalCheckbox,
   backgroundCheckDate: z.string().optional(),
-  tshirtSize: z.string().optional(),
-  
-  // Step 5: Payout
-  payoutMethod: z.enum(['venmo', 'zelle'], { required_error: 'Please select a payout method' }),
-  venmoHandle: z.string().optional(),
-  zelleContact: z.string().optional(),
-  
-  // Step 6: Agreement & Account
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string(),
-  agreesToTerms: zRequiredAgreementCheckbox('You must accept the Independent Contractor Agreement'),
-  agreesToSessionTypes: zRequiredAgreementCheckbox('You must commit to offering all session types'),
+  agreesToTerms: zRequiredAgreementCheckbox('Accept the agreement to create your coach account'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
-}).refine((data) => {
-  if (data.payoutMethod === 'venmo' && !data.venmoHandle) return false;
-  if (data.payoutMethod === 'zelle' && !data.zelleContact) return false;
-  return true;
-}, {
-  message: 'Please provide your payout contact info',
-  path: ['venmoHandle'],
 });
 
-type CoachApplicationValues = z.infer<typeof coachApplicationSchema>;
+type CoachSignupValues = z.infer<typeof coachSignupSchema>;
 
 const STEPS = [
-  { id: 1, title: 'Basic Info', description: 'Your contact details' },
-  { id: 2, title: 'Background', description: 'Wrestling experience' },
-  { id: 3, title: 'Profile', description: 'Photo and bio' },
-  { id: 4, title: 'Safety', description: 'Certifications' },
-  { id: 5, title: 'Payout', description: 'How you get paid' },
-  { id: 6, title: 'Agreement', description: 'Terms and account' },
-];
+  { title: 'Account', description: 'Create your login' },
+  { title: 'Coaching', description: 'Build your business profile' },
+  { title: 'Credentials', description: 'Add what you have today' },
+] as const;
 
-export default function CoachApplicationPage() {
+export default function CoachSignupPage() {
   const router = useRouter();
   const tenant = useTenant();
   const supabase = createClient(tenant.slug);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const form = useForm<CoachApplicationValues>({
-    resolver: zodResolver(coachApplicationSchema),
+  const form = useForm<CoachSignupValues>({
+    resolver: zodResolver(coachSignupSchema),
     defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      dateOfBirth: '',
-      coachType: undefined,
-      school: '',
-      weightClass: '',
-      bio: '',
-      hasSafeSport: false,
-      safeSportExpiry: '',
-      hasBackgroundCheck: false,
-      backgroundCheckDate: '',
-      tshirtSize: '',
-      payoutMethod: undefined,
-      venmoHandle: '',
-      zelleContact: '',
-      password: '',
-      confirmPassword: '',
-      agreesToTerms: false,
-      agreesToSessionTypes: false,
+      firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', password: '', confirmPassword: '',
+      coachType: 'ncaa_athlete', school: '', weightClass: '', bio: '', hasSafeSport: false,
+      safeSportExpiry: '', hasUsaWrestling: false, usaWrestlingExpiry: '', hasBackgroundCheck: false,
+      backgroundCheckDate: '', agreesToTerms: false,
     },
     mode: 'onChange',
   });
 
-  const watchPayoutMethod = form.watch('payoutMethod');
-  const watchCoachType = form.watch('coachType');
-
-  const validateCurrentStep = async () => {
-    let fieldsToValidate: (keyof CoachApplicationValues)[] = [];
-    
-    switch (currentStep) {
-      case 1:
-        fieldsToValidate = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth'];
-        break;
-      case 2:
-        fieldsToValidate = ['coachType', 'school'];
-        break;
-      case 3:
-        fieldsToValidate = ['bio'];
-        break;
-      case 4:
-        // Certifications are informational only for this step — do not block Next (Zod used to fail on undefined booleans)
-        fieldsToValidate = [];
-        break;
-      case 5:
-        fieldsToValidate = ['payoutMethod'];
-        if (watchPayoutMethod === 'venmo') fieldsToValidate.push('venmoHandle');
-        if (watchPayoutMethod === 'zelle') fieldsToValidate.push('zelleContact');
-        break;
-      case 6:
-        fieldsToValidate = ['password', 'confirmPassword', 'agreesToTerms', 'agreesToSessionTypes'];
-        break;
-    }
-
-    if (fieldsToValidate.length === 0) return true;
-    return form.trigger(fieldsToValidate);
+  const coachType = form.watch('coachType');
+  const next = async () => {
+    const fields: (keyof CoachSignupValues)[] = step === 1
+      ? ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'password', 'confirmPassword']
+      : ['coachType', 'school'];
+    if (await form.trigger(fields)) setStep((value) => Math.min(3, value + 1));
   };
 
-  const nextStep = async () => {
-    const isValid = await validateCurrentStep();
-    if (isValid && currentStep < 6) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const onSubmit = async (values: CoachApplicationValues) => {
+  const onSubmit = async (values: CoachSignupValues) => {
     setLoading(true);
     setError(null);
-
     try {
       const response = await fetch('/api/auth/coach-application', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Application failed');
-        return;
-      }
-
-      // Auto-login
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      });
-
+      if (!response.ok) throw new Error(data.error || 'Could not create your coach account');
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: values.email, password: values.password });
       if (authError) {
-        router.push('/login?message=application_submitted');
+        router.push('/login?message=coach_account_created');
         return;
       }
-
       router.push('/coach-pending?submitted=1');
       router.refresh();
-    } catch {
-      setError('An unexpected error occurred');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not create your coach account');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 min-h-screen">
-      <div className="max-w-2xl mx-auto">
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            {STEPS.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                    currentStep > step.id
-                      ? 'bg-accent text-black'
-                      : currentStep === step.id
-                      ? 'bg-accent text-black'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {currentStep > step.id ? <Check className="h-4 w-4" /> : step.id}
-                </div>
-                {index < STEPS.length - 1 && (
-                  <div
-                    className={`h-0.5 w-8 sm:w-12 mx-1 ${
-                      currentStep > step.id ? 'bg-accent' : 'bg-muted'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="text-center">
-            <h2 className="text-lg font-semibold text-foreground">{STEPS[currentStep - 1].title}</h2>
-            <p className="text-sm text-muted-foreground">{STEPS[currentStep - 1].description}</p>
-          </div>
+    <main className="min-h-screen bg-black px-4 py-8 text-white">
+      <div className="mx-auto max-w-2xl">
+        <div className="mb-7 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Run your coaching business</p>
+          <h1 className="mt-3 font-serif text-3xl font-black">Create your coach account</h1>
+          <p className="mx-auto mt-3 max-w-lg text-sm text-white/65">
+            Publish availability, fill privates and small groups, message families, track athletes, and share one booking link.
+          </p>
         </div>
 
-        <Card>
+        <div className="mb-6 grid grid-cols-3 gap-2">
+          {STEPS.map((item, index) => {
+            const number = index + 1;
+            return (
+              <div key={item.title} className={`rounded-lg border p-3 ${step >= number ? 'border-accent/60 bg-accent/10' : 'border-white/10 bg-white/5'}`}>
+                <div className="flex items-center gap-2">
+                  <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${step > number ? 'bg-accent text-black' : 'border border-accent/50 text-accent'}`}>
+                    {step > number ? <Check className="h-3.5 w-3.5" /> : number}
+                  </span>
+                  <span className="text-xs font-semibold sm:text-sm">{item.title}</span>
+                </div>
+                <p className="mt-1 hidden text-xs text-white/45 sm:block">{item.description}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        <Card className="border-accent/25 bg-zinc-950 text-white">
           <CardHeader>
-            <CardTitle className="font-serif">Coach Application</CardTitle>
-            <CardDescription>
-              Complete all steps to submit your application. We review applications within 24-48 hours.
-            </CardDescription>
+            <CardTitle className="font-serif">{STEPS[step - 1].title}</CardTitle>
+            <CardDescription>{STEPS[step - 1].description}. You can finish your profile, rates, locations, payout, and calendar after signup.</CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
-              <div className="mb-4 p-3 bg-destructive/10 border border-destructive rounded-md">
-                <p className="text-sm text-destructive">{error}</p>
-              </div>
-            )}
-
+            {error ? <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                {/* Step 1: Basic Info */}
-                {currentStep === 1 && (
+                {step === 1 ? (
                   <>
                     <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="firstName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>First Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Eric" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="lastName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Last Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Aponte" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <Field form={form} name="firstName" label="First name" placeholder="Jordan" />
+                      <Field form={form} name="lastName" label="Last name" placeholder="Smith" />
                     </div>
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="you@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone</FormLabel>
-                          <FormControl>
-                            <Input type="tel" placeholder="(919) 555-0123" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="dateOfBirth"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Date of Birth</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
-
-                {/* Step 2: Background */}
-                {currentStep === 2 && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="coachType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>I am an...</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select one" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="ncaa_athlete">Active NCAA Athlete</SelectItem>
-                              <SelectItem value="club_hs_coach">Club / HS Coach</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="school"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{watchCoachType === 'ncaa_athlete' ? 'School' : 'Club or High School'}</FormLabel>
-                          <FormControl>
-                            <Input placeholder={watchCoachType === 'ncaa_athlete' ? 'UNC' : 'Triangle Wrestling Club'} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="weightClass"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Weight Class (optional)</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select weight class" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {['125', '133', '141', '149', '157', '165', '174', '184', '197', '285'].map((wc) => (
-                                <SelectItem key={wc} value={wc}>{wc} lbs</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
-
-                {/* Step 3: Profile */}
-                {currentStep === 3 && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="bio"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bio</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Tell parents about your wrestling background, coaching style, and what makes you a great coach..."
-                              className="min-h-[150px]"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Minimum 50 characters. This will be shown on your public profile.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Profile Photo:</strong> You can add your photo after your application is approved in your profile settings.
-                      </p>
+                    <Field form={form} name="email" label="Email" placeholder="you@email.com" type="email" />
+                    <Field form={form} name="phone" label="Cell phone" placeholder="(919) 555-1234" type="tel" />
+                    <Field form={form} name="dateOfBirth" label="Date of birth" type="date" />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field form={form} name="password" label="Password" type="password" />
+                      <Field form={form} name="confirmPassword" label="Confirm password" type="password" />
                     </div>
                   </>
-                )}
+                ) : null}
 
-                {/* Step 4: Safety */}
-                {currentStep === 4 && (
+                {step === 2 ? (
                   <>
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="hasSafeSport"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                            <FormControl>
-                              <Checkbox
-                                checked={!!field.value}
-                                onCheckedChange={(c) => field.onChange(c === true)}
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel>I have SafeSport Certification</FormLabel>
-                              <FormDescription>
-                                Optional to submit — you can complete before or after approval. Get certified at{' '}
-                                <a href="https://safesport.org" target="_blank" rel="noopener noreferrer" className="text-accent underline">
-                                  safesport.org
-                                </a>
-                              </FormDescription>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                      {form.watch('hasSafeSport') && (
-                        <FormField
-                          control={form.control}
-                          name="safeSportExpiry"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>SafeSport Expiration Date</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      )}
-
-                      <FormField
-                        control={form.control}
-                        name="hasBackgroundCheck"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                            <FormControl>
-                              <Checkbox
-                                checked={!!field.value}
-                                onCheckedChange={(c) => field.onChange(c === true)}
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel>I have a Background Check on file</FormLabel>
-                              <FormDescription>
-                                Optional to submit — through your school, club, or USA Wrestling
-                              </FormDescription>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                      {form.watch('hasBackgroundCheck') && (
-                        <FormField
-                          control={form.control}
-                          name="backgroundCheckDate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Background Check Date</FormLabel>
-                              <FormControl>
-                                <Input type="date" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      )}
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name="tshirtSize"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>T-Shirt Size (optional)</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select size" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {['S', 'M', 'L', 'XL', '2XL', '3XL'].map((size) => (
-                                <SelectItem key={size} value={size}>{size}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>For Guild merchandise and events</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                      <p className="text-sm text-amber-200">
-                        <strong>Note:</strong> You can still apply without these certifications, but you won&apos;t be able to coach until they&apos;re verified. We&apos;ll help you get set up.
-                      </p>
-                    </div>
+                    <FormField control={form.control} name="coachType" render={({ field }) => (
+                      <FormItem><FormLabel>Which best describes you?</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="ncaa_athlete">Active college athlete</SelectItem>
+                            <SelectItem value="former_college_athlete">Former college athlete</SelectItem>
+                            <SelectItem value="club_hs_coach">Club or high school coach</SelectItem>
+                          </SelectContent>
+                        </Select><FormMessage />
+                      </FormItem>
+                    )} />
+                    <Field form={form} name="school" label={coachType === 'club_hs_coach' ? 'School or club' : 'College or university'} placeholder={coachType === 'club_hs_coach' ? 'Triangle Wrestling Club' : 'NC State'} />
+                    <FormField control={form.control} name="weightClass" render={({ field }) => (
+                      <FormItem><FormLabel>College weight class (optional)</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select weight" /></SelectTrigger></FormControl>
+                          <SelectContent>{['125','133','141','149','157','165','174','184','197','285'].map((weight) => <SelectItem value={weight} key={weight}>{weight} lbs</SelectItem>)}</SelectContent>
+                        </Select><FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="bio" render={({ field }) => (
+                      <FormItem><FormLabel>Short introduction (optional)</FormLabel><FormControl><Textarea className="min-h-24" placeholder="What do you coach best? Families can see this on your profile." {...field} /></FormControl><FormDescription>You can improve this later from your profile.</FormDescription><FormMessage /></FormItem>
+                    )} />
                   </>
-                )}
+                ) : null}
 
-                {/* Step 5: Payout */}
-                {currentStep === 5 && (
+                {step === 3 ? (
                   <>
-                    <FormField
-                      control={form.control}
-                      name="payoutMethod"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>How would you like to get paid?</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select payout method" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="venmo">Venmo</SelectItem>
-                              <SelectItem value="zelle">Zelle</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            We pay coaches weekly on Fridays
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {watchPayoutMethod === 'venmo' && (
-                      <FormField
-                        control={form.control}
-                        name="venmoHandle"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Venmo Handle</FormLabel>
-                            <FormControl>
-                              <Input placeholder="@yourhandle" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                    {watchPayoutMethod === 'zelle' && (
-                      <FormField
-                        control={form.control}
-                        name="zelleContact"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Zelle Email or Phone</FormLabel>
-                            <FormControl>
-                              <Input placeholder="you@email.com or (919) 555-0123" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Coach Earnings:</strong> Your payout percentage is set for your account and shown after approval. The Guild handles payments, scheduling, and marketing.
-                      </p>
+                    <p className="text-sm text-white/65">Select anything you already have. These are self-reported until the Guild verifies them, and none are required to create your account.</p>
+                    <Credential form={form} name="hasSafeSport" dateName="safeSportExpiry" label="SafeSport trained" />
+                    <Credential form={form} name="hasUsaWrestling" dateName="usaWrestlingExpiry" label="USA Wrestling coaching credential" />
+                    <Credential form={form} name="hasBackgroundCheck" dateName="backgroundCheckDate" label="Current background check" />
+                    <div className="rounded-lg border border-accent/25 bg-accent/10 p-4 text-sm text-white/75">
+                      Your account is created immediately. The Guild verifies identity and credentials before enabling paid family bookings.
                     </div>
-                  </>
-                )}
-
-                {/* Step 6: Agreement */}
-                {currentStep === 6 && (
-                  <>
                     <div className="space-y-2">
-                      <p className="text-sm font-medium text-foreground">Independent Contractor Agreement</p>
-                      <p className="text-xs text-muted-foreground">
-                        Scroll to read the full agreement. Submitting your application records electronic acceptance (Sections
-                        11.5 and 12).
-                      </p>
-                      <div className="rounded-lg border border-border bg-muted/30 p-1">
-                        <div className="max-h-[min(50vh,440px)] overflow-y-auto rounded-md bg-background p-4">
-                          <GuildIndependentContractorAgreement />
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        <Link href="/coach-agreement" target="_blank" rel="noopener noreferrer" className="text-accent underline">
-                          Open printable version
-                        </Link>
-                      </p>
+                      <p className="text-sm font-medium">Independent Contractor Agreement</p>
+                      <div className="max-h-56 overflow-y-auto rounded-md border border-white/10 bg-black p-4"><GuildIndependentContractorAgreement /></div>
+                      <Link href="/coach-agreement" target="_blank" className="text-xs text-accent underline">Open printable version</Link>
                     </div>
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Create Password</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="confirmPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Confirm Password</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="space-y-4 pt-4">
-                      <FormField
-                        control={form.control}
-                        name="agreesToSessionTypes"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                            <FormControl>
-                              <Checkbox
-                                checked={!!field.value}
-                                onCheckedChange={(c) => field.onChange(c === true)}
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel>I commit to offering all session types</FormLabel>
-                              <FormDescription>
-                                Private (1-on-1), Partner (2 athletes), and Small Group (3-6 athletes)
-                              </FormDescription>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="agreesToTerms"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                            <FormControl>
-                              <Checkbox
-                                checked={!!field.value}
-                                onCheckedChange={(c) => field.onChange(c === true)}
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel>I agree to the Independent Contractor Agreement above</FormLabel>
-                              <FormDescription>
-                                I have read the agreement, am at least 18, and accept all terms including independent contractor
-                                status. This check constitutes my electronic signature under Section 11.5.
-                              </FormDescription>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    <FormField control={form.control} name="agreesToTerms" render={({ field }) => (
+                      <FormItem className="flex flex-row items-start gap-3 rounded-md border border-white/10 p-4 space-y-0">
+                        <FormControl><Checkbox checked={!!field.value} onCheckedChange={(value) => field.onChange(value === true)} /></FormControl>
+                        <div><FormLabel>I accept the Independent Contractor Agreement</FormLabel><FormMessage /></div>
+                      </FormItem>
+                    )} />
                   </>
-                )}
+                ) : null}
 
-                {/* Navigation Buttons */}
-                <div className="flex justify-between pt-6">
-                  {currentStep > 1 ? (
-                    <Button type="button" variant="outline" onClick={prevStep}>
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Back
-                    </Button>
-                  ) : (
-                    <Link href="/signup/role">
-                      <Button type="button" variant="outline">
-                        <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back
-                      </Button>
-                    </Link>
-                  )}
-                  
-                  {currentStep < 6 ? (
-                    <Button type="button" onClick={nextStep} className="bg-accent hover:bg-accent-hover text-black">
-                      Next
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  ) : (
-                    <Button type="submit" disabled={loading} className="bg-accent hover:bg-accent-hover text-black">
-                      {loading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        'Submit Application'
-                      )}
-                    </Button>
+                <div className="flex gap-3 pt-2">
+                  {step > 1 ? <Button type="button" variant="outline" className="min-h-12 flex-1" onClick={() => setStep((value) => value - 1)}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button> : null}
+                  {step < 3 ? <Button type="button" variant="premium" className="min-h-12 flex-1" onClick={() => void next()}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button> : (
+                    <Button type="submit" variant="premium" className="min-h-12 flex-1" disabled={loading}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create coach account'}</Button>
                   )}
                 </div>
               </form>
             </Form>
           </CardContent>
         </Card>
+        <p className="mt-5 text-center text-sm text-white/55">Already have an account? <Link href="/login" className="font-semibold text-accent">Log in</Link></p>
       </div>
+    </main>
+  );
+}
+
+type AnyForm = ReturnType<typeof useForm<CoachSignupValues>>;
+
+function Field({ form, name, label, placeholder, type }: {
+  form: AnyForm;
+  name: keyof CoachSignupValues;
+  label: string;
+  placeholder?: string;
+  type?: React.HTMLInputTypeAttribute;
+}) {
+  return <FormField control={form.control} name={name} render={({ field }) => <FormItem><FormLabel>{label}</FormLabel><FormControl><Input placeholder={placeholder} type={type} {...field} value={typeof field.value === 'string' ? field.value : ''} /></FormControl><FormMessage /></FormItem>} />;
+}
+
+function Credential({ form, name, dateName, label }: { form: AnyForm; name: 'hasSafeSport' | 'hasUsaWrestling' | 'hasBackgroundCheck'; dateName: 'safeSportExpiry' | 'usaWrestlingExpiry' | 'backgroundCheckDate'; label: string }) {
+  const enabled = form.watch(name);
+  return (
+    <div className="rounded-lg border border-white/10 p-4">
+      <FormField control={form.control} name={name} render={({ field }) => (
+        <FormItem className="flex flex-row items-center gap-3 space-y-0"><FormControl><Checkbox checked={!!field.value} onCheckedChange={(value) => field.onChange(value === true)} /></FormControl><FormLabel>{label}</FormLabel></FormItem>
+      )} />
+      {enabled ? <div className="mt-3"><Field form={form} name={dateName} label="Expiration or completion date (optional)" type="date" /></div> : null}
     </div>
   );
 }

@@ -529,7 +529,7 @@ export function Header() {
             {showLoggedOutMobileHeaderLinks(pathname) && (
               <nav
                 className="md:hidden flex items-center justify-end gap-1 min-[400px]:gap-2 shrink-0"
-                aria-label="Log in, sign up, and coach application"
+                aria-label="Log in, sign up, and coach account"
               >
                 <Link
                   href="/login"

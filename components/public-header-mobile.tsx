@@ -55,14 +55,14 @@ export function PublicHeaderMobile({ variant = 'public' }: Props) {
               className={`${linkClass} text-accent font-semibold`}
               onClick={close}
             >
-              For Coaches — Apply
+              For Coaches — Get Started
             </Link>
             <Link href="/how-it-works" className={linkClass} onClick={close}>
               How It Works
             </Link>
             {variant === 'logged-in' ? (
               <Link href="/signup/coach" className={`${linkClass} text-accent font-semibold`} onClick={close}>
-                Apply to Coach
+                Create Coach Account
               </Link>
             ) : null}
           </nav>

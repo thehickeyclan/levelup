@@ -31,8 +31,9 @@ export async function sendCoachApplicationSubmittedToCoach(params: {
 <!DOCTYPE html>
 <html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px;">
   <p>Hi ${name},</p>
-  <p>Thanks for applying to coach with ${product}. We received your application and will review it soon (typically within 24–48 hours).</p>
-  <p>You can check your status anytime by signing in: <a href="${escapeHtml(pendingUrl)}">${escapeHtml(pendingUrl)}</a></p>
+  <p>Your ${product} coach account is created. You can begin building your business profile now.</p>
+  <p>We’ll verify your identity and any credentials you submitted, typically within 24–48 hours. Verification enables paid family bookings.</p>
+  <p>Sign in to continue setup: <a href="${escapeHtml(pendingUrl)}">${escapeHtml(pendingUrl)}</a></p>
   <p>If you have questions, reply to this email or write to ${escapeHtml(tenant.supportEmail)}.</p>
   <p>— ${product}</p>
 </body></html>
@@ -41,9 +42,9 @@ export async function sendCoachApplicationSubmittedToCoach(params: {
   const text = [
     `Hi ${firstName.trim() || 'there'},`,
     '',
-    `Thanks for applying to coach with ${tenant.productName}. We received your application and will review it soon (typically within 24-48 hours).`,
+    `Your ${tenant.productName} coach account is created. Build your profile now while we verify your identity and credentials (typically within 24-48 hours).`,
     '',
-    `Check status: ${pendingUrl}`,
+    `Continue setup: ${pendingUrl}`,
     '',
     `Questions: ${tenant.supportEmail}`,
     '',
@@ -52,7 +53,7 @@ export async function sendCoachApplicationSubmittedToCoach(params: {
 
   return sendTransactionalEmail({
     to,
-    subject: `We received your ${tenant.productName} coach application`,
+    subject: `Your ${tenant.productName} coach account is ready`,
     html,
     text,
     replyTo: tenant.supportEmail,
@@ -74,7 +75,7 @@ export async function sendCoachApplicationSubmittedToAdmin(params: {
   const html = `
 <!DOCTYPE html>
 <html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px;">
-  <p>New coach application on ${escapeHtml(tenant.productName)}.</p>
+  <p>New coach signup on ${escapeHtml(tenant.productName)}.</p>
   <p><strong>${escapeHtml(fullName)}</strong><br />
   ${escapeHtml(applicantEmail)}</p>
   <p><a href="${escapeHtml(adminUrl)}">Review in admin →</a></p>
@@ -82,7 +83,7 @@ export async function sendCoachApplicationSubmittedToAdmin(params: {
 `.trim();
 
   const text = [
-    `New coach application — ${tenant.productName}`,
+    `New coach signup — ${tenant.productName}`,
     '',
     `${fullName}`,
     applicantEmail,
@@ -92,7 +93,7 @@ export async function sendCoachApplicationSubmittedToAdmin(params: {
 
   return sendTransactionalEmail({
     to: adminEmail,
-    subject: `[${tenant.productName}] New coach application: ${fullName}`,
+    subject: `[${tenant.productName}] Verify new coach: ${fullName}`,
     html,
     text,
     replyTo: applicantEmail,
@@ -113,7 +114,7 @@ export async function sendCoachApplicationApproved(params: {
 <!DOCTYPE html>
 <html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px;">
   <p>Hi ${name},</p>
-  <p>Great news — your ${escapeHtml(tenant.productName)} coach application has been <strong>approved</strong>.</p>
+  <p>Great news — your ${escapeHtml(tenant.productName)} coach account has been <strong>verified</strong> and paid bookings are enabled.</p>
   <p>Sign in to finish setup and start coaching: <a href="${escapeHtml(dashboardUrl)}">${escapeHtml(dashboardUrl)}</a></p>
   <p>— ${escapeHtml(tenant.productName)}</p>
 </body></html>
@@ -122,7 +123,7 @@ export async function sendCoachApplicationApproved(params: {
   const text = [
     `Hi ${firstName.trim() || 'there'},`,
     '',
-    `Your ${tenant.productName} coach application has been approved.`,
+    `Your ${tenant.productName} coach account is verified and paid bookings are enabled.`,
     '',
     `Go to your welcome checklist: ${dashboardUrl}`,
     '',
@@ -131,7 +132,7 @@ export async function sendCoachApplicationApproved(params: {
 
   return sendTransactionalEmail({
     to,
-    subject: `You're approved — ${tenant.productName} coach`,
+    subject: `You're verified — ${tenant.productName} coach`,
     html,
     text,
     replyTo: tenant.supportEmail,
@@ -152,7 +153,7 @@ export async function sendCoachApplicationRejected(params: {
 <!DOCTYPE html>
 <html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px;">
   <p>Hi ${name},</p>
-  <p>Thank you for your interest in coaching with ${escapeHtml(tenant.productName)}. We’re not able to approve your application at this time.</p>
+  <p>Thank you for creating a coach account with ${escapeHtml(tenant.productName)}. We’re not able to verify it for paid bookings at this time.</p>
   <p><strong>Note from the team:</strong><br />${safeReason.replace(/\n/g, '<br />')}</p>
   <p>If you have questions, contact ${escapeHtml(tenant.supportEmail)}.</p>
   <p>— ${escapeHtml(tenant.productName)}</p>
@@ -162,7 +163,7 @@ export async function sendCoachApplicationRejected(params: {
   const text = [
     `Hi ${firstName.trim() || 'there'},`,
     '',
-    `Thank you for your interest in coaching with ${tenant.productName}. We're not able to approve your application at this time.`,
+    `We’re not able to verify your ${tenant.productName} coach account for paid bookings at this time.`,
     '',
     `Note: ${reason.trim()}`,
     '',
@@ -173,7 +174,7 @@ export async function sendCoachApplicationRejected(params: {
 
   return sendTransactionalEmail({
     to,
-    subject: `Update on your ${tenant.productName} coach application`,
+    subject: `Update on your ${tenant.productName} coach verification`,
     html,
     text,
     replyTo: tenant.supportEmail,

@@ -9,6 +9,7 @@ import { ParentReviewsCarousel } from '@/components/home/parent-reviews-carousel
 import { TrainingPathsSection } from '@/components/home/training-paths-section';
 import { MarketSection } from '@/components/home/market-section';
 import { TocGiveawayBanner } from '@/components/home/toc-giveaway-banner';
+import { AppStoreLaunchBanner } from '@/components/home/app-store-launch-banner';
 import { CoachMapSection } from '@/components/map/coach-map-section';
 import { CoachApplySection } from '@/components/home/coach-apply-section';
 import { StickyMobileBar } from '@/components/home/sticky-mobile-bar';
@@ -78,6 +79,7 @@ export default async function HomePage({
         logoSrc={tenant?.heroLogo ?? tenant?.logo}
         logoAlt={tenant?.productName}
       />
+      <AppStoreLaunchBanner />
       <TocGiveawayBanner />
       <MeetCoachesSection coaches={featuredCoaches} />
       <EcosystemSection />

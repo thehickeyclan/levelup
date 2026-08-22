@@ -70,8 +70,8 @@ const FAQ_ITEMS = [
     a: 'Yes — many of our coaches are current NCAA athletes. You set availability around your competition and academic schedule.',
   },
   {
-    q: 'Who can apply to coach?',
-    a: 'We review every application — The Guild is curated, not open enrollment. Current and former NCAA, NAIA, and JUCO wrestlers and proven club or high school coaches are welcome. Coaches in any location can apply. Once approved, you set your own rates and schedule where you train.',
+    q: 'Who can create a coach account?',
+    a: 'Current and former NCAA, NAIA, and JUCO wrestlers and proven club or high school coaches are welcome. Create your business profile immediately; identity and credential verification unlocks paid family bookings.',
   },
   {
     q: 'Can I set my own prices?',
@@ -90,8 +90,8 @@ const FAQ_ITEMS = [
     a: 'You are an independent contractor and responsible for your own coverage. Many coaches are already covered through their school, club, or personal policy.',
   },
   {
-    q: 'How long does approval take?',
-    a: 'Most applications are reviewed within 24–48 hours. You\'ll get an email when you\'re approved and can open your calendar.',
+    q: 'How long does verification take?',
+    a: 'You can build your profile, rates, locations, and schedule immediately. Most identity and credential reviews finish within 24–48 hours.',
   },
 ];
 
@@ -245,12 +245,11 @@ export function CoachesLanding({
             Set your own rates. Open your schedule. Parents book and pay online.
           </p>
           <p className="mt-3 max-w-lg text-sm text-white/55">
-            Apply to join — we review every coach. Once approved, coach on your terms, anywhere you
-            train.
+            Create your account in minutes. Build your profile and calendar now; verification unlocks paid bookings.
           </p>
           <div className="mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
             <Button size="lg" variant="premium" asChild className="min-h-[48px] w-full sm:w-auto">
-              <Link href="/signup/coach">Apply to Coach</Link>
+              <Link href="/signup/coach">Create Coach Account</Link>
             </Button>
             <Button
               size="lg"
@@ -482,8 +481,8 @@ export function CoachesLanding({
           </h2>
           <ol className="mt-10 grid gap-8 sm:grid-cols-3">
             {[
-              { step: '1', title: 'Apply', body: 'Submit your background, bio, and payout info.' },
-              { step: '2', title: 'Get approved', body: 'We review in 24–48 hours and verify your profile.' },
+              { step: '1', title: 'Sign up', body: 'Add your school, wrestling background, and credentials.' },
+              { step: '2', title: 'Build your business', body: 'Set rates, locations, payout, and your booking link.' },
               { step: '3', title: 'Open your calendar', body: 'Set rates, post availability, and start booking.' },
             ].map((item) => (
               <li key={item.step} className="flex flex-col items-center">
@@ -505,8 +504,8 @@ export function CoachesLanding({
             Who can coach?
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-white/70 sm:text-base">
-            We review every application. The Guild is curated — not open enrollment — so parents
-            know every coach on the platform is vetted.
+            Create a coach account immediately. The Guild verifies identity and credentials before
+            enabling paid family bookings, so parents know who they&apos;re booking.
           </p>
           <ul className="mt-8 space-y-3 text-white/85">
             {[
@@ -729,9 +728,9 @@ export function CoachesLanding({
           <h2 className="font-serif text-2xl font-black uppercase tracking-wide text-white md:text-3xl">
             Ready to coach?
           </h2>
-          <p className="mt-3 text-white/65">Apply today — most reviews within 48 hours.</p>
+          <p className="mt-3 text-white/65">Start today — most verifications finish within 48 hours.</p>
           <Button size="lg" variant="premium" asChild className="mt-8 min-h-[52px] px-10 text-base">
-            <Link href="/signup/coach">Apply to Coach</Link>
+            <Link href="/signup/coach">Create Coach Account</Link>
           </Button>
           <p className="mt-6 text-xs text-white/45">
             Questions?{' '}

@@ -82,7 +82,7 @@ export default function SignupPage() {
     }
   }, [refFromUrl]);
 
-  // Coach recruitment funnel: landing page before application
+  // Coach recruitment funnel: business landing page before coach signup
   useEffect(() => {
     if (roleParam === 'coach') {
       router.replace('/coaches');
@@ -173,7 +173,7 @@ export default function SignupPage() {
   if (roleParam === 'coach') {
     return (
       <div className="container mx-auto px-4 py-16 flex items-center justify-center min-h-screen">
-        <p className="text-muted-foreground">Redirecting to coach application...</p>
+        <p className="text-muted-foreground">Redirecting to coach signup...</p>
       </div>
     );
   }
@@ -368,7 +368,7 @@ export default function SignupPage() {
             <p className="text-muted-foreground">
               Want to coach?{' '}
               <Link href="/coaches" className="text-accent hover:underline">
-                Apply as a coach
+                Create a coach account
               </Link>
             </p>
           </div>

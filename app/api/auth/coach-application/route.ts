@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
       bio,
       hasSafeSport,
       safeSportExpiry,
+      hasUsaWrestling,
+      usaWrestlingExpiry,
       hasBackgroundCheck,
       backgroundCheckDate,
       tshirtSize,
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
     const resolvedPayoutMethod = payoutMethod || (venmoHandle ? 'venmo' : zelleContact ? 'zelle' : null);
 
     // Validate required fields
-    if (!firstName || !lastName || !email || !phone || !dateOfBirth || !coachType || !school || !bio || !password) {
+    if (!firstName || !lastName || !email || !phone || !dateOfBirth || !coachType || !school || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -61,11 +63,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Enter a valid cell number (at least 10 digits).' }, { status: 400 });
     }
 
-    if (!['ncaa_athlete', 'club_hs_coach'].includes(coachType)) {
+    if (!['ncaa_athlete', 'former_college_athlete', 'club_hs_coach'].includes(coachType)) {
       return NextResponse.json({ error: 'Invalid coach type' }, { status: 400 });
     }
 
-    if (!resolvedPayoutMethod || !['venmo', 'zelle'].includes(resolvedPayoutMethod)) {
+    if (resolvedPayoutMethod && !['venmo', 'zelle'].includes(resolvedPayoutMethod)) {
       return NextResponse.json({ error: 'Invalid payout method' }, { status: 400 });
     }
 
@@ -137,13 +139,15 @@ export async function POST(req: NextRequest) {
         school,
         coachType,
         weightClass: weightClass || null,
-        bio,
+        bio: String(bio || '').trim() || `${firstName} coaches wrestlers through The Guild.`,
         dateOfBirth,
         payoutMethod: resolvedPayoutMethod,
         venmoHandle: venmoHandle ?? null,
         zelleContact: zelleContact ?? null,
         hasSafeSport: bodyBool(hasSafeSport),
         safeSportExpiry: safeSportExpiry ?? null,
+        hasUsaWrestling: bodyBool(hasUsaWrestling),
+        usaWrestlingExpiry: usaWrestlingExpiry ?? null,
         hasBackgroundCheck: bodyBool(hasBackgroundCheck),
         backgroundCheckDate: backgroundCheckDate ?? null,
         tshirtSize: tshirtSize ?? null,
@@ -183,7 +187,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Application submitted successfully',
+      message: 'Coach account created successfully',
       user: {
         id: userId,
         email,

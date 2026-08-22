@@ -37,6 +37,8 @@ describe('coach application signup DB payloads', () => {
       zelleContact: null,
       hasSafeSport: true,
       safeSportExpiry: '2026-12-01',
+      hasUsaWrestling: true,
+      usaWrestlingExpiry: '2026-12-01',
       hasBackgroundCheck: false,
       backgroundCheckDate: null,
       tshirtSize: 'M',

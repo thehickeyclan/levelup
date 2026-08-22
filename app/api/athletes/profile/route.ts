@@ -221,7 +221,7 @@ export async function PUT(req: NextRequest) {
     // This MUST work with admin client (bypasses RLS)
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from('athletes')
-      .select('first_name, last_name, school')
+      .select('first_name, last_name, school, status, active')
       .eq('id', targetAthleteId)
       .maybeSingle();
 
@@ -239,7 +239,9 @@ export async function PUT(req: NextRequest) {
       photo_url: photoUrl || null,
       facility_id: facilityId || null,
       secondary_facility_id: secondaryFacilityId ?? null,
-      active: active === true,
+      // Pending coaches may finish every profile field, but cannot make the
+      // profile publicly bookable before Guild verification.
+      active: existing?.status === 'active' ? active === true : existing?.active === true,
     };
     if (focusX !== undefined) updateData.photo_focus_x = focusX;
     if (focusY !== undefined) updateData.photo_focus_y = focusY;

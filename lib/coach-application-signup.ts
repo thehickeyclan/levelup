@@ -37,15 +37,17 @@ export type CoachApplicationAthleteInsertInput = {
   firstName: string;
   lastName: string;
   school: string;
-  coachType: 'ncaa_athlete' | 'club_hs_coach';
+  coachType: 'ncaa_athlete' | 'former_college_athlete' | 'club_hs_coach';
   weightClass: string | null;
   bio: string;
   dateOfBirth: string;
-  payoutMethod: 'venmo' | 'zelle';
+  payoutMethod: 'venmo' | 'zelle' | null;
   venmoHandle: string | null;
   zelleContact: string | null;
   hasSafeSport: boolean;
   safeSportExpiry: string | null;
+  hasUsaWrestling: boolean;
+  usaWrestlingExpiry: string | null;
   hasBackgroundCheck: boolean;
   backgroundCheckDate: string | null;
   tshirtSize: string | null;
@@ -78,6 +80,8 @@ export const COACH_APPLICATION_ATHLETE_INSERT_KEYS = [
   'zelle_email',
   'safesport_certified',
   'safesport_expiration',
+  'usa_wrestling_certified',
+  'usa_wrestling_expiration',
   'background_check',
   'background_check_expiration',
   'tshirt_size',
@@ -101,6 +105,8 @@ export function buildCoachApplicationAthleteInsert(input: CoachApplicationAthlet
     zelle_email: input.zelleContact?.trim() || null,
     safesport_certified: input.hasSafeSport || false,
     safesport_expiration: toPgDateOrNull(input.safeSportExpiry ?? null),
+    usa_wrestling_certified: input.hasUsaWrestling || false,
+    usa_wrestling_expiration: toPgDateOrNull(input.usaWrestlingExpiry ?? null),
     background_check: input.hasBackgroundCheck || false,
     background_check_expiration: toPgDateOrNull(input.backgroundCheckDate ?? null),
     tshirt_size: input.tshirtSize || null,

@@ -43,7 +43,7 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const body = await req.json().catch(() => ({})) as { reason?: string };
+    const body = await req.json().catch(() => ({})) as { reason?: string; acknowledgeRefunds?: boolean };
     const reason = body.reason || 'Cancelled by user';
 
     const admin = createAdminClient(tenant.slug);
@@ -89,6 +89,41 @@ export async function POST(
       .from('session_participants')
       .select('id, parent_id, youth_wrestler_id, amount_paid, paid')
       .eq('session_id', sessionId);
+
+    // A session whose start time already passed most likely took place — close
+    // it out instead of cancelling (cancel refunds families their credits).
+    if (!isAdmin && scheduledTime.getTime() < Date.now()) {
+      return NextResponse.json(
+        {
+          error:
+            'This session’s start time has already passed. If it took place, close it out instead — cancelling would refund families. Contact The Guild if you need help.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Cancelling with paid athletes auto-issues wallet credits; make the
+    // canceller acknowledge that first so an accidental cancel can't silently
+    // refund a session (a coach hit this after a mistaken reschedule).
+    const paidRows = (participants ?? []).filter((p) => {
+      const row = p as { amount_paid?: unknown; paid?: boolean | null };
+      return row.paid === true && Number(row.amount_paid ?? 0) > 0;
+    });
+    if (!isAdmin && paidRows.length > 0 && body.acknowledgeRefunds !== true) {
+      const refundTotal = paidRows.reduce(
+        (sum, p) => sum + Number((p as { amount_paid?: unknown }).amount_paid ?? 0),
+        0
+      );
+      return NextResponse.json(
+        {
+          requiresAcknowledgement: true,
+          paidCount: paidRows.length,
+          refundTotal,
+          error: `Cancelling refunds $${refundTotal} in credits to ${paidRows.length} ${paidRows.length === 1 ? 'family' : 'families'}. Confirm to continue.`,
+        },
+        { status: 409 }
+      );
+    }
 
     if (isRewardsProgramEnabled()) {
       for (const participant of participants ?? []) {

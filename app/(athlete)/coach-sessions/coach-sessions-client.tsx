@@ -149,12 +149,21 @@ export function CoachSessionsClient({
 
     setCancellingId(sessionId);
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/cancel`, {
+      let res = await fetch(`/api/sessions/${sessionId}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: 'Cancelled by coach' }),
       });
-      const data = await res.json();
+      let data = await res.json();
+      if (res.status === 409 && data.requiresAcknowledgement) {
+        if (!window.confirm(`${data.error} This can't be undone.`)) return;
+        res = await fetch(`/api/sessions/${sessionId}/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: 'Cancelled by coach', acknowledgeRefunds: true }),
+        });
+        data = await res.json();
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to cancel session');
       alert(data.message || 'Session cancelled');
       router.refresh();

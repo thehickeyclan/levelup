@@ -19,12 +19,21 @@ export function UpcomingSessionActions({ sessionId, scheduledDatetime, totalPric
   const handleCancel = async () => {
     setCancelling(true);
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/cancel`, {
+      let res = await fetch(`/api/sessions/${sessionId}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: 'Cancelled by coach' }),
       });
-      const data = await res.json();
+      let data = await res.json();
+      if (res.status === 409 && data.requiresAcknowledgement) {
+        if (!window.confirm(`${data.error} This can't be undone.`)) return;
+        res = await fetch(`/api/sessions/${sessionId}/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: 'Cancelled by coach', acknowledgeRefunds: true }),
+        });
+        data = await res.json();
+      }
       if (!res.ok) {
         alert(data.error || 'Failed to cancel session');
         return;

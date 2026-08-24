@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
     model?: string;
     size?: number;
     condition?: string;
+    condition_source?: string;
     listing_type?: string;
     price_cents?: number;
     shipping_cents?: number;
@@ -129,6 +130,7 @@ export async function POST(req: NextRequest) {
     model: body.model?.trim() || '',
     size: body.size ?? 10,
     condition: body.condition || 'good',
+    condition_source: body.condition_source === 'seller' || body.condition_source === 'ai' ? body.condition_source : null,
     price_cents: priceCents,
     shipping_cents: listingType === 'collection' ? 0 : body.shipping_cents ?? 800,
     open_to_trade: body.open_to_trade ?? false,
@@ -180,6 +182,8 @@ export async function POST(req: NextRequest) {
       insertRow = withoutColumn(insertRow, 'accepts_offers');
     } else if (isMissingColumnError(msg, 'collector_notes') && 'collector_notes' in insertRow) {
       insertRow = withoutColumn(insertRow, 'collector_notes');
+    } else if (isMissingColumnError(msg, 'condition_source') && 'condition_source' in insertRow) {
+      insertRow = withoutColumn(insertRow, 'condition_source');
     } else {
       break;
     }

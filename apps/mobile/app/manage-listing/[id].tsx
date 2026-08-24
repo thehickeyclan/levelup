@@ -75,6 +75,9 @@ export default function ManageListingScreen() {
   const [price, setPrice] = useState('');
   const [acceptsOffers, setAcceptsOffers] = useState(true);
   const [openToTrade, setOpenToTrade] = useState(false);
+  // Snapshot at load so a condition change marks the grade Seller-set.
+  const [loadedCondition, setLoadedCondition] = useState<string | null>(null);
+  const [loadedWearState, setLoadedWearState] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +100,8 @@ export default function ManageListingScreen() {
       setSize(next.size != null ? String(next.size) : '');
       setWearState(normalizedWearState(next.wear_state));
       setCondition(next.condition ?? 'good');
+      setLoadedCondition(next.condition ?? 'good');
+      setLoadedWearState(normalizedWearState(next.wear_state));
       setDescription(next.description ?? '');
       setPrice(next.price_cents != null ? String(next.price_cents / 100) : '');
       setAcceptsOffers(next.accepts_offers !== false);
@@ -253,6 +258,10 @@ export default function ManageListingScreen() {
           size: numericSize,
           wear_state: wearState,
           condition: wearState === 'used' ? condition : 'new',
+          ...((wearState === 'used' ? condition : 'new') !== loadedCondition ||
+          wearState !== loadedWearState
+            ? { condition_source: 'seller' }
+            : {}),
           description: description.trim() || null,
           listing_type: listingType,
           price_cents: listingType === 'sell' ? Math.round(numericPrice * 100) : null,

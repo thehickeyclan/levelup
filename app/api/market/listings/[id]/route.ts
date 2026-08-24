@@ -303,7 +303,7 @@ export async function PATCH(
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const allowed = [
-    'title', 'brand', 'model', 'size', 'condition', 'price_cents', 'shipping_cents',
+    'title', 'brand', 'model', 'size', 'condition', 'condition_source', 'price_cents', 'shipping_cents',
     'listing_type', 'open_to_trade', 'open_to_boot', 'accepts_offers', 'description', 'collector_notes', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family', 'rarity',
     'purchase_source', 'purchase_price_cents', 'purchased_at',
   ];

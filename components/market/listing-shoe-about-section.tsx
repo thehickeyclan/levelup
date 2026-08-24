@@ -61,7 +61,6 @@ export function ListingShoeAboutSections({ about }: { about: ShoeModelAbout }) {
     about.sole_type ? { label: 'Sole', value: about.sole_type } : null,
     about.closure_type ? { label: 'Closure', value: about.closure_type } : null,
     about.fit_notes ? { label: 'Fit', value: about.fit_notes } : null,
-    about.notable_features ? { label: 'Notable', value: about.notable_features } : null,
     { label: 'Brand', value: about.brand },
   ].filter(Boolean) as { label: string; value: string }[];
 

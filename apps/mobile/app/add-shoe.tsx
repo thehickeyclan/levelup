@@ -103,6 +103,9 @@ export default function AddShoeScreen() {
   const [colorway, setColorway] = useState('');
   const [size, setSize] = useState('');
   const [condition, setCondition] = useState('good');
+  // Who graded the pair: the AI photo read, or the seller overriding it.
+  const [conditionSource, setConditionSource] = useState<'ai' | 'seller' | null>(null);
+  const [openToTrade, setOpenToTrade] = useState(false);
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [descriptionTouched, setDescriptionTouched] = useState(false);
@@ -257,7 +260,8 @@ export default function AddShoeScreen() {
         listingType === 'sell' && Number.isFinite(numericPrice) && numericPrice > 0
           ? Math.round(numericPrice * 100)
           : null,
-      open_to_trade: listingType === 'trade',
+      open_to_trade: listingType === 'trade' || (listingType === 'sell' && openToTrade),
+      condition_source: wearState === 'used' ? conditionSource ?? 'ai' : wearState ? 'seller' : null,
       accepts_offers: listingType !== 'trade' ? acceptsOffers : true,
       description: description.trim() || undefined,
     };
@@ -444,6 +448,7 @@ export default function AddShoeScreen() {
       const nextCondition = conditionResult.analysis?.grade || condition;
       if (wear === 'used' && conditionResult.analysis?.grade) {
         setCondition(conditionResult.analysis.grade);
+        setConditionSource('ai');
       }
       const descriptionBeforeAi = description.trim();
       if (!descriptionBeforeAi && conditionResult.suggested_description) {
@@ -754,11 +759,25 @@ export default function AddShoeScreen() {
               <Text style={styles.label}>CONDITION</Text>
               <View style={styles.choices}>
                 {([['like_new', 'Like new'], ['good', 'Good'], ['fair', 'Fair']] as [string, string][]).map(([value, label]) => (
-                  <Pressable key={value} style={[styles.choice, condition === value && styles.choiceSelected]} onPress={() => setCondition(value)}>
+                  <Pressable
+                    key={value}
+                    style={[styles.choice, condition === value && styles.choiceSelected]}
+                    onPress={() => {
+                      setCondition(value);
+                      setConditionSource('seller');
+                    }}
+                  >
                     <Text style={[styles.choiceText, condition === value && styles.choiceTextSelected]}>{label}</Text>
                   </Pressable>
                 ))}
               </View>
+              <Text style={styles.toggleMeta}>
+                {conditionSource === 'ai'
+                  ? 'AI graded this pair from your photos — tap a different grade to override it. Buyers see who set the condition.'
+                  : conditionSource === 'seller'
+                    ? 'Condition set by you — buyers will see it marked Seller-set.'
+                    : 'Pick the honest condition — buyers see who set it.'}
+              </Text>
             </>
           ) : null}
           {valueEstimate != null ? (
@@ -851,6 +870,13 @@ export default function AddShoeScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleTitle}>Accept offers</Text>
                   <Text style={styles.toggleMeta}>Let members make a lower bid or start a conversation.</Text>
+                </View>
+              </Pressable>
+              <Pressable style={styles.toggleRow} onPress={() => setOpenToTrade((value) => !value)}>
+                <View style={[styles.toggleDot, openToTrade && styles.toggleDotOn]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>Also open to trade</Text>
+                  <Text style={styles.toggleMeta}>Show this pair to members browsing trades too.</Text>
                 </View>
               </Pressable>
             </>

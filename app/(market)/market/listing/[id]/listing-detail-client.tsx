@@ -363,7 +363,16 @@ export default function ListingDetailClient() {
       accepts_offers: l.accepts_offers as boolean | null,
     });
   const wearState = (l.wear_state as 'bnib' | 'new_no_box' | 'used') || 'used';
-  const conditionLabel = listingConditionDisplay(wearState, l.condition as string);
+  const conditionSource = (l.condition_source as string | null) ?? null;
+  const conditionBase = listingConditionDisplay(wearState, l.condition as string);
+  // Flag who graded the pair: the seller's own word or the AI's photo read.
+  const conditionLabel = conditionBase
+    ? conditionSource === 'seller'
+      ? `${conditionBase} · Seller-set`
+      : conditionSource === 'ai'
+        ? `${conditionBase} · AI-assessed`
+        : conditionBase
+    : conditionBase;
   const viewsCount = (l.views_count as number) ?? 0;
   const offerCount = data.pending_offer_count ?? 0;
   const followerCount = data.follower_count ?? 0;

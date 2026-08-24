@@ -4,6 +4,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -54,6 +55,19 @@ export default function CartScreen() {
   const [busyLine, setBusyLine] = useState<string | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Mirror web checkout: show the wallet balance and let the family choose
+  // whether credits apply (default on), instead of silently draining them.
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [useCredits, setUseCredits] = useState(true);
+
+  const loadCredits = useCallback(async () => {
+    try {
+      const data = await apiFetch<{ balance?: number }>('/api/credits');
+      setCreditBalance(Number(data.balance ?? 0));
+    } catch {
+      setCreditBalance(0);
+    }
+  }, []);
 
   const loadWrestlers = useCallback(async () => {
     setError(null);
@@ -77,9 +91,15 @@ export default function CartScreen() {
   useFocusEffect(
     useCallback(() => {
       void refresh();
-      if (!isCoachView) void loadWrestlers();
-    }, [refresh, isCoachView, loadWrestlers])
+      if (!isCoachView) {
+        void loadWrestlers();
+        void loadCredits();
+      }
+    }, [refresh, isCoachView, loadWrestlers, loadCredits])
   );
+
+  const creditsToApply = useCredits ? Math.min(creditBalance, total) : 0;
+  const cardTotal = total - creditsToApply;
 
   const allAssigned = useMemo(
     () =>
@@ -130,7 +150,7 @@ export default function CartScreen() {
             sessionId: item.sessionId,
             wrestlerId: athleteForItem(item.athleteId),
           })),
-          useCredits: true,
+          useCredits,
         }),
       });
 
@@ -265,9 +285,44 @@ export default function CartScreen() {
               <Text style={styles.summaryLabel}>Training total</Text>
               <Text style={styles.summaryTotal}>${total.toFixed(0)}</Text>
             </View>
-            <Text style={styles.summaryNote}>
-              Available Guild credits and discounts are applied during checkout.
-            </Text>
+
+            {creditBalance > 0 ? (
+              <>
+                <View style={[styles.summaryRow, styles.creditToggleRow]}>
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text style={styles.creditToggleTitle}>Apply Guild credits</Text>
+                    <Text style={styles.creditToggleMeta}>
+                      You have ${creditBalance.toFixed(2)} in training credits
+                    </Text>
+                  </View>
+                  <Switch
+                    value={useCredits}
+                    onValueChange={setUseCredits}
+                    trackColor={{ true: colors.accent, false: colors.border }}
+                    thumbColor={colors.surface}
+                  />
+                </View>
+                {creditsToApply > 0 ? (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.creditLine}>Credits applied</Text>
+                    <Text style={styles.creditLine}>-${creditsToApply.toFixed(2)}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Card total</Text>
+                  <Text style={styles.summaryTotal}>${cardTotal.toFixed(2)}</Text>
+                </View>
+                {useCredits && creditsToApply < creditBalance ? (
+                  <Text style={styles.summaryNote}>
+                    Remaining credit balance after purchase: $
+                    {(creditBalance - creditsToApply).toFixed(2)}
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <Text style={styles.summaryNote}>Discounts are applied during checkout.</Text>
+            )}
+
             <Pressable
               style={[styles.primaryButton, !allAssigned && styles.buttonDisabled]}
               onPress={() => void checkout()}
@@ -276,7 +331,11 @@ export default function CartScreen() {
               {checkingOut ? (
                 <ActivityIndicator color={colors.black} />
               ) : (
-                <Text style={styles.primaryButtonText}>Continue to secure checkout</Text>
+                <Text style={styles.primaryButtonText}>
+                  {creditsToApply > 0 && cardTotal <= 0
+                    ? 'Book with credits'
+                    : 'Continue to secure checkout'}
+                </Text>
               )}
             </Pressable>
           </View>
@@ -383,6 +442,15 @@ const styles = StyleSheet.create({
   summaryLabel: { ...typography.bodySemi, color: colors.text, fontSize: 15 },
   summaryTotal: { ...typography.display, color: colors.accent, fontSize: 24 },
   summaryNote: { ...typography.body, color: colors.textMuted, fontSize: 11, marginTop: 6 },
+  creditToggleRow: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  creditToggleTitle: { ...typography.bodySemi, color: colors.text, fontSize: 14 },
+  creditToggleMeta: { ...typography.body, color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  creditLine: { ...typography.bodySemi, color: colors.accent, fontSize: 14 },
   primaryButton: {
     minHeight: 50,
     marginTop: 18,

@@ -96,7 +96,10 @@ export async function fetchCoachUnclosedSessions(
     )
     .eq('athlete_id', coachUserId)
     .eq('status', 'scheduled')
-    .lte('scheduled_datetime', new Date().toISOString())
+    // 30-minute grace before the recorded start: coaches who finish early (or
+    // log a session with a slightly-future time) can still close out instead of
+    // the app looking like the session "didn't happen".
+    .lte('scheduled_datetime', new Date(Date.now() + 30 * 60 * 1000).toISOString())
     .order('scheduled_datetime', { ascending: true })
     .limit(20);
   if (error) throw new Error(error.message);

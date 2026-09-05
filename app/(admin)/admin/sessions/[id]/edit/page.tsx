@@ -6,6 +6,7 @@ import { getTenantFromRequestHeaders } from '@/config/tenants';
 import { formatEST } from '@/lib/format-date';
 import { getAllFacilitiesForEdit } from '@/lib/coach-facilities';
 import { EditSessionForm } from './edit-session-form';
+import { TransferSessionCoach } from '@/components/admin/transfer-session-coach';
 import { BackLink } from '@/components/back-link';
 
 export const dynamic = 'force-dynamic';
@@ -103,6 +104,17 @@ export default async function AdminEditSessionPage({
     .select('id', { count: 'exact', head: true })
     .eq('session_id', sessionId);
 
+  const { data: activeCoaches } = await admin
+    .from('athletes')
+    .select('id, first_name, last_name, school')
+    .eq('active', true)
+    .neq('id', athleteId)
+    .order('first_name');
+  const coachOptions = (activeCoaches ?? []).map((c) => ({
+    id: c.id as string,
+    name: `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() + (c.school ? ` (${c.school})` : ''),
+  }));
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-lg">
       <div className="mb-4 -ml-2">
@@ -155,6 +167,17 @@ export default async function AdminEditSessionPage({
         coachId={athleteId}
         editable={editable}
       />
+      {editable ? (
+        <TransferSessionCoach
+          sessionId={sessionId}
+          currentCoachName={
+            coach
+              ? `${(coach as { first_name?: string }).first_name ?? ''} ${(coach as { last_name?: string }).last_name ?? ''}`.trim()
+              : 'the current coach'
+          }
+          coaches={coachOptions}
+        />
+      ) : null}
     </div>
   );
 }

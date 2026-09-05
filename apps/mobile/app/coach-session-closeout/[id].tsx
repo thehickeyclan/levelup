@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { apiFetch } from '@/lib/api';
+import { ApiError, apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { fetchSessionDetail, sessionTypeLabel, type RosterParticipant } from '@/lib/parent-data';
 import { colors, typography } from '@/lib/theme';
@@ -117,18 +117,49 @@ export default function CoachSessionCloseoutScreen() {
     setSaving(true);
     setError(null);
     try {
-      const result = await apiFetch<{ message?: string }>(`/api/sessions/${id}/cancel`, {
-        method: 'POST',
-        body: JSON.stringify({ reason: reason.trim() }),
-      });
+      const result = await postCancel(false);
       Alert.alert('Session cancelled', result.message ?? 'Families have been notified.', [
         { text: 'Done', onPress: () => router.replace('/(tabs)') },
       ]);
     } catch (e) {
+      // Paid athletes: the server asks for explicit acknowledgement that
+      // cancelling refunds their credits. Confirm, then retry with the flag.
+      if (e instanceof ApiError && e.status === 409) {
+        Alert.alert('Refund families?', `${e.message} This can't be undone.`, [
+          { text: 'Keep session', style: 'cancel' },
+          {
+            text: 'Cancel & refund',
+            style: 'destructive',
+            onPress: () => {
+              void (async () => {
+                setSaving(true);
+                try {
+                  const result = await postCancel(true);
+                  Alert.alert('Session cancelled', result.message ?? 'Families have been notified.', [
+                    { text: 'Done', onPress: () => router.replace('/(tabs)') },
+                  ]);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Could not cancel session');
+                } finally {
+                  setSaving(false);
+                }
+              })();
+            },
+          },
+        ]);
+        return;
+      }
       setError(e instanceof Error ? e.message : 'Could not cancel session');
     } finally {
       setSaving(false);
     }
+  }
+
+  function postCancel(acknowledgeRefunds: boolean) {
+    return apiFetch<{ message?: string }>(`/api/sessions/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason.trim(), acknowledgeRefunds }),
+    });
   }
 
   if (loading) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMarketUser } from '@/lib/market/auth';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(
   _req: NextRequest,
@@ -14,7 +15,10 @@ export async function POST(
     return NextResponse.json({ error: 'Cannot follow yourself' }, { status: 400 });
   }
 
-  const { data: seller } = await supabase.from('users').select('id').eq('id', sellerId).maybeSingle();
+  // RLS hides other users from the follower's client, so verify the seller
+  // exists with the admin client (this returned a silent 404 otherwise).
+  const admin = createAdminClient(ctx.tenant.slug);
+  const { data: seller } = await admin.from('users').select('id').eq('id', sellerId).maybeSingle();
   if (!seller) {
     return NextResponse.json({ error: 'Seller not found' }, { status: 404 });
   }

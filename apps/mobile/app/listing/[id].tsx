@@ -48,6 +48,7 @@ type Listing = {
 };
 
 type Seller = {
+  id?: string | null;
   displayName?: string | null;
   school?: string | null;
   photoUrl?: string | null;
@@ -311,7 +312,11 @@ export default function ListingDetailScreen() {
       </View>
 
       {seller ? (
-        <View style={styles.sellerCard}>
+        <Pressable
+          style={styles.sellerCard}
+          onPress={() => seller.id && router.push(`/seller/${seller.id}`)}
+          disabled={!seller.id}
+        >
           {seller.photoUrl ? (
             <Image source={{ uri: seller.photoUrl }} style={styles.sellerPhoto} />
           ) : (
@@ -324,7 +329,8 @@ export default function ListingDetailScreen() {
             <Text style={styles.sellerName}>{seller.displayName || 'Guild member'}</Text>
             {seller.school ? <Text style={styles.sellerSchool}>{seller.school}</Text> : null}
           </View>
-        </View>
+          {seller.id ? <Text style={styles.sellerViewLink}>View ›</Text> : null}
+        </Pressable>
       ) : null}
 
       {listing.description ? (
@@ -511,6 +517,7 @@ const styles = StyleSheet.create({
   sellerLabel: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 8, letterSpacing: 1 },
   sellerName: { ...typography.bodySemi, color: colors.text, fontSize: 14, marginTop: 3 },
   sellerSchool: { ...typography.body, color: colors.textMuted, fontSize: 10, marginTop: 2 },
+  sellerViewLink: { ...typography.bodySemi, color: colors.accent, fontSize: 13 },
   descriptionCard: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 22, paddingTop: 18 },
   sectionLabel: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 9, letterSpacing: 1.1 },
   body: { ...typography.body, marginTop: 9, fontSize: 14, lineHeight: 21, color: colors.textMuted },

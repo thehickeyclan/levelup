@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireMarketUser } from '@/lib/market/auth';
+import { optionalMarketUser } from '@/lib/market/auth';
 import { getSellerProfile } from '@/lib/market/seller';
 import {
   fetchMarketSellerReviews,
@@ -13,14 +13,16 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await requireMarketUser();
-  if (ctx.error) return ctx.error;
-  const { supabase, tenant, user } = ctx;
+  // Seller profiles are public browse data (guests can already see every
+  // listing); following and own-profile extras still require sign-in.
+  const ctx = await optionalMarketUser();
+  if ('error' in ctx && ctx.error) return ctx.error;
+  const { db: supabase, tenant, user } = ctx;
   const { id: sellerId } = await params;
 
   const seller = await getSellerProfile(tenant.slug, sellerId);
 
-  const isOwnProfile = user!.id === sellerId;
+  const isOwnProfile = user?.id === sellerId;
 
   const [stats, soldHistory, reviews, inventory, followerCountRes, followingRes, collectionValuation] =
     await Promise.all([
@@ -32,14 +34,14 @@ export async function GET(
         .from('market_seller_follows')
         .select('id', { count: 'exact', head: true })
         .eq('seller_id', sellerId),
-      isOwnProfile
-        ? Promise.resolve({ data: null })
-        : supabase
+      user && !isOwnProfile
+        ? supabase
             .from('market_seller_follows')
             .select('id')
-            .eq('follower_id', user!.id)
+            .eq('follower_id', user.id)
             .eq('seller_id', sellerId)
-            .maybeSingle(),
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
       isOwnProfile ? fetchCollectionValuation(supabase, sellerId) : Promise.resolve(null),
     ]);
 

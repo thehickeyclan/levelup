@@ -102,6 +102,7 @@ export default function RootLayout() {
           <Stack.Screen name="session/[id]" options={{ title: 'Session' }} />
           <Stack.Screen name="booking/[id]" options={{ title: 'Booking' }} />
           <Stack.Screen name="invite" options={{ title: 'Invite & earn' }} />
+          <Stack.Screen name="seller/[id]" options={{ title: 'Seller' }} />
           <Stack.Screen name="notifications" options={{ title: 'Alerts' }} />
           <Stack.Screen name="notification-settings" options={{ title: 'Notification settings' }} />
           <Stack.Screen name="thread/[id]" options={{ title: 'Messages' }} />
@@ -121,6 +122,7 @@ export default function RootLayout() {
           <Stack.Screen name="my-wrestlers" options={{ title: 'My wrestlers' }} />
           <Stack.Screen name="wrestler-edit/[id]" options={{ title: 'Wrestler profile' }} />
           <Stack.Screen name="my-coaches" options={{ title: 'My coaches' }} />
+          <Stack.Screen name="athlete-community" options={{ title: 'Wrestling community' }} />
           <Stack.Screen name="wallet" options={{ title: 'Wallet' }} />
           <Stack.Screen name="coach-profile-edit" options={{ title: 'Coach profile' }} />
           <Stack.Screen name="coach-playbook" options={{ title: 'Coach Playbook' }} />

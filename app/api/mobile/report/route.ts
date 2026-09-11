@@ -38,13 +38,20 @@ export async function POST(req: NextRequest) {
     const admin = createAdminClient(tenant.slug);
     const { data: admins } = await admin.from('users').select('id').eq('role', 'admin');
     const reporter = user.email ?? user.id;
+    // A block is a preference, not an incident: keep admin visibility but skip
+    // the urgent "review within 24 hours" framing reserved for real reports.
+    const isBlock = reason === 'Blocked by user';
+    const title = isBlock ? `User blocked a ${targetType} (FYI)` : `Content report: ${targetType}`;
+    const notifBody = isBlock
+      ? `${reporter} blocked a ${targetType}. No action needed unless a pattern emerges.`
+      : `${reporter} reported a ${targetType}${reason ? ` — "${reason}"` : ''}. Review within 24 hours.`;
     for (const row of admins ?? []) {
       await createNotification(admin, {
         user_id: row.id as string,
         type: 'content_report',
-        title: `Content report: ${targetType}`,
-        body: `${reporter} reported a ${targetType}${reason ? ` — "${reason}"` : ''}. Review within 24 hours.`,
-        data: { target_type: targetType, target_id: targetId, reported_by: user.id },
+        title,
+        body: notifBody,
+        data: { target_type: targetType, target_id: targetId, reported_by: user.id, is_block: isBlock },
       });
     }
 

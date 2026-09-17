@@ -15,6 +15,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { promptSignIn } from '@/lib/guest';
+import { Ionicons } from '@expo/vector-icons';
 import { marketColors as colors, typography } from '@/lib/theme';
 
 type Listing = {
@@ -77,6 +78,7 @@ export default function MarketScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
+  const [heartedIds, setHeartedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -87,12 +89,41 @@ export default function MarketScreen() {
     try {
       const res = await apiFetch<{ listings: Listing[] }>('/api/market/listings?limit=150');
       setListings(res.listings ?? []);
+      if (session) {
+        // One-tap hearts on cards need the user's current follows.
+        const mine = await apiFetch<{ watching?: { id: string }[] }>('/api/market/my').catch(() => ({ watching: [] }));
+        setHeartedIds(new Set((mine.watching ?? []).map((w) => w.id)));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load market');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session]);
+
+  const toggleHeart = useCallback(
+    (listingId: string) => {
+      if (!session) return promptSignIn(router, 'save your favorite shoes');
+      setHeartedIds((current) => {
+        const hearted = current.has(listingId);
+        const next = new Set(current);
+        if (hearted) next.delete(listingId);
+        else next.add(listingId);
+        void apiFetch(`/api/market/listings/${listingId}/follow`, {
+          method: hearted ? 'DELETE' : 'POST',
+        }).catch(() => {
+          setHeartedIds((now) => {
+            const reverted = new Set(now);
+            if (hearted) reverted.add(listingId);
+            else reverted.delete(listingId);
+            return reverted;
+          });
+        });
+        return next;
+      });
+    },
+    [session, router]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -280,6 +311,19 @@ export default function MarketScreen() {
             {item.open_to_trade ? (
               <View style={styles.tradeBadge}><Text style={styles.tradeBadgeText}>TRADE</Text></View>
             ) : null}
+            <Pressable
+              style={[styles.heartButton, heartedIds.has(item.id) && styles.heartButtonActive]}
+              onPress={() => toggleHeart(item.id)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={heartedIds.has(item.id) ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              <Ionicons
+                name={heartedIds.has(item.id) ? 'heart' : 'heart-outline'}
+                size={18}
+                color={heartedIds.has(item.id) ? colors.white : colors.text}
+              />
+            </Pressable>
           </View>
           <View style={styles.cardInfo}>
             <Text style={styles.title} numberOfLines={2}>{listingName(item)}</Text>
@@ -425,6 +469,17 @@ const styles = StyleSheet.create({
   image: { width: '100%', height: '100%', backgroundColor: colors.surfaceRaised },
   imagePlaceholder: { backgroundColor: colors.surfaceRaised },
   tradeBadge: { position: 'absolute', left: 8, top: 8, borderRadius: 999, backgroundColor: 'rgba(10,10,10,0.88)', borderWidth: 1, borderColor: colors.accent, paddingHorizontal: 7, paddingVertical: 4 },
+  heartButton: {
+    position: 'absolute',
+    left: 8,
+    bottom: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 7,
+  },
+  heartButtonActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   tradeBadgeText: { ...typography.bodyBold, color: colors.accent, fontSize: 7, letterSpacing: 0.8 },
   cardInfo: { padding: 11, minHeight: 105 },
   title: {

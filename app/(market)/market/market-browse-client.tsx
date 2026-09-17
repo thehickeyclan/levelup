@@ -80,7 +80,7 @@ export function MarketBrowseClient({
   const toggleHeart = useCallback(
     (listingId: string) => {
       if (heartedIds === null) {
-        router.push('/signup?redirect=/market');
+        router.push('/market-signup?redirect=/market');
         return;
       }
       const hearted = heartedIds.has(listingId);

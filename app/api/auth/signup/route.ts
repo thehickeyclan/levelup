@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
       athletePhone,
       referralCode: referralCodeBody,
       campaign,
+      signupIntent,
     } = body;
     const tocCampaign = normalizeTocCampaign(campaign);
 
@@ -61,6 +62,10 @@ export async function POST(req: NextRequest) {
     }
     const invitePayload = typeof inviteToken === 'string' && inviteToken.trim() ? verifyInviteToken(inviteToken.trim()) : null;
 
+    // Market-only signups (shoe buyers/sellers) skip phone and ZIP; those are
+    // collected later at the first booking or sale, where they actually matter.
+    const marketOnly = role === 'parent' && body.marketOnly === true;
+
     let parentSignupPhone: string | undefined;
     if (role === 'parent') {
       const fn = typeof firstName === 'string' ? firstName.trim() : '';
@@ -71,18 +76,20 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      const zipNorm = normalizeUsZipCode(typeof body.zipCode === 'string' ? body.zipCode : '');
-      if (!zipNorm) {
-        return NextResponse.json(
-          { error: 'A valid U.S. home ZIP code is required (5 digits, or ZIP+4).' },
-          { status: 400 }
-        );
+      if (!marketOnly) {
+        const zipNorm = normalizeUsZipCode(typeof body.zipCode === 'string' ? body.zipCode : '');
+        if (!zipNorm) {
+          return NextResponse.json(
+            { error: 'A valid U.S. home ZIP code is required (5 digits, or ZIP+4).' },
+            { status: 400 }
+          );
+        }
+        const pp = validateRequiredCellPhone(body.phone ?? body.cellPhone);
+        if (!pp.ok) {
+          return NextResponse.json({ error: pp.message }, { status: 400 });
+        }
+        parentSignupPhone = pp.phone;
       }
-      const pp = validateRequiredCellPhone(body.phone ?? body.cellPhone);
-      if (!pp.ok) {
-        return NextResponse.json({ error: pp.message }, { status: 400 });
-      }
-      parentSignupPhone = pp.phone;
     }
 
     // For athletes (coaches), require additional fields and coach type
@@ -182,6 +189,16 @@ export async function POST(req: NextRequest) {
       email,
       password,
       email_confirm: true, // Auto-confirm for now (can change later)
+      user_metadata: {
+        signup_intent:
+          signupIntent === 'market'
+            ? 'market'
+            : role === 'youth_wrestler'
+              ? 'athlete'
+              : role === 'coach'
+                ? 'coach'
+                : 'family',
+      },
     });
 
     if (authError || !authData.user) {
@@ -202,8 +219,10 @@ export async function POST(req: NextRequest) {
     if (role === 'parent') {
       usersInsert.first_name = String(firstName).trim();
       usersInsert.last_name = String(lastName).trim();
-      usersInsert.zip_code = normalizeUsZipCode(String(body.zipCode ?? ''))!;
-      usersInsert.phone = parentSignupPhone!;
+      if (!marketOnly) {
+        usersInsert.zip_code = normalizeUsZipCode(String(body.zipCode ?? ''))!;
+        usersInsert.phone = parentSignupPhone!;
+      }
     }
     if (role === 'youth_wrestler') {
       usersInsert.first_name = String(firstName).trim();

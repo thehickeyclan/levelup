@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantFromRequestHeaders } from '@/config/tenants';
+import { primaryListingImageUrl } from '@/lib/market/listing-images';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,14 +43,24 @@ export default async function AdminMarketFavoritesPage({
     status: string;
     price_cents: number | null;
     hearted_at: string;
+    imageUrl?: string | null;
   }[] = [];
 
   // No email yet: live view of everyone who has hearted, newest first.
-  let recentHearts: { name: string; email: string; shoe: string; at: string }[] = [];
+  let recentHearts: {
+    name: string;
+    email: string;
+    shoe: string;
+    listingId: string | null;
+    imageUrl: string | null;
+    at: string;
+  }[] = [];
   if (!query) {
     const { data: allFollows } = await admin
       .from('market_listing_follows')
-      .select('created_at, follower_id, market_listings(title, brand, model)')
+      .select(
+        'created_at, follower_id, market_listings(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))'
+      )
       .order('created_at', { ascending: false })
       .limit(100);
     const userIds = [...new Set((allFollows ?? []).map((f) => f.follower_id as string))];
@@ -59,14 +70,19 @@ export default async function AdminMarketFavoritesPage({
     const byId = new Map((userRows ?? []).map((u) => [u.id as string, u]));
     recentHearts = (allFollows ?? []).map((f) => {
       const u = byId.get(f.follower_id as string);
-      const l = Array.isArray(f.market_listings) ? f.market_listings[0] : f.market_listings;
+      const l = (Array.isArray(f.market_listings) ? f.market_listings[0] : f.market_listings) as {
+        id?: string;
+        title?: string | null;
+        brand?: string | null;
+        model?: string | null;
+        market_listing_images?: Parameters<typeof primaryListingImageUrl>[0];
+      } | null;
       return {
         name: [u?.first_name, u?.last_name].filter(Boolean).join(' ') || (u?.email as string) || 'Unknown',
         email: (u?.email as string) ?? '',
-        shoe:
-          (l as { title?: string | null })?.title ||
-          [(l as { brand?: string | null })?.brand, (l as { model?: string | null })?.model].filter(Boolean).join(' ') ||
-          'Listing',
+        shoe: l?.title || [l?.brand, l?.model].filter(Boolean).join(' ') || 'Listing',
+        listingId: l?.id ?? null,
+        imageUrl: l?.market_listing_images ? primaryListingImageUrl(l.market_listing_images) : null,
         at: f.created_at as string,
       };
     });
@@ -83,14 +99,23 @@ export default async function AdminMarketFavoritesPage({
     if (member) {
       const { data: follows } = await admin
         .from('market_listing_follows')
-        .select('created_at, market_listings(id, title, brand, model, size, listing_type, status, price_cents)')
+        .select(
+          'created_at, market_listings(id, title, brand, model, size, listing_type, status, price_cents, market_listing_images(public_url, clean_public_url, use_clean, display_order))'
+        )
         .eq('follower_id', member.id)
         .order('created_at', { ascending: false });
       favorites = (follows ?? [])
         .map((f) => {
           const l = Array.isArray(f.market_listings) ? f.market_listings[0] : f.market_listings;
           if (!l) return null;
-          return { ...(l as Omit<(typeof favorites)[number], 'hearted_at'>), hearted_at: f.created_at as string };
+          const row = l as Omit<(typeof favorites)[number], 'hearted_at' | 'imageUrl'> & {
+            market_listing_images?: Parameters<typeof primaryListingImageUrl>[0];
+          };
+          return {
+            ...row,
+            imageUrl: row.market_listing_images ? primaryListingImageUrl(row.market_listing_images) : null,
+            hearted_at: f.created_at as string,
+          };
         })
         .filter(Boolean) as typeof favorites;
     }
@@ -132,14 +157,35 @@ export default async function AdminMarketFavoritesPage({
             <ul className="divide-y divide-border rounded-lg border border-border">
               {recentHearts.map((h, i) => (
                 <li key={i} className="flex items-center justify-between gap-3 p-3">
-                  <div>
-                    <Link
-                      href={`/admin/market/favorites?email=${encodeURIComponent(h.email)}`}
-                      className="text-sm font-semibold text-accent hover:underline"
-                    >
-                      {h.name}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">♥ {h.shoe}</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    {h.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={h.imageUrl}
+                        alt={h.shoe}
+                        className="h-12 w-12 rounded-md object-contain bg-muted shrink-0"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-md bg-muted shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <Link
+                        href={`/admin/market/favorites?email=${encodeURIComponent(h.email)}`}
+                        className="text-sm font-semibold text-accent hover:underline"
+                      >
+                        {h.name}
+                      </Link>
+                      <p className="text-xs text-muted-foreground truncate">
+                        ♥{' '}
+                        {h.listingId ? (
+                          <Link href={`/market/listing/${h.listingId}`} className="hover:underline">
+                            {h.shoe}
+                          </Link>
+                        ) : (
+                          h.shoe
+                        )}
+                      </p>
+                    </div>
                   </div>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
                     {new Date(h.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
@@ -174,7 +220,18 @@ export default async function AdminMarketFavoritesPage({
             <ul className="divide-y divide-border rounded-lg border border-border">
               {favorites.map((f) => (
                 <li key={f.id} className="flex items-center justify-between gap-3 p-3">
-                  <div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    {f.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={f.imageUrl}
+                        alt=""
+                        className="h-14 w-14 rounded-md object-contain bg-muted shrink-0"
+                      />
+                    ) : (
+                      <div className="h-14 w-14 rounded-md bg-muted shrink-0" />
+                    )}
+                    <div className="min-w-0">
                     <Link
                       href={`/market/listing/${f.id}`}
                       className="text-sm font-semibold text-accent hover:underline"
@@ -187,6 +244,7 @@ export default async function AdminMarketFavoritesPage({
                       {f.status}
                       {f.price_cents != null ? ` · $${(f.price_cents / 100).toFixed(0)}` : ''}
                     </p>
+                    </div>
                   </div>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
                     ♥ {new Date(f.hearted_at).toLocaleDateString()}

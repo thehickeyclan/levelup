@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
@@ -57,6 +57,53 @@ export function MarketBrowseClient({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // One-tap hearts on browse cards: load the signed-in user's follows once;
+  // null means signed out (heart taps route to signup).
+  const [heartedIds, setHeartedIds] = useState<Set<string> | null>(null);
+  const heartsLoaded = useRef(false);
+  useEffect(() => {
+    if (heartsLoaded.current) return;
+    heartsLoaded.current = true;
+    void (async () => {
+      try {
+        const res = await fetch('/api/market/my');
+        if (!res.ok) return; // guest
+        const data = (await res.json()) as { watching?: { id: string }[] };
+        setHeartedIds(new Set((data.watching ?? []).map((w) => w.id)));
+      } catch {
+        /* stay in guest mode */
+      }
+    })();
+  }, []);
+
+  const toggleHeart = useCallback(
+    (listingId: string) => {
+      if (heartedIds === null) {
+        router.push('/signup?redirect=/market');
+        return;
+      }
+      const hearted = heartedIds.has(listingId);
+      const next = new Set(heartedIds);
+      if (hearted) next.delete(listingId);
+      else next.add(listingId);
+      setHeartedIds(next);
+      void fetch(`/api/market/listings/${listingId}/follow`, {
+        method: hearted ? 'DELETE' : 'POST',
+      }).then((res) => {
+        if (!res.ok) {
+          // revert on failure
+          setHeartedIds((current) => {
+            const reverted = new Set(current ?? []);
+            if (hearted) reverted.add(listingId);
+            else reverted.delete(listingId);
+            return reverted;
+          });
+        }
+      });
+    },
+    [heartedIds, router]
+  );
 
   const rawType = searchParams.get('type') || 'all';
   const type = (rawType === 'vault' ? 'collectors' : rawType) as TypeFilter;
@@ -280,7 +327,13 @@ export function MarketBrowseClient({
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filtered.map((listing) => (
-              <MarketListingCard key={listing.id} listing={listing} emphasizeType={type === 'all'} />
+              <MarketListingCard
+                key={listing.id}
+                listing={listing}
+                emphasizeType={type === 'all'}
+                hearted={heartedIds?.has(listing.id) ?? false}
+                onHeartToggle={toggleHeart}
+              />
             ))}
           </div>
         )}

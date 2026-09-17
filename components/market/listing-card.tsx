@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Eye, Flame } from 'lucide-react';
+import { Eye, Flame, Heart } from 'lucide-react';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import type { MarketBrowseListing } from '@/lib/market/browse-listings';
 import { formatListingColorLabel } from '@/lib/market/color-family';
@@ -62,9 +62,14 @@ function priceLabel(listing: MarketBrowseListing): { text: string; className: st
 export function MarketListingCard({
   listing,
   emphasizeType = false,
+  hearted,
+  onHeartToggle,
 }: {
   listing: MarketBrowseListing;
   emphasizeType?: boolean;
+  /** When onHeartToggle is provided, a heart button renders on the card image. */
+  hearted?: boolean;
+  onHeartToggle?: (listingId: string) => void;
 }) {
   const badge = typeBadge(listing);
   const price = priceLabel(listing);
@@ -117,6 +122,23 @@ export function MarketListingCard({
             <Eye className="h-3 w-3" />
             {listing.views_count}
           </span>
+        ) : null}
+        {onHeartToggle ? (
+          <button
+            type="button"
+            aria-label={hearted ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onHeartToggle(listing.id);
+            }}
+            className={cn(
+              'absolute bottom-2 left-2 rounded-full p-2 backdrop-blur-sm transition-colors',
+              hearted ? 'bg-accent text-accent-foreground' : 'bg-foreground/70 text-background hover:bg-foreground/85'
+            )}
+          >
+            <Heart className={cn('h-4 w-4', hearted && 'fill-current')} />
+          </button>
         ) : null}
       </div>
       <div className="p-2.5 flex flex-col gap-1.5 flex-1">

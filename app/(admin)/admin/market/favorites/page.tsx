@@ -30,7 +30,8 @@ export default async function AdminMarketFavoritesPage({
   const query = (email ?? '').trim().toLowerCase();
 
   const admin = createAdminClient(tenant.slug);
-  let member: { id: string; email: string; first_name: string | null; last_name: string | null } | null = null;
+  type Member = { id: string; email: string; first_name: string | null; last_name: string | null };
+  let member: Member | null = null;
   let favorites: {
     id: string;
     title: string | null;
@@ -49,7 +50,7 @@ export default async function AdminMarketFavoritesPage({
       .select('id, email, first_name, last_name')
       .ilike('email', query)
       .maybeSingle();
-    member = (u as typeof member) ?? null;
+    member = (u as Member | null) ?? null;
 
     if (member) {
       const { data: follows } = await admin

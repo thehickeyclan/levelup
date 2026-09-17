@@ -44,6 +44,34 @@ export default async function AdminMarketFavoritesPage({
     hearted_at: string;
   }[] = [];
 
+  // No email yet: live view of everyone who has hearted, newest first.
+  let recentHearts: { name: string; email: string; shoe: string; at: string }[] = [];
+  if (!query) {
+    const { data: allFollows } = await admin
+      .from('market_listing_follows')
+      .select('created_at, follower_id, market_listings(title, brand, model)')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    const userIds = [...new Set((allFollows ?? []).map((f) => f.follower_id as string))];
+    const { data: userRows } = userIds.length
+      ? await admin.from('users').select('id, email, first_name, last_name').in('id', userIds)
+      : { data: [] };
+    const byId = new Map((userRows ?? []).map((u) => [u.id as string, u]));
+    recentHearts = (allFollows ?? []).map((f) => {
+      const u = byId.get(f.follower_id as string);
+      const l = Array.isArray(f.market_listings) ? f.market_listings[0] : f.market_listings;
+      return {
+        name: [u?.first_name, u?.last_name].filter(Boolean).join(' ') || (u?.email as string) || 'Unknown',
+        email: (u?.email as string) ?? '',
+        shoe:
+          (l as { title?: string | null })?.title ||
+          [(l as { brand?: string | null })?.brand, (l as { model?: string | null })?.model].filter(Boolean).join(' ') ||
+          'Listing',
+        at: f.created_at as string,
+      };
+    });
+  }
+
   if (query) {
     const { data: u } = await admin
       .from('users')
@@ -90,6 +118,38 @@ export default async function AdminMarketFavoritesPage({
           Look up
         </button>
       </form>
+
+      {!query ? (
+        recentHearts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hearts yet — they&apos;ll appear here live as people favorite pairs.</p>
+        ) : (
+          <>
+            <p className="text-sm font-semibold mb-3">
+              {recentHearts.length} recent heart{recentHearts.length === 1 ? '' : 's'} ·{' '}
+              {new Set(recentHearts.map((h) => h.email)).size} member
+              {new Set(recentHearts.map((h) => h.email)).size === 1 ? '' : 's'}
+            </p>
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {recentHearts.map((h, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 p-3">
+                  <div>
+                    <Link
+                      href={`/admin/market/favorites?email=${encodeURIComponent(h.email)}`}
+                      className="text-sm font-semibold text-accent hover:underline"
+                    >
+                      {h.name}
+                    </Link>
+                    <p className="text-xs text-muted-foreground">♥ {h.shoe}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {new Date(h.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      ) : null}
 
       {query && !member ? (
         <p className="text-sm text-muted-foreground">

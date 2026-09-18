@@ -15,6 +15,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { promptSignIn } from '@/lib/guest';
+import { promptForPushAlerts } from '@/lib/alerts-prompt';
 import { Ionicons } from '@expo/vector-icons';
 import { marketColors as colors, typography } from '@/lib/theme';
 
@@ -129,7 +130,9 @@ export default function MarketScreen() {
     useCallback(() => {
       setLoading(true);
       void load();
-    }, [load])
+      // Market-only members land here, never on Home — ask them too.
+      if (session) void promptForPushAlerts();
+    }, [load, session])
   );
 
   const filtered = useMemo(() => {

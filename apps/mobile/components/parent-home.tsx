@@ -14,6 +14,7 @@ import { colors, typography } from '@/lib/theme';
 import { ParentReviewPromptModal, type ParentReviewPrompt } from '@/components/parent-review-prompt';
 import { mobileActivityTitle, type MobileActivityPost } from '@/lib/activity-display';
 import { milestoneFor } from '@/lib/coach-athletes';
+import { promptForPushAlerts } from '@/lib/alerts-prompt';
 
 type CoachMapPin = {
   pinKey: string;
@@ -90,6 +91,7 @@ export function ParentHomeScreen() {
   useFocusEffect(
     useCallback(() => {
       void load();
+      void promptForPushAlerts();
     }, [load])
   );
 

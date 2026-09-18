@@ -22,6 +22,7 @@ import { sessionTypeLabel } from '@/lib/parent-data';
 import { useNotificationRealtime } from '@/lib/use-notification-realtime';
 import { colors, typography } from '@/lib/theme';
 import { apiFetch } from '@/lib/api';
+import { promptForPushAlerts } from '@/lib/alerts-prompt';
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
@@ -75,6 +76,7 @@ export function CoachHomeScreen() {
     useCallback(() => {
       setLoading(true);
       void load();
+      void promptForPushAlerts();
     }, [load])
   );
 

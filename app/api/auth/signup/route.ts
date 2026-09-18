@@ -117,7 +117,10 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      const ph = validateRequiredYouthPhone(athletePhone);
+      // The iPhone app sends the athlete's cell as `phone`; the web form sends
+      // `athletePhone`. Accept both — reading only athletePhone rejected every
+      // app athlete signup with "Cell phone is required".
+      const ph = validateRequiredYouthPhone(athletePhone ?? body.phone ?? body.cellPhone);
       if (!ph.ok) {
         return NextResponse.json({ error: ph.message }, { status: 400 });
       }

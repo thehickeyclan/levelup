@@ -40,7 +40,7 @@ export function CoachHomeScreen() {
   const router = useRouter();
   const [sessions, setSessions] = useState<CoachSessionRow[]>([]);
   const [unclosedSessions, setUnclosedSessions] = useState<CoachSessionRow[]>([]);
-  const [dismissedCloseoutId, setDismissedCloseoutId] = useState<string | null>(null);
+  const [dismissedCloseoutIds, setDismissedCloseoutIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [weeklyWindowCount, setWeeklyWindowCount] = useState<number | null>(null);
@@ -81,8 +81,13 @@ export function CoachHomeScreen() {
   );
 
   const isPreviewOnly = previewCoachView && role !== 'coach' && role !== 'admin';
+  // Newest ended session first: the one the coach just finished, not a stray
+  // from weeks ago. Dismissals accumulate so two unclosed sessions can't
+  // alternate endlessly ("Remind me later" on one re-surfaces the other).
   const closeoutSession =
-    unclosedSessions.find((session) => session.id !== dismissedCloseoutId) ?? null;
+    [...unclosedSessions]
+      .reverse()
+      .find((session) => !dismissedCloseoutIds.has(session.id)) ?? null;
   const coachSummary = useMemo(() => {
     const booked = sessions.reduce((sum, session) => sum + (session.current_participants ?? 0), 0);
     const openSpots = sessions.reduce(
@@ -97,7 +102,10 @@ export function CoachHomeScreen() {
     <>
       <CoachSessionCloseoutReminder
         session={closeoutSession}
-        onLater={() => setDismissedCloseoutId(closeoutSession?.id ?? null)}
+        onLater={() => {
+          if (!closeoutSession) return;
+          setDismissedCloseoutIds((current) => new Set(current).add(closeoutSession.id));
+        }}
       />
       <FlatList
       style={styles.screen}

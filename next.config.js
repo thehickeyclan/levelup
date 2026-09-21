@@ -21,7 +21,10 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value: [
-              "script-src 'self' 'unsafe-inline' https://js.stripe.com",
+              // next dev relies on eval for source maps/HMR; production keeps eval blocked
+              process.env.NODE_ENV === 'development'
+                ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com"
+                : "script-src 'self' 'unsafe-inline' https://js.stripe.com",
               "style-src 'self' 'unsafe-inline' https://js.stripe.com https://api.mapbox.com",
               "worker-src 'self' blob:",
               "child-src blob:",

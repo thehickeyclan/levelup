@@ -1489,6 +1489,39 @@ export default function EditListingPage() {
         {saving ? 'Saving…' : status === 'draft' ? 'Save & publish' : 'Save changes'}
       </Button>
 
+      {status === 'active' || status === 'archived' ? (
+        <Button
+          variant="outline"
+          className="w-full min-h-[44px] rounded-full"
+          disabled={saving}
+          onClick={() => {
+            const next = status === 'active' ? 'archived' : 'active';
+            void (async () => {
+              try {
+                const res = await fetch(`/api/market/listings/${listingId}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: next }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || data.error) {
+                  throw new Error(data.error || 'Could not update this listing');
+                }
+                if (next === 'archived') {
+                  router.replace('/market/my-listings');
+                } else {
+                  setStatus('active');
+                }
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Could not update this listing');
+              }
+            })();
+          }}
+        >
+          {status === 'active' ? 'Archive pair' : 'Restore pair'}
+        </Button>
+      ) : null}
+
       <Button
         variant="ghost"
         className="w-full min-h-[44px] text-destructive hover:text-destructive"

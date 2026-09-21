@@ -115,6 +115,7 @@ export default function RootLayout() {
           <Stack.Screen name="coach-availability-custom" options={{ title: 'Weekly availability' }} />
           <Stack.Screen name="select-coach" options={{ title: 'Select coach' }} />
           <Stack.Screen name="create-session" options={{ title: 'Create session' }} />
+          <Stack.Screen name="offer-session" options={{ title: 'Offer a session' }} />
           <Stack.Screen name="coach-session-closeout/[id]" options={{ title: 'Close out session' }} />
           <Stack.Screen name="coach-session-reschedule/[id]" options={{ title: 'Reschedule session' }} />
           <Stack.Screen name="coach-locations" options={{ title: 'Training locations' }} />

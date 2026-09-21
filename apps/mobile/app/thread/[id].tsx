@@ -29,10 +29,16 @@ type Message = {
   read_by?: string[];
 };
 
+/** Session-offer messages carry a web booking link; open it natively instead. */
+function sessionIdFromBody(body: string): string | null {
+  const match = body.match(/\/sessions\/([0-9a-f]{8}-[0-9a-f-]{27,})/i);
+  return match ? match[1] : null;
+}
+
 export default function ThreadScreen() {
   const router = useRouter();
   const { id, draft: initialDraft } = useLocalSearchParams<{ id: string; draft?: string }>();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +169,7 @@ export default function ThreadScreen() {
         renderItem={({ item }) => {
           const own = item.sender_id === user?.id;
           const seen = own && (item.read_by ?? []).some((readerId) => readerId !== user?.id);
+          const offerSessionId = sessionIdFromBody(item.body ?? item.content ?? '');
           return (
             <>
               {item.id === firstUnreadId ? (
@@ -180,6 +187,16 @@ export default function ThreadScreen() {
                   <Text style={[styles.body, own && styles.bodyOwn]}>
                     {item.body ?? item.content ?? ''}
                   </Text>
+                  {offerSessionId ? (
+                    <Pressable
+                      style={[styles.offerButton, own && styles.offerButtonOwn]}
+                      onPress={() => router.push(`/session/${offerSessionId}`)}
+                    >
+                      <Text style={[styles.offerButtonText, own && styles.offerButtonTextOwn]}>
+                        {own ? 'View session' : 'View & book'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
                 <Text style={styles.meta}>
                   {new Date(item.created_at).toLocaleString(undefined, {
@@ -197,6 +214,14 @@ export default function ThreadScreen() {
         ListEmptyComponent={<Text style={styles.meta}>No messages in this thread.</Text>}
       />
       <View style={styles.composer}>
+        {role === 'coach' || role === 'admin' ? (
+          <Pressable
+            style={styles.offerRow}
+            onPress={() => router.push(`/offer-session?thread=${id}`)}
+          >
+            <Text style={styles.offerRowText}>⚡ Offer a session</Text>
+          </Pressable>
+        ) : null}
         <Text style={styles.channelHint}>
           Sends in The Guild and alerts the recipient by app notification.
         </Text>
@@ -252,6 +277,20 @@ const styles = StyleSheet.create({
   bubbleOwn: { backgroundColor: colors.accent, borderColor: colors.accent },
   body: { ...typography.body, color: colors.text, fontSize: 15, lineHeight: 20 },
   bodyOwn: { color: colors.background },
+  offerButton: {
+    marginTop: 10,
+    minHeight: 40,
+    borderRadius: 8,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  offerButtonOwn: { backgroundColor: colors.background },
+  offerButtonText: { ...typography.bodyBold, color: colors.background, fontSize: 13 },
+  offerButtonTextOwn: { color: colors.accent },
+  offerRow: { alignSelf: 'flex-start', paddingVertical: 2 },
+  offerRowText: { ...typography.bodySemi, color: colors.accent, fontSize: 13 },
   meta: { marginTop: 6, color: colors.textSecondary, fontSize: 12 },
   error: { color: colors.danger, marginBottom: 8 },
   composer: {

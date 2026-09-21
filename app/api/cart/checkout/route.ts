@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { maybeOpenRemainingSpots } from '@/lib/open-remaining-spots';
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
@@ -365,6 +366,7 @@ export async function POST(req: NextRequest) {
         const next = (currentCountBySession.get(meta.session_id) ?? 0) + 1;
         currentCountBySession.set(meta.session_id, next);
         await admin.from('sessions').update({ current_participants: next }).eq('id', meta.session_id);
+        void maybeOpenRemainingSpots(admin, tenant.slug, meta.session_id);
 
         if (!coachNotifySentForSession.has(meta.session_id)) {
           coachNotifySentForSession.add(meta.session_id);

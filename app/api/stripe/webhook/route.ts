@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { maybeOpenRemainingSpots } from '@/lib/open-remaining-spots';
 import Stripe from 'stripe';
 import { getStripeInstance, getWebhookSecret } from '@/lib/stripe/webhooks';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -9,6 +10,7 @@ import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { formatEST } from '@/lib/format-date';
 import { headers } from 'next/headers';
 import { maybeBackfillRosterSnapshot } from '@/lib/session-roster-snapshot';
+import { notifyAthleteFollowersJoinedSession } from '@/lib/notify-athlete-followers';
 import { maybeBackfillUserNameFromCheckoutSession } from '@/lib/stripe-backfill-user-name';
 import {
   countPaidSessionSpotsForParent,
@@ -181,6 +183,7 @@ export async function POST(req: NextRequest) {
                 .from('sessions')
                 .update({ current_participants: next, updated_at: new Date().toISOString() })
                 .eq('id', sid);
+              void maybeOpenRemainingSpots(supabase, tenantSlug, sid);
 
               const coachId = (sess as { athlete_id?: string } | null)?.athlete_id;
               const dt = (sess as { scheduled_datetime?: string } | null)?.scheduled_datetime;
@@ -235,6 +238,9 @@ export async function POST(req: NextRequest) {
               void ensureSessionGuildThread(supabase, tenantSlug, sid, parentId, coachId);
             }
           }
+          await notifyAthleteFollowersJoinedSession(supabase, ywid, sid).catch((e) =>
+            console.warn('Cart webhook: follower notification failed', e)
+          );
         }
 
         const uniqueCartSessionIds = [...new Set(rows.map((row) => row.sid))];
@@ -421,6 +427,8 @@ export async function POST(req: NextRequest) {
               .eq('id', sessionId);
             if (upErr) {
               console.error('Webhook: failed to increment current_participants', upErr);
+            } else {
+              void maybeOpenRemainingSpots(supabase, tenantSlug, sessionId);
             }
             await maybeBackfillRosterSnapshot(supabase, { session_id: sessionId, youth_wrestler_id: youthWrestlerId }, ywSnap ?? {});
           }
@@ -460,6 +468,11 @@ export async function POST(req: NextRequest) {
           }).catch(() => {});
         }
         void ensureSessionGuildThread(supabase, tenantSlug, sessionId, parentId, coachId);
+        await notifyAthleteFollowersJoinedSession(
+          supabase,
+          youthWrestlerId,
+          sessionId
+        ).catch((e) => console.warn('Webhook: follower notification failed', e));
         if (creditsUsed > 0) {
           const { applyCredits } = await import('@/lib/credits');
           await applyCredits({
@@ -591,6 +604,7 @@ export async function POST(req: NextRequest) {
                 .from('sessions')
                 .update({ current_participants: currentCount, updated_at: new Date().toISOString() })
                 .eq('id', sessionId);
+              void maybeOpenRemainingSpots(supabase, tenantSlug, sessionId);
               await maybeBackfillRosterSnapshot(
                 supabase,
                 { session_id: sessionId, youth_wrestler_id: ywid },
@@ -668,6 +682,9 @@ export async function POST(req: NextRequest) {
               );
             }
           }
+          await notifyAthleteFollowersJoinedSession(supabase, ywid, sessionId).catch((e) =>
+            console.warn('Booking webhook: follower notification failed', e)
+          );
         }
 
         const { error: sessionFinalizeError } = await supabase

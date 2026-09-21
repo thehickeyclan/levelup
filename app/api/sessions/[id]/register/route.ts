@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { maybeOpenRemainingSpots } from '@/lib/open-remaining-spots';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -8,6 +9,7 @@ import { formatEST } from '@/lib/format-date';
 import { createRegisterConfirmationToken } from '@/lib/confirmation-token';
 import { createNotification } from '@/lib/notifications';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
+import { notifyAthleteFollowersJoinedSession } from '@/lib/notify-athlete-followers';
 import { hasMinPhoneDigits } from '@/lib/phone';
 import { parseGraduationYear, GRADUATION_YEAR_REQUIRED_MESSAGE } from '@/lib/graduation-year';
 import { maybeBackfillRosterSnapshot } from '@/lib/session-roster-snapshot';
@@ -197,6 +199,7 @@ export async function POST(
       if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
       await maybeBackfillRosterSnapshot(admin, { session_id: sessionId, youth_wrestler_id: youthWrestlerId }, yw ?? {});
       await supabase.from('sessions').update({ current_participants: current + 1, updated_at: new Date().toISOString() }).eq('id', sessionId);
+      void maybeOpenRemainingSpots(admin, tenant.slug, sessionId);
       const coachId = (session as { athlete_id?: string }).athlete_id;
       const dt = s.scheduled_datetime;
       if (coachId && coachId !== user.id) {
@@ -213,6 +216,9 @@ export async function POST(
           youthWrestlerId,
         }).catch(() => {});
       }
+      await notifyAthleteFollowersJoinedSession(admin, youthWrestlerId, sessionId).catch((e) =>
+        console.warn('Register: follower notification failed', e)
+      );
       return NextResponse.json({ added: true });
     }
 
@@ -368,6 +374,7 @@ export async function POST(
           .from('sessions')
           .update({ current_participants: current + 1, updated_at: new Date().toISOString() })
           .eq('id', sessionId);
+        void maybeOpenRemainingSpots(admin, tenant.slug, sessionId);
       }
 
       if (needApplyCredits > 0.01) {
@@ -425,6 +432,10 @@ export async function POST(
           youthWrestlerId,
         }).catch(() => {});
       }
+
+      await notifyAthleteFollowersJoinedSession(admin, youthWrestlerId, sessionId).catch((e) =>
+        console.warn('Register credit-only: follower notification failed', e)
+      );
 
       const stripeRedirectOrigin = publicOriginForStripeRedirect(host, req);
       const confirmToken = createRegisterConfirmationToken(sessionId);

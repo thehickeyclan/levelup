@@ -1,10 +1,12 @@
 import { getStripeInstance } from '@/lib/stripe/webhooks';
+import { maybeOpenRemainingSpots } from '@/lib/open-remaining-spots';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tenants } from '@/config/tenants';
 import { createNotification } from '@/lib/notifications';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { formatEST } from '@/lib/format-date';
 import { maybeBackfillRosterSnapshot } from '@/lib/session-roster-snapshot';
+import { notifyAthleteFollowersJoinedSession } from '@/lib/notify-athlete-followers';
 
 /**
  * Idempotent: same logic as Stripe webhook `checkout.session.completed` for register payments.
@@ -99,6 +101,9 @@ export async function finalizeRegisterFromCheckoutSession(
               tenantSlug,
             });
           }
+          await notifyAthleteFollowersJoinedSession(supabase, youthWrestlerId, sessionId).catch(
+            (e) => console.warn('finalizeRegister: follower notification failed', e)
+          );
           return { ok: true };
         }
         console.error('finalizeRegisterFromCheckoutSession: insert failed', insertErr);
@@ -108,6 +113,7 @@ export async function finalizeRegisterFromCheckoutSession(
         .from('sessions')
         .update({ current_participants: current + 1, updated_at: new Date().toISOString() })
         .eq('id', sessionId);
+      void maybeOpenRemainingSpots(supabase, tenantSlug, sessionId);
 
       await maybeBackfillRosterSnapshot(supabase, { session_id: sessionId, youth_wrestler_id: youthWrestlerId }, ywSnap ?? {});
 
@@ -166,6 +172,9 @@ export async function finalizeRegisterFromCheckoutSession(
       }
     }
 
+    await notifyAthleteFollowersJoinedSession(supabase, youthWrestlerId, sessionId).catch((e) =>
+      console.warn('finalizeRegister: follower notification failed', e)
+    );
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error';

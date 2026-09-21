@@ -13,6 +13,7 @@ import {
   getRecommendedPricePerParticipant,
   type CoachCreateSessionType,
 } from '@/lib/coach-session-pricing';
+import { isMissingColumnError } from '@/lib/market/listing-column-fallback';
 import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
 import { normalizeCoachRevenueShareRate } from '@/lib/pricing';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
@@ -48,6 +49,8 @@ export async function POST(req: NextRequest) {
       pricePerParticipant?: number;
       sessionType?: CoachCreateSessionType;
       joinPolicy?: 'public' | 'invite_only' | 'private';
+      /** Invite-only partner/group offers: flip public once the first family books. */
+      openSpotsAfterFirstBooking?: boolean;
       published?: boolean;
       focusArea?: string;
       focusArea2?: string;
@@ -63,6 +66,7 @@ export async function POST(req: NextRequest) {
       pricePerParticipant: bodyPrice,
       sessionType = 'small_group',
       joinPolicy = 'public',
+      openSpotsAfterFirstBooking = false,
       focusArea,
       focusArea2,
       locationVisibility = 'public',
@@ -213,13 +217,28 @@ export async function POST(req: NextRequest) {
       ...(sessionType === 'private' && locationVisibility === 'participants_only'
         ? { location_visibility: 'participants_only' }
         : {}),
+      ...(openSpotsAfterFirstBooking && joinPolicy === 'invite_only' && sessionType !== 'private'
+        ? { open_spots_after_first_booking: true }
+        : {}),
     };
 
-    const { data: session, error: sessionError } = await admin
+    let insertResult = await admin
       .from('sessions')
       .insert(sessionInsert)
       .select('id, partner_invite_code, scheduled_datetime, max_participants, price_per_participant')
       .single();
+    if (
+      insertResult.error &&
+      isMissingColumnError(insertResult.error.message, 'open_spots_after_first_booking')
+    ) {
+      delete (sessionInsert as Record<string, unknown>).open_spots_after_first_booking;
+      insertResult = await admin
+        .from('sessions')
+        .insert(sessionInsert)
+        .select('id, partner_invite_code, scheduled_datetime, max_participants, price_per_participant')
+        .single();
+    }
+    const { data: session, error: sessionError } = insertResult;
 
     if (sessionError) {
       console.error('Admin create session error:', sessionError);

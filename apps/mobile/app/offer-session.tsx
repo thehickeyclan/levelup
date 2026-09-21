@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -77,6 +78,7 @@ export default function OfferSessionScreen() {
   const [scheduledDate, setScheduledDate] = useState(DATE_OPTIONS[1]?.value ?? DATE_OPTIONS[0].value);
   const [scheduledTime, setScheduledTime] = useState('17:00');
   const [priceOverride, setPriceOverride] = useState<string | null>(null);
+  const [privateOffer, setPrivateOffer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +148,10 @@ export default function OfferSessionScreen() {
           maxParticipants: defaults.capacity,
           pricePerParticipant: price,
           sessionType,
-          joinPolicy: 'invite_only',
+          joinPolicy: privateOffer ? 'invite_only' : 'public',
+          // Private partner/group offers: leftover spots open publicly once
+          // the family this offer was made to books.
+          openSpotsAfterFirstBooking: privateOffer && sessionType !== 'private',
           published: true,
         }),
       });
@@ -267,6 +272,25 @@ export default function OfferSessionScreen() {
         </>
       ) : null}
 
+      <View style={styles.privateRow}>
+        <View style={styles.privateCopy}>
+          <Text style={styles.privateTitle}>Private offer</Text>
+          <Text style={styles.privateDetail}>
+            {privateOffer
+              ? sessionType === 'private'
+                ? 'Only this conversation gets the link.'
+                : 'Link-only until they book — leftover spots then open publicly.'
+              : 'Open spots are listed publicly and alert followers.'}
+          </Text>
+        </View>
+        <Switch
+          value={privateOffer}
+          onValueChange={setPrivateOffer}
+          trackColor={{ true: colors.accent, false: colors.border }}
+          thumbColor={colors.text}
+        />
+      </View>
+
       {priceOverride == null ? (
         <View style={styles.priceRow}>
           <Text style={styles.priceText}>
@@ -309,8 +333,9 @@ export default function OfferSessionScreen() {
         )}
       </Pressable>
       <Text style={styles.footnote}>
-        Creates an invite-only session — it never appears in public listings, only through this
-        conversation's link.
+        {privateOffer
+          ? 'Invite-only — the session never appears in public listings, only through this conversation’s link.'
+          : 'The family books from this conversation; any spots left open are visible in public listings and followers get an alert.'}
       </Text>
     </ScrollView>
   );
@@ -360,6 +385,19 @@ const styles = StyleSheet.create({
   },
   facilityRowSelected: { borderColor: colors.accent, backgroundColor: colors.surface },
   facilityName: { ...typography.bodySemi, color: colors.text, fontSize: 13 },
+  privateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+  },
+  privateCopy: { flex: 1 },
+  privateTitle: { ...typography.bodySemi, color: colors.text, fontSize: 14 },
+  privateDetail: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 2 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20 },
   priceText: { ...typography.bodySemi, color: colors.text, fontSize: 14 },
   priceInput: {

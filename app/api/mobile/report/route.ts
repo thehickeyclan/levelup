@@ -41,6 +41,24 @@ export async function POST(req: NextRequest) {
     // A block is a preference, not an incident: keep admin visibility but skip
     // the urgent "review within 24 hours" framing reserved for real reports.
     const isBlock = reason === 'Blocked by user';
+
+    // Persist to the admin review queue (/admin/compliance). Tolerates the
+    // table not existing yet — migrations are hand-applied to production.
+    try {
+      const { error: queueError } = await admin.from('content_reports').insert({
+        tenant_slug: tenant.slug,
+        target_type: targetType,
+        target_id: targetId,
+        reason,
+        is_block: isBlock,
+        reported_by: user.id,
+        reporter_email: user.email ?? '',
+      });
+      if (queueError) console.error('content report queue insert:', queueError.message);
+    } catch (queueError) {
+      console.error('content report queue:', queueError);
+    }
+
     const title = isBlock ? `User blocked a ${targetType} (FYI)` : `Content report: ${targetType}`;
     const notifBody = isBlock
       ? `${reporter} blocked a ${targetType}. No action needed unless a pattern emerges.`

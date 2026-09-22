@@ -32,6 +32,35 @@ export async function POST() {
       return NextResponse.json({ error: 'Could not process the request — try again.' }, { status: 500 });
     }
 
+    // Persist to the admin work queue (/admin/compliance). Tolerates the
+    // table not existing yet — migrations are hand-applied to production.
+    try {
+      const { data: existing, error: queueReadError } = await admin
+        .from('account_deletion_requests')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .maybeSingle();
+      if (queueReadError) {
+        console.error('account delete queue read:', queueReadError.message);
+      } else if (!existing) {
+        const { data: profile } = await admin
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+        const { error: queueInsertError } = await admin.from('account_deletion_requests').insert({
+          user_id: user.id,
+          email: user.email ?? '',
+          role: (profile as { role?: string } | null)?.role ?? null,
+          tenant_slug: tenant.slug,
+        });
+        if (queueInsertError) console.error('account delete queue insert:', queueInsertError.message);
+      }
+    } catch (queueError) {
+      console.error('account delete queue:', queueError);
+    }
+
     // Alert every admin so data removal is completed within the stated window.
     const { data: admins } = await admin.from('users').select('id').eq('role', 'admin');
     const requesterLabel = user.email ?? user.id;

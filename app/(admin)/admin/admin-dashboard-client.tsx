@@ -6336,6 +6336,9 @@ const handleToggleApproval = async (athleteId: string, currentActive: boolean) =
             <Link href="/admin/tournament-volunteers" className="block px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
               Tournament volunteers
             </Link>
+            <Link href="/admin/compliance" className="block px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              App compliance (deletions &amp; reports)
+            </Link>
           </div>
         </div>
       </aside>

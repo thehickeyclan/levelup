@@ -61,10 +61,10 @@ const DATE_OPTIONS = Array.from({ length: 14 }, (_, index) => {
 });
 
 /**
- * One-tap session offer from a message thread. Price comes from the standard
- * rates (private $60 / partner $50 / group $30); the coach can override but is
- * never asked. Creates an invite-only session and drops a booking link into
- * the conversation.
+ * One-tap session offer from a message thread. Price defaults to the
+ * recommended market rates (private $60 / partner $50 / group $30) — always
+ * the coach's to change, never mandated. Creates a session and drops a
+ * booking link into the conversation.
  */
 export default function OfferSessionScreen() {
   const router = useRouter();
@@ -318,7 +318,7 @@ export default function OfferSessionScreen() {
       {priceOverride == null ? (
         <View style={styles.priceRow}>
           <Text style={styles.priceText}>
-            ${defaults.price} · standard {defaults.label.toLowerCase()} rate
+            ${defaults.price} · recommended market rate
           </Text>
           <Pressable onPress={() => setPriceOverride(String(defaults.price))} hitSlop={8}>
             <Text style={styles.priceAdjust}>Adjust</Text>
@@ -335,7 +335,7 @@ export default function OfferSessionScreen() {
             autoFocus
           />
           <Pressable onPress={() => setPriceOverride(null)} hitSlop={8}>
-            <Text style={styles.priceAdjust}>Use standard</Text>
+            <Text style={styles.priceAdjust}>Use recommended</Text>
           </Pressable>
         </View>
       )}

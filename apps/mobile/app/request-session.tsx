@@ -182,7 +182,7 @@ export default function RequestSessionScreen() {
       />
 
       <Text style={styles.priceNote}>
-        Standard {format.label.toLowerCase()} rate is ${format.price} — you only pay when the
+        The market rate for a {format.label.toLowerCase()} is typically ${format.price} — you only pay when the
         coach sends a booking link and you book.
       </Text>
 

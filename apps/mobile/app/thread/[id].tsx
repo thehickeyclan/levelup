@@ -35,6 +35,19 @@ function sessionIdFromBody(body: string): string | null {
   return match ? match[1] : null;
 }
 
+/** Parent session requests end with a [request:format:date:time] token (see request-session.tsx). */
+function sessionRequestFromBody(
+  body: string
+): { format: string; date: string; time: string } | null {
+  const match = body.match(/\[request:(private|partner|small_group):(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2})\]/);
+  return match ? { format: match[1], date: match[2], time: match[3] } : null;
+}
+
+/** The token is machine-readable plumbing — keep it out of the bubble. */
+function displayBody(body: string): string {
+  return body.replace(/\n?\[request:[^\]]*\]/, '').trim();
+}
+
 export default function ThreadScreen() {
   const router = useRouter();
   const { id, draft: initialDraft } = useLocalSearchParams<{ id: string; draft?: string }>();
@@ -169,7 +182,11 @@ export default function ThreadScreen() {
         renderItem={({ item }) => {
           const own = item.sender_id === user?.id;
           const seen = own && (item.read_by ?? []).some((readerId) => readerId !== user?.id);
-          const offerSessionId = sessionIdFromBody(item.body ?? item.content ?? '');
+          const rawBody = item.body ?? item.content ?? '';
+          const offerSessionId = sessionIdFromBody(rawBody);
+          const sessionRequest = sessionRequestFromBody(rawBody);
+          const canAcceptRequest =
+            sessionRequest != null && !own && (role === 'coach' || role === 'admin');
           return (
             <>
               {item.id === firstUnreadId ? (
@@ -185,8 +202,23 @@ export default function ThreadScreen() {
                 </Text>
                 <View style={[styles.bubble, own && styles.bubbleOwn]}>
                   <Text style={[styles.body, own && styles.bodyOwn]}>
-                    {item.body ?? item.content ?? ''}
+                    {displayBody(rawBody)}
                   </Text>
+                  {canAcceptRequest && sessionRequest ? (
+                    <Pressable
+                      style={styles.offerButton}
+                      onPress={() =>
+                        router.push(
+                          `/offer-session?thread=${id}&format=${sessionRequest.format}&date=${sessionRequest.date}&time=${sessionRequest.time}`
+                        )
+                      }
+                    >
+                      <Text style={styles.offerButtonText}>Accept — send booking link</Text>
+                    </Pressable>
+                  ) : null}
+                  {sessionRequest && own ? (
+                    <Text style={styles.requestPending}>Waiting on the coach — you'll get an alert.</Text>
+                  ) : null}
                   {offerSessionId ? (
                     <Pressable
                       style={[styles.offerButton, own && styles.offerButtonOwn]}
@@ -291,6 +323,7 @@ const styles = StyleSheet.create({
   offerButtonTextOwn: { color: colors.accent },
   offerRow: { alignSelf: 'flex-start', paddingVertical: 2 },
   offerRowText: { ...typography.bodySemi, color: colors.accent, fontSize: 13 },
+  requestPending: { ...typography.body, color: colors.background, fontSize: 12, marginTop: 8, opacity: 0.8 },
   meta: { marginTop: 6, color: colors.textSecondary, fontSize: 12 },
   error: { color: colors.danger, marginBottom: 8 },
   composer: {

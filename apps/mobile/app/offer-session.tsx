@@ -68,15 +68,39 @@ const DATE_OPTIONS = Array.from({ length: 14 }, (_, index) => {
  */
 export default function OfferSessionScreen() {
   const router = useRouter();
-  const { thread: threadId, to } = useLocalSearchParams<{ thread: string; to?: string }>();
+  const {
+    thread: threadId,
+    to,
+    format: requestedFormat,
+    date: requestedDate,
+    time: requestedTime,
+  } = useLocalSearchParams<{
+    thread: string;
+    to?: string;
+    format?: string;
+    date?: string;
+    time?: string;
+  }>();
   const { user, role, selectedCoachId } = useAuth();
   const coachId = role === 'admin' ? selectedCoachId : role === 'coach' ? user?.id ?? null : null;
 
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [facilityId, setFacilityId] = useState('');
-  const [sessionType, setSessionType] = useState<SessionType>('private');
-  const [scheduledDate, setScheduledDate] = useState(DATE_OPTIONS[1]?.value ?? DATE_OPTIONS[0].value);
-  const [scheduledTime, setScheduledTime] = useState('17:00');
+  // Accepting a parent's request prefills their format/day/time; anything
+  // invalid or in the past falls back to the defaults.
+  const [sessionType, setSessionType] = useState<SessionType>(() =>
+    requestedFormat && requestedFormat in SESSION_DEFAULTS
+      ? (requestedFormat as SessionType)
+      : 'private'
+  );
+  const [scheduledDate, setScheduledDate] = useState(() =>
+    requestedDate && DATE_OPTIONS.some((option) => option.value === requestedDate)
+      ? requestedDate
+      : DATE_OPTIONS[1]?.value ?? DATE_OPTIONS[0].value
+  );
+  const [scheduledTime, setScheduledTime] = useState(() =>
+    requestedTime && TIME_OPTIONS.includes(requestedTime) ? requestedTime : '17:00'
+  );
   const [priceOverride, setPriceOverride] = useState<string | null>(null);
   const [privateOffer, setPrivateOffer] = useState(false);
   const [loading, setLoading] = useState(true);

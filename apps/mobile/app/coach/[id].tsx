@@ -200,6 +200,22 @@ export default function CoachDetailScreen() {
           {isCoachView ? 'View public availability' : 'View availability & book'}
         </Text>
       </Pressable>
+      {!isSelf && !isCoachView ? (
+        <Pressable
+          style={styles.buttonSecondary}
+          onPress={() =>
+            user
+              ? router.push(
+                  `/request-session?coach=${coach.id}&name=${encodeURIComponent(coachName)}`
+                )
+              : promptSignIn(router, 'request a session')
+          }
+          accessibilityRole="button"
+          accessibilityLabel={`Request a session with ${coachName}`}
+        >
+          <Text style={styles.buttonSecondaryText}>Request a session</Text>
+        </Pressable>
+      ) : null}
       {!isSelf ? (
         <>
           <Text style={styles.availabilityHelp}>

@@ -105,7 +105,7 @@ export default function CoachMapScreen() {
                     ★ {Number(p.averageRating ?? 0).toFixed(1)} · {p.reviewCount} reviews
                   </Text>
                 ) : null}
-                <Text style={styles.calloutCta}>View profile & book →</Text>
+                <Text style={styles.calloutCta}>Book · Request · Message →</Text>
               </View>
             </Callout>
           </Marker>

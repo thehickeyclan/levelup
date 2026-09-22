@@ -91,9 +91,44 @@ export async function GET(req: Request) {
   const rows = await Promise.all(
     (visibleThreads).map(async (t) => {
       const listing = t.market_listings as { brand?: string; model?: string; title?: string } | null;
-      const listingTitle =
+      let listingTitle =
         [listing?.brand, listing?.model].filter(Boolean).join(' ') || listing?.title || null;
       const order = t.market_orders as { order_ref?: string } | null;
+
+      // Offer/order threads often carry no direct listing_id — resolve the
+      // shoe through the offer or order so the row still names the pair.
+      if (!listingTitle && (t.offer_id || t.order_id)) {
+        try {
+          let resolvedListingId: string | null = null;
+          if (t.offer_id) {
+            const { data: offer } = await admin
+              .from('market_offers')
+              .select('listing_id')
+              .eq('id', t.offer_id)
+              .maybeSingle();
+            resolvedListingId = (offer?.listing_id as string | null) ?? null;
+          }
+          if (!resolvedListingId && t.order_id) {
+            const { data: orderRow } = await admin
+              .from('market_orders')
+              .select('listing_id')
+              .eq('id', t.order_id)
+              .maybeSingle();
+            resolvedListingId = (orderRow?.listing_id as string | null) ?? null;
+          }
+          if (resolvedListingId) {
+            const { data: l } = await admin
+              .from('market_listings')
+              .select('brand, model, title')
+              .eq('id', resolvedListingId)
+              .maybeSingle();
+            listingTitle =
+              [l?.brand, l?.model].filter(Boolean).join(' ') || l?.title || null;
+          }
+        } catch {
+          // Row still renders with its generic label.
+        }
+      }
 
       let contextTitle: string | null = null;
 
@@ -186,7 +221,9 @@ export async function GET(req: Request) {
         thread_type: t.thread_type as string,
         title:
           t.thread_type === 'order' && order?.order_ref
-            ? `Order #${order.order_ref}`
+            ? listingTitle
+              ? `Order #${order.order_ref} · ${listingTitle}`
+              : `Order #${order.order_ref}`
             : contextTitle ?? listingTitle ?? threadLabel(t.thread_type as string, null).replace(/^\S+\s+/, ''),
         category: MARKET_THREAD_TYPES.has(t.thread_type as never)
           ? 'marketplace'

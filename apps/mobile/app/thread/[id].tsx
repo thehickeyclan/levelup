@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -29,6 +30,8 @@ type Message = {
   read_by?: string[];
 };
 
+type ThreadListing = { id: string; title: string; image_url: string | null };
+
 /** Session-offer messages carry a web booking link; open it natively instead. */
 function sessionIdFromBody(body: string): string | null {
   const match = body.match(/\/sessions\/([0-9a-f]{8}-[0-9a-f-]{27,})/i);
@@ -53,6 +56,7 @@ export default function ThreadScreen() {
   const { id, draft: initialDraft } = useLocalSearchParams<{ id: string; draft?: string }>();
   const { user, role } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [listing, setListing] = useState<ThreadListing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState(() =>
@@ -74,10 +78,13 @@ export default function ThreadScreen() {
 
   const load = useCallback(async () => {
     try {
-      const res = await apiFetch<{ messages: Message[]; unread?: number }>(
-        `/api/guild/messages/threads/${id}`
-      );
+      const res = await apiFetch<{
+        messages: Message[];
+        unread?: number;
+        listing?: ThreadListing | null;
+      }>(`/api/guild/messages/threads/${id}`);
       const nextMessages = res.messages ?? [];
+      setListing(res.listing ?? null);
       if ((res.unread ?? 0) > 0 && !firstUnreadId) {
         const firstUnread = nextMessages.find(
           (message) =>
@@ -156,6 +163,27 @@ export default function ThreadScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}
     >
+      {listing ? (
+        <Pressable
+          style={styles.listingCard}
+          onPress={() => router.push(`/listing/${listing.id}`)}
+          accessibilityRole="button"
+          accessibilityLabel={`View listing ${listing.title}`}
+        >
+          {listing.image_url ? (
+            <Image source={{ uri: listing.image_url }} style={styles.listingImage} />
+          ) : (
+            <View style={[styles.listingImage, styles.listingImageEmpty]} />
+          )}
+          <View style={styles.listingCopy}>
+            <Text style={styles.listingAbout}>ABOUT THIS PAIR</Text>
+            <Text style={styles.listingTitle} numberOfLines={1}>
+              {listing.title}
+            </Text>
+          </View>
+          <Text style={styles.listingChevron}>›</Text>
+        </Pressable>
+      ) : null}
       <Pressable
         style={moderationStyles.reportRow}
         onPress={() =>
@@ -324,6 +352,24 @@ const styles = StyleSheet.create({
   offerRow: { alignSelf: 'flex-start', paddingVertical: 2 },
   offerRowText: { ...typography.bodySemi, color: colors.accent, fontSize: 13 },
   requestPending: { ...typography.body, color: colors.background, fontSize: 12, marginTop: 8, opacity: 0.8 },
+  listingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 6,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+  },
+  listingImage: { width: 44, height: 44, borderRadius: 8, backgroundColor: colors.background },
+  listingImageEmpty: { borderWidth: 1, borderColor: colors.border },
+  listingCopy: { flex: 1, minWidth: 0 },
+  listingAbout: { ...typography.bodyBold, color: colors.accent, fontSize: 9, letterSpacing: 1 },
+  listingTitle: { ...typography.bodySemi, color: colors.text, fontSize: 14, marginTop: 2 },
+  listingChevron: { ...typography.bodySemi, color: colors.textMuted, fontSize: 20, paddingHorizontal: 4 },
   meta: { marginTop: 6, color: colors.textSecondary, fontSize: 12 },
   error: { color: colors.danger, marginBottom: 8 },
   composer: {

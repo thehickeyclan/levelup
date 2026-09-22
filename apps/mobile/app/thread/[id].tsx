@@ -184,22 +184,27 @@ export default function ThreadScreen() {
           <Text style={styles.listingChevron}>›</Text>
         </Pressable>
       ) : null}
-      <Pressable
-        style={moderationStyles.reportRow}
-        onPress={() =>
-          reportContent('thread', id ?? '', {
-            extraAction: {
-              label: 'Block & report',
-              run: async () => {
-                await hideThread(id ?? '');
-                router.back();
+      {messages.length > 0 ? (
+        // No report link on an empty thread — there is nothing to report yet,
+        // and the bare link at the top invited accidental taps (a real Sep 11
+        // "report" turned out to be a zero-message thread).
+        <Pressable
+          style={moderationStyles.reportRow}
+          onPress={() =>
+            reportContent('thread', id ?? '', {
+              extraAction: {
+                label: 'Block & report',
+                run: async () => {
+                  await hideThread(id ?? '');
+                  router.back();
+                },
               },
-            },
-          })
-        }
-      >
-        <Text style={moderationStyles.reportText}>Report or block this conversation</Text>
-      </Pressable>
+            })
+          }
+        >
+          <Text style={moderationStyles.reportText}>Report or block this conversation</Text>
+        </Pressable>
+      ) : null}
       <FlatList
         ref={listRef}
         data={messages}

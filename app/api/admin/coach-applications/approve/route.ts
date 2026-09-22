@@ -5,6 +5,8 @@ import { getTenantByDomain } from '@/config/tenants';
 import { sendCoachApplicationApproved } from '@/lib/email/coach-application-emails';
 import { getRequestBaseUrl } from '@/lib/request-base-url';
 import { announceDiscoverableCoach } from '@/lib/announce-discoverable-coach';
+import { createNotification } from '@/lib/notifications';
+import { sendSms } from '@/lib/twilio';
 
 export async function POST(req: NextRequest) {
   try {
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     const { data: coachUser } = await admin
       .from('users')
-      .select('email')
+      .select('email, phone')
       .eq('id', coachId)
       .single();
 
@@ -85,6 +87,30 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         console.error('[email] coach approval notify failed:', e);
       }
+    }
+
+    // Email alone gets missed — most applicants signed up in the app and
+    // never re-check their inbox. Push (if they have the app) and text them
+    // with a clear first step.
+    await createNotification(admin, {
+      user_id: coachId,
+      type: 'coach_application_approved',
+      title: "You're approved — welcome to The Guild",
+      body: 'Create your first session and share your booking link. Families can book and pay you today.',
+      data: { link: '/create-session' },
+    }).catch((e) => console.error('[push] coach approval notify failed:', e));
+
+    if (coachUser?.phone) {
+      await sendSms(
+        coachUser.phone,
+        `${coach.first_name}, you're approved to coach on The Guild! Open the app to set your training times and share your booking link — families can book you today. https://www.wrestlingguild.com/coach-welcome`,
+        {
+          admin,
+          messageType: 'coach_application_approved',
+          recipientId: coachId,
+          recipientLabel: coach.first_name,
+        }
+      ).catch((e) => console.error('[sms] coach approval notify failed:', e));
     }
 
     return NextResponse.json({

@@ -117,10 +117,20 @@ export function MarketListingCard({
             {offerCount} offers
           </span>
         ) : null}
-        {listing.views_count > 0 && !collectionListing ? (
-          <span className="absolute bottom-2 right-2 bg-foreground/75 backdrop-blur-sm rounded-full px-2 py-1 text-[9px] text-muted-foreground flex items-center gap-1">
-            <Eye className="h-3 w-3" />
-            {listing.views_count}
+        {(listing.heart_count ?? 0) > 0 || (listing.views_count > 0 && !collectionListing) ? (
+          <span className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1 text-[11px] font-medium text-white flex items-center gap-2">
+            {(listing.heart_count ?? 0) > 0 ? (
+              <span className="flex items-center gap-1">
+                <Heart className="h-3.5 w-3.5 fill-current" />
+                {listing.heart_count}
+              </span>
+            ) : null}
+            {listing.views_count > 0 && !collectionListing ? (
+              <span className="flex items-center gap-1">
+                <Eye className="h-3.5 w-3.5" />
+                {listing.views_count}
+              </span>
+            ) : null}
           </span>
         ) : null}
         {onHeartToggle ? (

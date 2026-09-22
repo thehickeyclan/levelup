@@ -34,6 +34,7 @@ export type MarketBrowseListing = {
   seller_name: string;
   created_at: string;
   views_count: number;
+  heart_count: number;
   pending_offer_count: number;
   rarity: MarketRarity | null;
 };
@@ -155,6 +156,7 @@ export async function fetchMarketBrowseListings(
   const sellerIds = [...new Set(rows.map((r) => r.seller_id))];
   const sellerNames = new Map<string, string>();
   const offerCounts = new Map<string, number>();
+  const heartCounts = new Map<string, number>();
 
   if (listingIds.length) {
     const { data: offers } = await supabase
@@ -165,6 +167,14 @@ export async function fetchMarketBrowseListings(
     for (const o of offers ?? []) {
       const lid = o.listing_id as string;
       offerCounts.set(lid, (offerCounts.get(lid) ?? 0) + 1);
+    }
+    const { data: hearts } = await supabase
+      .from('market_listing_follows')
+      .select('listing_id')
+      .in('listing_id', listingIds);
+    for (const h of hearts ?? []) {
+      const lid = h.listing_id as string;
+      heartCounts.set(lid, (heartCounts.get(lid) ?? 0) + 1);
     }
   }
 
@@ -208,6 +218,7 @@ export async function fetchMarketBrowseListings(
       seller_name: sellerNames.get(row.seller_id) ?? sellerFallbackDisplayName(row.seller_id as string),
       created_at: row.created_at,
       views_count: row.views_count ?? 0,
+      heart_count: heartCounts.get(row.id) ?? 0,
       pending_offer_count: offerCounts.get(row.id) ?? 0,
       rarity: normalizeMarketRarity(row.rarity ?? null),
     };

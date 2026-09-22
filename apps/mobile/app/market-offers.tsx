@@ -26,6 +26,7 @@ type Offer = {
   message?: string | null;
   status: string;
   created_at?: string | null;
+  expires_at?: string | null;
   buyer_label?: string | null;
   accepted_order_id?: string | null;
   accepted_trade_id?: string | null;
@@ -69,6 +70,16 @@ function offerLabel(offer: Offer) {
   if (offer.offer_type === 'cash') return cash || 'Cash offer';
   if (offer.offer_type === 'trade') return 'Trade offer';
   return `${cash || 'Cash'} + trade`;
+}
+
+/** "Expires in 14h" / "Expires soon" while pending; null once decided or absent. */
+function expiresLabel(offer: Offer): string | null {
+  if (offer.status !== 'pending' || !offer.expires_at) return null;
+  const msLeft = new Date(offer.expires_at).getTime() - Date.now();
+  if (msLeft <= 0) return 'Expired';
+  const hours = Math.floor(msLeft / 3_600_000);
+  if (hours >= 1) return `Expires in ${hours}h`;
+  return `Expires in ${Math.max(1, Math.floor(msLeft / 60_000))}m`;
 }
 
 export default function MarketOffersScreen() {
@@ -119,6 +130,34 @@ export default function MarketOffersScreen() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  function confirmWithdraw(offer: Offer) {
+    Alert.alert('Withdraw this offer?', 'The seller is notified and the offer can no longer be accepted. You can always make a new one.', [
+      { text: 'Keep offer', style: 'cancel' },
+      {
+        text: 'Withdraw',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            if (busyId) return;
+            setBusyId(offer.id);
+            setError(null);
+            try {
+              await apiFetch(`/api/market/offers/${offer.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ action: 'withdraw' }),
+              });
+              await load();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : 'Could not withdraw offer');
+            } finally {
+              setBusyId(null);
+            }
+          })();
+        },
+      },
+    ]);
   }
 
   async function payAcceptedOffer(offer: Offer) {
@@ -178,6 +217,7 @@ export default function MarketOffersScreen() {
                   {offerLabel(item)}
                 </Text>
                 {item.message ? <Text style={styles.message} numberOfLines={2}>{item.message}</Text> : null}
+                {expiresLabel(item) ? <Text style={styles.expiresText}>{expiresLabel(item)}</Text> : null}
               </View>
               <StatusPill status={item.status} />
             </Pressable>
@@ -202,6 +242,19 @@ export default function MarketOffersScreen() {
                   )}
                 </Pressable>
               </View>
+            ) : null}
+            {mode === 'sent' && pending ? (
+              <Pressable
+                style={styles.fullWidthSecondaryAction}
+                onPress={() => confirmWithdraw(item)}
+                disabled={busyId === item.id}
+              >
+                {busyId === item.id ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : (
+                  <Text style={styles.secondaryActionText}>Withdraw offer</Text>
+                )}
+              </Pressable>
             ) : null}
             {mode === 'sent' && item.status === 'accepted' && item.accepted_order_id ? (
               <Pressable
@@ -242,7 +295,11 @@ function TabButton({ label, selected, onPress }: { label: string; selected: bool
 
 function StatusPill({ status }: { status: string }) {
   const color =
-    status === 'accepted' ? colors.success : status === 'declined' ? colors.danger : colors.accent;
+    status === 'accepted'
+      ? colors.success
+      : status === 'declined' || status === 'withdrawn' || status === 'expired'
+        ? colors.danger
+        : colors.accent;
   return (
     <View style={[styles.statusPill, { borderColor: color }]}>
       <Text style={[styles.statusText, { color }]}>{status.replaceAll('_', ' ')}</Text>
@@ -287,6 +344,7 @@ const styles = StyleSheet.create({
   responseButton: { flex: 1, minHeight: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   fullWidthAction: { marginTop: 12, minHeight: 42, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   fullWidthSecondaryAction: { marginTop: 10, minHeight: 42, borderRadius: 10, borderWidth: 1, borderColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  expiresText: { ...typography.bodySemi, color: colors.textMuted, fontSize: 11, marginTop: 4 },
   declineButton: { borderWidth: 1, borderColor: colors.border },
   acceptButton: { backgroundColor: colors.accent },
   declineText: { ...typography.bodyBold, color: colors.textMuted, fontSize: 12 },

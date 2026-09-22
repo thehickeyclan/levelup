@@ -157,6 +157,7 @@ export type BuyerOfferRow = {
   message: string | null;
   status: string;
   created_at: string;
+  expires_at: string | null;
   listing_title: string;
   listing_brand: string;
   listing_model: string;
@@ -174,7 +175,7 @@ export async function fetchBuyerOffers(
   const { data: offers, error } = await supabase
     .from('market_offers')
     .select(`
-      id, listing_id, offer_type, amount_cents, message, status, created_at, trade_listing_id,
+      id, listing_id, offer_type, amount_cents, message, status, created_at, expires_at, trade_listing_id,
       accepted_order_id,
       market_listings!listing_id(id, title, brand, model, market_listing_images(public_url, clean_public_url, use_clean, display_order))
     `)
@@ -233,6 +234,7 @@ export async function fetchBuyerOffers(
       message: o.message as string | null,
       status: o.status as string,
       created_at: o.created_at as string,
+      expires_at: (o.expires_at as string | null) ?? null,
       listing_title: listing?.title ?? 'Listing',
       listing_brand: listing?.brand ?? '',
       listing_model: listing?.model ?? '',

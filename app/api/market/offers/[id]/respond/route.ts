@@ -27,7 +27,7 @@ export async function POST(
   const { data: offer, error: offerErr } = await admin
     .from('market_offers')
     .select(`
-      id, buyer_id, listing_id, status, offer_type, amount_cents, trade_listing_id, message,
+      id, buyer_id, listing_id, status, offer_type, amount_cents, trade_listing_id, message, expires_at,
       market_listings!listing_id(id, seller_id, title, brand, model, shipping_cents, condition, status)
     `)
     .eq('id', offerId)
@@ -56,6 +56,15 @@ export async function POST(
   }
   if (offer.status !== 'pending') {
     return NextResponse.json({ error: 'Offer already handled' }, { status: 400 });
+  }
+  // 48-hour offers are binding only while live — expired ones can't be accepted.
+  const expiresAtRaw = (offer as { expires_at?: string | null }).expires_at;
+  if (expiresAtRaw && new Date(expiresAtRaw).getTime() < Date.now()) {
+    await admin.from('market_offers').update({ status: 'expired' }).eq('id', offerId).eq('status', 'pending');
+    return NextResponse.json(
+      { error: 'This offer expired — ask the buyer to send a new one.' },
+      { status: 400 }
+    );
   }
 
   const listingTitle = listing.title || [listing.brand, listing.model].filter(Boolean).join(' ') || 'listing';

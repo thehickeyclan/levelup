@@ -34,6 +34,8 @@ function statusChip(status: string): { label: string; className: string } {
       return { label: 'Declined', className: 'text-muted-foreground border-border' };
     case 'expired':
       return { label: 'Expired', className: 'text-muted-foreground border-border' };
+    case 'withdrawn':
+      return { label: 'Withdrawn', className: 'text-muted-foreground border-border' };
     default:
       return { label: status, className: 'text-muted-foreground border-border' };
   }
@@ -160,6 +162,33 @@ function SentOfferCard({
   const typeLabel = offerTypeLabel(offer.offer_type);
   const title = listingLabel(offer.listing_brand, offer.listing_model, offer.listing_title);
   const [threadOpen, setThreadOpen] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawn, setWithdrawn] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+
+  const status = withdrawn ? 'withdrawn' : offer.status;
+  const effectiveChip = withdrawn ? statusChip('withdrawn') : chip;
+
+  async function withdraw() {
+    if (withdrawing) return;
+    if (!window.confirm('Withdraw this offer? The seller is notified and it can no longer be accepted.')) return;
+    setWithdrawing(true);
+    setWithdrawError(null);
+    try {
+      const res = await fetch(`/api/market/offers/${offer.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'withdraw' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) throw new Error(data.error || 'Could not withdraw offer');
+      setWithdrawn(true);
+    } catch (e) {
+      setWithdrawError(e instanceof Error ? e.message : 'Could not withdraw offer');
+    } finally {
+      setWithdrawing(false);
+    }
+  }
   const checkoutHref =
     offer.status === 'accepted' && offer.checkout_order_id
       ? `/market/listing/${offer.listing_id}/checkout?order=${offer.checkout_order_id}`
@@ -215,11 +244,28 @@ function SentOfferCard({
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-muted-foreground">
           {formatDistanceToNow(new Date(offer.created_at), { addSuffix: true })}
+          {status === 'pending' && offer.expires_at
+            ? ` · expires ${formatDistanceToNow(new Date(offer.expires_at), { addSuffix: true })}`
+            : ''}
         </span>
-        <span className={cn('text-[10px] border rounded-full px-2 py-0.5', chip.className)}>
-          {chip.label}
+        <span className={cn('text-[10px] border rounded-full px-2 py-0.5', effectiveChip.className)}>
+          {effectiveChip.label}
         </span>
       </div>
+
+      {status === 'pending' ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="w-full rounded-full"
+          disabled={withdrawing}
+          onClick={() => void withdraw()}
+        >
+          {withdrawing ? 'Withdrawing…' : 'Withdraw offer'}
+        </Button>
+      ) : null}
+      {withdrawError ? <p className="text-xs text-destructive">{withdrawError}</p> : null}
 
       {checkoutHref ? (
         <Button asChild size="sm" className="w-full bg-accent text-accent-foreground font-semibold rounded-full">

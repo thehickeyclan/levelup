@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
-import { Stack, usePathname, useRouter } from 'expo-router';
+import { Stack, usePathname, useRootNavigationState, useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -36,14 +36,25 @@ export default function RootLayout() {
     PlayfairDisplay_700Bold,
   });
 
+  // Cold start from a push: navigating before the root navigator has mounted
+  // throws the expo-router error screen. Hold the tapped link until the
+  // navigation state exists, then push once.
+  const navigationState = useRootNavigationState();
+  const navReady = Boolean(navigationState?.key);
+  const handledInitialPush = useRef(false);
+
   useEffect(() => {
+    if (!navReady || handledInitialPush.current) return;
+    handledInitialPush.current = true;
     const initialResponse = Notifications.getLastNotificationResponse();
     if (initialResponse) {
       const data = initialResponse.notification.request.content.data as Record<string, unknown>;
       const href = getNotificationDeepLink(data);
-      if (href) router.push(href as never);
+      if (href) setTimeout(() => router.push(href as never), 0);
     }
+  }, [navReady, router]);
 
+  useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, unknown>;
       const href = getNotificationDeepLink(data);

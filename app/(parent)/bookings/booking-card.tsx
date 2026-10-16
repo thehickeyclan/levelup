@@ -558,7 +558,7 @@ export function BookingCard({
                   </Button>
                 </Link>
               )}
-              {isPast && session.coach.id && (
+              {session.coach.id && (
                 <Link
                   href={
                     `/training?tab=sessions&coach=${session.coach.id}` +
@@ -569,13 +569,14 @@ export function BookingCard({
                     trackProductEvent('parent_book_again_clicked', {
                       coachId: session.coach.id,
                       priorSessionType: session.session_type ?? 'unknown',
+                      fromUpcoming: !isPast,
                     })
                   }
                   className="inline-flex"
                 >
                   <Button variant="outline" size="sm" className="min-h-[40px] px-3">
                     <RotateCcw className="h-4 w-4 mr-1 shrink-0" />
-                    Book again
+                    {isPast ? 'Book again' : 'Book another'}
                   </Button>
                 </Link>
               )}

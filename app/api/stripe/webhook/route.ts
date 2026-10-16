@@ -62,6 +62,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
+    if (event.type === 'checkout.session.expired') {
+      // A parent opened checkout for a private booking and never paid. The
+      // booking route inserts the session row before checkout (to hold the
+      // slot), so remove the hold now that payment can no longer happen.
+      // Only the deferred single-booking flow creates rows ahead of payment —
+      // cart and register checkouts attach to sessions that already exist.
+      const session = event.data.object as Stripe.Checkout.Session;
+      const expiredSessionId = session.metadata?.session_id;
+      if (
+        session.metadata?.app === 'the-guild' &&
+        session.metadata?.cart_checkout !== 'true' &&
+        session.metadata?.category === 'booking' &&
+        expiredSessionId
+      ) {
+        const rawMetaTenant = (session.metadata?.tenant_slug as string | undefined)?.trim().toLowerCase();
+        const tenantSlug = rawMetaTenant && rawMetaTenant in tenants ? rawMetaTenant : 'guild';
+        const supabase = createAdminClient(tenantSlug);
+        const { data: row } = await supabase
+          .from('sessions')
+          .select('id, status, stripe_payment_intent_id, paid_with_credit')
+          .eq('id', expiredSessionId)
+          .maybeSingle();
+        if (
+          row &&
+          row.status === 'scheduled' &&
+          !row.stripe_payment_intent_id &&
+          !row.paid_with_credit
+        ) {
+          await supabase.from('session_participants').delete().eq('session_id', expiredSessionId);
+          await supabase.from('sessions').delete().eq('id', expiredSessionId);
+          console.log('[Stripe webhook] Expired checkout — removed unpaid booking hold', expiredSessionId);
+        }
+      }
+      return NextResponse.json({ received: true });
+    }
+
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
       const app = session.metadata?.app;

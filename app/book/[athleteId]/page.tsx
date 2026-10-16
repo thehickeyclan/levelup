@@ -26,6 +26,7 @@ export default async function BookPage({
     time?: string;
     bookIntent?: string;
     session?: string;
+    cancel_session?: string;
   }>;
 }) {
   const { athleteId } = await params;
@@ -124,6 +125,28 @@ export default async function BookPage({
   }
 
   const admin = createAdminClient(tenantSlug);
+
+  // Stripe cancel_url sends the parent back here with their own unpaid hold's id.
+  // Remove it so backing out of checkout never leaves a phantom "scheduled"
+  // session blocking the coach's slot. Strictly scoped: own row, still unpaid.
+  const cancelSessionId = normalizeUuidParam(sp.cancel_session);
+  if (cancelSessionId) {
+    const { data: abandoned } = await admin
+      .from('sessions')
+      .select('id, parent_id, status, stripe_payment_intent_id, paid_with_credit')
+      .eq('id', cancelSessionId)
+      .maybeSingle();
+    if (
+      abandoned &&
+      abandoned.parent_id === user.id &&
+      abandoned.status === 'scheduled' &&
+      !abandoned.stripe_payment_intent_id &&
+      !abandoned.paid_with_credit
+    ) {
+      await admin.from('session_participants').delete().eq('session_id', cancelSessionId);
+      await admin.from('sessions').delete().eq('id', cancelSessionId);
+    }
+  }
 
   const sessionLinkId = normalizeUuidParam(sp.session);
   if (sessionLinkId) {

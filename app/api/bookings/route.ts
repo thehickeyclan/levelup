@@ -470,17 +470,28 @@ export async function POST(req: NextRequest) {
             ],
             metadata,
             payment_intent_data: guildPaymentIntentData(metadata),
+            // Bound the hold: an abandoned checkout expires and the webhook removes the row.
+            expires_at: Math.floor(Date.now() / 1000) + 35 * 60,
             success_url: `${stripeRedirectOrigin}/book/${athleteIdNorm}/confirmed?${successParams.toString()}`,
-            cancel_url: `${stripeRedirectOrigin}/book/${athleteIdNorm}`,
+            cancel_url: `${stripeRedirectOrigin}/book/${athleteIdNorm}?cancel_session=${session.id}`,
             customer_email: user.email ?? undefined,
           },
           { idempotencyKey: `book-${session.id}-${user.id}-${amountCents}`.slice(0, 255) }
         );
         checkoutUrl = stripeSession.url ?? undefined;
         console.log('[Bookings API] Stripe checkout URL created:', checkoutUrl);
+        if (!checkoutUrl) throw new Error('Stripe returned no checkout URL');
       } catch (stripeErr) {
         console.error('[Bookings API] Stripe Checkout ERROR:', stripeErr);
         console.error('[Bookings API] Error details:', JSON.stringify(stripeErr, null, 2));
+        // No checkout means no way to pay: remove the hold so a failed attempt
+        // can never sit on the coach's calendar as an unpaid "scheduled" session.
+        await admin.from('session_participants').delete().eq('session_id', session.id);
+        await admin.from('sessions').delete().eq('id', session.id);
+        return NextResponse.json(
+          { error: 'Could not start checkout — you have not been charged. Please try again.' },
+          { status: 502 }
+        );
       }
     } else if (amountToPay < 0.5 && amountToPay > 0) {
       // Below Stripe minimum; confirm without card (credits may cover part of basePrice)

@@ -7,7 +7,7 @@ import { checkoutAllowSavedAccountPercent } from '@/lib/checkout-promo';
 import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
 import { coachPayoutFromParentPrice } from '@/lib/pricing';
 import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
-import { getAllFacilitiesForEdit } from '@/lib/coach-facilities';
+import { getAllFacilitiesForEdit, getCoachFacilitiesForEdit } from '@/lib/coach-facilities';
 import { isSessionInProgressOrUpcoming, sessionListQueryLowerBoundIso } from '@/lib/sessions';
 import { BookingFlow } from './booking-flow';
 import {
@@ -196,8 +196,12 @@ export default async function BookPage({
   // BookingFlow will show an "Add your wrestler to book" CTA instead of redirecting away.
   const youthWrestlersList = youthWrestlers ?? [];
 
-  // Wrestling rooms for book flow: all admin-approved sites (coaches may train anywhere).
-  const coachFacilitiesBook = (await getAllFacilitiesForEdit(admin)).map((f) => ({
+  // Wrestling rooms for book flow: the coach's own rooms (primary → recent → saved).
+  // A coach with one room auto-selects it in BookingFlow, so the parent never picks;
+  // only coaches with no linked room fall back to the full admin-approved list.
+  const coachRooms = await getCoachFacilitiesForEdit(admin, athleteId);
+  const facilitiesForBook = coachRooms.length > 0 ? coachRooms : await getAllFacilitiesForEdit(admin);
+  const coachFacilitiesBook = facilitiesForBook.map((f) => ({
     id: f.id,
     name: f.name,
     address: f.address,

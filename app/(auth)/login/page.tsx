@@ -195,13 +195,15 @@ export default function LoginPage() {
             </form>
           </Form>
 
-          <div className="mt-4 text-center text-sm">
-            <p className="text-muted-foreground">
-              Don&apos;t have an account?{' '}
-              <Link href={signupHref} className="text-accent hover:underline">
-                Sign up
-              </Link>
-            </p>
+          <div className="mt-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs uppercase tracking-wider text-muted-foreground">New to The Guild?</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <Button asChild variant="outline" className="w-full">
+              <Link href={signupHref}>Create a free account</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>

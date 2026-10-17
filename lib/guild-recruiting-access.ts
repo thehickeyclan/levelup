@@ -1,4 +1,5 @@
 // Server-side only (next/headers): never import from client components.
+import { cache } from 'react';
 import { headers } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -10,7 +11,7 @@ import { GUILD_RECRUITING_PUBLIC, getRecruitingState } from '@/lib/guild-recruit
  * admins before that. Everyone else gets a 404 (callers notFound()), never a
  * redirect or teaser — the product name must stay out of public view.
  */
-export async function canViewRecruitingPages(): Promise<boolean> {
+export const canViewRecruitingPages = cache(async (): Promise<boolean> => {
   if (GUILD_RECRUITING_PUBLIC) return true;
   try {
     const headersList = await headers();
@@ -25,7 +26,7 @@ export async function canViewRecruitingPages(): Promise<boolean> {
   } catch {
     return false;
   }
-}
+});
 
 /**
  * Factory for the flyer/QR shortcuts (/recruitnc → /recruit/nc). Temporary

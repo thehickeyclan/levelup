@@ -7,7 +7,12 @@ import { IntegrityRule, RecruitButton, StateMark } from '../recruit-ui';
 
 export const dynamic = 'force-dynamic';
 
-/** Hidden until launch: 404 for everyone but admins, and never indexed. */
+/**
+ * Hidden until launch: 404 for everyone but admins, and never indexed.
+ * Metadata resolves BEFORE the page body's notFound(), so the access check
+ * must run here too — otherwise the 404 would still carry the product name
+ * in <title>/og tags, which is exactly the leak the hold rule forbids.
+ */
 export async function generateMetadata({
   params,
 }: {
@@ -15,8 +20,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { state: stateParam } = await params;
   const state = getRecruitingState(stateParam);
+  if (!state || !(await canViewRecruitingPages())) return {};
   return {
-    title: state ? `RECRUIT${state.code.toUpperCase()} | by Guild Recruiting` : 'Not found',
+    title: `RECRUIT${state.code.toUpperCase()} | by Guild Recruiting`,
     robots: { index: false, follow: false },
   };
 }

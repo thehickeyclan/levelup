@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTenant } from './theme-provider';
 import { useAuth } from '@/lib/auth/use-auth';
 import { Instagram, Facebook } from 'lucide-react';
+import { GUILD_RECRUITING_PUBLIC, GUILD_VENTURES_FOOTER_LINE } from '@/lib/guild-recruiting';
 
 export function Footer() {
   const tenant = useTenant();
@@ -158,6 +159,9 @@ export function Footer() {
               <a href="mailto:info@WrestlingGuild.com" className="text-accent hover:underline">
                 info@WrestlingGuild.com
               </a>
+              {GUILD_RECRUITING_PUBLIC && (
+                <span className="block mt-1">{GUILD_VENTURES_FOOTER_LINE}</span>
+              )}
             </p>
             <div className="flex gap-4">
               <a

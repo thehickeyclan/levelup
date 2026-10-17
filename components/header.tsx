@@ -31,6 +31,7 @@ import { CoachHeaderMobile } from '@/components/coach-header-mobile';
 import { PublicHeaderMobile } from '@/components/public-header-mobile';
 import { isMarketingRoute } from '@/lib/marketing-routes';
 import { IN_APP_MESSAGING_ENABLED } from '@/lib/in-app-messaging';
+import { GUILD_RECRUITING_PUBLIC } from '@/lib/guild-recruiting';
 import { WORKSPACES_NAV_ENABLED } from '@/lib/workspaces-feature';
 import { activityNavHref } from '@/lib/activity-feed/activity-nav-href';
 
@@ -515,6 +516,14 @@ export function Header() {
               >
                 How It Works
               </Link>
+              {GUILD_RECRUITING_PUBLIC && (
+                <Link
+                  href="/recruit"
+                  className="text-white hover:text-accent transition-colors font-medium"
+                >
+                  Recruiting
+                </Link>
+              )}
               <Link
                 href="/login"
                 className="text-white hover:text-accent transition-colors font-medium"

@@ -42,6 +42,19 @@ const nextConfig = {
         source: '/bookings',
         headers: [{ key: 'Cache-Control', value: 'private, no-store, max-age=0' }],
       },
+      // Guild Recruiting marketing pages stay out of search engines, even after launch.
+      {
+        source: '/recruit',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      },
+      {
+        source: '/recruit/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      },
+      {
+        source: '/recruit:code([a-z]{2})',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      },
     ];
   },
 };

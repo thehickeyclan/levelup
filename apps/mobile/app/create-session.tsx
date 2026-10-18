@@ -69,13 +69,17 @@ export default function CreateSessionScreen() {
   const coachId = role === 'admin' ? selectedCoachId : role === 'coach' ? user?.id ?? null : null;
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [facilityId, setFacilityId] = useState('');
-  const [sessionType, setSessionType] = useState<SessionType>('small_group');
+  // Default to private: lowest-risk type if the coach doesn't change it. A
+  // small-group default once published a private as a public $30/spot group.
+  const [sessionType, setSessionType] = useState<SessionType>('private');
   const [joinPolicy, setJoinPolicy] = useState<JoinPolicy>('public');
   const [scheduledDate, setScheduledDate] = useState(DATE_OPTIONS[1]?.value ?? DATE_OPTIONS[0].value);
   const [scheduledTime, setScheduledTime] = useState('17:00');
   const [durationMinutes, setDurationMinutes] = useState(60);
-  const [maxParticipants, setMaxParticipants] = useState(6);
-  const [price, setPrice] = useState('30');
+  // Match the 'private' default type (capacity 1, $60) so an untouched form is
+  // internally consistent rather than a private carrying small-group values.
+  const [maxParticipants, setMaxParticipants] = useState(SESSION_DEFAULTS.private.capacity);
+  const [price, setPrice] = useState(String(SESSION_DEFAULTS.private.price));
   const [focusArea, setFocusArea] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

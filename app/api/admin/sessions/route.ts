@@ -196,7 +196,10 @@ export async function POST(req: NextRequest) {
       // Map UI values to DB constraint values: '1-on-1', '2-athlete', 'group'
       session_type: sessionType === 'small_group' ? 'group' : sessionType === 'partner' ? '2-athlete' : '1-on-1',
       session_mode: sessionType === 'private' ? 'private' : 'partner-invite',
-      join_policy: joinPolicy,
+      // A private is never publicly joinable, whatever the client sends. Without
+      // this a private created with the old 'public' default showed up as an
+      // open $30/spot group that a parent could join and pay for.
+      join_policy: sessionType === 'private' ? 'invite_only' : joinPolicy,
       partner_invite_code: code,
       max_participants: max,
       current_participants: 0,

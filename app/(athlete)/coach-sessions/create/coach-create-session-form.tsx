@@ -64,7 +64,10 @@ export function CoachCreateSessionForm({
   defaultShareTheme: ShareGraphicThemeId;
   initialPrefill?: InitialPrefill;
 }) {
-  const startingType: SessionTypeKey = initialPrefill?.type ?? 'small_group';
+  // Default to private: it's the lowest-risk type if the coach doesn't touch the
+  // dropdown. A small-group default once published a private as a public $30/spot
+  // group that a parent joined and paid for before the coach noticed.
+  const startingType: SessionTypeKey = initialPrefill?.type ?? 'private';
   const startingPreset = SESSION_FORMAT[startingType];
 
   const [facilities, setFacilities] = useState<Facility[]>(initialFacilities);

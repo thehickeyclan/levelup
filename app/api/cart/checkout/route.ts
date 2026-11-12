@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { maybeOpenRemainingSpots } from '@/lib/open-remaining-spots';
+import { recordBookingAttribution } from '@/lib/booking-attribution';
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
@@ -62,8 +63,11 @@ export async function POST(req: NextRequest) {
       promoCode?: string;
       /** When false, do not apply wallet credits (card pays full discounted total). Default true. */
       useCredits?: boolean;
+      /** Attribution only: how the booker arrived (share_link, directory, browse_open, ...). */
+      bookingSource?: string;
     };
 
+    const bookingSource = typeof body.bookingSource === 'string' ? body.bookingSource.slice(0, 40) : null;
     let lines: CartLine[] = [];
     if (body.lines && Array.isArray(body.lines) && body.lines.length > 0) {
       lines = body.lines.filter(
@@ -367,6 +371,7 @@ export async function POST(req: NextRequest) {
         currentCountBySession.set(meta.session_id, next);
         await admin.from('sessions').update({ current_participants: next }).eq('id', meta.session_id);
         void maybeOpenRemainingSpots(admin, tenant.slug, meta.session_id);
+        void recordBookingAttribution(admin, { sessionId: meta.session_id, parentId: user.id, source: bookingSource });
 
         if (!coachNotifySentForSession.has(meta.session_id)) {
           coachNotifySentForSession.add(meta.session_id);

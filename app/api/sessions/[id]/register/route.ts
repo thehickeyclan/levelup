@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { maybeOpenRemainingSpots } from '@/lib/open-remaining-spots';
+import { recordBookingAttribution } from '@/lib/booking-attribution';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -63,6 +64,7 @@ export async function POST(
       useCredits?: boolean;
     };
     const { youthWrestlerId, promoCode, partnerInviteCode, useCredits: useCreditsBody } = body;
+    const bookingSource = typeof (body as unknown as { bookingSource?: unknown }).bookingSource === 'string' ? ((body as unknown as { bookingSource: string }).bookingSource).slice(0, 40) : null;
     if (!youthWrestlerId) return NextResponse.json({ error: 'Missing youthWrestlerId' }, { status: 400 });
     if (role === 'youth_wrestler' && youthWrestlerId !== user.id) {
       return NextResponse.json({ error: 'Youth wrestlers can only register themselves' }, { status: 403 });
@@ -200,6 +202,7 @@ export async function POST(
       await maybeBackfillRosterSnapshot(admin, { session_id: sessionId, youth_wrestler_id: youthWrestlerId }, yw ?? {});
       await supabase.from('sessions').update({ current_participants: current + 1, updated_at: new Date().toISOString() }).eq('id', sessionId);
       void maybeOpenRemainingSpots(admin, tenant.slug, sessionId);
+      void recordBookingAttribution(admin, { sessionId, parentId: user.id, source: bookingSource });
       const coachId = (session as { athlete_id?: string }).athlete_id;
       const dt = s.scheduled_datetime;
       if (coachId && coachId !== user.id) {
@@ -375,6 +378,7 @@ export async function POST(
           .update({ current_participants: current + 1, updated_at: new Date().toISOString() })
           .eq('id', sessionId);
         void maybeOpenRemainingSpots(admin, tenant.slug, sessionId);
+        void recordBookingAttribution(admin, { sessionId, parentId: user.id, source: bookingSource });
       }
 
       if (needApplyCredits > 0.01) {

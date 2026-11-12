@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { maybeOpenRemainingSpots } from '@/lib/open-remaining-spots';
+import { recordBookingAttribution } from '@/lib/booking-attribution';
 import Stripe from 'stripe';
 import { getStripeInstance, getWebhookSecret } from '@/lib/stripe/webhooks';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -220,6 +221,7 @@ export async function POST(req: NextRequest) {
                 .update({ current_participants: next, updated_at: new Date().toISOString() })
                 .eq('id', sid);
               void maybeOpenRemainingSpots(supabase, tenantSlug, sid);
+              void recordBookingAttribution(supabase, { sessionId: sid, parentId, source: session.metadata?.booking_source ?? null });
 
               const coachId = (sess as { athlete_id?: string } | null)?.athlete_id;
               const dt = (sess as { scheduled_datetime?: string } | null)?.scheduled_datetime;
@@ -466,6 +468,7 @@ export async function POST(req: NextRequest) {
             } else {
               void maybeOpenRemainingSpots(supabase, tenantSlug, sessionId);
             }
+            if (parentId) void recordBookingAttribution(supabase, { sessionId, parentId, source: (session.metadata?.booking_source as string | undefined) ?? null });
             await maybeBackfillRosterSnapshot(supabase, { session_id: sessionId, youth_wrestler_id: youthWrestlerId }, ywSnap ?? {});
           }
         } else {
@@ -641,6 +644,7 @@ export async function POST(req: NextRequest) {
                 .update({ current_participants: currentCount, updated_at: new Date().toISOString() })
                 .eq('id', sessionId);
               void maybeOpenRemainingSpots(supabase, tenantSlug, sessionId);
+              if (parentId) void recordBookingAttribution(supabase, { sessionId, parentId, source: (session.metadata?.booking_source as string | undefined) ?? null });
               await maybeBackfillRosterSnapshot(
                 supabase,
                 { session_id: sessionId, youth_wrestler_id: ywid },

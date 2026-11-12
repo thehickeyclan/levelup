@@ -1,5 +1,6 @@
 import { getStripeInstance } from '@/lib/stripe/webhooks';
 import { maybeOpenRemainingSpots } from '@/lib/open-remaining-spots';
+import { recordBookingAttribution } from '@/lib/booking-attribution';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tenants } from '@/config/tenants';
 import { createNotification } from '@/lib/notifications';
@@ -114,6 +115,7 @@ export async function finalizeRegisterFromCheckoutSession(
         .update({ current_participants: current + 1, updated_at: new Date().toISOString() })
         .eq('id', sessionId);
       void maybeOpenRemainingSpots(supabase, tenantSlug, sessionId);
+      if (parentId) void recordBookingAttribution(supabase, { sessionId, parentId, source: (session.metadata?.booking_source as string | undefined) ?? null });
 
       await maybeBackfillRosterSnapshot(supabase, { session_id: sessionId, youth_wrestler_id: youthWrestlerId }, ywSnap ?? {});
 

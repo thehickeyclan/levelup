@@ -69,6 +69,7 @@ export async function GET(
         focus_area,
         focus_area_2,
         join_policy,
+        partner_invite_code,
         current_participants,
         max_participants,
         price_per_participant,
@@ -121,6 +122,7 @@ export async function GET(
       focus_area: string | null;
       focus_area_2: string | null;
       join_policy: string | null;
+      partner_invite_code: string | null;
       current_participants: number | null;
       max_participants: number | null;
       price_per_participant: number | null;
@@ -230,6 +232,7 @@ export async function GET(
         focus_area: session.focus_area,
         focus_area_2: session.focus_area_2,
         join_policy: session.join_policy,
+        partner_invite_code: session.partner_invite_code ?? null,
         max_participants: session.max_participants,
         price_per_participant: session.price_per_participant,
         total_price: session.total_price,

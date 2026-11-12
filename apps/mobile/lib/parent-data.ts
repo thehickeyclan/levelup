@@ -224,6 +224,7 @@ export type SessionDetail = {
   focus_area: string | null;
   focus_area_2: string | null;
   join_policy: string | null;
+  partner_invite_code: string | null;
   max_participants: number | null;
   price_per_participant: number | null;
   total_price: number | null;

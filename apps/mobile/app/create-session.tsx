@@ -6,6 +6,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -148,7 +149,7 @@ export default function CreateSessionScreen() {
     setSaving(true);
     setError(null);
     try {
-      const data = await apiFetch<{ sessionId: string }>('/api/admin/sessions', {
+      const data = await apiFetch<{ sessionId: string; shareUrl?: string }>('/api/admin/sessions', {
         method: 'POST',
         body: JSON.stringify({
           athleteId: coachId,
@@ -168,9 +169,26 @@ export default function CreateSessionScreen() {
           published: true,
         }),
       });
-      Alert.alert('Session created', 'The session is live and families can now find it.', [
-        { text: 'View session', onPress: () => router.replace(`/session/${data.sessionId}`) },
-      ]);
+      const shareUrl = data.shareUrl;
+      Alert.alert(
+        'Session created',
+        shareUrl
+          ? 'Share the booking link so a family can reserve a spot, or view the session.'
+          : 'The session is live and families can now find it.',
+        [
+          ...(shareUrl
+            ? [
+                {
+                  text: 'Share link',
+                  onPress: () => {
+                    void Share.share({ message: `Book your spot: ${shareUrl}`, url: shareUrl });
+                  },
+                },
+              ]
+            : []),
+          { text: 'View session', onPress: () => router.replace(`/session/${data.sessionId}`) },
+        ]
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not create session');
     } finally {

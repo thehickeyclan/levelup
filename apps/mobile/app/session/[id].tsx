@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text } from 'react-native';
+import { Alert, Pressable, Share, StyleSheet, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SessionDetailView, useSessionDetail } from '@/components/session-detail-view';
 import { colors, typography } from '@/lib/theme';
+import { WEB_ORIGIN } from '@/lib/config';
 import { useAuth } from '@/lib/auth';
 import { useMobileCart } from '@/lib/mobile-cart';
 
@@ -31,6 +32,23 @@ export default function SessionDetailScreen() {
     }
   }
 
+  // Copyable booking link so a coach can text a family directly, the same link
+  // the website gives — without routing through in-app messaging.
+  const shareUrl =
+    session?.partner_invite_code ? `${WEB_ORIGIN}/join/${session.partner_invite_code}` : null;
+
+  async function shareBookingLink() {
+    if (!shareUrl) return;
+    try {
+      await Share.share({
+        message: `Book your spot: ${shareUrl}`,
+        url: shareUrl,
+      });
+    } catch {
+      // User dismissed the share sheet — nothing to do.
+    }
+  }
+
   const canJoin = session != null && session.status === 'scheduled' && session.openings > 0;
   const sessionEnded =
     session != null &&
@@ -48,6 +66,11 @@ export default function SessionDetailScreen() {
       footer={
         isCoachView && session ? (
           <>
+            {session.status === 'scheduled' && shareUrl ? (
+              <Pressable style={styles.button} onPress={() => void shareBookingLink()}>
+                <Text style={styles.buttonText}>Share booking link</Text>
+              </Pressable>
+            ) : null}
             {session.status === 'scheduled' && sessionEnded ? (
               <Pressable
                 style={styles.button}
@@ -72,8 +95,8 @@ export default function SessionDetailScreen() {
                 <Text style={styles.secondaryButtonText}>Cancel session</Text>
               </Pressable>
             ) : null}
-            <Pressable style={styles.button} onPress={() => router.push('/new-message')}>
-              <Text style={styles.buttonText}>Message parent or athlete</Text>
+            <Pressable style={styles.secondaryButton} onPress={() => router.push('/new-message')}>
+              <Text style={styles.secondaryButtonText}>Message parent or athlete</Text>
             </Pressable>
             {session.status === 'scheduled' && roster.length > 0 ? (
               <Pressable style={styles.secondaryButton} onPress={() => router.push(`/session-message/${id}`)}>

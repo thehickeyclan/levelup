@@ -81,6 +81,10 @@ export async function recordBookingAttribution(
     const source = opts.source ? String(opts.source).slice(0, 40) : null;
 
     if (myRow) {
+      // A parent booking two kids has two rows in this session. Stamp every
+      // row of theirs that is still unstamped, and never overwrite: the facts
+      // (entry path, occupancy before them, prior pair) are per-parent, and
+      // stamp-once keeps a second kid's later call from rewriting the first.
       const { error } = await admin
         .from('session_participants')
         .update({
@@ -88,7 +92,9 @@ export async function recordBookingAttribution(
           occupancy_at_booking: occupancy,
           prior_relationship: priorRelationship,
         })
-        .eq('id', myRow.id);
+        .eq('session_id', opts.sessionId)
+        .eq('parent_id', opts.parentId)
+        .is('occupancy_at_booking', null);
       if (error && !/booking_source|occupancy_at_booking|prior_relationship|schema cache/i.test(error.message)) {
         console.warn('booking attribution update:', error.message);
       }

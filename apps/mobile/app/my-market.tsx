@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
+import { useMarketAttention } from '@/lib/use-market-attention';
 import { marketColors as colors, typography } from '@/lib/theme';
 
 type MarketItem = {
@@ -72,6 +73,7 @@ export default function MyMarketScreen() {
   const [tab, setTab] = useState<Tab>('mine');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { attention, refresh: refreshAttention } = useMarketAttention();
 
   const load = useCallback(async () => {
     setError(null);
@@ -86,7 +88,8 @@ export default function MyMarketScreen() {
 
   useFocusEffect(useCallback(() => {
     void load();
-  }, [load]));
+    void refreshAttention();
+  }, [load, refreshAttention]));
 
   const items = useMemo(() => {
     const active = data?.groups.pairs ?? [];
@@ -155,9 +158,23 @@ export default function MyMarketScreen() {
               <Text style={styles.quickMeta}>Trade or trade + cash</Text>
             </Pressable>
           </View>
-          <Pressable style={styles.offersButton} onPress={() => router.push('/market-offers')}>
-            <Text style={styles.offersButtonText}>Offers</Text>
-            <Text style={styles.offersButtonMeta}>Review bids you received or sent</Text>
+          <Pressable
+            style={[styles.offersButton, attention.total > 0 && styles.offersButtonAlert]}
+            onPress={() => router.push('/market-offers')}
+          >
+            <View style={styles.offersButtonRow}>
+              <Text style={styles.offersButtonText}>Offers</Text>
+              {attention.total > 0 ? (
+                <View style={styles.offersCount}>
+                  <Text style={styles.offersCountText}>{attention.total}</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.offersButtonMeta}>
+              {attention.total > 0
+                ? `${attention.total} waiting on you`
+                : 'Review offers you received or sent'}
+            </Text>
           </Pressable>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
             {tabs.map(([value, label]) => (
@@ -325,6 +342,10 @@ const styles = StyleSheet.create({
   challengeFill: { height: '100%', borderRadius: 999, backgroundColor: colors.accent },
   challengeCount: { ...typography.bodySemi, color: colors.accent, fontSize: 10, marginTop: 7 },
   offersButton: { marginTop: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 13, padding: 13 },
+  offersButtonAlert: { borderColor: colors.accent, backgroundColor: 'rgba(184,157,96,0.10)' },
+  offersButtonRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  offersCount: { minWidth: 20, minHeight: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  offersCountText: { ...typography.bodyBold, color: colors.black, fontSize: 11 },
   offersButtonText: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
   offersButtonMeta: { ...typography.body, color: colors.textMuted, fontSize: 11, marginTop: 4 },
   tabs: { gap: 7, paddingVertical: 18 },

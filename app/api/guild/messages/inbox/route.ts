@@ -68,7 +68,7 @@ export async function GET(req: Request) {
     .select(`
       id, thread_type, listing_id, offer_id, trade_id, order_id, session_id,
       participant_ids, inquiry_parent_id, inquiry_coach_id, created_at,
-      market_listings(brand, model, title),
+      market_listings(brand, model, title, seller_id, market_listing_images(public_url, clean_public_url, use_clean, display_order)),
       market_offers(id),
       market_trades(id),
       market_orders(order_ref)
@@ -88,11 +88,43 @@ export async function GET(req: Request) {
     return true;
   });
 
+  type ListingImageRow = {
+    public_url?: string | null;
+    clean_public_url?: string | null;
+    use_clean?: boolean | null;
+    display_order?: number | null;
+  };
+  type InboxListing = {
+    brand?: string | null;
+    model?: string | null;
+    title?: string | null;
+    seller_id?: string | null;
+    market_listing_images?: ListingImageRow[] | null;
+  };
+  const listingImageUrl = (listing: InboxListing | null): string | null => {
+    const images = [...(listing?.market_listing_images ?? [])].sort(
+      (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+    );
+    const primary = images[0];
+    if (!primary) return null;
+    return primary.use_clean && primary.clean_public_url
+      ? primary.clean_public_url
+      : primary.public_url ?? null;
+  };
+
   const rows = await Promise.all(
     (visibleThreads).map(async (t) => {
-      const listing = t.market_listings as { brand?: string; model?: string; title?: string } | null;
+      const listing = t.market_listings as InboxListing | null;
       let listingTitle =
         [listing?.brand, listing?.model].filter(Boolean).join(' ') || listing?.title || null;
+      // The shoe photo and buyer/seller role make a marketplace row readable
+      // at a glance in the inbox list.
+      let listingImage = listingImageUrl(listing);
+      let marketRole: 'buying' | 'selling' | null = listing?.seller_id
+        ? listing.seller_id === user.id
+          ? 'selling'
+          : 'buying'
+        : null;
       const order = t.market_orders as { order_ref?: string } | null;
 
       // Offer/order threads often carry no direct listing_id — resolve the
@@ -119,11 +151,16 @@ export async function GET(req: Request) {
           if (resolvedListingId) {
             const { data: l } = await admin
               .from('market_listings')
-              .select('brand, model, title')
+              .select('brand, model, title, seller_id, market_listing_images(public_url, clean_public_url, use_clean, display_order)')
               .eq('id', resolvedListingId)
               .maybeSingle();
+            const resolved = (l as InboxListing | null) ?? null;
             listingTitle =
-              [l?.brand, l?.model].filter(Boolean).join(' ') || l?.title || null;
+              [resolved?.brand, resolved?.model].filter(Boolean).join(' ') || resolved?.title || null;
+            listingImage = listingImage ?? listingImageUrl(resolved);
+            marketRole =
+              marketRole ??
+              (resolved?.seller_id ? (resolved.seller_id === user.id ? 'selling' : 'buying') : null);
           }
         } catch {
           // Row still renders with its generic label.
@@ -240,6 +277,8 @@ export async function GET(req: Request) {
         last_at: (lastMsg?.created_at as string) ?? (t.created_at as string),
         unread,
         href,
+        listing_image_url: MARKET_THREAD_TYPES.has(t.thread_type as never) ? listingImage : null,
+        market_role: MARKET_THREAD_TYPES.has(t.thread_type as never) ? marketRole : null,
       };
     })
   );

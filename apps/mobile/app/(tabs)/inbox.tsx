@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   RefreshControl,
   SectionList,
@@ -27,6 +28,8 @@ type Thread = {
   last_at?: string | null;
   unread?: number;
   unread_count?: number;
+  listing_image_url?: string | null;
+  market_role?: 'buying' | 'selling' | null;
 };
 
 type InboxSection = {
@@ -46,7 +49,12 @@ function getCategory(thread: Thread): NonNullable<Thread['category']> {
 
 function categoryLabel(thread: Thread) {
   const category = getCategory(thread);
-  if (category === 'marketplace') return 'MARKETPLACE';
+  if (category === 'marketplace') {
+    // Say which side of the deal this thread is, not just "marketplace".
+    if (thread.market_role === 'selling') return 'SELLING';
+    if (thread.market_role === 'buying') return 'BUYING';
+    return 'MARKETPLACE';
+  }
   if (category === 'direct') return 'DIRECT MESSAGE';
   return 'TRAINING';
 }
@@ -213,9 +221,13 @@ export default function InboxScreen() {
           style={[styles.row, (item.unread ?? item.unread_count ?? 0) > 0 && styles.rowUnread]}
           onPress={() => router.push(`/thread/${item.id}`)}
         >
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{cleanTitle(item).charAt(0).toUpperCase()}</Text>
-          </View>
+          {item.listing_image_url ? (
+            <Image source={{ uri: item.listing_image_url }} style={styles.avatarImage} resizeMode="contain" />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{cleanTitle(item).charAt(0).toUpperCase()}</Text>
+            </View>
+          )}
           <View style={styles.rowContent}>
             <View style={styles.titleRow}>
               <Text
@@ -319,6 +331,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { ...typography.bodyBold, color: colors.accent, fontSize: 16 },
+  avatarImage: {
+    width: 42,
+    height: 42,
+    borderRadius: 9,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   rowContent: { flex: 1, minWidth: 0 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   title: { ...typography.bodySemi, flex: 1, fontSize: 15, color: colors.text },

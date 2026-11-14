@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { colors, marketColors, typography } from '@/lib/theme';
 import { useMobileCart } from '@/lib/mobile-cart';
 import { useInboxUnreadRealtime } from '@/lib/use-inbox-unread-realtime';
+import { useMarketAttention } from '@/lib/use-market-attention';
 import { BADGE_TEXT_MAX_SCALE, MIN_TOUCH_TARGET, NAV_TEXT_MAX_SCALE } from '@/lib/accessibility';
 
 function TabLabel({
@@ -60,6 +61,7 @@ export default function TabsLayout() {
   const { session, loading, isCoachView } = useAuth();
   const { count: cartCount } = useMobileCart();
   const { count: inboxUnreadCount } = useInboxUnreadRealtime();
+  const { attention: marketAttention } = useMarketAttention({ poll: true });
   const router = useRouter();
   const pathname = usePathname();
   const isMarketTab = pathname === '/market';
@@ -142,8 +144,12 @@ export default function TabsLayout() {
         name="market"
         options={{
           title: 'Market',
-          tabBarAccessibilityLabel: 'Market tab',
-          tabBarIcon: ({ focused }) => <TabLabel label="Market" icon="storefront" focused={focused} lightMode={isMarketTab} />,
+          tabBarAccessibilityLabel: marketAttention.total > 0
+            ? `Market tab, ${marketAttention.total} needing attention`
+            : 'Market tab',
+          tabBarIcon: ({ focused }) => (
+            <TabLabel label="Market" icon="storefront" focused={focused} badge={marketAttention.total} lightMode={isMarketTab} />
+          ),
         }}
       />
       <Tabs.Screen

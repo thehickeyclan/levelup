@@ -16,6 +16,7 @@ import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { promptSignIn } from '@/lib/guest';
 import { promptForPushAlerts } from '@/lib/alerts-prompt';
+import { useMarketAttention } from '@/lib/use-market-attention';
 import { Ionicons } from '@expo/vector-icons';
 import { marketColors as colors, typography } from '@/lib/theme';
 
@@ -84,6 +85,7 @@ export default function MarketScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<MarketFilter>('all');
+  const { attention, refresh: refreshAttention } = useMarketAttention();
 
   const load = useCallback(async () => {
     setError(null);
@@ -130,9 +132,10 @@ export default function MarketScreen() {
     useCallback(() => {
       setLoading(true);
       void load();
+      void refreshAttention();
       // Market-only members land here, never on Home — ask them too.
       if (session) void promptForPushAlerts();
-    }, [load, session])
+    }, [load, refreshAttention, session])
   );
 
   const filtered = useMemo(() => {
@@ -212,6 +215,32 @@ export default function MarketScreen() {
                 <Text style={styles.guestBannerButtonText}>Sign up</Text>
               </View>
             </Pressable>
+          ) : null}
+          {attention.items.length > 0 ? (
+            <View style={styles.attentionCard}>
+              <Text style={styles.attentionKicker}>NEEDS YOU</Text>
+              {attention.items.map((item) => (
+                <Pressable
+                  key={item.offer_id}
+                  style={styles.attentionRow}
+                  onPress={() =>
+                    router.push(item.kind === 'pay' ? '/market-offers?tab=sent' : '/market-offers')
+                  }
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.attentionText} numberOfLines={2}>
+                    {item.kind === 'pay'
+                      ? `Your offer on ${item.listing_title} was accepted`
+                      : `New offer on ${item.listing_title}${item.amount_cents ? ` · $${Math.round(item.amount_cents / 100)}` : ''}`}
+                  </Text>
+                  <View style={styles.attentionCta}>
+                    <Text style={styles.attentionCtaText}>
+                      {item.kind === 'pay' ? 'Pay now' : 'Review'}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
           ) : null}
           <View style={styles.marketTopRow}>
             <View style={{ flex: 1 }}>
@@ -420,6 +449,12 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   guestBannerButtonText: { ...typography.bodyBold, color: colors.black, fontSize: 13 },
+  attentionCard: { borderWidth: 1, borderColor: 'rgba(184,157,96,0.5)', backgroundColor: 'rgba(184,157,96,0.12)', borderRadius: 13, paddingHorizontal: 13, paddingVertical: 11, marginBottom: 14 },
+  attentionKicker: { ...typography.brand, color: colors.accent, fontSize: 9, letterSpacing: 1.1, marginBottom: 3 },
+  attentionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingVertical: 4 },
+  attentionText: { ...typography.bodySemi, color: colors.text, fontSize: 13, lineHeight: 18, flex: 1 },
+  attentionCta: { backgroundColor: colors.accent, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
+  attentionCtaText: { ...typography.bodyBold, color: colors.black, fontSize: 11 },
   marketTopRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   kicker: { ...typography.brand, fontSize: 11, color: colors.accent, marginBottom: 8 },
   heading: { ...typography.display, fontSize: 28, color: colors.text },

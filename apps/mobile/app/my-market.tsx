@@ -65,7 +65,7 @@ type Payload = {
   orders: Order[];
   trades?: TradeHistory[];
 };
-type Tab = 'watching' | 'mine' | 'selling' | 'history';
+type Tab = 'watching' | 'mine';
 
 export default function MyMarketScreen() {
   const router = useRouter();
@@ -92,21 +92,8 @@ export default function MyMarketScreen() {
   }, [load, refreshAttention]));
 
   const items = useMemo(() => {
-    const active = data?.groups.pairs ?? [];
     if (tab === 'watching') return data?.watching ?? [];
-    if (tab === 'mine') return [...active, ...(data?.groups.drafts ?? [])];
-    if (tab === 'selling') {
-      return [
-        ...active.filter((item) =>
-          item.listing_type === 'sell' ||
-          item.listing_type === 'trade' ||
-          item.listing_type === 'trade_only' ||
-          item.open_to_trade === true
-        ),
-        ...(data?.groups.drafts ?? []),
-      ];
-    }
-    return [];
+    return [...(data?.groups.pairs ?? []), ...(data?.groups.drafts ?? [])];
   }, [data, tab]);
 
   if (loading && !data) {
@@ -114,16 +101,14 @@ export default function MyMarketScreen() {
   }
 
   const tabs: [Tab, string][] = [
-    ['mine', 'My shoes'],
+    ['mine', 'Your shoes'],
     ['watching', 'Favorites'],
-    ['selling', 'Selling / trade'],
-    ['history', 'History'],
   ];
 
   return (
     <FlatList
       style={styles.screen}
-      data={tab === 'history' ? [] : items}
+      data={items}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={colors.accent} />}
@@ -133,7 +118,7 @@ export default function MyMarketScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.kicker}>MY MARKET</Text>
               <Text style={styles.heading}>Your shoe room</Text>
-              <Text style={styles.sub}>Favorite, collect, sell, and trade in one place.</Text>
+              <Text style={styles.sub}>Your collection, your listings, your favorites.</Text>
             </View>
             <Pressable
               style={styles.addButton}
@@ -142,28 +127,12 @@ export default function MyMarketScreen() {
               <Text style={styles.addButtonText}>+ Add shoe</Text>
             </Pressable>
           </View>
-          <View style={styles.quickActions}>
-            <Pressable
-              style={styles.quickActionPrimary}
-              onPress={() => router.push({ pathname: '/add-shoe', params: { mode: 'sell' } })}
-            >
-              <Text style={styles.quickTitle}>List a pair</Text>
-              <Text style={styles.quickMeta}>Photos · price · offers</Text>
-            </Pressable>
-            <Pressable
-              style={styles.quickAction}
-              onPress={() => router.push({ pathname: '/add-shoe', params: { mode: 'trade' } })}
-            >
-              <Text style={styles.quickTitleAlt}>Open to trade</Text>
-              <Text style={styles.quickMeta}>Trade or trade + cash</Text>
-            </Pressable>
-          </View>
           <Pressable
             style={[styles.offersButton, attention.total > 0 && styles.offersButtonAlert]}
-            onPress={() => router.push('/market-offers')}
+            onPress={() => router.push('/market-activity')}
           >
             <View style={styles.offersButtonRow}>
-              <Text style={styles.offersButtonText}>Offers</Text>
+              <Text style={styles.offersButtonText}>Activity</Text>
               {attention.total > 0 ? (
                 <View style={styles.offersCount}>
                   <Text style={styles.offersCountText}>{attention.total}</Text>
@@ -173,7 +142,7 @@ export default function MyMarketScreen() {
             <Text style={styles.offersButtonMeta}>
               {attention.total > 0
                 ? `${attention.total} waiting on you`
-                : 'Review offers you received or sent'}
+                : 'Offers, orders, and trades in one place'}
             </Text>
           </Pressable>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
@@ -188,48 +157,11 @@ export default function MyMarketScreen() {
             ))}
           </ScrollView>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          {tab === 'history' ? (
-            <View style={styles.orders}>
-              {(data?.orders ?? []).map((order) => (
-                <Pressable key={order.id} style={styles.row} onPress={() => router.push(`/order/${order.id}`)}>
-                  {order.listing_image_url ? <Image source={{ uri: order.listing_image_url }} style={styles.thumb} resizeMode="contain" /> : <View style={styles.thumb} />}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.itemTitle}>{order.listing_title}</Text>
-                    <Text style={styles.itemMeta}>
-                      {order.is_buyer ? 'Purchase' : 'Sale'} · {order.status.replaceAll('_', ' ')}
-                    </Text>
-                  </View>
-                  <Text style={styles.price}>${Math.round(order.amount_cents / 100)}</Text>
-                </Pressable>
-              ))}
-              {(data?.trades ?? []).map((trade) => (
-                <Pressable key={trade.id} style={styles.row} onPress={() => router.push(`/market-trade/${trade.id}`)}>
-                  {trade.their_listing?.image_url ? (
-                    <Image source={{ uri: trade.their_listing.image_url }} style={styles.thumb} resizeMode="contain" />
-                  ) : (
-                    <View style={styles.thumb} />
-                  )}
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.itemTitle} numberOfLines={1}>
-                      Trade with {trade.other_party_name ?? 'Guild member'}
-                    </Text>
-                    <Text style={styles.itemMeta} numberOfLines={2}>
-                      {trade.your_listing?.title ?? 'Your pair'} ↔ {trade.their_listing?.title ?? 'Their pair'} · {trade.status.replaceAll('_', ' ')}
-                    </Text>
-                  </View>
-                  <Text style={styles.price}>
-                    {trade.boot_amount_cents > 0 ? `+$${Math.round(trade.boot_amount_cents / 100)}` : 'Trade'}
-                  </Text>
-                </Pressable>
-              ))}
-              {(data?.orders ?? []).length === 0 && (data?.trades ?? []).length === 0 ? <Empty tab={tab} /> : null}
-            </View>
-          ) : null}
         </View>
       }
       renderItem={({ item }) => {
         const mode = listingMode(item);
-        const mine = tab === 'mine' || tab === 'selling';
+        const mine = tab === 'mine';
         return (
           <Pressable style={styles.row} onPress={() => router.push(`/listing/${item.id}`)}>
             {item.primary_image_url ? <Image source={{ uri: item.primary_image_url }} style={styles.thumb} resizeMode="contain" /> : <View style={styles.thumb} />}
@@ -258,7 +190,7 @@ export default function MyMarketScreen() {
           </Pressable>
         );
       }}
-      ListEmptyComponent={tab !== 'history' ? <Empty tab={tab} /> : null}
+      ListEmptyComponent={<Empty tab={tab} />}
     />
   );
 }
@@ -295,11 +227,7 @@ function Empty({ tab }: { tab: Tab }) {
   const copy =
     tab === 'watching'
       ? 'Tap Favorite on a shoe to save it here and get alerts when it goes for sale.'
-      : tab === 'mine'
-        ? 'Add shoes you own. Keep them as collection pieces, list them for sale, or open them to trade.'
-        : tab === 'selling'
-          ? 'Pairs you are selling or trading will appear here.'
-          : 'Purchases, sales, trades, and reviews will appear here.';
+      : 'Add shoes you own. Keep them as collection pieces, list them for sale, or open them to trade.';
   return (
     <View style={styles.empty}>
       <Text style={styles.emptyTitle}>Nothing here yet</Text>

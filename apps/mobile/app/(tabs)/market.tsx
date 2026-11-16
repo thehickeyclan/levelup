@@ -223,9 +223,7 @@ export default function MarketScreen() {
                 <Pressable
                   key={item.offer_id}
                   style={styles.attentionRow}
-                  onPress={() =>
-                    router.push(item.kind === 'pay' ? '/market-offers?tab=sent' : '/market-offers')
-                  }
+                  onPress={() => router.push('/market-activity')}
                   accessibilityRole="button"
                 >
                   <Text style={styles.attentionText} numberOfLines={2}>
@@ -247,19 +245,28 @@ export default function MarketScreen() {
               <Text style={styles.kicker}>MARKET</Text>
               <Text style={styles.heading}>Guild Market</Text>
             </View>
+            <Pressable
+              style={styles.sellButton}
+              onPress={() => (session ? router.push({ pathname: '/add-shoe', params: { mode: 'sell' } }) : promptSignIn(router, 'sell your shoes'))}
+            >
+              <Text style={styles.sellButtonText}>Sell</Text>
+            </Pressable>
           </View>
-          <Text style={styles.sub}>Buy, trade, favorite shoes, and manage your own collection.</Text>
-          <View style={styles.actionRow}>
-            <Pressable style={styles.primaryAction} onPress={() => (session ? router.push('/my-market') : promptSignIn(router, 'manage your shoe room'))}>
-              <Text style={styles.primaryActionText}>My Market</Text>
-              <Text style={styles.actionHint}>Favorites · collection · sales</Text>
+          <Text style={styles.sub}>Buy, sell, and trade wrestling shoes.</Text>
+          <View style={styles.quickLinks}>
+            <Pressable
+              style={styles.quickLink}
+              onPress={() => (session ? router.push('/my-market') : promptSignIn(router, 'manage your shoe room'))}
+            >
+              <Text style={styles.quickLinkText}>Your shoes ›</Text>
             </Pressable>
             <Pressable
-              style={styles.secondaryAction}
-              onPress={() => (session ? router.push({ pathname: '/add-shoe', params: { mode: 'collection' } }) : promptSignIn(router, 'add your shoes'))}
+              style={styles.quickLink}
+              onPress={() => (session ? router.push('/market-activity') : promptSignIn(router, 'see your market activity'))}
             >
-              <Text style={styles.secondaryActionText}>+ Add shoe</Text>
-              <Text style={styles.actionHint}>Sell or showcase</Text>
+              <Text style={styles.quickLinkText}>
+                Activity{attention.total > 0 ? ` (${attention.total})` : ''} ›
+              </Text>
             </Pressable>
           </View>
           <TextInput
@@ -470,13 +477,12 @@ const styles = StyleSheet.create({
   tocPrimaryText: { ...typography.bodyBold, color: colors.black, fontSize: 11 },
   tocSecondary: { flex: 1, borderRadius: 999, borderWidth: 1, borderColor: colors.accent, alignItems: 'center', paddingVertical: 9 },
   tocSecondaryText: { ...typography.bodyBold, color: colors.accent, fontSize: 11 },
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  primaryAction: { flex: 1, minHeight: 62, backgroundColor: colors.accent, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
-  secondaryAction: { flex: 1, minHeight: 62, borderWidth: 1, borderColor: colors.accent, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
-  primaryActionText: { ...typography.bodyBold, color: colors.black, fontSize: 14 },
-  secondaryActionText: { ...typography.bodyBold, color: colors.accent, fontSize: 14 },
-  actionHint: { ...typography.body, color: colors.textSecondary, fontSize: 9, marginTop: 4 },
-  search: { ...typography.body, minHeight: 46, color: colors.text, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, marginTop: 18, fontSize: 13 },
+  sellButton: { backgroundColor: colors.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10 },
+  sellButtonText: { ...typography.bodyBold, color: colors.black, fontSize: 14 },
+  quickLinks: { flexDirection: 'row', gap: 18, marginTop: 10 },
+  quickLink: { minHeight: 32, justifyContent: 'center' },
+  quickLinkText: { ...typography.bodySemi, color: colors.accent, fontSize: 13 },
+  search: { ...typography.body, minHeight: 46, color: colors.text, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, marginTop: 14, fontSize: 13 },
   filters: { gap: 8, paddingTop: 11, paddingBottom: 5 },
   filter: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   filterSelected: { borderColor: colors.accent, backgroundColor: 'rgba(184,157,96,0.16)' },

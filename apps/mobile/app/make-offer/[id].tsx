@@ -127,7 +127,7 @@ export default function MakeOfferScreen() {
       Alert.alert('Offer sent', 'The seller can review it in Guild Market.', [
         {
           text: 'View sent offers',
-          onPress: () => router.replace({ pathname: '/market-offers', params: { tab: 'sent' } }),
+          onPress: () => router.replace('/market-activity'),
         },
         { text: 'Done', onPress: () => router.back(), style: 'cancel' },
       ]);

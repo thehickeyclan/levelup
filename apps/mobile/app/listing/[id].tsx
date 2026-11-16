@@ -54,6 +54,25 @@ type Seller = {
   photoUrl?: string | null;
 };
 
+type ShoeAbout = {
+  release_year?: number | null;
+  shoe_type?: string | null;
+  upper_material?: string | null;
+  sole_type?: string | null;
+  closure_type?: string | null;
+  fit_notes?: string | null;
+  notable_features?: string | null;
+  history_text?: string | null;
+  verified?: boolean;
+};
+
+const RARITY_COPY: Record<string, { label: string; hint: string }> = {
+  common: { label: 'Common', hint: 'Easy to find — current or widely produced' },
+  uncommon: { label: 'Uncommon', hint: 'Harder to find — limited runs or older stock' },
+  rare: { label: 'Rare', hint: 'Collector interest — discontinued or scarce colorway' },
+  grail: { label: 'Grail', hint: 'Highly sought — grail-tier pair for wrestlers' },
+};
+
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -68,6 +87,7 @@ export default function ListingDetailScreen() {
   const [question, setQuestion] = useState('');
   const [sendingQuestion, setSendingQuestion] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [shoeAbout, setShoeAbout] = useState<ShoeAbout | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,12 +98,27 @@ export default function ListingDetailScreen() {
           seller?: Seller;
           following?: boolean;
           viewer?: { isSeller?: boolean };
+          shoe_about?: ShoeAbout | null;
         }>(`/api/market/listings/${id}`);
         if (!cancelled) {
           setListing(res.listing);
           setSeller(res.seller ?? null);
           setFollowing(res.following === true);
           setIsOwner(res.viewer?.isSeller === true);
+          if (res.shoe_about) {
+            setShoeAbout(res.shoe_about);
+          } else if (res.listing?.model) {
+            // Catalog has no story yet — generate it in the background, same
+            // as the web page does. Best effort; the page is fine without it.
+            void apiFetch<{ shoe_about?: ShoeAbout }>('/api/market/ai/shoe-about', {
+              method: 'POST',
+              body: JSON.stringify({ listingId: id }),
+            })
+              .then((d) => {
+                if (!cancelled && d.shoe_about) setShoeAbout(d.shoe_about);
+              })
+              .catch(() => {});
+          }
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load listing');
@@ -307,7 +342,9 @@ export default function ListingDetailScreen() {
           />
         ) : listing.condition ? <DetailBadge text={listing.condition} /> : null}
         {listing.colorway ? <DetailBadge text={listing.colorway} /> : null}
-        {listing.rarity ? <DetailBadge text={listing.rarity} accent /> : null}
+        {listing.rarity ? (
+          <DetailBadge text={RARITY_COPY[listing.rarity]?.label ?? listing.rarity} accent />
+        ) : null}
         {listing.open_to_trade ? <DetailBadge text="Open to trade" accent /> : null}
       </View>
 
@@ -337,6 +374,27 @@ export default function ListingDetailScreen() {
         <View style={styles.descriptionCard}>
           <Text style={styles.sectionLabel}>ABOUT THIS PAIR</Text>
           <Text style={styles.body}>{listing.description}</Text>
+        </View>
+      ) : null}
+      {shoeAbout?.history_text || shoeAbout?.fit_notes || shoeAbout?.notable_features ? (
+        <View style={styles.descriptionCard}>
+          <Text style={styles.sectionLabel}>THE SHOE</Text>
+          <Text style={styles.shoeAboutTitle}>
+            {[listing.brand, listing.model].filter(Boolean).join(' ')}
+            {shoeAbout.release_year ? ` · ${shoeAbout.release_year}` : ''}
+          </Text>
+          {listing.rarity && RARITY_COPY[listing.rarity] ? (
+            <Text style={styles.shoeAboutRarity}>
+              {RARITY_COPY[listing.rarity].label} — {RARITY_COPY[listing.rarity].hint}
+            </Text>
+          ) : null}
+          {shoeAbout.history_text ? <Text style={styles.body}>{shoeAbout.history_text}</Text> : null}
+          {shoeAbout.notable_features ? (
+            <Text style={styles.shoeAboutDetail}>Worth knowing: {shoeAbout.notable_features}</Text>
+          ) : null}
+          {shoeAbout.fit_notes ? (
+            <Text style={styles.shoeAboutDetail}>Fit: {shoeAbout.fit_notes}</Text>
+          ) : null}
         </View>
       ) : null}
       {isOwner ? (
@@ -519,6 +577,9 @@ const styles = StyleSheet.create({
   sellerSchool: { ...typography.body, color: colors.textMuted, fontSize: 10, marginTop: 2 },
   sellerViewLink: { ...typography.bodySemi, color: colors.accent, fontSize: 13 },
   descriptionCard: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 22, paddingTop: 18 },
+  shoeAboutTitle: { ...typography.bodyBold, color: colors.text, fontSize: 15, marginBottom: 4 },
+  shoeAboutRarity: { ...typography.bodySemi, color: colors.accent, fontSize: 12, lineHeight: 17, marginBottom: 8 },
+  shoeAboutDetail: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 8 },
   sectionLabel: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 9, letterSpacing: 1.1 },
   body: { ...typography.body, marginTop: 9, fontSize: 14, lineHeight: 21, color: colors.textMuted },
   askCard: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 13, padding: 14, marginTop: 18 },

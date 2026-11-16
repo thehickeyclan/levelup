@@ -33,7 +33,10 @@ type Listing = {
   wear_state?: string | null;
   listing_type?: string | null;
   open_to_trade?: boolean;
+  rarity?: string | null;
 };
+
+const COLLECTOR_RARITIES = new Set(['rare', 'grail']);
 
 function formatPrice(cents: number | null | undefined) {
   if (cents == null) return null;
@@ -75,7 +78,7 @@ function marketRank(listing: Listing) {
   return 4;
 }
 
-type MarketFilter = 'sell' | 'trade' | 'collection' | 'all';
+type MarketFilter = 'sell' | 'trade' | 'collection' | 'grails' | 'all';
 export default function MarketScreen() {
   const router = useRouter();
   const { session } = useAuth();
@@ -145,6 +148,8 @@ export default function MarketScreen() {
         if (filter === 'trade') {
           // Trade shows formal trade listings plus any pair whose owner is open to trades.
           if (listing.listing_type !== 'trade' && listing.open_to_trade !== true) return false;
+        } else if (filter === 'grails') {
+          if (!COLLECTOR_RARITIES.has(listing.rarity ?? '')) return false;
         } else if (filter === 'collection') {
           if (listing.listing_type !== 'collection' && listing.listing_type !== 'vault') return false;
         } else if (filter !== 'all' && listing.listing_type !== filter) {
@@ -286,6 +291,7 @@ export default function MarketScreen() {
               ['all', 'All'],
               ['sell', 'For sale'],
               ['trade', 'Trade'],
+              ['grails', 'Grails & Rare'],
               ['collection', 'Guild Collections'],
             ] as [MarketFilter, string][]).map(([value, label]) => {
               const selected = filter === value;
@@ -347,6 +353,11 @@ export default function MarketScreen() {
             ) : (
               <View style={[styles.image, styles.imagePlaceholder]} />
             )}
+            {COLLECTOR_RARITIES.has(item.rarity ?? '') ? (
+              <View style={styles.rarityBadge}>
+                <Text style={styles.rarityBadgeText}>{item.rarity === 'grail' ? 'GRAIL' : 'RARE'}</Text>
+              </View>
+            ) : null}
             {item.open_to_trade ? (
               <View style={styles.tradeBadge}><Text style={styles.tradeBadgeText}>TRADE</Text></View>
             ) : null}
@@ -513,6 +524,8 @@ const styles = StyleSheet.create({
   image: { width: '100%', height: '100%', backgroundColor: colors.surfaceRaised },
   imagePlaceholder: { backgroundColor: colors.surfaceRaised },
   tradeBadge: { position: 'absolute', left: 8, top: 8, borderRadius: 999, backgroundColor: 'rgba(10,10,10,0.88)', borderWidth: 1, borderColor: colors.accent, paddingHorizontal: 7, paddingVertical: 4 },
+  rarityBadge: { position: 'absolute', right: 8, top: 8, borderRadius: 999, backgroundColor: colors.accent, paddingHorizontal: 8, paddingVertical: 4 },
+  rarityBadgeText: { ...typography.bodyBold, color: colors.black, fontSize: 7, letterSpacing: 0.9 },
   heartButton: {
     position: 'absolute',
     left: 8,

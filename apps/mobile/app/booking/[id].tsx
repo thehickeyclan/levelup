@@ -1,7 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { SessionDetailView, useSessionDetail } from '@/components/session-detail-view';
+import { apiFetch } from '@/lib/api';
 import { WEB_ORIGIN } from '@/lib/config';
 import { colors, typography } from '@/lib/theme';
 
@@ -9,6 +11,23 @@ import { colors, typography } from '@/lib/theme';
 export default function BookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, roster, loading, error, load } = useSessionDetail(id);
+  const router = useRouter();
+  const [openingChat, setOpeningChat] = useState(false);
+
+  async function openCoachChat() {
+    if (!id || openingChat) return;
+    setOpeningChat(true);
+    try {
+      const { id: threadId } = await apiFetch<{ id: string }>(
+        `/api/guild/messages/threads?session_id=${id}`
+      );
+      router.push(`/thread/${threadId}`);
+    } catch {
+      // Thread screen is the only destination; stay put on failure.
+    } finally {
+      setOpeningChat(false);
+    }
+  }
 
   return (
     <SessionDetailView
@@ -19,6 +38,13 @@ export default function BookingDetailScreen() {
       onRefresh={() => void load()}
       footer={
         <View>
+          <Pressable style={styles.chatButton} onPress={() => void openCoachChat()} disabled={openingChat}>
+            {openingChat ? (
+              <ActivityIndicator color={colors.black} />
+            ) : (
+              <Text style={styles.chatButtonText}>Message coach</Text>
+            )}
+          </Pressable>
           {session?.status === 'completed' ? (
             <Pressable
               style={styles.reviewButton}
@@ -64,6 +90,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   reviewButtonText: {
+    ...typography.bodyBold,
+    color: colors.black,
+    fontSize: 15,
+  },
+  chatButton: {
+    marginTop: 20,
+    backgroundColor: colors.accent,
+    borderRadius: 4,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatButtonText: {
     ...typography.bodyBold,
     color: colors.black,
     fontSize: 15,

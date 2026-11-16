@@ -241,6 +241,20 @@ export async function GET(req: Request) {
         .limit(1)
         .maybeSingle();
 
+      // Session threads are auto-created at booking and inquiry threads at
+      // first tap; with no messages they read as "the coach wrote you". Hide
+      // them until someone actually speaks — the booking screen and coach
+      // profile reopen the chat directly. Marketplace threads stay: they
+      // represent a live transaction even before the first message.
+      if (
+        !lastMsg &&
+        (t.thread_type === 'session' ||
+          t.thread_type === 'group_session' ||
+          t.thread_type === 'coach_inquiry')
+      ) {
+        return null;
+      }
+
       const unread = await getThreadUnreadCount(admin, t.id as string, user.id);
 
       let href = `${MESSAGES_HOME_PATH}?thread=${t.id}`;
@@ -285,12 +299,13 @@ export async function GET(req: Request) {
     })
   );
 
-  rows.sort((a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime());
+  const visibleRows = rows.filter((row): row is NonNullable<typeof row> => row !== null);
+  visibleRows.sort((a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime());
 
   const query = new URL(req.url).searchParams.get('q')?.trim().toLowerCase() ?? '';
-  if (!query) return NextResponse.json({ threads: rows, userRole });
+  if (!query) return NextResponse.json({ threads: visibleRows, userRole });
 
-  const visibleIds = rows.map((row) => row.id);
+  const visibleIds = visibleRows.map((row) => row.id);
   const matchingMessageThreadIds = new Set<string>();
   if (visibleIds.length > 0) {
     const { data: matches } = await admin
@@ -304,7 +319,7 @@ export async function GET(req: Request) {
     }
   }
 
-  const searched = rows.filter((row) =>
+  const searched = visibleRows.filter((row) =>
     matchingMessageThreadIds.has(row.id) ||
     row.label.toLowerCase().includes(query) ||
     row.title.toLowerCase().includes(query) ||

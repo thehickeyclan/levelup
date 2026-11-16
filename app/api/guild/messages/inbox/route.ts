@@ -235,7 +235,7 @@ export async function GET(req: Request) {
 
       const { data: lastMsg } = await admin
         .from('guild_messages')
-        .select('body, created_at')
+        .select('body, created_at, sender_id')
         .eq('thread_id', t.id)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -273,7 +273,9 @@ export async function GET(req: Request) {
             ? `Order #${order.order_ref}`
             : contextTitle ?? listingTitle
         ),
-        preview: (lastMsg?.body as string) ?? 'No messages yet',
+        preview: lastMsg?.body
+          ? `${lastMsg.sender_id === user.id ? 'You: ' : ''}${lastMsg.body as string}`
+          : 'No messages yet',
         last_at: (lastMsg?.created_at as string) ?? (t.created_at as string),
         unread,
         href,

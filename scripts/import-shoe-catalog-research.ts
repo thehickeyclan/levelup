@@ -50,13 +50,14 @@ function namesFor(brand: string, model: string, aliases: string[] | null | undef
 }
 
 async function main() {
-  const [file, writeFlag] = process.argv.slice(2);
-  if (!file) {
-    console.error('Usage: tsx scripts/import-shoe-catalog-research.ts <entries.json> [--write]');
+  const args = process.argv.slice(2);
+  const write = args.includes('--write');
+  const files = args.filter((a) => a !== '--write');
+  if (!files.length) {
+    console.error('Usage: tsx scripts/import-shoe-catalog-research.ts <entries.json> [more.json…] [--write]');
     process.exit(1);
   }
-  const write = writeFlag === '--write';
-  const raw = JSON.parse(readFileSync(file, 'utf8')) as Researched[];
+  const raw = files.flatMap((f) => JSON.parse(readFileSync(f, 'utf8')) as Researched[]);
 
   const entries = raw.filter((e) => {
     if (!e.brand?.trim() || !e.model?.trim()) return false;
@@ -96,26 +97,42 @@ async function main() {
     if (!match) {
       inserts += 1;
       console.log(`INSERT  ${e.brand} ${e.model}  [${e.rarity ?? '—'}]`);
+      const rowValues = {
+        brand: e.brand!.trim(),
+        model: e.model!.trim(),
+        model_aliases: e.model_aliases ?? [],
+        years_produced: e.years_produced ?? null,
+        colorways: e.colorways ?? [],
+        rarity: e.rarity ? norm(e.rarity) : null,
+        value_low_cents: e.value_low_cents ?? null,
+        value_mid_cents: e.value_mid_cents ?? null,
+        value_high_cents: e.value_high_cents ?? null,
+        collector_notes: e.collector_notes ?? null,
+        history_text: e.history_text ?? null,
+        original_msrp_cents: e.original_msrp_cents ?? null,
+        reference_url: e.reference_url ?? null,
+        source: 'research',
+        source_notes: `web research ${new Date().toISOString().slice(0, 10)}; confidence ${e.confidence ?? 'unstated'}`,
+        verified: false,
+      };
+      // The new row joins the match index so a later file's duplicate of the
+      // same model enriches it instead of inserting again.
+      let insertedId = `dry-run-${inserts}`;
       if (write) {
-        const { error: insErr } = await admin.from('wrestling_shoes_catalog').insert({
-          brand: e.brand!.trim(),
-          model: e.model!.trim(),
-          model_aliases: e.model_aliases ?? [],
-          years_produced: e.years_produced ?? null,
-          colorways: e.colorways ?? [],
-          rarity: e.rarity ? norm(e.rarity) : null,
-          value_low_cents: e.value_low_cents ?? null,
-          value_mid_cents: e.value_mid_cents ?? null,
-          value_high_cents: e.value_high_cents ?? null,
-          collector_notes: e.collector_notes ?? null,
-          history_text: e.history_text ?? null,
-          original_msrp_cents: e.original_msrp_cents ?? null,
-          reference_url: e.reference_url ?? null,
-          source: 'research',
-          source_notes: `web research ${new Date().toISOString().slice(0, 10)}; confidence ${e.confidence ?? 'unstated'}`,
-          verified: false,
-        });
-        if (insErr) console.error(`  FAILED: ${insErr.message}`);
+        const { data: ins, error: insErr } = await admin
+          .from('wrestling_shoes_catalog')
+          .insert(rowValues)
+          .select('id')
+          .single();
+        if (insErr || !ins) {
+          console.error(`  FAILED: ${insErr?.message}`);
+          continue;
+        }
+        insertedId = ins.id as string;
+      }
+      const newRow = { id: insertedId, verified: false, ...rowValues } as (typeof existing)[number];
+      for (const name of namesFor(newRow.brand, newRow.model, newRow.model_aliases)) {
+        if (!index.has(name)) index.set(name, newRow);
       }
       continue;
     }

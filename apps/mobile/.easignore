@@ -1,0 +1,6 @@
+# The local ios/ directory exists only for simulator dev builds
+# (expo run:ios). If it reaches EAS, the native project's version and
+# bundle id silently override app.json — build 69 went up as 1.0.3
+# despite app.json saying 1.0.4. Keep EAS on managed prebuild.
+ios/
+android/

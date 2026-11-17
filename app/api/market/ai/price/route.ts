@@ -8,6 +8,7 @@ import { PriceAnalysisSchema, type PriceAnalysis } from '@/lib/market/ai/schemas
 import { wearStateLabel } from '@/lib/market/wear-state';
 import { applyUsedWrestlePriceFloor, applySizeAndCatalogPricing } from '@/lib/market/price-heuristics';
 import { buildCatalogPricingContext } from '@/lib/market/catalog-pricing';
+import { getIgPriceHistory, igHistoryPromptLines } from '@/lib/market/ig-price-history';
 import {
   formatGuildCompSummary,
 } from '@/lib/market/platform-comps';
@@ -224,6 +225,7 @@ export async function POST(req: NextRequest) {
           : '',
         description ? `Description: ${description.slice(0, 400)}` : 'No description.',
         ...(await buildCatalogPricingContext(admin, brand, model, colorway, size)).promptLines,
+        ...igHistoryPromptLines(getIgPriceHistory(brand, model)),
         compSummary,
         `eBay comps: ${ebayComps.length}.`,
       ].join('\n'),

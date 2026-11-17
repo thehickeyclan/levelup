@@ -130,7 +130,7 @@ async function main() {
         }
         insertedId = ins.id as string;
       }
-      const newRow = { id: insertedId, verified: false, ...rowValues } as (typeof existing)[number];
+      const newRow = { id: insertedId, ...rowValues } as (typeof existing)[number];
       for (const name of namesFor(newRow.brand, newRow.model, newRow.model_aliases)) {
         if (!index.has(name)) index.set(name, newRow);
       }

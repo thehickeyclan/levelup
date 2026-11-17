@@ -22,6 +22,16 @@ import { reportContent } from '@/lib/moderation';
 import { marketColors as colors, typography } from '@/lib/theme';
 import { disclosureLabel } from '@/lib/disclosure-tags';
 
+type ValueReference = {
+  mid_cents: number;
+  low_cents: number | null;
+  high_cents: number | null;
+  confidence: string;
+  source_label: string;
+  detail_label: string | null;
+  stock_caveat: string | null;
+};
+
 type Listing = {
   id: string;
   title: string;
@@ -90,6 +100,7 @@ export default function ListingDetailScreen() {
   const [sendingQuestion, setSendingQuestion] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [shoeAbout, setShoeAbout] = useState<ShoeAbout | null>(null);
+  const [valueReference, setValueReference] = useState<ValueReference | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,9 +112,11 @@ export default function ListingDetailScreen() {
           following?: boolean;
           viewer?: { isSeller?: boolean };
           shoe_about?: ShoeAbout | null;
+          value_reference?: ValueReference | null;
         }>(`/api/market/listings/${id}`);
         if (!cancelled) {
           setListing(res.listing);
+          setValueReference(res.value_reference ?? null);
           setSeller(res.seller ?? null);
           setFollowing(res.following === true);
           setIsOwner(res.viewer?.isSeller === true);
@@ -339,6 +352,27 @@ export default function ListingDetailScreen() {
         ) : null}
       </View>
 
+      {valueReference && listing.listing_type !== 'collection' ? (
+        <View style={styles.referenceCard}>
+          <View style={styles.referenceTop}>
+            <Text style={styles.referenceKicker}>GUILD SOLD-PRICE REFERENCE</Text>
+            <Text style={styles.referenceValue}>
+              ~${Math.round(valueReference.mid_cents / 100)}
+              {valueReference.low_cents != null && valueReference.high_cents != null
+                ? `  (${Math.round(valueReference.low_cents / 100)}–${Math.round(valueReference.high_cents / 100)})`
+                : ''}
+            </Text>
+          </View>
+          <Text style={styles.referenceMeta}>
+            {valueReference.source_label}
+            {valueReference.detail_label ? ` · ${valueReference.detail_label}` : ''}
+          </Text>
+          {valueReference.stock_caveat ? (
+            <Text style={styles.referenceMeta}>{valueReference.stock_caveat}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={styles.badges}>
         {listing.size ? <DetailBadge text={`Size ${listing.size}`} /> : null}
         {listing.wear_state ? (
@@ -559,6 +593,21 @@ const styles = StyleSheet.create({
   title: { ...typography.display, color: colors.text, fontSize: 27, marginTop: 7 },
   subtitle: { ...typography.body, color: colors.textMuted, fontSize: 13, marginTop: 5 },
   disclosureBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  referenceCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+  referenceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
+  referenceKicker: { ...typography.bodySemi, color: colors.accentHover, fontSize: 10, letterSpacing: 0.8 },
+  referenceValue: { ...typography.bodyBold, color: colors.text, fontSize: 15 },
+  referenceMeta: { ...typography.body, color: colors.textMuted, fontSize: 11, marginTop: 4, lineHeight: 15 },
   disclosureBadge: { borderWidth: 1, borderColor: colors.accent, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: 'rgba(184,157,96,0.14)' },
   disclosureBadgeText: { ...typography.bodySemi, color: colors.accentHover, fontSize: 10, letterSpacing: 0.8 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 9, marginTop: 13 },

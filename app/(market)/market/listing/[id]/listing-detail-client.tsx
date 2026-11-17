@@ -20,6 +20,7 @@ import { RarityBadge } from '@/components/market/rarity-badge';
 import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-actions';
 import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
 import { normalizeDisclosureTags, disclosureTagByCode } from '@/lib/market/disclosure-tags';
+import type { ValueReference } from '@/lib/market/value-reference';
 import { collectionAcceptsOffers, isCollectionListingType, sellAcceptsOffers } from '@/lib/market/accepts-offers';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
@@ -124,6 +125,7 @@ export default function ListingDetailClient() {
     seller: { id: string; displayName: string; school?: string | null };
     sellerStats: MarketSellerStats | null;
     pending_offer_count: number;
+    value_reference?: ValueReference | null;
     following?: boolean;
     follower_count?: number;
     shoe_history_stale?: boolean;
@@ -832,6 +834,30 @@ export default function ListingDetailClient() {
                   <p className="text-lg font-bold text-foreground">{offerCount}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">Offers</p>
                 </div>
+              </div>
+            ) : null}
+
+            {!isCollection && data.value_reference ? (
+              <div className="rounded-xl border border-border border-l-4 border-l-accent bg-card px-4 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-xs font-medium text-accent">Guild sold-price reference</p>
+                  <p className="text-base font-bold text-foreground">
+                    ~${Math.round(data.value_reference.mid_cents / 100)}
+                    {data.value_reference.low_cents != null && data.value_reference.high_cents != null ? (
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                        ${Math.round(data.value_reference.low_cents / 100)}–$
+                        {Math.round(data.value_reference.high_cents / 100)}
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {data.value_reference.source_label}
+                  {data.value_reference.detail_label ? ` · ${data.value_reference.detail_label}` : ''}
+                </p>
+                {data.value_reference.stock_caveat ? (
+                  <p className="text-[11px] text-muted-foreground mt-1">{data.value_reference.stock_caveat}</p>
+                ) : null}
               </div>
             ) : null}
 

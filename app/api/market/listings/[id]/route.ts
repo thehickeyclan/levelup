@@ -29,6 +29,7 @@ import {
 import type { MarketWearState } from '@/lib/market/wear-state';
 import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
 import { normalizeDisclosureTags } from '@/lib/market/disclosure-tags';
+import { fetchListingValueReference } from '@/lib/market/value-reference';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function applyListingUpdate(
@@ -245,6 +246,21 @@ export async function GET(
       isOwner
     );
 
+    // Standards §6.1: the sold-price reference next to every ask. Null when
+    // the evidence is under 3 combined real sales — no invented numbers.
+    const valueReference =
+      listing.listing_type !== 'collection'
+        ? await fetchListingValueReference(createAdminClientIfAvailable(tenant.slug) ?? supabase, {
+            brand,
+            model,
+            colorway: (listing.colorway as string | null) ?? null,
+            wear_state: wearState,
+            condition: (listing.condition as string | null) ?? null,
+            disclosure_tags: (listing.disclosure_tags as string[] | null) ?? null,
+            excludeListingId: id,
+          })
+        : null;
+
     return NextResponse.json({
       listing: publicListing,
       sizes,
@@ -254,6 +270,7 @@ export async function GET(
       shoe_history_stale: shoeHistoryStale,
       colorway_aliases: catalogEnrichment?.colorway_aliases ?? [],
       condition_read: conditionRead,
+      value_reference: valueReference,
       pending_offer_count: pendingOfferCount ?? 0,
       following,
       follower_count: followerCount ?? 0,

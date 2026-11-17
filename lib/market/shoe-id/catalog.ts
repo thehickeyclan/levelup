@@ -154,3 +154,26 @@ export async function findCatalogEntry(
 
   return fuzzy ?? null;
 }
+
+/**
+ * findCatalogEntry, then retry through the AI's model_aliases — vision
+ * sometimes names a catalog shoe descriptively ("Aggressor (Rulon Gardner
+ * Signature Edition)") while listing the catalog name among the aliases.
+ * Market data is keyed on the catalog row, so the retry is what connects a
+ * correct identification to its price history.
+ */
+export async function findCatalogEntryWithAliases(
+  supabase: SupabaseClient,
+  brand: string,
+  model: string,
+  aliases: string[] = []
+) {
+  const direct = await findCatalogEntry(supabase, brand, model);
+  if (direct) return direct;
+  for (const alias of aliases.slice(0, 5)) {
+    if (!alias?.trim() || alias.trim().toLowerCase() === model.trim().toLowerCase()) continue;
+    const viaAlias = await findCatalogEntry(supabase, brand, alias);
+    if (viaAlias) return viaAlias;
+  }
+  return null;
+}

@@ -274,6 +274,18 @@ export default function MarketScreen() {
               </Text>
             </Pressable>
           </View>
+          <Pressable
+            style={styles.scanCard}
+            onPress={() => (session ? router.push('/shoe-scan') : promptSignIn(router, 'value your shoes'))}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.scanCardTitle}>What's it worth?</Text>
+              <Text style={styles.scanCardSub}>
+                Snap any wrestling shoe — AI names the pair and shows its real market value. Free.
+              </Text>
+            </View>
+            <Text style={styles.scanCardArrow}>›</Text>
+          </Pressable>
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -493,6 +505,19 @@ const styles = StyleSheet.create({
   quickLinks: { flexDirection: 'row', gap: 18, marginTop: 10 },
   quickLink: { minHeight: 32, justifyContent: 'center' },
   quickLinkText: { ...typography.bodySemi, color: colors.accent, fontSize: 13 },
+  scanCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.navy,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 14,
+  },
+  scanCardTitle: { ...typography.brand, color: colors.accentLight, fontSize: 18 },
+  scanCardSub: { ...typography.body, color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 3, lineHeight: 17 },
+  scanCardArrow: { ...typography.brand, color: colors.accentLight, fontSize: 26 },
   search: { ...typography.body, minHeight: 46, color: colors.text, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, marginTop: 14, fontSize: 13 },
   filters: { gap: 8, paddingTop: 11, paddingBottom: 5 },
   filter: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },

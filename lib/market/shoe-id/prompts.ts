@@ -8,6 +8,12 @@ Use the catalog below as your primary reference. If the shoe matches a catalog e
 identify it precisely. If it does not match any catalog entry, use your general
 knowledge and clearly note the lower confidence.
 
+When the pair matches a catalog entry, "model" must be the EXACT catalog model name,
+letter for letter — never a longer descriptive variant (return "Rulon", not
+"Aggressor (Rulon Gardner Signature Edition)"). Market data is keyed on the catalog
+name, so a reworded model gets no price history. Put signature lines, nicknames, and
+descriptive extras in model_aliases and collector_notes instead.
+
 Identify brand and model from the LISTING PHOTOS first. Seller listing history (if provided)
 is optional background — never override clear visual evidence from the photos.
 

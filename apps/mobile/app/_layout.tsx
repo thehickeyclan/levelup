@@ -144,6 +144,7 @@ export default function RootLayout() {
           <Stack.Screen name="listing/[id]" options={{ title: 'Listing' }} />
           <Stack.Screen name="my-market" options={{ title: 'My Market' }} />
           <Stack.Screen name="add-shoe" options={{ title: 'Add shoe' }} />
+          <Stack.Screen name="shoe-scan" options={{ title: "What's it worth?" }} />
           <Stack.Screen name="manage-listing/[id]" options={{ title: 'Manage listing' }} />
           <Stack.Screen name="make-offer/[id]" options={{ title: 'Make offer' }} />
           <Stack.Screen name="market-offers" options={{ title: 'Offers' }} />

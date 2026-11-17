@@ -98,7 +98,8 @@ type ListingDraftResponse = {
 
 export default function AddShoeScreen() {
   const router = useRouter();
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { mode, brand: brandParam, model: modelParam, colorway: colorwayParam } =
+    useLocalSearchParams<{ mode?: string; brand?: string; model?: string; colorway?: string }>();
   const [step, setStep] = useState<AddShoeStep>('photos');
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [listingType, setListingType] = useState<ListingType>('collection');
@@ -137,6 +138,16 @@ export default function AddShoeScreen() {
       setListingType(mode);
     }
   }, [mode]);
+
+  // Arriving from the scanner: carry the identified shoe into the form.
+  useEffect(() => {
+    if (typeof brandParam === 'string' && brandParam.trim()) setBrand((b) => b || brandParam.trim());
+    if (typeof modelParam === 'string' && modelParam.trim()) setModel((m) => m || modelParam.trim());
+    if (typeof colorwayParam === 'string' && colorwayParam.trim()) {
+      setColorway((c) => c || colorwayParam.trim());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandParam, modelParam, colorwayParam]);
 
   useEffect(() => {
     photosRef.current = photos;

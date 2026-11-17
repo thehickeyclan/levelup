@@ -1,0 +1,1733 @@
+{
+ "generated_at": "2026-11-17",
+ "note": "Per-condition eBay sold tiers per catalog model (Muse price-index v2, 17 Nov 2026). INVERTED flag: the used pool carries rarer colorways — never apply a flat BNIB premium.",
+ "models": {
+  "adidas|adistar (john smith, 1990s)": {
+   "brand": "Adidas",
+   "model": "Adistar (John Smith, 1990s)",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 400
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 520
+    },
+    "good": {
+     "n": 4,
+     "median_usd": 240
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 50
+    }
+   }
+  },
+  "adidas|adistar wrestling": {
+   "brand": "Adidas",
+   "model": "Adistar Wrestling",
+   "tiers": {
+    "good": {
+     "n": 4,
+     "median_usd": 90.09
+    }
+   }
+  },
+  "adidas|adistrike (john smith)": {
+   "brand": "Adidas",
+   "model": "Adistrike (John Smith)",
+   "tiers": {
+    "good": {
+     "n": 3,
+     "median_usd": 199
+    }
+   }
+  },
+  "adidas|combat speed og (1998)": {
+   "brand": "Adidas",
+   "model": "Combat Speed OG (1998)",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 400
+    },
+    "good": {
+     "n": 7,
+     "median_usd": 99
+    }
+   }
+  },
+  "adidas|combat speed 3": {
+   "brand": "Adidas",
+   "model": "Combat Speed 3",
+   "tiers": {
+    "good": {
+     "n": 19,
+     "median_usd": 189.95
+    }
+   }
+  },
+  "adidas|combat speed 4": {
+   "brand": "Adidas",
+   "model": "Combat Speed 4",
+   "tiers": {
+    "new": {
+     "n": 4,
+     "median_usd": 83
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 210
+    },
+    "good": {
+     "n": 11,
+     "median_usd": 250
+    }
+   },
+   "bnib_premium_vs_good": 0.33,
+   "condition_flag": "INVERTED - used pool carries rarer colorways; do not apply a flat BNIB premium"
+  },
+  "adidas|combat speed 5": {
+   "brand": "Adidas",
+   "model": "Combat Speed 5",
+   "tiers": {
+    "new": {
+     "n": 5,
+     "median_usd": 115
+    },
+    "good": {
+     "n": 6,
+     "median_usd": 40
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 35
+    }
+   },
+   "bnib_premium_vs_good": 2.88
+  },
+  "adidas|flying impact": {
+   "brand": "Adidas",
+   "model": "Flying Impact",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 70
+    },
+    "good": {
+     "n": 4,
+     "median_usd": 36.99
+    }
+   }
+  },
+  "adidas|grappler (1998)": {
+   "brand": "Adidas",
+   "model": "Grappler (1998)",
+   "tiers": {
+    "good": {
+     "n": 1,
+     "median_usd": 200
+    }
+   }
+  },
+  "adidas|hvc": {
+   "brand": "Adidas",
+   "model": "HVC",
+   "tiers": {
+    "new": {
+     "n": 3,
+     "median_usd": 41.99
+    },
+    "good": {
+     "n": 1,
+     "median_usd": 19.95
+    }
+   }
+  },
+  "adidas|hvc 2": {
+   "brand": "Adidas",
+   "model": "HVC 2",
+   "tiers": {
+    "new": {
+     "n": 5,
+     "median_usd": 35
+    },
+    "good": {
+     "n": 7,
+     "median_usd": 22.49
+    }
+   },
+   "bnib_premium_vs_good": 1.56
+  },
+  "adidas|hercules (1978)": {
+   "brand": "Adidas",
+   "model": "Hercules (1978)",
+   "tiers": {
+    "good": {
+     "n": 2,
+     "median_usd": 826.18
+    }
+   }
+  },
+  "adidas|impact": {
+   "brand": "Adidas",
+   "model": "Impact",
+   "tiers": {
+    "like_new": {
+     "n": 3,
+     "median_usd": 42
+    },
+    "good": {
+     "n": 6,
+     "median_usd": 21
+    }
+   }
+  },
+  "adidas|mat hog": {
+   "brand": "Adidas",
+   "model": "Mat Hog",
+   "tiers": {
+    "like_new": {
+     "n": 1,
+     "median_usd": 19.95
+    },
+    "good": {
+     "n": 1,
+     "median_usd": 30.4
+    }
+   }
+  },
+  "adidas|mat hog 2.0": {
+   "brand": "Adidas",
+   "model": "Mat Hog 2.0",
+   "tiers": {
+    "new": {
+     "n": 6,
+     "median_usd": 44
+    },
+    "good": {
+     "n": 4,
+     "median_usd": 24.9
+    }
+   },
+   "bnib_premium_vs_good": 1.77
+  },
+  "adidas|mat wizard (original john smith line)": {
+   "brand": "Adidas",
+   "model": "Mat Wizard (original John Smith line)",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 395
+    },
+    "good": {
+     "n": 3,
+     "median_usd": 160
+    }
+   }
+  },
+  "adidas|mat wizard 4": {
+   "brand": "Adidas",
+   "model": "Mat Wizard 4",
+   "tiers": {
+    "new": {
+     "n": 3,
+     "median_usd": 38.99
+    },
+    "good": {
+     "n": 16,
+     "median_usd": 25.97
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 40
+    }
+   },
+   "bnib_premium_vs_good": 1.5
+  },
+  "adidas|mat wizard 5": {
+   "brand": "Adidas",
+   "model": "Mat Wizard 5",
+   "tiers": {
+    "new": {
+     "n": 8,
+     "median_usd": 45
+    },
+    "good": {
+     "n": 7,
+     "median_usd": 26.25
+    }
+   },
+   "bnib_premium_vs_good": 1.71
+  },
+  "adidas|mat wizard iii": {
+   "brand": "Adidas",
+   "model": "Mat Wizard III",
+   "tiers": {
+    "new": {
+     "n": 7,
+     "median_usd": 104.49
+    },
+    "good": {
+     "n": 5,
+     "median_usd": 44.99
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 60
+    }
+   },
+   "bnib_premium_vs_good": 2.32
+  },
+  "adidas|nitro (1995)": {
+   "brand": "Adidas",
+   "model": "Nitro (1995)",
+   "tiers": {
+    "good": {
+     "n": 3,
+     "median_usd": 149.99
+    }
+   }
+  },
+  "adidas|pretereo": {
+   "brand": "Adidas",
+   "model": "Pretereo",
+   "tiers": {
+    "good": {
+     "n": 7,
+     "median_usd": 46.99
+    }
+   }
+  },
+  "adidas|pretereo iii": {
+   "brand": "Adidas",
+   "model": "Pretereo III",
+   "tiers": {
+    "good": {
+     "n": 8,
+     "median_usd": 29.99
+    }
+   }
+  },
+  "adidas|response 3.1": {
+   "brand": "Adidas",
+   "model": "Response 3.1",
+   "tiers": {
+    "good": {
+     "n": 1,
+     "median_usd": 48.99
+    }
+   }
+  },
+  "adidas|super slay": {
+   "brand": "Adidas",
+   "model": "Super Slay",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 250
+    },
+    "good": {
+     "n": 14,
+     "median_usd": 127.4
+    }
+   }
+  },
+  "adidas|sydney 2000": {
+   "brand": "Adidas",
+   "model": "Sydney 2000",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 420
+    },
+    "good": {
+     "n": 1,
+     "median_usd": 350
+    }
+   }
+  },
+  "adidas|tech fall 2.0": {
+   "brand": "Adidas",
+   "model": "Tech Fall 2.0",
+   "tiers": {
+    "new": {
+     "n": 5,
+     "median_usd": 45
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 42.02
+    },
+    "good": {
+     "n": 11,
+     "median_usd": 28.56
+    }
+   },
+   "bnib_premium_vs_good": 1.58
+  },
+  "adidas|adizero london": {
+   "brand": "Adidas",
+   "model": "adizero London",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 250
+    }
+   }
+  },
+  "adidas|adizero mat wizard 6": {
+   "brand": "Adidas",
+   "model": "adizero Mat Wizard 6",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 79.97
+    }
+   }
+  },
+  "adidas|adizero varner": {
+   "brand": "Adidas",
+   "model": "adizero Varner",
+   "tiers": {
+    "new": {
+     "n": 5,
+     "median_usd": 99.99
+    },
+    "good": {
+     "n": 19,
+     "median_usd": 79.99
+    }
+   },
+   "bnib_premium_vs_good": 1.25
+  },
+  "adidas|adizero varner 2": {
+   "brand": "Adidas",
+   "model": "adizero Varner 2",
+   "tiers": {
+    "new": {
+     "n": 3,
+     "median_usd": 114.99
+    },
+    "good": {
+     "n": 4,
+     "median_usd": 44.99
+    }
+   },
+   "bnib_premium_vs_good": 2.56
+  },
+  "adidas|adizero wrestling (2024)": {
+   "brand": "Adidas",
+   "model": "adizero Wrestling (2024)",
+   "tiers": {
+    "new": {
+     "n": 3,
+     "median_usd": 113.5
+    }
+   }
+  },
+  "asics|aggressor": {
+   "brand": "Asics",
+   "model": "Aggressor",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 232.95
+    },
+    "good": {
+     "n": 15,
+     "median_usd": 149.99
+    }
+   }
+  },
+  "asics|aggressor 2": {
+   "brand": "Asics",
+   "model": "Aggressor 2",
+   "tiers": {
+    "new": {
+     "n": 5,
+     "median_usd": 62
+    },
+    "good": {
+     "n": 15,
+     "median_usd": 99.99
+    }
+   },
+   "bnib_premium_vs_good": 0.62,
+   "condition_flag": "INVERTED - used pool carries rarer colorways; do not apply a flat BNIB premium"
+  },
+  "asics|aggressor 3": {
+   "brand": "Asics",
+   "model": "Aggressor 3",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 120
+    },
+    "good": {
+     "n": 7,
+     "median_usd": 82.5
+    }
+   }
+  },
+  "asics|aggressor 4": {
+   "brand": "Asics",
+   "model": "Aggressor 4",
+   "tiers": {
+    "new": {
+     "n": 12,
+     "median_usd": 102.85
+    },
+    "good": {
+     "n": 13,
+     "median_usd": 65
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 35
+    }
+   },
+   "bnib_premium_vs_good": 1.58
+  },
+  "asics|aggressor 5": {
+   "brand": "Asics",
+   "model": "Aggressor 5",
+   "tiers": {
+    "new": {
+     "n": 11,
+     "median_usd": 99.99
+    },
+    "good": {
+     "n": 9,
+     "median_usd": 60
+    }
+   },
+   "bnib_premium_vs_good": 1.67
+  },
+  "asics|aggressor 6": {
+   "brand": "Asics",
+   "model": "Aggressor 6",
+   "tiers": {
+    "new": {
+     "n": 9,
+     "median_usd": 119.95
+    },
+    "good": {
+     "n": 1,
+     "median_usd": 27
+    }
+   }
+  },
+  "asics|cael v1.0": {
+   "brand": "Asics",
+   "model": "Cael V1.0",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 407.5
+    },
+    "good": {
+     "n": 7,
+     "median_usd": 300
+    }
+   }
+  },
+  "asics|cael v2.0": {
+   "brand": "Asics",
+   "model": "Cael V2.0",
+   "tiers": {
+    "good": {
+     "n": 2,
+     "median_usd": 182
+    }
+   }
+  },
+  "asics|cael v3.0": {
+   "brand": "Asics",
+   "model": "Cael V3.0",
+   "tiers": {
+    "good": {
+     "n": 8,
+     "median_usd": 148
+    }
+   }
+  },
+  "asics|cael v4.0": {
+   "brand": "Asics",
+   "model": "Cael V4.0",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 175
+    },
+    "good": {
+     "n": 17,
+     "median_usd": 64.99
+    }
+   }
+  },
+  "asics|cael v5.0": {
+   "brand": "Asics",
+   "model": "Cael V5.0",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 99.5
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 75
+    },
+    "good": {
+     "n": 13,
+     "median_usd": 76.94
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 27.99
+    }
+   }
+  },
+  "asics|cael v6.0": {
+   "brand": "Asics",
+   "model": "Cael V6.0",
+   "tiers": {
+    "new": {
+     "n": 4,
+     "median_usd": 119.99
+    },
+    "good": {
+     "n": 22,
+     "median_usd": 62.97
+    }
+   },
+   "bnib_premium_vs_good": 1.91
+  },
+  "asics|cael v7.0": {
+   "brand": "Asics",
+   "model": "Cael V7.0",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 75.99
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 39.99
+    },
+    "good": {
+     "n": 15,
+     "median_usd": 49.99
+    }
+   }
+  },
+  "asics|cael v8.0": {
+   "brand": "Asics",
+   "model": "Cael V8.0",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 40
+    },
+    "good": {
+     "n": 8,
+     "median_usd": 41.45
+    }
+   }
+  },
+  "asics|dan gable evo 3": {
+   "brand": "Asics",
+   "model": "Dan Gable EVO 3",
+   "tiers": {
+    "new": {
+     "n": 10,
+     "median_usd": 160.03
+    },
+    "good": {
+     "n": 5,
+     "median_usd": 138.54
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 170
+    }
+   },
+   "bnib_premium_vs_good": 1.16
+  },
+  "asics|dan gable evo": {
+   "brand": "Asics",
+   "model": "Dan Gable Evo",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 150
+    },
+    "good": {
+     "n": 6,
+     "median_usd": 95
+    }
+   }
+  },
+  "asics|dan gable evo 2": {
+   "brand": "Asics",
+   "model": "Dan Gable Evo 2",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 119
+    },
+    "good": {
+     "n": 3,
+     "median_usd": 52.99
+    }
+   }
+  },
+  "asics|dan gable ultimate": {
+   "brand": "Asics",
+   "model": "Dan Gable Ultimate",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 139.99
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 75.99
+    },
+    "good": {
+     "n": 31,
+     "median_usd": 110
+    }
+   }
+  },
+  "asics|dave schultz": {
+   "brand": "Asics",
+   "model": "Dave Schultz",
+   "tiers": {
+    "new": {
+     "n": 3,
+     "median_usd": 300
+    },
+    "good": {
+     "n": 7,
+     "median_usd": 289.99
+    }
+   },
+   "bnib_premium_vs_good": 1.03
+  },
+  "asics|ex-eo": {
+   "brand": "Asics",
+   "model": "EX-EO",
+   "tiers": {
+    "new": {
+     "n": 5,
+     "median_usd": 253.99
+    },
+    "good": {
+     "n": 3,
+     "median_usd": 175
+    }
+   },
+   "bnib_premium_vs_good": 1.45
+  },
+  "asics|exeo reps": {
+   "brand": "Asics",
+   "model": "EXEO Reps",
+   "tiers": {
+    "new": {
+     "n": 6,
+     "median_usd": 154.99
+    }
+   }
+  },
+  "asics|gel-assault": {
+   "brand": "Asics",
+   "model": "GEL-Assault",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 262.5
+    },
+    "good": {
+     "n": 3,
+     "median_usd": 200
+    }
+   }
+  },
+  "asics|gable ultraflex": {
+   "brand": "Asics",
+   "model": "Gable Ultraflex",
+   "tiers": {
+    "good": {
+     "n": 2,
+     "median_usd": 107.75
+    }
+   }
+  },
+  "asics|jb elite": {
+   "brand": "Asics",
+   "model": "JB Elite",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 102.5
+    },
+    "good": {
+     "n": 22,
+     "median_usd": 80
+    }
+   }
+  },
+  "asics|jb elite iii": {
+   "brand": "Asics",
+   "model": "JB Elite III",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 79.99
+    },
+    "good": {
+     "n": 2,
+     "median_usd": 39.5
+    }
+   }
+  },
+  "asics|jb elite iv": {
+   "brand": "Asics",
+   "model": "JB Elite IV",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 158
+    },
+    "good": {
+     "n": 9,
+     "median_usd": 46
+    }
+   }
+  },
+  "asics|jb elite v2.0": {
+   "brand": "Asics",
+   "model": "JB Elite V2.0",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 81.75
+    },
+    "good": {
+     "n": 17,
+     "median_usd": 55
+    }
+   }
+  },
+  "asics|les gutches": {
+   "brand": "Asics",
+   "model": "Les Gutches",
+   "tiers": {
+    "good": {
+     "n": 1,
+     "median_usd": 299.99
+    }
+   }
+  },
+  "asics|matflex 3": {
+   "brand": "Asics",
+   "model": "Matflex 3",
+   "tiers": {
+    "good": {
+     "n": 8,
+     "median_usd": 65
+    }
+   }
+  },
+  "asics|matflex 6": {
+   "brand": "Asics",
+   "model": "Matflex 6",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 34.98
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 29.98
+    },
+    "good": {
+     "n": 17,
+     "median_usd": 22.5
+    }
+   }
+  },
+  "asics|matflex 7": {
+   "brand": "Asics",
+   "model": "Matflex 7",
+   "tiers": {
+    "new": {
+     "n": 4,
+     "median_usd": 53.45
+    },
+    "good": {
+     "n": 8,
+     "median_usd": 24.99
+    }
+   },
+   "bnib_premium_vs_good": 2.14
+  },
+  "asics|omniflex-attack": {
+   "brand": "Asics",
+   "model": "Omniflex-Attack",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 172.5
+    },
+    "good": {
+     "n": 8,
+     "median_usd": 117.47
+    }
+   }
+  },
+  "asics|reflex iii": {
+   "brand": "Asics",
+   "model": "Reflex III",
+   "tiers": {
+    "good": {
+     "n": 3,
+     "median_usd": 75
+    }
+   }
+  },
+  "asics|rulon": {
+   "brand": "Asics",
+   "model": "Rulon",
+   "tiers": {
+    "good": {
+     "n": 3,
+     "median_usd": 400
+    }
+   }
+  },
+  "asics|snapdown": {
+   "brand": "Asics",
+   "model": "Snapdown",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 55
+    },
+    "good": {
+     "n": 19,
+     "median_usd": 24.99
+    }
+   }
+  },
+  "asics|snapdown 2": {
+   "brand": "Asics",
+   "model": "Snapdown 2",
+   "tiers": {
+    "new": {
+     "n": 3,
+     "median_usd": 54
+    },
+    "good": {
+     "n": 17,
+     "median_usd": 23.92
+    }
+   },
+   "bnib_premium_vs_good": 2.26
+  },
+  "asics|snapdown 3": {
+   "brand": "Asics",
+   "model": "Snapdown 3",
+   "tiers": {
+    "new": {
+     "n": 7,
+     "median_usd": 30
+    },
+    "good": {
+     "n": 6,
+     "median_usd": 36.09
+    }
+   },
+   "bnib_premium_vs_good": 0.83,
+   "condition_flag": "INVERTED - used pool carries rarer colorways; do not apply a flat BNIB premium"
+  },
+  "asics|split second": {
+   "brand": "Asics",
+   "model": "Split Second",
+   "tiers": {
+    "good": {
+     "n": 19,
+     "median_usd": 39.88
+    }
+   }
+  },
+  "asics|split second 9": {
+   "brand": "Asics",
+   "model": "Split Second 9",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 124.99
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 18
+    },
+    "good": {
+     "n": 9,
+     "median_usd": 49.87
+    }
+   }
+  },
+  "asics|split sole": {
+   "brand": "Asics",
+   "model": "Split Sole",
+   "tiers": {
+    "good": {
+     "n": 4,
+     "median_usd": 61
+    }
+   }
+  },
+  "asics|the baum": {
+   "brand": "Asics",
+   "model": "The Baum",
+   "tiers": {
+    "good": {
+     "n": 3,
+     "median_usd": 100
+    }
+   }
+  },
+  "brute|john smith signature": {
+   "brand": "Brute",
+   "model": "John Smith Signature",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 115
+    },
+    "good": {
+     "n": 3,
+     "median_usd": 85
+    }
+   }
+  },
+  "cliff keen|converse dominator": {
+   "brand": "Cliff Keen",
+   "model": "Converse Dominator",
+   "tiers": {
+    "good": {
+     "n": 1,
+     "median_usd": 149.99
+    }
+   }
+  },
+  "cronin|handcrafted 88": {
+   "brand": "Cronin",
+   "model": "Handcrafted 88",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 240
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 140
+    }
+   }
+  },
+  "funky flickr boyz|gen-one": {
+   "brand": "Funky Flickr Boyz",
+   "model": "Gen-One",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 110
+    },
+    "good": {
+     "n": 1,
+     "median_usd": 95
+    }
+   }
+  },
+  "nidrogen|gen-one": {
+   "brand": "Nidrogen",
+   "model": "GEN-ONE",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 64
+    },
+    "like_new": {
+     "n": 1,
+     "median_usd": 80
+    },
+    "good": {
+     "n": 2,
+     "median_usd": 61.5
+    }
+   }
+  },
+  "nidrogen|pro-gen": {
+   "brand": "Nidrogen",
+   "model": "PRO-GEN",
+   "tiers": {
+    "new": {
+     "n": 3,
+     "median_usd": 107.95
+    }
+   }
+  },
+  "nike|air reversal": {
+   "brand": "Nike",
+   "model": "Air Reversal",
+   "tiers": {
+    "good": {
+     "n": 1,
+     "median_usd": 596.95
+    }
+   }
+  },
+  "nike|escape": {
+   "brand": "Nike",
+   "model": "Escape",
+   "tiers": {
+    "good": {
+     "n": 2,
+     "median_usd": 189.5
+    }
+   }
+  },
+  "nike|footsweep": {
+   "brand": "Nike",
+   "model": "Footsweep",
+   "tiers": {
+    "new": {
+     "n": 4,
+     "median_usd": 130
+    },
+    "good": {
+     "n": 5,
+     "median_usd": 202.5
+    }
+   },
+   "bnib_premium_vs_good": 0.64,
+   "condition_flag": "INVERTED - used pool carries rarer colorways; do not apply a flat BNIB premium"
+  },
+  "nike|freek": {
+   "brand": "Nike",
+   "model": "Freek",
+   "tiers": {
+    "new": {
+     "n": 83,
+     "median_usd": 101.99
+    },
+    "good": {
+     "n": 18,
+     "median_usd": 95
+    }
+   },
+   "bnib_premium_vs_good": 1.07
+  },
+  "nike|freek 2": {
+   "brand": "Nike",
+   "model": "Freek 2",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 349
+    }
+   }
+  },
+  "nike|fury": {
+   "brand": "Nike",
+   "model": "Fury",
+   "tiers": {
+    "new": {
+     "n": 4,
+     "median_usd": 34.99
+    },
+    "good": {
+     "n": 6,
+     "median_usd": 63.23
+    }
+   },
+   "bnib_premium_vs_good": 0.55,
+   "condition_flag": "INVERTED - used pool carries rarer colorways; do not apply a flat BNIB premium"
+  },
+  "nike|greco supreme": {
+   "brand": "Nike",
+   "model": "Greco Supreme",
+   "tiers": {
+    "new": {
+     "n": 6,
+     "median_usd": 192.5
+    },
+    "good": {
+     "n": 19,
+     "median_usd": 119.99
+    }
+   },
+   "bnib_premium_vs_good": 1.6
+  },
+  "nike|hypersweep": {
+   "brand": "Nike",
+   "model": "Hypersweep",
+   "tiers": {
+    "new": {
+     "n": 14,
+     "median_usd": 92.5
+    },
+    "good": {
+     "n": 10,
+     "median_usd": 127.5
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 19.95
+    }
+   },
+   "bnib_premium_vs_good": 0.73,
+   "condition_flag": "INVERTED - used pool carries rarer colorways; do not apply a flat BNIB premium"
+  },
+  "nike|inflict (original)": {
+   "brand": "Nike",
+   "model": "Inflict (original)",
+   "tiers": {
+    "new": {
+     "n": 1,
+     "median_usd": 90
+    },
+    "good": {
+     "n": 6,
+     "median_usd": 325
+    }
+   }
+  },
+  "nike|inflict 2": {
+   "brand": "Nike",
+   "model": "Inflict 2",
+   "tiers": {
+    "like_new": {
+     "n": 1,
+     "median_usd": 500
+    },
+    "good": {
+     "n": 2,
+     "median_usd": 225
+    }
+   }
+  },
+  "nike|inflict 3": {
+   "brand": "Nike",
+   "model": "Inflict 3",
+   "tiers": {
+    "new": {
+     "n": 9,
+     "median_usd": 152
+    },
+    "good": {
+     "n": 11,
+     "median_usd": 150
+    }
+   },
+   "bnib_premium_vs_good": 1.01
+  },
+  "nike|inflict oe (olympic edition)": {
+   "brand": "Nike",
+   "model": "Inflict OE (Olympic Edition)",
+   "tiers": {
+    "new": {
+     "n": 22,
+     "median_usd": 221.25
+    },
+    "good": {
+     "n": 20,
+     "median_usd": 200
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 180
+    }
+   },
+   "bnib_premium_vs_good": 1.11
+  },
+  "nike|inflict 4": {
+   "brand": "Nike",
+   "model": "Inflict 4",
+   "tiers": {
+    "new": {
+     "n": 9,
+     "median_usd": 109.99
+    },
+    "good": {
+     "n": 1,
+     "median_usd": 85
+    }
+   }
+  },
+  "nike|kolat 2000": {
+   "brand": "Nike",
+   "model": "Kolat 2000",
+   "tiers": {
+    "good": {
+     "n": 4,
+     "median_usd": 450
+    }
+   }
+  },
+  "nike|kolat speed": {
+   "brand": "Nike",
+   "model": "Kolat Speed",
+   "tiers": {
+    "good": {
+     "n": 3,
+     "median_usd": 285
+    }
+   }
+  },
+  "nike|sidesweep": {
+   "brand": "Nike",
+   "model": "Sidesweep",
+   "tiers": {
+    "good": {
+     "n": 2,
+     "median_usd": 92.5
+    }
+   }
+  },
+  "nike|speedsweep vii": {
+   "brand": "Nike",
+   "model": "Speedsweep VII",
+   "tiers": {
+    "new": {
+     "n": 12,
+     "median_usd": 43.5
+    },
+    "good": {
+     "n": 13,
+     "median_usd": 24.99
+    }
+   },
+   "bnib_premium_vs_good": 1.74
+  },
+  "nike|speedsweep 8": {
+   "brand": "Nike",
+   "model": "Speedsweep 8",
+   "tiers": {
+    "new": {
+     "n": 14,
+     "median_usd": 46.47
+    },
+    "good": {
+     "n": 7,
+     "median_usd": 25
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 38
+    }
+   },
+   "bnib_premium_vs_good": 1.86
+  },
+  "nike|tawa se": {
+   "brand": "Nike",
+   "model": "TAWA SE",
+   "tiers": {
+    "new": {
+     "n": 9,
+     "median_usd": 98
+    },
+    "good": {
+     "n": 1,
+     "median_usd": 40
+    }
+   }
+  },
+  "nike|takedown 4": {
+   "brand": "Nike",
+   "model": "Takedown 4",
+   "tiers": {
+    "new": {
+     "n": 13,
+     "median_usd": 474
+    },
+    "good": {
+     "n": 24,
+     "median_usd": 412.5
+    },
+    "worn": {
+     "n": 2,
+     "median_usd": 55
+    }
+   },
+   "bnib_premium_vs_good": 1.15
+  },
+  "onev|introwaves": {
+   "brand": "ONEV",
+   "model": "Introwaves",
+   "tiers": {
+    "new": {
+     "n": 6,
+     "median_usd": 237.5
+    },
+    "good": {
+     "n": 1,
+     "median_usd": 170
+    }
+   }
+  },
+  "onev|onev wrestling shoe": {
+   "brand": "ONEV",
+   "model": "ONEV Wrestling Shoe",
+   "tiers": {
+    "new": {
+     "n": 14,
+     "median_usd": 225
+    },
+    "good": {
+     "n": 4,
+     "median_usd": 152.5
+    }
+   },
+   "bnib_premium_vs_good": 1.48
+  },
+  "onitsuka tiger|vintage wrestling boots (incl. tiger 81)": {
+   "brand": "Onitsuka Tiger",
+   "model": "Vintage Wrestling Boots (incl. Tiger 81)",
+   "tiers": {
+    "new": {
+     "n": 10,
+     "median_usd": 118.67
+    },
+    "good": {
+     "n": 30,
+     "median_usd": 125
+    }
+   },
+   "bnib_premium_vs_good": 0.95
+  },
+  "otomix|stingray escape / ninja warrior (wrestling use)": {
+   "brand": "Otomix",
+   "model": "Stingray Escape / Ninja Warrior (wrestling use)",
+   "tiers": {
+    "new": {
+     "n": 13,
+     "median_usd": 85.8
+    },
+    "good": {
+     "n": 14,
+     "median_usd": 35
+    },
+    "worn": {
+     "n": 1,
+     "median_usd": 42.99
+    }
+   },
+   "bnib_premium_vs_good": 2.45
+  },
+  "rudis|jb1": {
+   "brand": "RUDIS",
+   "model": "JB1",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 94.99
+    },
+    "good": {
+     "n": 8,
+     "median_usd": 41.5
+    }
+   }
+  },
+  "rudis|ks infinity edge": {
+   "brand": "RUDIS",
+   "model": "KS Infinity Edge",
+   "tiers": {
+    "new": {
+     "n": 2,
+     "median_usd": 99
+    },
+    "good": {
+     "n": 8,
+     "median_usd": 44.99
+    }
+   }
+  },
+  "rudis|ks turbine": {
+   "brand": "RUDIS",
+   "model": "KS Turbine",
+   "tiers": {
+    "new": {
+     "n": 4,
+     "median_usd": 90
+    },
+    "good": {
+     "n": 9,
+     "median_usd": 39.99
+    }
+   },
+   "bnib_premium_vs_good": 2.25
+  },
+  "rudis|kolat legacy": {
+   "brand": "RUDIS",
+   "model": "Kolat Legacy",
+   "tiers": {
+    "new": {
+     "n": 3,
+     "median_usd": 95
+    },
+    "good": {
+     "n": 3,
+     "median_usd": 79.99
+    }
+   },
+   "bnib_premium_vs_good": 1.19
+  },
+  "scraplife|ascend one": {
+   "brand": "ScrapLife",
+   "model": "Ascend One",
+   "tiers": {
+    "new": {
+     "n": 8,
+     "median_usd": 32.49
+    },
+    "good": {
+     "n": 6,
+     "median_usd": 22.73
+    },
+    "worn": {
+     "n": 7,
+     "median_usd": 20
+    }
+   },
+   "bnib_premium_vs_good": 1.43
+  },
+  "spartan|yianni": {
+   "brand": "Spartan",
+   "model": "YIANNI",
+   "tiers": {
+    "new": {
+     "n": 6,
+     "median_usd": 124.99
+    },
+    "good": {
+     "n": 3,
+     "median_usd": 65
+    }
+   },
+   "bnib_premium_vs_good": 1.92
+  }
+ },
+ "alias_keys": {
+  "adidas|mat wizard iv": "adidas|mat wizard 4",
+  "adidas|ac6971": "adidas|mat wizard 4",
+  "adidas|bc0531": "adidas|mat wizard 4",
+  "adidas|bc0532": "adidas|mat wizard 4",
+  "adidas|bc0533": "adidas|mat wizard 4",
+  "adidas|fu8168": "adidas|mat wizard 4",
+  "nike|nike greco supreme": "nike|greco supreme",
+  "nike|nike greco supreme wrestling shoe": "nike|greco supreme",
+  "nike|greco": "nike|greco supreme",
+  "nidrogen|genone": "nidrogen|gen-one",
+  "nidrogen|gen one": "nidrogen|gen-one",
+  "nidrogen|funky flickr boyz gen-one": "nidrogen|gen-one",
+  "nidrogen|ffb gen one": "nidrogen|gen-one",
+  "nidrogen|gen-one berry": "nidrogen|gen-one",
+  "nidrogen|gen-one platinum": "nidrogen|gen-one",
+  "asics|asics reflex 3": "asics|reflex iii",
+  "asics|asics reflex iii wrestling shoe": "asics|reflex iii",
+  "cronin|cronin 88": "cronin|handcrafted 88",
+  "cronin|smoke grey 88": "cronin|handcrafted 88",
+  "cronin|cronin customs 88": "cronin|handcrafted 88",
+  "cronin|vtg1": "cronin|handcrafted 88",
+  "cronin|cronin vtg1": "cronin|handcrafted 88",
+  "adidas|mat wizard 3": "adidas|mat wizard iii",
+  "adidas|david taylor mat wizard": "adidas|mat wizard iii",
+  "adidas|s77967": "adidas|mat wizard iii",
+  "adidas|adidas response": "adidas|super slay",
+  "adidas|adidas wrestling response": "adidas|super slay",
+  "adidas|brandon slay signature": "adidas|super slay",
+  "nike|nike freek wrestling shoe": "nike|freek 2",
+  "nike|nike free freek": "nike|freek",
+  "nike|freek (original)": "nike|freek",
+  "nike|og freek": "nike|freek",
+  "nike|cherry freeks": "nike|freek",
+  "nike|style 316403": "nike|freek",
+  "asics|asics dave schultz": "asics|ex-eo",
+  "asics|asics international": "asics|dave schultz",
+  "asics|asics wrestling international": "asics|dave schultz",
+  "asics|asics dave schultz international": "asics|dave schultz",
+  "asics|1081a018": "asics|dan gable evo 2",
+  "adidas|adi9521": "adidas|flying impact",
+  "adidas|adi10485": "adidas|flying impact",
+  "adidas|aq3317": "adidas|flying impact",
+  "asics|cael 7": "asics|cael v7.0",
+  "asics|asics cael v7": "asics|cael v7.0",
+  "asics|j500y": "asics|cael v7.0",
+  "asics|gable evo 1": "asics|dan gable evo",
+  "asics|ex/eo reps": "asics|exeo reps",
+  "asics|ex-eo reps": "asics|exeo reps",
+  "asics|exeo replica": "asics|exeo reps",
+  "asics|1081a016": "asics|jb elite iv",
+  "asics|jb elite iv rich gold/black": "asics|jb elite iv",
+  "nike|oe inflict": "nike|inflict oe (olympic edition)",
+  "nike|olympic inflict": "nike|inflict oe (olympic edition)",
+  "nike|volts (lime/black oe)": "nike|inflict oe (olympic edition)",
+  "nike|inflict se 'safari pack'": "nike|inflict oe (olympic edition)",
+  "nike|safari pack": "nike|inflict oe (olympic edition)",
+  "nike|inflict se tokyo": "nike|inflict oe (olympic edition)",
+  "nike|inflict se": "nike|inflict oe (olympic edition)",
+  "nike|inflict 3 se": "nike|inflict oe (olympic edition)",
+  "nike|inflict se oly": "nike|inflict oe (olympic edition)",
+  "nike|dj4471-900": "nike|inflict oe (olympic edition)",
+  "nike|fv3682-900": "nike|inflict oe (olympic edition)",
+  "asics|jb elite 1": "asics|jb elite",
+  "asics|jordan burroughs jb elite": "asics|jb elite",
+  "asics|asics split second wrestling shoe": "asics|split second",
+  "asics|split second v": "asics|split second",
+  "asics|split second vi": "asics|split second",
+  "asics|split second vii": "asics|split second",
+  "asics|split seconds": "asics|split second",
+  "asics|cael sanderson v1.0": "asics|cael v1.0",
+  "asics|split sol": "asics|split sole",
+  "asics|jl801": "asics|split sole",
+  "onitsuka tiger|tiger 81": "onitsuka tiger|vintage wrestling boots (incl. tiger 81)",
+  "onitsuka tiger|onitsuka wrestling shoes": "onitsuka tiger|vintage wrestling boots (incl. tiger 81)",
+  "onitsuka tiger|asics tiger wrestling": "onitsuka tiger|vintage wrestling boots (incl. tiger 81)",
+  "onev|onev": "onev|onev wrestling shoe",
+  "asics|matflex": "asics|matflex 3",
+  "adidas|combat speed": "adidas|combat speed 4",
+  "adidas|cs4": "adidas|combat speed 4",
+  "adidas|combat speed iv": "adidas|combat speed 4",
+  "adidas|combat speed 4 (2024-2025 comeback)": "adidas|combat speed 4",
+  "asics|asics aggressor 4": "asics|aggressor 4",
+  "asics|1081a001-700": "asics|aggressor 4",
+  "asics|1081a046": "asics|aggressor 4",
+  "asics|1081a048": "asics|aggressor 5",
+  "asics|aggressor 5 paris": "asics|aggressor 5",
+  "scraplife|david taylor ascend 1": "scraplife|ascend one",
+  "scraplife|ascend one dt": "scraplife|ascend one",
+  "adidas|hvc2": "adidas|hvc 2",
+  "adidas|aq3327 (youth)": "adidas|hvc 2",
+  "adidas|hp6870": "adidas|hvc 2",
+  "asics|1081a067": "asics|aggressor 6",
+  "nike|hypersweep le": "nike|hypersweep",
+  "nike|style 717175": "nike|hypersweep",
+  "asics|dg evo 3": "asics|dan gable evo 3",
+  "asics|dan gable evo iii": "asics|dan gable evo 3",
+  "asics|1081a052": "asics|dan gable evo 3",
+  "asics|asics silver series wrestling": "asics|ex-eo",
+  "asics|asics wrestling classic": "asics|ex-eo",
+  "adidas|john smith adistar": "adidas|adistar (john smith, 1990s)",
+  "adidas|adistars (1996)": "adidas|adistar (john smith, 1990s)",
+  "nike|style ao2416": "nike|fury",
+  "adidas|response ii (g03689)": "adidas|response 3.1",
+  "adidas|response 3 (g51522, g62631)": "adidas|response 3.1",
+  "adidas|response 2.0": "adidas|response 3.1",
+  "nike|nike inflict iii": "nike|inflict 3",
+  "nike|nike inflict": "nike|inflict 3",
+  "adidas|mat hog 1": "adidas|mat hog",
+  "adidas|varner 2": "adidas|adizero varner 2",
+  "cliff keen|cliff keen dominator": "cliff keen|converse dominator",
+  "cliff keen|keen x converse": "cliff keen|converse dominator",
+  "adidas|mat wizard v": "adidas|mat wizard 5",
+  "adidas|fz5382": "adidas|mat wizard 5",
+  "adidas|fz5384": "adidas|mat wizard 5",
+  "adidas|mat wizard 6": "adidas|adizero mat wizard 6",
+  "adidas|adizero mat wizard vi": "adidas|adizero mat wizard 6",
+  "otomix|otomix stingray": "otomix|stingray escape / ninja warrior (wrestling use)",
+  "otomix|ninja warrior combat shoe": "otomix|stingray escape / ninja warrior (wrestling use)",
+  "adidas|adizero wrestling london": "adidas|adizero london",
+  "adidas|v24387": "adidas|adizero london",
+  "adidas|mat hog 2": "adidas|mat hog 2.0",
+  "asics|ultraflex": "asics|gable ultraflex",
+  "adidas|223 adizero": "adidas|adizero wrestling (2024)",
+  "adidas|adizero 2024": "adidas|adizero wrestling (2024)",
+  "adidas|tech fall 2": "adidas|tech fall 2.0",
+  "adidas|fv2470": "adidas|tech fall 2.0",
+  "adidas|varner": "adidas|adizero varner",
+  "adidas|jake varner adizero": "adidas|adizero varner",
+  "adidas|fw1013": "adidas|adizero varner",
+  "adidas|adi9953": "adidas|adizero varner",
+  "adidas|adidas sydney": "adidas|sydney 2000",
+  "adidas|sydney olympics wrestling shoe": "adidas|sydney 2000",
+  "rudis|kyle snyder infinity edge": "rudis|ks infinity edge",
+  "rudis|ks2 (collector shorthand, not an official rudis name)": "rudis|ks infinity edge",
+  "adidas|adidas impact wrestling": "adidas|impact",
+  "adidas|219 impact": "adidas|impact",
+  "rudis|kyle snyder turbine": "rudis|ks turbine",
+  "rudis|ks turbine wrap": "rudis|ks turbine",
+  "rudis|ks1 (collector shorthand, not an official rudis name)": "rudis|ks turbine",
+  "adidas|hvc 1": "adidas|hvc",
+  "adidas|high value commodity": "adidas|hvc",
+  "adidas|g96983": "adidas|hvc",
+  "nike|nike speedsweep": "nike|speedsweep vii",
+  "nike|speed sweep": "nike|speedsweep vii",
+  "nike|speedsweep (likely speedsweep vii or similar generation)": "nike|speedsweep vii",
+  "nike|366683": "nike|speedsweep vii",
+  "nike|366684": "nike|speedsweep vii",
+  "nike|side sweep": "nike|sidesweep",
+  "adidas|pretereo i": "adidas|pretereo",
+  "adidas|pretereo ii": "adidas|pretereo",
+  "adidas|pretereo 2": "adidas|pretereo",
+  "adidas|pretereo 3": "adidas|pretereo iii",
+  "adidas|3531": "adidas|pretereo iii",
+  "asics|rulon gardner signature": "asics|rulon",
+  "asics|rulons": "asics|rulon",
+  "asics|brulons (blue colorway)": "asics|rulon",
+  "asics|jy500": "asics|rulon",
+  "adidas|combat speed original": "adidas|combat speed og (1998)",
+  "adidas|combat speed teal": "adidas|combat speed og (1998)",
+  "adidas|teal 88s (seller shorthand)": "adidas|combat speed og (1998)",
+  "adidas|combat speed (vintage / original)": "adidas|combat speed og (1998)",
+  "nike|cary kolat 2000": "nike|kolat 2000",
+  "nike|illinois og kolat": "nike|kolat 2000",
+  "nike|kolat international": "nike|kolat 2000",
+  "nike|kolat internationals": "nike|kolat 2000",
+  "adidas|adistar 2005": "adidas|adistar wrestling",
+  "adidas|adidas grappler": "adidas|grappler (1998)",
+  "asics|cael sanderson v8.0": "asics|cael v8.0",
+  "asics|aggressor 1": "asics|aggressor",
+  "asics|sissy aggressor (2011 suplay limited edition)": "asics|aggressor",
+  "asics|cael sanderson v3.0": "asics|cael v3.0",
+  "asics|cael sanderson v4.0": "asics|cael v4.0",
+  "asics|jb elite 2.0": "asics|jb elite v2.0",
+  "nike|og inflict": "nike|inflict (original)",
+  "nike|inflict 1": "nike|inflict (original)",
+  "nike|og reissue inflict": "nike|inflict (original)",
+  "brute|brute john smith": "brute|john smith signature",
+  "brute|brute js": "brute|john smith signature",
+  "nike|nike freek le": "nike|freek 2",
+  "asics|1081a051": "asics|matflex 7",
+  "asics|1084a011 (grade school)": "asics|matflex 7",
+  "asics|cael sanderson v5.0": "asics|cael v5.0",
+  "asics|j702n": "asics|jb elite iii",
+  "asics|1081a021": "asics|matflex 6",
+  "asics|1081a030": "asics|snapdown 3",
+  "asics|snapdown 3 wide": "asics|snapdown 3",
+  "asics|snapdown 3 2e": "asics|snapdown 3",
+  "asics|omniflex attack": "asics|omniflex-attack",
+  "asics|omniflex-attack v2.0": "asics|omniflex-attack",
+  "asics|snapdown 1": "asics|snapdown",
+  "asics|split second ix": "asics|split second 9",
+  "asics|bruce baumgartner shoe": "asics|the baum",
+  "nike|cary kolat speed": "nike|kolat speed",
+  "nike|kolat speeds": "nike|kolat speed",
+  "adidas|adidas hercules wrestling boot": "adidas|hercules (1978)",
+  "asics|asics gutches": "asics|les gutches",
+  "asics|asics gutches wrestling shoe": "asics|les gutches",
+  "adidas|john smith adistrike": "adidas|adistrike (john smith)",
+  "adidas|adistrike js": "adidas|adistrike (john smith)",
+  "nike|foot sweep": "nike|footsweep",
+  "adidas|adidas nitro wrestling": "adidas|nitro (1995)",
+  "asics|cael sanderson v2.0": "asics|cael v2.0",
+  "adidas|john smith mat wizard": "adidas|mat wizard (original john smith line)",
+  "adidas|mat wizard ii": "adidas|mat wizard (original john smith line)",
+  "nike|takedown 360": "nike|takedown 4",
+  "rudis|rudis kolat": "rudis|kolat legacy"
+ }
+}

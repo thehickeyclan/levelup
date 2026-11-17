@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { checkAndIncrementAiUsage, isAiRateLimitBypass, aiLimitReachedMessage } from '@/lib/market/ai/rate-limit';
 import { callClaude, extractJsonFromClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
-import { findCatalogEntry, matchCatalogEntry, getCatalogContext, fetchCatalogEntries, type CatalogEntryRow } from '@/lib/market/shoe-id/catalog';
+import { findCatalogEntryWithAliases, getCatalogContext, fetchCatalogEntries, type CatalogEntryRow } from '@/lib/market/shoe-id/catalog';
 import { enrichmentFromCatalog } from '@/lib/market/catalog-listing-enrich';
 import { buildShoeIdVisionContent } from '@/lib/market/shoe-id/images';
 import { listingQueryImageBlocks } from '@/lib/market/shoe-id/load-query-images';
@@ -124,8 +124,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: detail }, { status: 503 });
   }
 
-  const catalogMatchId = await matchCatalogEntry(admin, parsed.brand, parsed.model);
-  const catalogRow = await findCatalogEntry(admin, parsed.brand, parsed.model);
+  const catalogRow = await findCatalogEntryWithAliases(
+    admin,
+    parsed.brand,
+    parsed.model,
+    parsed.model_aliases
+  );
+  const catalogMatchId = (catalogRow?.id as string | undefined) ?? null;
   const catalogEnrichment = catalogRow
     ? enrichmentFromCatalog(catalogRow as CatalogEntryRow, parsed.colorway)
     : null;

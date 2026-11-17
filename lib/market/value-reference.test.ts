@@ -52,6 +52,37 @@ describe('assembleValueReference', () => {
     expect(ref!.source_label).toContain('IG resale post');
   });
 
+  it('lets a curated colorway value override pooled model stats', () => {
+    const ref = assembleValueReference({
+      ...base,
+      marketValue: { low_cents: 5000, mid_cents: 6500, high_cents: 25000, confidence: 'medium' },
+      documentedSales: 5,
+      colorwayProfile: {
+        name: 'Cherry',
+        availability: 'grail',
+        value_tier: 'grail',
+        value_low_cents: 30000,
+        value_mid_cents: 40000,
+        value_high_cents: 50000,
+      },
+    });
+    // The colorway IS the price on inverted models — curated $400 beats pooled $65.
+    expect(ref!.mid_cents).toBe(40000);
+    expect(ref!.low_cents).toBe(30000);
+    expect(ref!.detail_label).toContain('"Cherry" colorway — grail tier');
+  });
+
+  it('labels the colorway tier even without curated values', () => {
+    const ref = assembleValueReference({
+      ...base,
+      marketValue: { low_cents: 5000, mid_cents: 6500, high_cents: 25000, confidence: 'medium' },
+      documentedSales: 5,
+      colorwayProfile: { name: 'Volt', availability: 'limited', value_tier: 'rare' },
+    });
+    expect(ref!.mid_cents).toBe(6500); // pooled stats stand
+    expect(ref!.detail_label).toContain('"Volt" colorway — rare tier');
+  });
+
   it('marks the reference as stock-pair on modified listings', () => {
     const ref = assembleValueReference({
       ...base,

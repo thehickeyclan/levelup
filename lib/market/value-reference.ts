@@ -12,6 +12,7 @@ import { fetchMarketValueData } from '@/lib/market/market-value';
 import { getIgPriceHistory, type IgModelHistory } from '@/lib/market/ig-price-history';
 import { getConditionTiers, type ModelConditionTiers } from '@/lib/market/condition-tiers';
 import { disclosureTagByCode } from '@/lib/market/disclosure-tags';
+import type { ColorwayProfile } from '@/lib/market/shoe-id/schemas';
 
 export type ValueReference = {
   mid_cents: number;
@@ -58,18 +59,33 @@ export function assembleValueReference(input: {
   wearState?: string | null;
   condition?: string | null;
   disclosureTags?: string[] | null;
+  /** Matched colorway profile from the catalog — curated per-colorway values. */
+  colorwayProfile?: ColorwayProfile | null;
 }): ValueReference | null {
   const igSold = input.ig?.sold_priced ?? 0;
   const combined = input.guildSales + input.documentedSales + igSold;
   if (combined < MIN_COMBINED_SALES) return null;
 
   const tier = tierForListing(input.tiers, input.wearState, input.condition);
+  const profile = input.colorwayProfile ?? null;
+  // A curated colorway value beats pooled model stats — on inverted models
+  // (Combat Speed 4, Freek…) the colorway IS the price.
+  const profileMid =
+    profile?.value_mid_cents ??
+    (profile?.value_low_cents != null && profile?.value_high_cents != null
+      ? Math.round((profile.value_low_cents + profile.value_high_cents) / 2)
+      : null);
 
   let mid: number;
   let low: number | null = null;
   let high: number | null = null;
   let confidence: ValueReference['confidence'];
-  if (input.marketValue) {
+  if (profile && profileMid != null) {
+    mid = profileMid;
+    low = profile.value_low_cents ?? null;
+    high = profile.value_high_cents ?? null;
+    confidence = 'medium';
+  } else if (input.marketValue) {
     mid = input.marketValue.mid_cents;
     low = input.marketValue.low_cents;
     high = input.marketValue.high_cents;
@@ -94,7 +110,15 @@ export function assembleValueReference(input: {
     igSold ? `${igSold} IG resale post${igSold !== 1 ? 's' : ''}` : null,
   ].filter(Boolean) as string[];
 
+  const profileTier = profile?.value_tier ?? (profile?.availability === 'grail' ? 'grail' : null);
   const detailParts = [
+    profile && profileMid != null
+      ? `"${profile.name}" colorway${profileTier ? ` — ${profileTier} tier` : ''}, curated collector value`
+      : profile && profileTier && profileTier !== 'common'
+        ? `"${profile.name}" colorway — ${profileTier} tier`
+        : profile?.availability === 'current_retail' && profile.retail_anchor_cents
+          ? `"${profile.name}" colorway still at retail ~$${Math.round(profile.retail_anchor_cents / 100)}`
+          : null,
     tier ? `${tier.label}-condition eBay median $${tier.median_usd} (${tier.n} sales)` : null,
     input.ig?.median_recent_24mo_usd != null
       ? `IG median $${input.ig.median_recent_24mo_usd} last 24 months`
@@ -151,6 +175,7 @@ export async function fetchListingValueReference(
       wearState: input.wear_state,
       condition: input.condition,
       disclosureTags: input.disclosure_tags,
+      colorwayProfile: market.colorwayProfile,
     });
   } catch (e) {
     console.error('fetchListingValueReference:', e);

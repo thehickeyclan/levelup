@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireMarketUser } from '@/lib/market/auth';
 import { checkAndIncrementAiUsage, isAiRateLimitBypass, aiLimitReachedMessage } from '@/lib/market/ai/rate-limit';
-import { callClaude, ANTHROPIC_MODEL } from '@/lib/market/ai/client';
+import { callClaude, ANTHROPIC_MODEL, type ClaudeMessageContent } from '@/lib/market/ai/client';
+import { listingQueryImageBlocks } from '@/lib/market/shoe-id/load-query-images';
 import { AGENT_SYSTEM_PROMPT } from '@/lib/market/ai/prompts';
 import { parseAgentResponse } from '@/lib/market/parse-agent-response';
 import { fetchCatalogListingEnrichment } from '@/lib/market/catalog-listing-enrich';
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
     messages?: { role: string; content: string }[];
     draftId?: string;
     listingId?: string;
+    include_cover_photo?: boolean;
   };
 
   const listingId = (body.draftId ?? body.listingId)?.trim();
@@ -171,7 +173,25 @@ export async function POST(req: NextRequest) {
 
   const prompt = listingContext ? `${listingContext}\n\n${conversation}` : conversation;
 
-  const claude = await callClaude(AGENT_SYSTEM_PROMPT, [{ type: 'text', text: prompt }], 4096);
+  // Cover photo so the draft describes the actual pair, not just its name.
+  let coverBlocks: ClaudeMessageContent[] = [];
+  if (body.include_cover_photo && listingId) {
+    const { data: coverImages } = await admin
+      .from('market_listing_images')
+      .select('storage_path, public_url')
+      .eq('listing_id', listingId)
+      .order('display_order', { ascending: true })
+      .limit(1);
+    if (coverImages?.length) {
+      coverBlocks = await listingQueryImageBlocks(admin, coverImages).catch(() => []);
+    }
+  }
+
+  const claude = await callClaude(
+    AGENT_SYSTEM_PROMPT,
+    [...coverBlocks, { type: 'text', text: prompt }],
+    4096
+  );
 
   let response = null;
   if (claude.ok) {

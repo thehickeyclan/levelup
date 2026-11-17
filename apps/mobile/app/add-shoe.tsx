@@ -18,7 +18,7 @@ import { marketColors as colors, typography } from '@/lib/theme';
 
 type ListingType = 'collection' | 'sell' | 'trade';
 type WearState = 'bnib' | 'new_no_box' | 'used';
-type AddShoeStep = 'photos' | 'confirm' | 'condition' | 'review';
+type AddShoeStep = 'photos' | 'details' | 'review';
 type PickedPhoto = { uri: string; fileName?: string | null; mimeType?: string | null; base64?: string | null };
 
 const MARKET_EBAY_STYLE_SELLER_FEE_RATE = 0.1325;
@@ -88,6 +88,13 @@ type ShoeIdResponse = {
   };
   error?: string;
 };
+type ListingDraftResponse = {
+  catalog?: { found?: boolean; error?: string };
+  condition?: ConditionResponse & { error?: string };
+  price?: PriceResponse & { error?: string };
+  description?: AgentResponse & { error?: string };
+  colorway_check?: { consistent: boolean; note: string } | null;
+};
 
 export default function AddShoeScreen() {
   const router = useRouter();
@@ -122,7 +129,7 @@ export default function AddShoeScreen() {
   const [identifying, setIdentifying] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [aiGuess, setAiGuess] = useState<{ brand: string; model: string; colorway: string | null } | null>(null);
-  const lastAiIdentity = useRef<string | null>(null);
+  const [colorwayCheck, setColorwayCheck] = useState<{ consistent: boolean; note: string } | null>(null);
   const photosRef = useRef<PickedPhoto[]>([]);
 
   useEffect(() => {
@@ -405,135 +412,82 @@ export default function AddShoeScreen() {
     } finally {
       setUploadProgress(null);
       setIdentifying(false);
-      setStep('confirm');
+      setStep('details');
     }
   }
 
-  async function refreshAiFromCurrentDetails(wearOverride?: WearState) {
+  /** One call drafts the whole listing: catalog, condition, value, description. */
+  async function runListingDraft(wearOverride?: WearState) {
     const wear = wearOverride ?? wearState;
     if (!wear) {
       setError('Choose New in box, New, or Used first — AI values the pair from that.');
-      return;
+      return false;
     }
-    if (aiRefreshing || saving) return;
+    if (aiRefreshing || saving) return false;
     setAiRefreshing(true);
     setError(null);
     setAiMessage(null);
     try {
       const { listingId } = await ensureDraftWithPhotos();
-
-      const catalog = await apiFetch<{
-        found?: boolean;
-        model_year?: number | null;
-        colorway?: string | null;
-      }>('/api/market/catalog/lookup', {
-        method: 'POST',
-        body: JSON.stringify({
-          listingId,
-          brand: brand.trim(),
-          model: model.trim(),
-          colorway: colorway.trim() || undefined,
-          persist: true,
-        }),
-      });
-
-      const conditionResult = await apiFetch<ConditionResponse>('/api/market/ai/condition', {
+      setUploadProgress('AI is drafting your listing — condition, value, and description…');
+      const draft = await apiFetch<ListingDraftResponse>('/api/market/ai/listing-draft', {
         method: 'POST',
         body: JSON.stringify({
           listingId,
           wear_state: wear,
+          brand: brand.trim(),
+          model: model.trim(),
+          colorway: colorway.trim() || undefined,
+          size: Number(size),
+          condition,
+          listing_type: listingType,
+          description: description.trim() || undefined,
           seller_note: aiSellerNote.trim() || undefined,
         }),
       });
-      const nextCondition = conditionResult.analysis?.grade || condition;
-      if (wear === 'used' && conditionResult.analysis?.grade) {
-        setCondition(conditionResult.analysis.grade);
+
+      const descriptionBeforeAi = description.trim();
+      const grade = draft.condition?.analysis?.grade;
+      if (wear === 'used' && grade) {
+        setCondition(grade);
         setConditionSource('ai');
       }
-      const descriptionBeforeAi = description.trim();
-      if (!descriptionBeforeAi && conditionResult.suggested_description) {
-        setDescription(conditionResult.suggested_description);
+      if (!descriptionBeforeAi && draft.condition?.suggested_description) {
+        setDescription(draft.condition.suggested_description);
       }
 
-      // Value runs for every listing type — collection pairs get an estimate too.
-      let priceNote = '';
-      try {
-        const priceResult = await apiFetch<PriceResponse>('/api/market/ai/price', {
-          method: 'POST',
-          body: JSON.stringify({
-            listingId,
-            brand: brand.trim(),
-            model: model.trim(),
-            size: Number(size),
-            condition: nextCondition,
-            listing_type: listingType,
-            description: description.trim(),
-            wear_state: wear,
-            model_year: catalog.model_year ?? null,
-            colorway: colorway.trim() || catalog.colorway || undefined,
-          }),
-        });
-        const mid = priceResult.price?.suggested_mid_cents;
-        if (typeof mid === 'number' && mid > 0) {
-          const dollars = Math.round(mid / 100);
-          setValueEstimate(mid);
-          if (!price.trim()) setPrice(String(dollars));
-          priceNote = ` Guild value estimate: ~$${dollars}.`;
-        }
-      } catch {
-        priceNote = ' Value estimate unavailable right now.';
+      let priceNote = ' Value estimate unavailable right now.';
+      const mid = draft.price?.price?.suggested_mid_cents;
+      if (typeof mid === 'number' && mid > 0) {
+        const dollars = Math.round(mid / 100);
+        setValueEstimate(mid);
+        if (!price.trim()) setPrice(String(dollars));
+        priceNote = ` Guild value estimate: ~$${dollars}.`;
       }
 
-      let descriptionNote = '';
-      try {
-        const agentResult = await apiFetch<AgentResponse>('/api/market/ai/agent', {
-          method: 'POST',
-          body: JSON.stringify({
-            draftId: listingId,
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  'Write one buyer-facing wrestling shoe listing paragraph, 60–100 words.',
-                  'Do not write filler like "see photos" as the description. Include model context, on-mat use, fit/lockdown, traction/sole, and colorway look when known.',
-                  'If exact history is uncertain, stay factual and restrained instead of inventing collector claims.',
-                  `Brand: ${brand.trim()}`,
-                  `Model: ${model.trim()}`,
-                  colorway.trim() ? `Colorway: ${colorway.trim()}` : null,
-                  `Size: ${size}`,
-                  `Wear state: ${wear}`,
-                  `Condition: ${nextCondition}`,
-                  aiSellerNote.trim() ? `Seller personal note: ${aiSellerNote.trim()}` : null,
-                  'Return valid JSON with has_draft true and draft.description.',
-                ]
-                  .filter(Boolean)
-                  .join('\n'),
-              },
-            ],
-          }),
-        });
-        if (agentResult.draft?.colorway && !colorway.trim()) {
-          setColorway(agentResult.draft.colorway);
-        }
-        if (
-          agentResult.draft?.description &&
-          (!descriptionTouched || isGenericDescription(descriptionBeforeAi))
-        ) {
-          setDescription(agentResult.draft.description);
-          setDescriptionTouched(false);
-        }
-      } catch {
-        descriptionNote = ' Description/history did not refresh; you can try again.';
+      if (draft.description?.draft?.colorway && !colorway.trim()) {
+        setColorway(draft.description.draft.colorway);
+      }
+      if (
+        draft.description?.draft?.description &&
+        (!descriptionTouched || isGenericDescription(descriptionBeforeAi))
+      ) {
+        setDescription(draft.description.draft.description);
+        setDescriptionTouched(false);
       }
 
+      setColorwayCheck(draft.colorway_check ?? null);
       setAiMessage(
-        `${catalog.found ? 'Catalog matched.' : 'No exact catalog match yet.'} AI refreshed condition, description, history, and value from your corrected brand/model/colorway.${priceNote}${
-          conditionResult.warning ? ' Review condition before publishing.' : ''
-        }${descriptionNote}`
+        `${draft.catalog?.found ? 'Catalog matched.' : 'No exact catalog match yet.'} AI drafted condition, value, and the buyer description from your photos and details.${priceNote}${
+          draft.condition?.warning ? ' Review condition before publishing.' : ''
+        }`
       );
+      return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'AI refresh failed');
+      setError(e instanceof Error ? e.message : 'AI draft failed — you can still publish manually.');
+      return false;
     } finally {
+      setUploadProgress(null);
       setAiRefreshing(false);
     }
   }
@@ -584,59 +538,47 @@ export default function AddShoeScreen() {
       void identifyAndContinue();
       return;
     }
-    if (step === 'confirm') {
+    if (step === 'details') {
       if (!brand.trim() || !model.trim() || !size.trim()) {
         setError('Enter brand, model, and size.');
         return;
       }
-      // Value/condition AI waits for the new-vs-used choice on the next step.
-      setStep('condition');
-      return;
-    }
-    if (step === 'condition') {
       if (!wearState) {
         setError('Choose New in box, New, or Used first.');
         return;
       }
-      setStep('review');
+      // One AI call drafts everything; the review step opens filled in either way.
+      void (async () => {
+        await runListingDraft();
+        setStep('review');
+      })();
     }
   }
 
-  /** Picking new/used is what kicks off condition, value, and description AI. */
   function chooseWearState(value: WearState) {
     setWearState(value);
     setError(null);
-    const identity = `${brand.trim()}|${model.trim()}|${colorway.trim()}|${value}`;
-    if (lastAiIdentity.current !== identity) {
-      lastAiIdentity.current = identity;
-      void refreshAiFromCurrentDetails(value);
-    }
   }
 
   const steps: Array<{ key: AddShoeStep; label: string }> = [
     { key: 'photos', label: 'Photos' },
-    { key: 'confirm', label: 'Confirm' },
-    { key: 'condition', label: 'Value' },
+    { key: 'details', label: 'Details' },
     { key: 'review', label: 'Publish' },
   ];
   const stepIndex = steps.findIndex((item) => item.key === step);
-  const highestStepIndex = !photos.length ? 0 : brand.trim() && model.trim() && size.trim() ? 3 : 1;
+  const highestStepIndex = !photos.length ? 0 : brand.trim() && model.trim() && size.trim() && wearState ? 2 : 1;
   const stepCopy =
     step === 'photos'
       ? 'Start with clear photos. Camera works best.'
-      : step === 'confirm'
-        ? 'Confirm brand, model, colorway, and size.'
-        : step === 'condition'
-          ? 'Set condition, then let AI draft history and value.'
-          : 'Choose collection, sale, or trade and publish.';
+      : step === 'details'
+        ? 'Confirm the shoe and its condition — AI drafts the rest.'
+        : 'Review the AI draft, set your price, and publish.';
   const nextLabel =
     step === 'photos'
       ? 'Identify shoe'
-      : step === 'confirm'
-        ? 'Looks right — value it'
-        : step === 'condition'
-          ? 'Review listing'
-          : '';
+      : step === 'details'
+        ? 'Draft my listing'
+        : '';
   const priceCents = Math.round(Number(price || 0) * 100);
   const sellerFeePreview =
     listingType === 'sell' && Number.isFinite(priceCents) && priceCents > 0
@@ -647,13 +589,7 @@ export default function AddShoeScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.kicker}>MY MARKET</Text>
       <Text style={styles.heading}>
-        {step === 'photos'
-          ? 'Add photos'
-          : step === 'confirm'
-            ? 'Confirm shoe'
-            : step === 'condition'
-              ? 'Condition & value'
-              : 'Review & publish'}
+        {step === 'photos' ? 'Add photos' : step === 'details' ? 'Confirm shoe' : 'Review & publish'}
       </Text>
       <Text style={styles.sub}>{stepCopy}</Text>
 
@@ -721,7 +657,7 @@ export default function AddShoeScreen() {
         </>
       ) : null}
 
-      {step === 'confirm' ? (
+      {step === 'details' ? (
         <>
           {aiGuess ? (
             <View style={styles.aiBox}>
@@ -736,11 +672,7 @@ export default function AddShoeScreen() {
           <Field label="MODEL" value={model} onChangeText={setModel} placeholder="Combat Speed 4" />
           <Field label="COLORWAY (OPTIONAL)" value={colorway} onChangeText={setColorway} placeholder="Black / gold, white / royal…" />
           <Field label="SIZE" value={size} onChangeText={setSize} placeholder="10.5" keyboardType="decimal-pad" />
-        </>
-      ) : null}
 
-      {step === 'condition' ? (
-        <>
           <Text style={styles.label}>CONDITION</Text>
           <View style={styles.choices}>
             {([
@@ -753,7 +685,55 @@ export default function AddShoeScreen() {
               </Pressable>
             ))}
           </View>
+          {wearState === 'used' ? (
+            <Text style={styles.toggleMeta}>
+              AI grades used pairs from your photos on the next step — you can override the grade there.
+            </Text>
+          ) : null}
+          <TextInput
+            value={aiSellerNote}
+            onChangeText={setAiSellerNote}
+            placeholder="Optional note for AI — e.g. brand new, box not pictured"
+            placeholderTextColor={colors.textSecondary}
+            multiline
+            style={[styles.input, styles.aiNoteInput]}
+          />
+        </>
+      ) : null}
 
+      {step === 'review' ? (
+        <>
+          <View style={styles.aiBox}>
+            <Text style={styles.aiTitle}>
+              {[brand.trim(), model.trim()].filter(Boolean).join(' ') || 'Your shoe'}
+              {colorway.trim() ? ` · ${colorway.trim()}` : ''}
+            </Text>
+            <Text style={styles.aiCopy}>
+              Size {size || '—'} · {wearState === 'bnib' ? 'New in box' : wearState === 'new_no_box' ? 'New' : `Used · ${condition}`} · {photos.length} photo{photos.length === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
+            {(uploadedImages.length
+              ? uploadedImages.map((image) => displayUrlForUploadedImage(image)).filter(Boolean)
+              : photos.map((photo) => photo.uri)
+            ).map((uri, index) => (
+              <Image key={`review-${index}-${uri}`} source={{ uri }} style={styles.reviewPhoto} />
+            ))}
+          </ScrollView>
+          {colorwayCheck && !colorwayCheck.consistent ? (
+            <View style={[styles.aiBox, styles.warnBox]}>
+              <Text style={styles.aiTitle}>Colorway check</Text>
+              <Text style={styles.aiCopy}>{colorwayCheck.note}</Text>
+            </View>
+          ) : null}
+          {valueEstimate != null ? (
+            <View style={styles.aiBox}>
+              <Text style={styles.aiTitle}>Guild value estimate: ~${Math.round(valueEstimate / 100)}</Text>
+              <Text style={styles.aiCopy}>
+                Based on this model, condition, and real sale history. You set the final price if you sell.
+              </Text>
+            </View>
+          ) : null}
           {wearState === 'used' ? (
             <>
               <Text style={styles.label}>CONDITION</Text>
@@ -780,68 +760,6 @@ export default function AddShoeScreen() {
               </Text>
             </>
           ) : null}
-          {valueEstimate != null ? (
-            <View style={styles.aiBox}>
-              <Text style={styles.aiTitle}>Guild value estimate: ~${Math.round(valueEstimate / 100)}</Text>
-              <Text style={styles.aiCopy}>
-                Based on this model, condition, and Guild sale history. You set the final price if you sell.
-              </Text>
-            </View>
-          ) : null}
-          <View style={styles.aiBox}>
-            <Text style={styles.aiTitle}>AI listing assistant</Text>
-            <Text style={styles.aiCopy}>
-              AI uses your confirmed brand, model, colorway, photos, and condition to draft history and suggest value.
-            </Text>
-            <TextInput
-              value={aiSellerNote}
-              onChangeText={setAiSellerNote}
-              placeholder="Personal note for AI — e.g. brand new, box not pictured"
-              placeholderTextColor={colors.textSecondary}
-              multiline
-              style={[styles.input, styles.aiNoteInput]}
-            />
-            <Pressable
-              style={[styles.aiButton, (aiRefreshing || saving) && styles.disabled]}
-              onPress={() => void refreshAiFromCurrentDetails()}
-              disabled={aiRefreshing || saving}
-            >
-              {aiRefreshing ? (
-                <ActivityIndicator color={colors.black} />
-              ) : (
-                <Text style={styles.aiButtonText}>Refresh AI from confirmed details</Text>
-              )}
-            </Pressable>
-            {aiMessage ? <Text style={styles.aiMessage}>{aiMessage}</Text> : null}
-          </View>
-          {listingType === 'sell' ? (
-            <>
-              <Field label="PRICE" value={price} onChangeText={setPrice} placeholder="75" keyboardType="decimal-pad" prefix="$" />
-              <SellerFeePreview preview={sellerFeePreview} priceCents={priceCents} />
-            </>
-          ) : null}
-        </>
-      ) : null}
-
-      {step === 'review' ? (
-        <>
-          <View style={styles.aiBox}>
-            <Text style={styles.aiTitle}>
-              {[brand.trim(), model.trim()].filter(Boolean).join(' ') || 'Your shoe'}
-              {colorway.trim() ? ` · ${colorway.trim()}` : ''}
-            </Text>
-            <Text style={styles.aiCopy}>
-              Size {size || '—'} · {wearState === 'bnib' ? 'New in box' : wearState === 'new_no_box' ? 'New' : `Used · ${condition}`} · {photos.length} photo{photos.length === 1 ? '' : 's'}
-            </Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
-            {(uploadedImages.length
-              ? uploadedImages.map((image) => displayUrlForUploadedImage(image)).filter(Boolean)
-              : photos.map((photo) => photo.uri)
-            ).map((uri, index) => (
-              <Image key={`review-${index}-${uri}`} source={{ uri }} style={styles.reviewPhoto} />
-            ))}
-          </ScrollView>
           <Text style={styles.label}>WHAT DO YOU WANT TO DO?</Text>
           <View style={styles.choices}>
             {([
@@ -881,7 +799,7 @@ export default function AddShoeScreen() {
               </Pressable>
             </>
           ) : null}
-          <Text style={styles.label}>DESCRIPTION (OPTIONAL)</Text>
+          <Text style={styles.label}>DESCRIPTION</Text>
           <TextInput
             value={description}
             onChangeText={(value) => {
@@ -893,6 +811,18 @@ export default function AddShoeScreen() {
             multiline
             style={[styles.input, styles.textarea]}
           />
+          <Pressable
+            style={[styles.aiButton, (aiRefreshing || saving) && styles.disabled]}
+            onPress={() => void runListingDraft()}
+            disabled={aiRefreshing || saving}
+          >
+            {aiRefreshing ? (
+              <ActivityIndicator color={colors.black} />
+            ) : (
+              <Text style={styles.aiButtonText}>Redraft with AI from current details</Text>
+            )}
+          </Pressable>
+          {aiMessage ? <Text style={styles.aiMessage}>{aiMessage}</Text> : null}
         </>
       ) : null}
       {uploadProgress ? <Text style={styles.aiMessage}>{uploadProgress}</Text> : null}
@@ -903,11 +833,11 @@ export default function AddShoeScreen() {
         </Pressable>
       ) : (
         <Pressable
-          style={[styles.publish, (identifying || (step === 'photos' && photos.length === 0)) && styles.disabled]}
+          style={[styles.publish, (identifying || aiRefreshing || (step === 'photos' && photos.length === 0)) && styles.disabled]}
           onPress={continueStep}
-          disabled={identifying || (step === 'photos' && photos.length === 0)}
+          disabled={identifying || aiRefreshing || (step === 'photos' && photos.length === 0)}
         >
-          {identifying ? (
+          {identifying || aiRefreshing ? (
             <ActivityIndicator color={colors.black} />
           ) : (
             <Text style={styles.publishText}>{nextLabel}</Text>
@@ -1047,6 +977,7 @@ const styles = StyleSheet.create({
   toggleTitle: { ...typography.bodyBold, color: colors.text, fontSize: 13 },
   toggleMeta: { ...typography.body, color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 },
   aiBox: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, padding: 13, marginTop: 16 },
+  warnBox: { borderColor: colors.accent },
   aiTitle: { ...typography.bodyBold, color: colors.text, fontSize: 14 },
   aiCopy: { ...typography.body, color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 5 },
   aiButton: { minHeight: 45, backgroundColor: colors.accent, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 12 },

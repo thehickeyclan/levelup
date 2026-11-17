@@ -119,7 +119,15 @@ async function main() {
     if (r.length < 2 || !r[iBrand]?.trim()) continue;
     const brand = r[iBrand].trim();
     const model = r[iModel].trim();
-    const match = index.get(`${norm(brand)}|${norm(model)}`);
+    // Sister brands whose sellers title the same shoes interchangeably.
+    const BRAND_SYNONYMS: Record<string, string> = {
+      'funky flickr boyz': 'nidrogen',
+      nidrogen: 'funky flickr boyz',
+    };
+    let match = index.get(`${norm(brand)}|${norm(model)}`);
+    if (!match && BRAND_SYNONYMS[norm(brand)]) {
+      match = index.get(`${BRAND_SYNONYMS[norm(brand)]}|${norm(model)}`);
+    }
     if (!match) {
       unmatched.add(`${brand} ${model}`);
       continue;

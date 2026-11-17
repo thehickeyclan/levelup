@@ -109,8 +109,8 @@ const MODEL_MAP: Record<string, { brand: string; model: string }> = {
   'asics-matflex-7': { brand: 'Asics', model: 'Matflex 7' },
   'asics-reflex-iii': { brand: 'Asics', model: 'Reflex III' },
   'asics-snapdown-3': { brand: 'Asics', model: 'Snapdown 3' },
-  'funky-flickr-boyz-gen-one': { brand: 'Funky Flickr Boyz', model: 'Gen-One' },
-  'funky-flickr-boyz-gen-one-midas': { brand: 'Funky Flickr Boyz', model: 'Gen-One' },
+  'funky-flickr-boyz-gen-one': { brand: 'Nidrogen', model: 'GEN-ONE' },
+  'funky-flickr-boyz-gen-one-midas': { brand: 'Nidrogen', model: 'GEN-ONE' },
   'nidrogen-aero': { brand: 'Nidrogen', model: 'AERO' },
   'nidrogen-pro-gen': { brand: 'Nidrogen', model: 'PRO-GEN' },
   'nidrogen-pro-gen-aurum': { brand: 'Nidrogen', model: 'PRO-GEN' },
@@ -126,6 +126,61 @@ const MODEL_MAP: Record<string, { brand: string; model: string }> = {
   'rudis-jb1': { brand: 'RUDIS', model: 'JB1' },
   'rudis-jb1-all-i-see-is-gold': { brand: 'RUDIS', model: 'JB1' },
   'rudis-ks-infinity-edge': { brand: 'RUDIS', model: 'KS Infinity Edge' },
+  // Batch 3 (Priority 4)
+  'adidas-adizero-varner': { brand: 'Adidas', model: 'adizero Varner' },
+  'adidas-combat-speed-3': { brand: 'Adidas', model: 'Combat Speed 3' },
+  'adidas-combat-speed-iv': { brand: 'Adidas', model: 'Combat Speed 4' },
+  'adidas-combat-speed-vintage-red': { brand: 'Adidas', model: 'Combat Speed OG (1998)' },
+  'adidas-flying-impact': { brand: 'Adidas', model: 'Flying Impact' },
+  'adidas-hvc': { brand: 'Adidas', model: 'HVC' },
+  'adidas-impact': { brand: 'Adidas', model: 'Impact' },
+  'adidas-mat-hog': { brand: 'Adidas', model: 'Mat Hog' },
+  'adidas-mat-wizard-4': { brand: 'Adidas', model: 'Mat Wizard 4' },
+  'adidas-mat-wizard-hype': { brand: 'Adidas', model: 'Mat Wizard Hype' },
+  'adidas-mat-wizard-iii': { brand: 'Adidas', model: 'Mat Wizard III' },
+  'adidas-pretereo': { brand: 'Adidas', model: 'Pretereo' },
+  'adidas-pretereo-iii': { brand: 'Adidas', model: 'Pretereo III' },
+  'adidas-response-3-1': { brand: 'Adidas', model: 'Response 3.1' },
+  'asics-aggressor': { brand: 'Asics', model: 'Aggressor' },
+  'asics-aggressor-2': { brand: 'Asics', model: 'Aggressor 2' },
+  'asics-aggressor-3': { brand: 'Asics', model: 'Aggressor 3' },
+  'asics-aggressor-4-1081a046': { brand: 'Asics', model: 'Aggressor 4' },
+  'asics-cael-v4': { brand: 'Asics', model: 'Cael V4.0' },
+  'asics-cael-v5': { brand: 'Asics', model: 'Cael V5.0' },
+  'asics-cael-v6': { brand: 'Asics', model: 'Cael V6.0' },
+  'asics-cael-v7': { brand: 'Asics', model: 'Cael V7.0' },
+  'asics-cael-v8': { brand: 'Asics', model: 'Cael V8.0' },
+  'asics-dan-gable-classic': { brand: 'Asics', model: 'Dan Gable Classic' },
+  'asics-dan-gable-evo': { brand: 'Asics', model: 'Dan Gable Evo' },
+  'asics-dan-gable-evo-2': { brand: 'Asics', model: 'Dan Gable Evo 2' },
+  'asics-ex-eo-reps': { brand: 'Asics', model: 'EXEO Reps' },
+  'asics-jb-elite': { brand: 'Asics', model: 'JB Elite' },
+  'asics-jb-elite-iii': { brand: 'Asics', model: 'JB Elite III' },
+  'asics-jb-elite-iv': { brand: 'Asics', model: 'JB Elite IV' },
+  'asics-jb-elite-v2': { brand: 'Asics', model: 'JB Elite V2.0' },
+  'asics-matflex-6': { brand: 'Asics', model: 'Matflex 6' },
+  'asics-omniflex-attack': { brand: 'Asics', model: 'Omniflex-Attack' },
+  'asics-snapdown': { brand: 'Asics', model: 'Snapdown' },
+  'asics-snapdown-2': { brand: 'Asics', model: 'Snapdown 2' },
+  'asics-split-second': { brand: 'Asics', model: 'Split Second' },
+  'asics-split-second-9': { brand: 'Asics', model: 'Split Second 9' },
+  'asics-split-sol': { brand: 'Asics', model: 'Split Sole' },
+  'cronin-vtg1': { brand: 'Cronin', model: 'Handcrafted 88' },
+  'funky-flickr-boyz-postlude': { brand: 'Funky Flickr Boyz', model: 'Postlude' },
+  'nidrogen-gen-one': { brand: 'Nidrogen', model: 'GEN-ONE' },
+  'nike-hypersweep': { brand: 'Nike', model: 'Hypersweep' },
+  'nike-hypersweep-rio': { brand: 'Nike', model: 'Hypersweep' },
+  'nike-inflict-3-se-electric': { brand: 'Nike', model: 'Inflict OE (Olympic Edition)' },
+  'nike-sidesweep': { brand: 'Nike', model: 'Sidesweep' },
+  'nike-speedsweep-8': { brand: 'Nike', model: 'Speedsweep 8' },
+  'nike-speedsweep-vii': { brand: 'Nike', model: 'Speedsweep VII' },
+  'onev-introwaves': { brand: 'ONEV', model: 'Introwaves' },
+  'onev-wrestling-shoe': { brand: 'ONEV', model: 'ONEV Wrestling Shoe' },
+  'otomix-stingray': { brand: 'Otomix', model: 'Stingray Escape / Ninja Warrior (wrestling use)' },
+  'rudis-kolat-legacy': { brand: 'RUDIS', model: 'Kolat Legacy' },
+  'rudis-ks-turbine': { brand: 'RUDIS', model: 'KS Turbine' },
+  'scraplife-ascend-one': { brand: 'ScrapLife', model: 'Ascend One' },
+  'spartan-yianni': { brand: 'Spartan', model: 'YIANNI' },
 };
 
 type ParsedFile = { path: string; file: string; slug: string; angle: string; seq: number };
@@ -236,7 +291,9 @@ async function main() {
     }
 
     const label = `${row.brand} ${row.model}`;
-    if (row.verified) {
+    // A verified row keeps its admin-confirmed refs; one with NO refs has
+    // nothing to protect and may take researched photos like any other row.
+    if (row.verified && Array.isArray(row.reference_image_urls) && row.reference_image_urls.length) {
       skippedVerified += 1;
       console.log(`SKIP    ${label} [verified] — ${rowFiles.length} photos uploaded, refs untouched`);
       continue;

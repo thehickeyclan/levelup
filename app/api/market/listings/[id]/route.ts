@@ -28,6 +28,7 @@ import {
 } from '@/lib/market/listing-condition-read';
 import type { MarketWearState } from '@/lib/market/wear-state';
 import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
+import { normalizeDisclosureTags } from '@/lib/market/disclosure-tags';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function applyListingUpdate(
@@ -58,6 +59,10 @@ async function applyListingUpdate(
     }
     if (isMissingColumnError(msg, 'collector_notes') && 'collector_notes' in payload) {
       payload = withoutColumn(payload, 'collector_notes');
+      continue;
+    }
+    if (isMissingColumnError(msg, 'disclosure_tags') && 'disclosure_tags' in payload) {
+      payload = withoutColumn(payload, 'disclosure_tags');
       continue;
     }
     return result;
@@ -305,7 +310,7 @@ export async function PATCH(
   const allowed = [
     'title', 'brand', 'model', 'size', 'condition', 'condition_source', 'price_cents', 'shipping_cents',
     'listing_type', 'open_to_trade', 'open_to_boot', 'accepts_offers', 'description', 'collector_notes', 'weight_class', 'model_year', 'wear_state', 'status', 'colorway', 'color_family', 'rarity',
-    'purchase_source', 'purchase_price_cents', 'purchased_at',
+    'purchase_source', 'purchase_price_cents', 'purchased_at', 'disclosure_tags',
   ];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
@@ -314,6 +319,12 @@ export async function PATCH(
 
   if (typeof updates.collector_notes === 'string') {
     updates.collector_notes = updates.collector_notes.trim() || null;
+  }
+
+  if ('disclosure_tags' in updates) {
+    const normalized = normalizeDisclosureTags(updates.disclosure_tags);
+    if (normalized === undefined) delete updates.disclosure_tags;
+    else updates.disclosure_tags = normalized;
   }
 
   if ('rarity' in updates && role !== 'admin') {

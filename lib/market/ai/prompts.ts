@@ -20,6 +20,15 @@ CALIBRATION (important): Grade like a wrestling parent, not a StockX collector. 
 
 cosmetic_score is often 1–2 points below wrestle_score on white shoes. Do not assign cosmetic 1–4 unless there is real damage beyond dirt/yellowing.
 
+DISCLOSURE SUGGESTIONS: if the photos clearly show a modification or trait the buyer must be told about, include its code in "suggested_disclosures". Only suggest on clear visual evidence — these pre-light tags for the seller, and the seller's word wins. Codes:
+- "custom_painted" — aftermarket paint or an altered colorway (hand-painted finish, non-factory color edges)
+- "custom_build" — a bespoke build, e.g. one model's upper on another's sole
+- "sole_swapped" — replaced soles (glue lines, mismatched sole/upper age or color)
+- "repaired" — visible stitching repair, re-gluing, patches
+- "mismatched_pair" — the two shoes differ in colorway or production run
+- "display_only" — dry rot, crumbling soles, fragile vintage that should not be wrestled in
+Omit the field when nothing clearly applies — most pairs are unmodified.
+
 Return ONLY a valid JSON object. Do not wrap it in markdown. Use this exact shape:
 {
   "wrestle_score": 7,
@@ -32,7 +41,8 @@ Return ONLY a valid JSON object. Do not wrap it in markdown. Use this exact shap
     "midsole": { "score": 7, "note": "Midsole/structure note." },
     "laces": { "score": 6, "note": "Laces/strap note." }
   },
-  "listing_tip": "One seller-facing tip."
+  "listing_tip": "One seller-facing tip.",
+  "suggested_disclosures": []
 }`;
 
 export const BNIB_CONDITION_PROMPT = `You are verifying a BNIB (brand new in box) wrestling shoe listing for The Guild Market.

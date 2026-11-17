@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiFetch } from '@/lib/api';
 import { marketColors as colors, typography } from '@/lib/theme';
+import { DISCLOSURE_TAGS, disclosureLabel } from '@/lib/disclosure-tags';
 
 type ListingType = 'collection' | 'sell' | 'trade';
 type WearState = 'bnib' | 'new_no_box' | 'used';
@@ -67,6 +68,7 @@ type PriceResponse = {
 type ConditionResponse = {
   analysis?: {
     grade?: string;
+    suggested_disclosures?: string[];
   };
   suggested_description?: string;
   warning?: string;
@@ -131,7 +133,21 @@ export default function AddShoeScreen() {
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [aiGuess, setAiGuess] = useState<{ brand: string; model: string; colorway: string | null } | null>(null);
   const [colorwayCheck, setColorwayCheck] = useState<{ consistent: boolean; note: string } | null>(null);
+  const [disclosureTags, setDisclosureTags] = useState<string[]>([]);
+  // Tags the seller explicitly removed — AI suggestions never re-add these.
+  const dismissedDisclosuresRef = useRef<Set<string>>(new Set());
   const photosRef = useRef<PickedPhoto[]>([]);
+
+  function toggleDisclosureTag(code: string) {
+    setDisclosureTags((current) => {
+      if (current.includes(code)) {
+        dismissedDisclosuresRef.current.add(code);
+        return current.filter((c) => c !== code);
+      }
+      dismissedDisclosuresRef.current.delete(code);
+      return [...current, code];
+    });
+  }
 
   useEffect(() => {
     if (mode === 'sell' || mode === 'trade' || mode === 'collection') {
@@ -282,6 +298,7 @@ export default function AddShoeScreen() {
       condition_source: wearState === 'used' ? conditionSource ?? 'ai' : wearState ? 'seller' : null,
       accepts_offers: listingType !== 'trade' ? acceptsOffers : true,
       description: description.trim() || undefined,
+      disclosure_tags: disclosureTags,
     };
   }
 
@@ -454,6 +471,7 @@ export default function AddShoeScreen() {
           listing_type: listingType,
           description: description.trim() || undefined,
           seller_note: aiSellerNote.trim() || undefined,
+          disclosure_tags: disclosureTags,
         }),
       });
 
@@ -487,9 +505,27 @@ export default function AddShoeScreen() {
         setDescriptionTouched(false);
       }
 
+      // AI-suggested disclosures pre-light pills; ones the seller removed stay off.
+      const suggested = (draft.condition?.analysis?.suggested_disclosures ?? []).filter(
+        (code) =>
+          DISCLOSURE_TAGS.some((t) => t.code === code) &&
+          !dismissedDisclosuresRef.current.has(code)
+      );
+      let disclosureNote = '';
+      if (suggested.length) {
+        const added = suggested.filter((code) => !disclosureTags.includes(code));
+        if (added.length) {
+          setDisclosureTags((current) => [
+            ...current,
+            ...added.filter((code) => !current.includes(code)),
+          ]);
+          disclosureNote = ` Photos suggest: ${added.map(disclosureLabel).join(', ')} — tag added, remove it if that's wrong.`;
+        }
+      }
+
       setColorwayCheck(draft.colorway_check ?? null);
       setAiMessage(
-        `${draft.catalog?.found ? 'Catalog matched.' : 'No exact catalog match yet.'} AI drafted condition, value, and the buyer description from your photos and details.${priceNote}${
+        `${draft.catalog?.found ? 'Catalog matched.' : 'No exact catalog match yet.'} AI drafted condition, value, and the buyer description from your photos and details.${priceNote}${disclosureNote}${
           draft.condition?.warning ? ' Review condition before publishing.' : ''
         }`
       );
@@ -709,6 +745,39 @@ export default function AddShoeScreen() {
             multiline
             style={[styles.input, styles.aiNoteInput]}
           />
+
+          <Text style={styles.label}>ANYTHING A BUYER SHOULD KNOW?</Text>
+          <View style={styles.disclosureRow}>
+            {DISCLOSURE_TAGS.map((tag) => {
+              const selected = disclosureTags.includes(tag.code);
+              return (
+                <Pressable
+                  key={tag.code}
+                  style={[styles.disclosurePill, selected && styles.choiceSelected]}
+                  onPress={() => toggleDisclosureTag(tag.code)}
+                >
+                  <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>
+                    {tag.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {disclosureTags.length ? (
+            disclosureTags.map((code) => {
+              const tag = DISCLOSURE_TAGS.find((t) => t.code === code);
+              return tag ? (
+                <Text key={code} style={styles.disclosureHint}>
+                  {tag.label} — {tag.seller}
+                </Text>
+              ) : null;
+            })
+          ) : (
+            <Text style={styles.toggleMeta}>
+              Skip this for a clean, unmodified pair. Tags show as badges buyers can't miss — leaving
+              one off that applies means a refund and a strike.
+            </Text>
+          )}
         </>
       ) : null}
 
@@ -722,6 +791,15 @@ export default function AddShoeScreen() {
             <Text style={styles.aiCopy}>
               Size {size || '—'} · {wearState === 'bnib' ? 'New in box' : wearState === 'new_no_box' ? 'New' : `Used · ${condition}`} · {photos.length} photo{photos.length === 1 ? '' : 's'}
             </Text>
+            {disclosureTags.length ? (
+              <View style={styles.disclosureBadgeRow}>
+                {disclosureTags.map((code) => (
+                  <View key={code} style={styles.disclosureBadge}>
+                    <Text style={styles.disclosureBadgeText}>{disclosureLabel(code).toUpperCase()}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
             {(uploadedImages.length
@@ -938,6 +1016,12 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 999 },
   label: { ...typography.bodyBold, color: colors.textSecondary, fontSize: 9, letterSpacing: 1, marginTop: 18, marginBottom: 8 },
   choices: { flexDirection: 'row', gap: 7 },
+  disclosureRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  disclosurePill: { minHeight: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 13 },
+  disclosureHint: { ...typography.body, color: colors.textMuted, fontSize: 12, marginTop: 6, lineHeight: 17 },
+  disclosureBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  disclosureBadge: { borderWidth: 1, borderColor: colors.accent, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: 'rgba(184,157,96,0.14)' },
+  disclosureBadgeText: { ...typography.bodySemi, color: colors.accentHover, fontSize: 10, letterSpacing: 0.8 },
   choice: { flex: 1, minHeight: 45, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
   choiceSelected: { backgroundColor: colors.accent, borderColor: colors.accent },
   choiceText: { ...typography.bodySemi, color: colors.textMuted, fontSize: 11 },

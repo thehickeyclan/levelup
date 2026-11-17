@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     listing_type?: string;
     description?: string;
     seller_note?: string;
+    disclosure_tags?: string[];
   };
   const listingId = body.listingId?.trim();
   if (!listingId) return NextResponse.json({ error: 'listingId required' }, { status: 400 });
@@ -112,6 +113,7 @@ export async function POST(req: NextRequest) {
         model,
         size,
         condition: grade,
+        disclosure_tags: body.disclosure_tags,
         listing_type: body.listing_type || 'collection',
         description: body.description?.trim() || '',
         wear_state: body.wear_state,

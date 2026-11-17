@@ -9,6 +9,8 @@ import { wearStateLabel } from '@/lib/market/wear-state';
 import { applyUsedWrestlePriceFloor, applySizeAndCatalogPricing } from '@/lib/market/price-heuristics';
 import { buildCatalogPricingContext } from '@/lib/market/catalog-pricing';
 import { getIgPriceHistory, igHistoryPromptLines } from '@/lib/market/ig-price-history';
+import { disclosurePricingLines, normalizeDisclosureTags } from '@/lib/market/disclosure-tags';
+import { getConditionTiers, conditionTierPromptLines } from '@/lib/market/condition-tiers';
 import {
   formatGuildCompSummary,
 } from '@/lib/market/platform-comps';
@@ -78,6 +80,7 @@ export async function POST(req: NextRequest) {
     model_year?: number | null;
     wear_state?: string;
     colorway?: string;
+    disclosure_tags?: string[];
   };
 
   const listingId = body.listingId?.trim();
@@ -226,6 +229,8 @@ export async function POST(req: NextRequest) {
         description ? `Description: ${description.slice(0, 400)}` : 'No description.',
         ...(await buildCatalogPricingContext(admin, brand, model, colorway, size)).promptLines,
         ...igHistoryPromptLines(getIgPriceHistory(brand, model)),
+        ...conditionTierPromptLines(getConditionTiers(brand, model)),
+        ...disclosurePricingLines(normalizeDisclosureTags(body.disclosure_tags)),
         compSummary,
         `eBay comps: ${ebayComps.length}.`,
       ].join('\n'),

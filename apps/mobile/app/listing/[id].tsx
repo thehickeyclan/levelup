@@ -20,6 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { promptSignIn } from '@/lib/guest';
 import { reportContent } from '@/lib/moderation';
 import { marketColors as colors, typography } from '@/lib/theme';
+import { disclosureLabel } from '@/lib/disclosure-tags';
 
 type Listing = {
   id: string;
@@ -38,6 +39,7 @@ type Listing = {
   }[];
   size?: number | null;
   condition?: string | null;
+  disclosure_tags?: string[] | null;
   wear_state?: string | null;
   listing_type?: string | null;
   shipping_cents?: number | null;
@@ -313,6 +315,15 @@ export default function ListingDetailScreen() {
       {listing.model && listing.title !== listing.model ? (
         <Text style={styles.subtitle}>{listing.title}</Text>
       ) : null}
+      {listing.disclosure_tags?.length ? (
+        <View style={styles.disclosureBadgeRow}>
+          {listing.disclosure_tags.map((code) => (
+            <View key={code} style={styles.disclosureBadge}>
+              <Text style={styles.disclosureBadgeText}>{disclosureLabel(code).toUpperCase()}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
       <View style={styles.priceRow}>
         <Text style={styles.price}>
           {listing.price_cents != null
@@ -547,6 +558,9 @@ const styles = StyleSheet.create({
   brand: { ...typography.bodyBold, color: colors.accent, fontSize: 10, letterSpacing: 1.3, marginTop: 10 },
   title: { ...typography.display, color: colors.text, fontSize: 27, marginTop: 7 },
   subtitle: { ...typography.body, color: colors.textMuted, fontSize: 13, marginTop: 5 },
+  disclosureBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  disclosureBadge: { borderWidth: 1, borderColor: colors.accent, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: 'rgba(184,157,96,0.14)' },
+  disclosureBadgeText: { ...typography.bodySemi, color: colors.accentHover, fontSize: 10, letterSpacing: 0.8 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 9, marginTop: 13 },
   price: { ...typography.display, fontSize: 25, color: colors.accent },
   shipping: { ...typography.body, color: colors.textMuted, fontSize: 11 },

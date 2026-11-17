@@ -5,6 +5,7 @@ import { primaryListingImage, primaryListingImageUrl } from '@/lib/market/listin
 import { fetchMarketBrandCatalog, resolveListingBrand } from '@/lib/market/market-brand-catalog';
 import { isMissingColumnError, withoutColorFamily, withoutColumn, isMissingPurchasePrivateListingColumnError, withoutPurchasePrivateListingFields, hasPurchasePrivateListingFields } from '@/lib/market/listing-column-fallback';
 import { normalizeMarketRarity } from '@/lib/market/rarity';
+import { normalizeDisclosureTags } from '@/lib/market/disclosure-tags';
 import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
 import { optionalMarketUser } from '@/lib/market/auth';
 
@@ -112,6 +113,7 @@ export async function POST(req: NextRequest) {
     purchase_price_cents?: number | null;
     purchased_at?: string | null;
     collector_notes?: string | null;
+    disclosure_tags?: string[];
   };
 
   const isDraft = body.draft === true || !body.brand;
@@ -158,6 +160,7 @@ export async function POST(req: NextRequest) {
       typeof body.purchased_at === 'string' && body.purchased_at.trim()
         ? body.purchased_at.trim()
         : null,
+    disclosure_tags: normalizeDisclosureTags(body.disclosure_tags) ?? [],
   };
 
   row.brand = resolveListingBrand(
@@ -184,6 +187,8 @@ export async function POST(req: NextRequest) {
       insertRow = withoutColumn(insertRow, 'collector_notes');
     } else if (isMissingColumnError(msg, 'condition_source') && 'condition_source' in insertRow) {
       insertRow = withoutColumn(insertRow, 'condition_source');
+    } else if (isMissingColumnError(msg, 'disclosure_tags') && 'disclosure_tags' in insertRow) {
+      insertRow = withoutColumn(insertRow, 'disclosure_tags');
     } else {
       break;
     }

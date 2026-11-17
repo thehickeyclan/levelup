@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { gradeFromWrestleScore, calibrateGuildConditionScores } from '@/lib/market/condition-grade';
+import { normalizeDisclosureTags } from '@/lib/market/disclosure-tags';
 import type { MarketWearState } from '@/lib/market/wear-state';
 
 const ConditionBreakdownItemSchema = z.preprocess((value) => {
@@ -39,6 +40,7 @@ const ConditionAnalysisRawSchema = z.object({
   cosmetic_summary: z.coerce.string().optional(),
   breakdown: ConditionBreakdownSchema.default({}),
   listing_tip: z.coerce.string().optional(),
+  suggested_disclosures: z.array(z.string()).optional(),
 });
 
 export type ConditionAnalysis = {
@@ -49,6 +51,8 @@ export type ConditionAnalysis = {
   cosmetic_summary: string;
   breakdown: z.infer<typeof ConditionBreakdownSchema>;
   listing_tip?: string;
+  /** Standards §3 tag codes the photos visually support (soft suggestion — seller's word wins). */
+  suggested_disclosures?: string[];
 };
 
 export const ConditionAnalysisSchema = ConditionAnalysisRawSchema.transform((raw): ConditionAnalysis => {
@@ -63,6 +67,10 @@ export const ConditionAnalysisSchema = ConditionAnalysisRawSchema.transform((raw
     cosmetic_summary: raw.cosmetic_summary?.trim() || '',
     breakdown: raw.breakdown,
     listing_tip: raw.listing_tip,
+    ...(() => {
+      const tags = normalizeDisclosureTags(raw.suggested_disclosures);
+      return tags?.length ? { suggested_disclosures: tags } : {};
+    })(),
   };
 });
 

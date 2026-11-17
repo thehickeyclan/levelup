@@ -19,6 +19,7 @@ import { formatColorwayAlsoKnownAs } from '@/lib/market/shoe-id/colorway-profile
 import { RarityBadge } from '@/components/market/rarity-badge';
 import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-actions';
 import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
+import { normalizeDisclosureTags, disclosureTagByCode } from '@/lib/market/disclosure-tags';
 import { collectionAcceptsOffers, isCollectionListingType, sellAcceptsOffers } from '@/lib/market/accepts-offers';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
@@ -424,6 +425,8 @@ export default function ListingDetailClient() {
 
   const displayTitle = (l.model as string)?.trim() || (l.title as string);
   const listingRarity = normalizeMarketRarity(l.rarity as string | null);
+  const disclosureTags =
+    normalizeDisclosureTags((l as { disclosure_tags?: unknown }).disclosure_tags) ?? [];
   const isTradeOnly = listingType === 'trade';
   const showTradeOnlyCta = isActive && isTradeOnly && !isSeller;
   const showCollectionOfferCta = isActive && !isSeller && collectionOffersOpen;
@@ -746,6 +749,22 @@ export default function ListingDetailClient() {
                   ) : null}
                 </div>
               </div>
+              {disclosureTags.length ? (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {disclosureTags.map((code) => {
+                    const tag = disclosureTagByCode(code);
+                    return tag ? (
+                      <span
+                        key={code}
+                        title={tag.seller}
+                        className="inline-flex items-center rounded border border-accent/60 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-accent"
+                      >
+                        {tag.buyer}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              ) : null}
               {isCollection ? (
                 <p className="text-xs text-muted-foreground mt-1.5">
                   {sellerCollectionFromLabel(sellerDisplayName)}

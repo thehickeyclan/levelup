@@ -195,12 +195,14 @@ export function MarketAdminClient({
           </button>
         ))}
         </div>
-        <Link
-          href="/admin/market/shoe-id"
-          className="text-sm text-accent hover:underline shrink-0"
-        >
-          Shoe ID training →
-        </Link>
+        <div className="flex gap-4 shrink-0">
+          <Link href="/admin/market/filing" className="text-sm text-accent hover:underline">
+            Listing filing →
+          </Link>
+          <Link href="/admin/market/shoe-id" className="text-sm text-accent hover:underline">
+            Shoe ID training →
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">

@@ -126,6 +126,7 @@ export default function ListingDetailClient() {
     sellerStats: MarketSellerStats | null;
     pending_offer_count: number;
     value_reference?: ValueReference | null;
+    reprice_hint?: { ratio: number; message: string } | null;
     following?: boolean;
     follower_count?: number;
     shoe_history_stale?: boolean;
@@ -834,6 +835,13 @@ export default function ListingDetailClient() {
                   <p className="text-lg font-bold text-foreground">{offerCount}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">Offers</p>
                 </div>
+              </div>
+            ) : null}
+
+            {isSeller && data.reprice_hint ? (
+              <div className="rounded-xl border border-amber-500/40 border-l-4 border-l-amber-500 bg-amber-500/5 px-4 py-3">
+                <p className="text-xs font-medium text-amber-500">Priced above the reference</p>
+                <p className="text-[11px] text-muted-foreground mt-1">{data.reprice_hint.message}</p>
               </div>
             ) : null}
 

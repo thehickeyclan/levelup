@@ -85,21 +85,27 @@ export function assembleValueReference(input: {
     low = profile.value_low_cents ?? null;
     high = profile.value_high_cents ?? null;
     confidence = 'medium';
+  } else if (tier) {
+    // Condition-matched beats pooled: a pooled range beside a BNIB pair
+    // anchors the buyer to the worn pool's median. Point value with its n
+    // in the detail label — no invented spread.
+    mid = Math.round(tier.median_usd * 100);
+    confidence = 'medium';
   } else if (input.marketValue) {
     mid = input.marketValue.mid_cents;
     low = input.marketValue.low_cents;
     high = input.marketValue.high_cents;
     confidence = input.marketValue.confidence;
-  } else if (tier) {
-    mid = Math.round(tier.median_usd * 100);
-    confidence = 'medium';
   } else if (input.ig?.median_usd != null) {
+    // IG min–max is a spread the data can't support — point reference only.
     mid = Math.round(input.ig.median_usd * 100);
-    low = input.ig.min_usd != null ? Math.round(input.ig.min_usd * 100) : null;
-    high = input.ig.max_usd != null ? Math.round(input.ig.max_usd * 100) : null;
     confidence = 'low';
   } else {
     return null;
+  }
+  if (confidence === 'low') {
+    low = null;
+    high = null;
   }
 
   const sourceParts = [

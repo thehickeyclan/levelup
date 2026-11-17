@@ -7,6 +7,7 @@ import { findThreadIdByContext } from '@/lib/guild-messaging';
 import { listingAllowsCashOffer, listingAllowsTradeOffer } from '@/lib/market/accepts-offers';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
+import { fetchListingValueReference } from '@/lib/market/value-reference';
 import { OfferFormClient, type OfferListingSummary } from './offer-form-client';
 
 type ListingRow = {
@@ -24,6 +25,8 @@ type ListingRow = {
   price_cents: number | null;
   open_to_trade: boolean;
   accepts_offers: boolean;
+  colorway?: string | null;
+  disclosure_tags?: string[] | null;
   market_listing_images: {
     public_url: string;
     clean_public_url?: string | null;
@@ -74,7 +77,7 @@ export default async function ListingOfferPage({
     .from('market_listings')
     .select(`
       id, title, brand, model, size, condition, wear_state, model_year, status, seller_id, listing_type,
-      price_cents, open_to_trade, accepts_offers,
+      price_cents, open_to_trade, accepts_offers, colorway, disclosure_tags,
       market_listing_images(public_url, clean_public_url, use_clean, display_order)
     `)
     .eq('id', listingId)
@@ -116,6 +119,20 @@ export default async function ListingOfferPage({
   const myListings = (myRows ?? []).map((row) => toSummary(row as ListingRow));
 
   const admin = createAdminClient(tenant.slug);
+
+  // The anchor must be tier-matched or it anchors wrong: this is the same
+  // condition- and colorway-aware reference the listing page shows, computed
+  // for the moment the buyer commits to a number.
+  const valueReference = await fetchListingValueReference(admin, {
+    brand: listingRow.brand,
+    model: listingRow.model,
+    colorway: listingRow.colorway ?? null,
+    wear_state: listingRow.wear_state,
+    condition: listingRow.condition,
+    disclosure_tags: listingRow.disclosure_tags ?? null,
+    excludeListingId: listingId,
+  });
+
   const { data: pendingOffer } = await admin
     .from('market_offers')
     .select('id, offer_type, amount_cents, status, created_at')
@@ -136,6 +153,7 @@ export default async function ListingOfferPage({
     <OfferFormClient
       listingId={listingId}
       listing={toSummary(listingRow)}
+      valueReference={valueReference}
       myListings={myListings}
       defaultTrade={defaultTrade}
       currentUserId={user.id}

@@ -30,6 +30,12 @@ import type { MarketWearState } from '@/lib/market/wear-state';
 import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
 import { normalizeDisclosureTags } from '@/lib/market/disclosure-tags';
 import { fetchListingValueReference } from '@/lib/market/value-reference';
+import { evaluateRepriceNudge, repriceNudgeCopy } from '@/lib/market/reprice-nudge';
+import { findCatalogEntry } from '@/lib/market/shoe-id/catalog';
+import {
+  matchColorwayProfile,
+  parseColorwayProfiles,
+} from '@/lib/market/shoe-id/colorway-profiles';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function applyListingUpdate(
@@ -262,6 +268,48 @@ export async function GET(
       }
     );
 
+    // The seller sees what the weekly nudge would tell them, live — same
+    // gates, so a banner here is never a surprise notification later.
+    let repriceHint: { ratio: number; message: string } | null = null;
+    if (
+      isOwner &&
+      listing.status === 'active' &&
+      listing.listing_type === 'sell' &&
+      ((listing.price_cents as number | null) ?? 0) > 0 &&
+      valueReference
+    ) {
+      try {
+        const entry = await findCatalogEntry(
+          createAdminClientIfAvailable(tenant.slug) ?? supabase,
+          brand,
+          model
+        );
+        const profiles = entry ? parseColorwayProfiles(entry.colorway_profiles) : [];
+        const verdict = evaluateRepriceNudge({
+          priceCents: listing.price_cents as number,
+          reference: valueReference,
+          catalogMatched: entry != null,
+          profiles,
+          matchedProfile: matchColorwayProfile(
+            profiles,
+            (listing.colorway as string | null) ?? null
+          ),
+        });
+        if (verdict.fire) {
+          const title =
+            (listing.title as string | null)?.trim() ||
+            [brand, model].filter(Boolean).join(' ') ||
+            'This listing';
+          repriceHint = {
+            ratio: Number(verdict.ratio.toFixed(2)),
+            message: repriceNudgeCopy(title, listing.price_cents as number, verdict).body,
+          };
+        }
+      } catch (e) {
+        console.error('reprice hint:', e);
+      }
+    }
+
     return NextResponse.json({
       listing: publicListing,
       sizes,
@@ -272,6 +320,7 @@ export async function GET(
       colorway_aliases: catalogEnrichment?.colorway_aliases ?? [],
       condition_read: conditionRead,
       value_reference: valueReference,
+      reprice_hint: repriceHint,
       pending_offer_count: pendingOfferCount ?? 0,
       following,
       follower_count: followerCount ?? 0,

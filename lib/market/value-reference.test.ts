@@ -19,7 +19,7 @@ describe('assembleValueReference', () => {
     ).toBeNull();
   });
 
-  it('prefers the computed market value when present', () => {
+  it('uses the computed market value when no condition tier matches', () => {
     const ref = assembleValueReference({
       ...base,
       marketValue: { low_cents: 20000, mid_cents: 27500, high_cents: 35000, confidence: 'medium' },
@@ -30,10 +30,13 @@ describe('assembleValueReference', () => {
     expect(ref!.source_label).toBe('From 1 Guild sale · 3 documented sales');
   });
 
-  it('falls back to the matching condition tier with real data', () => {
+  it('condition-matched tier beats the pooled market value', () => {
+    // A pooled range beside a specific-condition pair anchors buyers wrong —
+    // the tier median for the listing's own condition wins (Muse, 17 Nov).
     const tiers = getConditionTiers('Adidas', 'Combat Speed 4');
     const ref = assembleValueReference({
       ...base,
+      marketValue: { low_cents: 6000, mid_cents: 10500, high_cents: 18000, confidence: 'medium' },
       documentedSales: 11,
       tiers,
       wearState: 'used',
@@ -41,14 +44,32 @@ describe('assembleValueReference', () => {
     });
     // CS4 good-tier median is $250 (11 sales) in the committed index.
     expect(ref!.mid_cents).toBe(25000);
+    expect(ref!.low_cents).toBeNull();
+    expect(ref!.high_cents).toBeNull();
     expect(ref!.detail_label).toContain('good-condition eBay median $250');
   });
 
-  it('falls back to the IG ledger when nothing else qualifies', () => {
+  it('matches the new tier for a BNIB pair, not the pooled figure', () => {
+    const tiers = getConditionTiers('Adidas', 'Combat Speed 4');
+    const ref = assembleValueReference({
+      ...base,
+      documentedSales: 4,
+      tiers,
+      wearState: 'bnib',
+    });
+    // CS4 new-tier median is $83 (4 sales) — the INVERTED model's used pool
+    // carries the rare colorways, and BNIB must not inherit their prices.
+    expect(ref!.mid_cents).toBe(8300);
+    expect(ref!.detail_label).toContain('new-condition eBay median $83');
+  });
+
+  it('falls back to an IG point reference — no range the data cannot support', () => {
     const ig = getIgPriceHistory('Asics', 'Rulon');
     const ref = assembleValueReference({ ...base, ig });
     expect(ref).not.toBeNull();
     expect(ref!.confidence).toBe('low');
+    expect(ref!.low_cents).toBeNull();
+    expect(ref!.high_cents).toBeNull();
     expect(ref!.source_label).toContain('IG resale post');
   });
 

@@ -101,6 +101,7 @@ export default function ListingDetailScreen() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [shoeAbout, setShoeAbout] = useState<ShoeAbout | null>(null);
   const [valueReference, setValueReference] = useState<ValueReference | null>(null);
+  const [repriceHint, setRepriceHint] = useState<{ ratio: number; message: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,10 +114,12 @@ export default function ListingDetailScreen() {
           viewer?: { isSeller?: boolean };
           shoe_about?: ShoeAbout | null;
           value_reference?: ValueReference | null;
+          reprice_hint?: { ratio: number; message: string } | null;
         }>(`/api/market/listings/${id}`);
         if (!cancelled) {
           setListing(res.listing);
           setValueReference(res.value_reference ?? null);
+          setRepriceHint(res.reprice_hint ?? null);
           setSeller(res.seller ?? null);
           setFollowing(res.following === true);
           setIsOwner(res.viewer?.isSeller === true);
@@ -351,6 +354,13 @@ export default function ListingDetailScreen() {
           <Text style={styles.shipping}>+ ${(listing.shipping_cents / 100).toFixed(0)} shipping</Text>
         ) : null}
       </View>
+
+      {isOwner && repriceHint ? (
+        <View style={styles.repriceCard}>
+          <Text style={styles.repriceKicker}>PRICED ABOVE THE REFERENCE</Text>
+          <Text style={styles.referenceMeta}>{repriceHint.message}</Text>
+        </View>
+      ) : null}
 
       {valueReference ? (
         <View style={styles.referenceCard}>
@@ -606,6 +616,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 10,
   },
+  repriceCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.4)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#f59e0b',
+    borderRadius: 10,
+    backgroundColor: 'rgba(245,158,11,0.06)',
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+  repriceKicker: { ...typography.bodySemi, color: '#f59e0b', fontSize: 10, letterSpacing: 0.8 },
   referenceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   referenceKicker: { ...typography.bodySemi, color: colors.accentHover, fontSize: 10, letterSpacing: 0.8 },
   referenceValue: { ...typography.bodyBold, color: colors.text, fontSize: 15 },

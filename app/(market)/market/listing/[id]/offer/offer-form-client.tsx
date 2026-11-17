@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { QuickTradeListingSheet } from '@/components/market/quick-trade-listing-sheet';
 import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
+import type { ValueReference } from '@/lib/market/value-reference';
 import { cn } from '@/lib/utils';
 
 export type OfferMode = 'cash' | 'trade' | 'cash_and_trade';
@@ -44,6 +45,7 @@ export type PendingOfferSummary = {
 export function OfferFormClient({
   listingId,
   listing,
+  valueReference = null,
   myListings,
   defaultTrade,
   currentUserId,
@@ -52,6 +54,7 @@ export function OfferFormClient({
 }: {
   listingId: string;
   listing: OfferListingSummary;
+  valueReference?: ValueReference | null;
   myListings: OfferListingSummary[];
   defaultTrade: boolean;
   currentUserId: string;
@@ -209,6 +212,30 @@ export function OfferFormClient({
           ))}
         </div>
       </div>
+
+      {showCash && valueReference ? (
+        <div className="rounded-xl border border-border border-l-4 border-l-accent bg-card px-4 py-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-xs font-medium text-accent">Guild sold-price reference</p>
+            <p className="text-base font-bold text-foreground">
+              ~${Math.round(valueReference.mid_cents / 100)}
+              {valueReference.low_cents != null && valueReference.high_cents != null ? (
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                  ${Math.round(valueReference.low_cents / 100)}–$
+                  {Math.round(valueReference.high_cents / 100)}
+                </span>
+              ) : null}
+            </p>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {valueReference.source_label}
+            {valueReference.detail_label ? ` · ${valueReference.detail_label}` : ''}
+          </p>
+          {valueReference.stock_caveat ? (
+            <p className="text-[11px] text-muted-foreground mt-1">{valueReference.stock_caveat}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {showCash ? (
         <div>

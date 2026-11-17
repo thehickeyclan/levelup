@@ -1,9 +1,15 @@
 /**
  * Build lib/market/data/ig-price-history.json from the Instagram resale
- * ledger CSVs (Muse's @committed_wrestling_shoes + @drewrestler_shoes_
- * pulls, ~9,000 posts 2018–2026).
+ * ledger CSVs (Muse's eight-account pulls, ~10,500 posts 2018–2026).
  *
- *   npx tsx scripts/build-ig-price-history.ts <committed.csv> <drew.csv> [--write]
+ * WEEKLY REFRESH (green-lit by Matt 17 Nov 2026): Muse drops updated
+ * per-account CSVs; run this with all of them, dry first, then --write,
+ * then run the full vitest suite (ledger tests pin known values) and
+ * commit the rebuilt JSON. Watch the unmatched report for new models and
+ * the per-model deltas for generation pollution (see the CS4 incident in
+ * the 17 Nov commits: a bare catalog alias, not the matcher, was the bug).
+ *
+ *   npx tsx scripts/build-ig-price-history.ts <account1.csv> [<account2.csv> ...] [--write]
  *
  * CSV columns: date,status,shoe,size,price_usd,price_terms,post_url
  *

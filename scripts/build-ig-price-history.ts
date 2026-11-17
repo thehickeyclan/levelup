@@ -135,8 +135,13 @@ async function main() {
   let matched = 0;
   const accountTotals: Record<string, { posts: number; first: string; last: string }> = {};
 
+  // Schmidt is a custom-painter: his prices are for the paint job, not the
+  // shoe (a $680 "White Takedown 4" is custom work). Posts count as market
+  // activity; prices are excluded from stats. (Muse's caveat, 17 Nov 2026.)
+  const PRICE_EXCLUDED_ACCOUNTS = new Set(['schmidt_shoe_shop']);
+
   for (const file of files) {
-    const account = path.basename(file).includes('drew') ? 'drewrestler_shoes_' : 'committed_wrestling_shoes';
+    const account = path.basename(file).replace(/-listings\.csv$/, '').replace(/\.csv$/, '');
     const rows = parseCsv(readFileSync(file, 'utf8'));
     const header = rows[0].map((h) => h.trim().toLowerCase());
     const col = (n: string) => header.indexOf(n);
@@ -154,6 +159,8 @@ async function main() {
       // Video series, giveaways and contests are content, not sales
       // (e.g. Drew's "$20 to 1988 Combats" trade-up challenge at $20).
       if (/\b(challenge|series|part \d+|giveaway|subscribe|winner)\b/i.test(shoe)) continue;
+      // Custom/painted pairs price the custom work, not the stock shoe.
+      if (/\bcustom|hand.?painted|repaint/i.test(shoe)) continue;
       total += 1;
       const date = (r[iDate] ?? '').trim();
       if (date) {
@@ -170,7 +177,10 @@ async function main() {
       matched += 1;
       const priceNum = parseFloat((r[iPrice] ?? '').replace(/[$,]/g, ''));
       // $5,000+ rows are contest promos / bundles, never one pair's price.
-      const price = Number.isFinite(priceNum) && priceNum > 0 && priceNum < 5000 ? priceNum : null;
+      const price =
+        !PRICE_EXCLUDED_ACCOUNTS.has(account) && Number.isFinite(priceNum) && priceNum > 0 && priceNum < 5000
+          ? priceNum
+          : null;
       const bucket = byRow.get(m.row.id) ?? { brand: m.row.brand, model: m.row.model, posts: [] };
       bucket.posts.push({ date, status: (r[iStatus] ?? '').trim(), price, account });
       byRow.set(m.row.id, bucket);

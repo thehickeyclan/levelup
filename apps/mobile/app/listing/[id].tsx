@@ -352,10 +352,12 @@ export default function ListingDetailScreen() {
         ) : null}
       </View>
 
-      {valueReference && listing.listing_type !== 'collection' ? (
+      {valueReference ? (
         <View style={styles.referenceCard}>
           <View style={styles.referenceTop}>
-            <Text style={styles.referenceKicker}>GUILD SOLD-PRICE REFERENCE</Text>
+            <Text style={styles.referenceKicker}>
+              {listing.listing_type === 'collection' ? 'GUILD MARKET VALUE' : 'GUILD SOLD-PRICE REFERENCE'}
+            </Text>
             <Text style={styles.referenceValue}>
               ~${Math.round(valueReference.mid_cents / 100)}
               {valueReference.low_cents != null && valueReference.high_cents != null

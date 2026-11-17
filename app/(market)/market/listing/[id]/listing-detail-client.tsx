@@ -837,10 +837,12 @@ export default function ListingDetailClient() {
               </div>
             ) : null}
 
-            {!isCollection && data.value_reference ? (
+            {data.value_reference ? (
               <div className="rounded-xl border border-border border-l-4 border-l-accent bg-card px-4 py-3">
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-xs font-medium text-accent">Guild sold-price reference</p>
+                  <p className="text-xs font-medium text-accent">
+                    {isCollection ? 'Guild market value' : 'Guild sold-price reference'}
+                  </p>
                   <p className="text-base font-bold text-foreground">
                     ~${Math.round(data.value_reference.mid_cents / 100)}
                     {data.value_reference.low_cents != null && data.value_reference.high_cents != null ? (

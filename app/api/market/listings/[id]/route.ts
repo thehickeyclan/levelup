@@ -246,20 +246,21 @@ export async function GET(
       isOwner
     );
 
-    // Standards §6.1: the sold-price reference next to every ask. Null when
+    // Standards §6.1: the sold-price reference next to every ask — and on
+    // collection pieces, where it reads as what the pair is worth. Null when
     // the evidence is under 3 combined real sales — no invented numbers.
-    const valueReference =
-      listing.listing_type !== 'collection'
-        ? await fetchListingValueReference(createAdminClientIfAvailable(tenant.slug) ?? supabase, {
-            brand,
-            model,
-            colorway: (listing.colorway as string | null) ?? null,
-            wear_state: wearState,
-            condition: (listing.condition as string | null) ?? null,
-            disclosure_tags: (listing.disclosure_tags as string[] | null) ?? null,
-            excludeListingId: id,
-          })
-        : null;
+    const valueReference = await fetchListingValueReference(
+      createAdminClientIfAvailable(tenant.slug) ?? supabase,
+      {
+        brand,
+        model,
+        colorway: (listing.colorway as string | null) ?? null,
+        wear_state: wearState,
+        condition: (listing.condition as string | null) ?? null,
+        disclosure_tags: (listing.disclosure_tags as string[] | null) ?? null,
+        excludeListingId: id,
+      }
+    );
 
     return NextResponse.json({
       listing: publicListing,

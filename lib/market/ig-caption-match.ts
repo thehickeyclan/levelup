@@ -123,9 +123,14 @@ export function matchCaption(caption: string, index: CaptionIndex): CaptionMatch
         }
       }
       if (!ok) continue;
-      // Sibling guard: "<model> 5" when we only matched "<model>".
+      // Sibling guard: "<model> 5" when we only matched "<model>". Only when
+      // the candidate does NOT already end in a generation marker — otherwise
+      // a price token right after ("Combat Speed 5s - $88") kills a correct
+      // match and lets a shorter alias steal the caption.
+      const lastCand = cand.tokens[cand.tokens.length - 1];
+      const candEndsInGeneration = /^v?\d{1,2}$/.test(lastCand) || ROMAN.has(lastCand);
       const next = toks[i + cand.tokens.length];
-      if (next && (/^\d{1,2}$/.test(next) || ROMAN.has(next))) continue;
+      if (!candEndsInGeneration && next && (/^\d{1,2}s?$/.test(next) || ROMAN.has(next))) continue;
       const len = cand.tokens.join(' ').length;
       best.push({ cand, len });
       break; // one hit per candidate is enough

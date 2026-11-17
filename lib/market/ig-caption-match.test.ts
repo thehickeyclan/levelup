@@ -44,6 +44,23 @@ describe('matchCaption', () => {
     expect(matchCaption('Adidas Combat Speeds size 10', index)?.row.id).toBe('2');
   });
 
+  it('never lets a price token kill a match that already names its generation', () => {
+    // "$88" after "5s" looked like a sibling number and killed the CS5 match,
+    // letting a shorter alias steal the caption (found via Muse's CS4 audit).
+    const withCs5 = buildCaptionIndex([
+      ...rows,
+      { id: '13', brand: 'Adidas', model: 'Combat Speed 5', model_aliases: [] },
+    ]);
+    expect(
+      matchCaption('Brand New In Box RWB Adidas Combat Speed 5s - $88 + shipping', withCs5)?.row.id
+    ).toBe('13');
+  });
+
+  it('treats plural generation tokens as sibling numbers', () => {
+    // "Combat Speed 5s" must never fall through to the bare Combat Speed row.
+    expect(matchCaption('Adidas Combat Speed 5s', index)).toBeNull();
+  });
+
   it('drops captions naming a numbered sibling we did not match', () => {
     // No "Inflict 4" row in this index — never bucket it under Inflict 3.
     expect(matchCaption('Nike Inflict 4 (2020)', index)).toBeNull();

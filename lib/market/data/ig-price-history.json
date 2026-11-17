@@ -55,7 +55,7 @@
   "asics|aggressor": {
    "brand": "Asics",
    "model": "Aggressor",
-   "posts": 397,
+   "posts": 398,
    "priced": 186,
    "sold_priced": 109,
    "median_usd": 165,
@@ -135,8 +135,8 @@
   "nike|inflict 3": {
    "brand": "Nike",
    "model": "Inflict 3",
-   "posts": 402,
-   "priced": 165,
+   "posts": 413,
+   "priced": 168,
    "sold_priced": 99,
    "median_usd": 199,
    "median_recent_24mo_usd": 197,
@@ -156,6 +156,11 @@
      "status": "sold"
     },
     {
+     "date": "2026-11-10",
+     "price_usd": 950,
+     "status": "unknown"
+    },
+    {
      "date": "2026-11-08",
      "price_usd": 198,
      "status": "unknown"
@@ -163,11 +168,6 @@
     {
      "date": "2026-10-27",
      "price_usd": 115,
-     "status": "unknown"
-    },
-    {
-     "date": "2026-10-25",
-     "price_usd": 88,
      "status": "unknown"
     }
    ]
@@ -255,7 +255,7 @@
   "adidas|adizero varner": {
    "brand": "Adidas",
    "model": "adizero Varner",
-   "posts": 82,
+   "posts": 80,
    "priced": 40,
    "sold_priced": 16,
    "median_usd": 139,
@@ -295,11 +295,11 @@
   "nike|speedsweep vii": {
    "brand": "Nike",
    "model": "Speedsweep VII",
-   "posts": 180,
-   "priced": 93,
+   "posts": 171,
+   "priced": 88,
    "sold_priced": 73,
-   "median_usd": 157,
-   "median_recent_24mo_usd": 162,
+   "median_usd": 155,
+   "median_recent_24mo_usd": 155,
    "min_usd": 45,
    "max_usd": 350,
    "first_date": "2019-04-10",
@@ -311,16 +311,6 @@
      "status": "sold"
     },
     {
-     "date": "2026-09-27",
-     "price_usd": 199,
-     "status": "unknown"
-    },
-    {
-     "date": "2026-09-27",
-     "price_usd": 325,
-     "status": "unknown"
-    },
-    {
      "date": "2026-09-23",
      "price_usd": 228,
      "status": "unknown"
@@ -329,46 +319,16 @@
      "date": "2026-09-03",
      "price_usd": 238,
      "status": "unknown"
-    }
-   ]
-  },
-  "adidas|combat speed 4": {
-   "brand": "Adidas",
-   "model": "Combat Speed 4",
-   "posts": 291,
-   "priced": 130,
-   "sold_priced": 76,
-   "median_usd": 203,
-   "median_recent_24mo_usd": 261,
-   "min_usd": 50,
-   "max_usd": 685,
-   "first_date": "2019-09-21",
-   "last_date": "2026-11-16",
-   "latest": [
-    {
-     "date": "2026-11-16",
-     "price_usd": 255,
-     "status": "unknown"
     },
     {
-     "date": "2026-11-11",
-     "price_usd": 300,
-     "status": "unknown"
+     "date": "2026-07-16",
+     "price_usd": 187,
+     "status": "sold"
     },
     {
-     "date": "2026-11-10",
-     "price_usd": 367,
-     "status": "unknown"
-    },
-    {
-     "date": "2026-11-08",
-     "price_usd": 88,
-     "status": "unknown"
-    },
-    {
-     "date": "2026-11-08",
-     "price_usd": 88,
-     "status": "unknown"
+     "date": "2026-06-09",
+     "price_usd": 183,
+     "status": "available"
     }
    ]
   },
@@ -415,7 +375,7 @@
   "asics|ex-eo": {
    "brand": "Asics",
    "model": "EX-EO",
-   "posts": 389,
+   "posts": 387,
    "priced": 149,
    "sold_priced": 137,
    "median_usd": 273,
@@ -535,16 +495,21 @@
   "adidas|combat speed 5": {
    "brand": "Adidas",
    "model": "Combat Speed 5",
-   "posts": 50,
-   "priced": 16,
+   "posts": 53,
+   "priced": 17,
    "sold_priced": 3,
-   "median_usd": 84,
-   "median_recent_24mo_usd": 140,
+   "median_usd": 88,
+   "median_recent_24mo_usd": 114,
    "min_usd": 58,
    "max_usd": 327,
    "first_date": "2022-12-08",
-   "last_date": "2026-10-15",
+   "last_date": "2026-11-08",
    "latest": [
+    {
+     "date": "2026-11-08",
+     "price_usd": 88,
+     "status": "unknown"
+    },
     {
      "date": "2026-10-15",
      "price_usd": 327,
@@ -564,11 +529,6 @@
      "date": "2025-07-30",
      "price_usd": 72,
      "status": "unknown"
-    },
-    {
-     "date": "2025-03-07",
-     "price_usd": 197,
-     "status": "sold"
     }
    ]
   },
@@ -655,7 +615,7 @@
   "asics|matflex 3": {
    "brand": "Asics",
    "model": "Matflex 3",
-   "posts": 126,
+   "posts": 125,
    "priced": 47,
    "sold_priced": 7,
    "median_usd": 99,
@@ -852,6 +812,46 @@
     }
    ]
   },
+  "adidas|combat speed 4": {
+   "brand": "Adidas",
+   "model": "Combat Speed 4",
+   "posts": 252,
+   "priced": 107,
+   "sold_priced": 60,
+   "median_usd": 199,
+   "median_recent_24mo_usd": 250,
+   "min_usd": 78,
+   "max_usd": 500,
+   "first_date": "2019-12-24",
+   "last_date": "2026-11-16",
+   "latest": [
+    {
+     "date": "2026-11-16",
+     "price_usd": 255,
+     "status": "unknown"
+    },
+    {
+     "date": "2026-11-11",
+     "price_usd": 300,
+     "status": "unknown"
+    },
+    {
+     "date": "2026-11-10",
+     "price_usd": 367,
+     "status": "unknown"
+    },
+    {
+     "date": "2026-11-08",
+     "price_usd": 88,
+     "status": "unknown"
+    },
+    {
+     "date": "2026-11-08",
+     "price_usd": 98,
+     "status": "unknown"
+    }
+   ]
+  },
   "nike|tawa se": {
    "brand": "Nike",
    "model": "TAWA SE",
@@ -1010,11 +1010,11 @@
   "nike|takedown": {
    "brand": "Nike",
    "model": "Takedown",
-   "posts": 177,
-   "priced": 65,
-   "sold_priced": 59,
+   "posts": 175,
+   "priced": 63,
+   "sold_priced": 58,
    "median_usd": 199,
-   "median_recent_24mo_usd": 432,
+   "median_recent_24mo_usd": 465,
    "min_usd": 78,
    "max_usd": 750,
    "first_date": "2019-07-07",
@@ -1050,7 +1050,7 @@
   "asics|cael v3.0": {
    "brand": "Asics",
    "model": "Cael V3.0",
-   "posts": 66,
+   "posts": 67,
    "priced": 35,
    "sold_priced": 26,
    "median_usd": 99,
@@ -1435,7 +1435,7 @@
   "asics|rulon": {
    "brand": "Asics",
    "model": "Rulon",
-   "posts": 85,
+   "posts": 84,
    "priced": 24,
    "sold_priced": 14,
    "median_usd": 332.5,
@@ -1764,10 +1764,10 @@
   "asics|dan gable ultimate": {
    "brand": "Asics",
    "model": "Dan Gable Ultimate",
-   "posts": 101,
-   "priced": 38,
+   "posts": 97,
+   "priced": 37,
    "sold_priced": 22,
-   "median_usd": 141.5,
+   "median_usd": 143,
    "median_recent_24mo_usd": 212.5,
    "min_usd": 48,
    "max_usd": 600,
@@ -2019,8 +2019,8 @@
   "nike|inflict oe (olympic edition)": {
    "brand": "Nike",
    "model": "Inflict OE (Olympic Edition)",
-   "posts": 93,
-   "priced": 31,
+   "posts": 92,
+   "priced": 30,
    "sold_priced": 3,
    "median_usd": 185,
    "median_recent_24mo_usd": 185,
@@ -2453,30 +2453,20 @@
   "nike|inflict (original)": {
    "brand": "Nike",
    "model": "Inflict (original)",
-   "posts": 38,
-   "priced": 7,
+   "posts": 25,
+   "priced": 4,
    "sold_priced": 2,
-   "median_usd": 350,
-   "median_recent_24mo_usd": 350,
+   "median_usd": 287.5,
+   "median_recent_24mo_usd": null,
    "min_usd": 68,
-   "max_usd": 950,
+   "max_usd": 500,
    "first_date": "2019-03-22",
-   "last_date": "2026-11-10",
+   "last_date": "2026-11-04",
    "latest": [
-    {
-     "date": "2026-11-10",
-     "price_usd": 950,
-     "status": "unknown"
-    },
     {
      "date": "2025-06-09",
      "price_usd": 100,
      "status": "sold"
-    },
-    {
-     "date": "2025-06-09",
-     "price_usd": 350,
-     "status": "unknown"
     },
     {
      "date": "2023-04-01",
@@ -2487,6 +2477,11 @@
      "date": "2023-01-24",
      "price_usd": 500,
      "status": "sold"
+    },
+    {
+     "date": "2019-03-22",
+     "price_usd": 68,
+     "status": "unknown"
     }
    ]
   },
@@ -2598,7 +2593,7 @@
   "asics|aggressor 4": {
    "brand": "Asics",
    "model": "Aggressor 4",
-   "posts": 41,
+   "posts": 42,
    "priced": 21,
    "sold_priced": 1,
    "median_usd": 125,
@@ -2678,15 +2673,15 @@
   "nike|inflict 4": {
    "brand": "Nike",
    "model": "Inflict 4",
-   "posts": 28,
-   "priced": 10,
+   "posts": 30,
+   "priced": 11,
    "sold_priced": 0,
-   "median_usd": 131.5,
-   "median_recent_24mo_usd": 131.5,
+   "median_usd": 135,
+   "median_recent_24mo_usd": 135,
    "min_usd": 62,
    "max_usd": 175,
    "first_date": "2025-02-18",
-   "last_date": "2026-11-05",
+   "last_date": "2026-11-06",
    "latest": [
     {
      "date": "2026-10-31",
@@ -2718,7 +2713,7 @@
   "asics|cael v6.0": {
    "brand": "Asics",
    "model": "Cael V6.0",
-   "posts": 15,
+   "posts": 16,
    "priced": 5,
    "sold_priced": 0,
    "median_usd": 90,
@@ -3416,6 +3411,26 @@
     }
    ]
   },
+  "cronin|combat speed": {
+   "brand": "Cronin",
+   "model": "Combat Speed",
+   "posts": 2,
+   "priced": 1,
+   "sold_priced": 0,
+   "median_usd": 200,
+   "median_recent_24mo_usd": null,
+   "min_usd": 200,
+   "max_usd": 200,
+   "first_date": "2024-05-16",
+   "last_date": "2024-12-03",
+   "latest": [
+    {
+     "date": "2024-12-03",
+     "price_usd": 200,
+     "status": "unknown"
+    }
+   ]
+  },
   "asics|matflex 7": {
    "brand": "Asics",
    "model": "Matflex 7",
@@ -3585,7 +3600,6 @@
   "nike|inflict se oly": "nike|inflict oe (olympic edition)",
   "nike|dj4471-900": "nike|inflict oe (olympic edition)",
   "nike|fv3682-900": "nike|inflict oe (olympic edition)",
-  "adidas|combat speed": "adidas|combat speed 4",
   "adidas|cs4": "adidas|combat speed 4",
   "adidas|combat speed iv": "adidas|combat speed 4",
   "adidas|combat speed 4 (2024-2025 comeback)": "adidas|combat speed 4",

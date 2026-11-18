@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Bump when the text changes so records say which version a parent accepted.
  * Text is DRAFT pending attorney review — version stays '-draft' until signed off.
  */
-export const WAIVER_VERSION = '2026-11-18-draft';
+export const WAIVER_VERSION = '2026-11-18b-draft';
 
 /**
  * Record a parent's waiver acceptance at checkout. Never blocks the booking:

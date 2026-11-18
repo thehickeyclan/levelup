@@ -11,10 +11,17 @@ import {
   summarizeCoachEarningsFromPastSessions,
 } from '@/lib/coach-earnings-summary-server';
 import { CoachEarningsClient } from '@/components/coach/coach-earnings-client';
+import { ConnectPayoutsCard } from '@/components/coach/connect-payouts-card';
+import { getStripeInstance } from '@/lib/stripe/webhooks';
+import { coachHasActivePayouts, isConnectEnabled, syncCoachConnectStatus } from '@/lib/stripe/connect';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CoachEarningsPage() {
+export default async function CoachEarningsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ connect?: string }>;
+}) {
   const headersList = await headers();
   const host = headersList.get('host') || '';
   const tenant = getTenantByDomain(host);
@@ -84,6 +91,32 @@ export default async function CoachEarningsPage() {
   const coachStatus = athlete.status || 'active';
   if (!isViewingAsCoach && coachStatus === 'pending') redirect('/coach-pending');
   if (!isViewingAsCoach && coachStatus === 'rejected') redirect('/coach-pending');
+
+  // Stripe Connect: sync status when the coach returns from Stripe onboarding.
+  const connectEnabled = isConnectEnabled();
+  let connectAccountStatus = (athlete.stripe_account_status as string | null) ?? null;
+  let connectPayoutsActive = coachHasActivePayouts(athlete);
+  const sp = searchParams ? await searchParams : undefined;
+  if (
+    connectEnabled &&
+    !isViewingAsCoach &&
+    sp?.connect === 'done' &&
+    athlete.stripe_account_id &&
+    !connectPayoutsActive
+  ) {
+    try {
+      const { payoutsEnabled } = await syncCoachConnectStatus(
+        admin,
+        getStripeInstance(tenant.slug),
+        coachId,
+        athlete.stripe_account_id as string
+      );
+      connectPayoutsActive = payoutsEnabled;
+      connectAccountStatus = payoutsEnabled ? 'active' : 'pending';
+    } catch (e) {
+      console.error('Connect status sync error:', e);
+    }
+  }
 
   const needsOnboarding = !isViewingAsCoach && !isProfileComplete(athlete);
   const payoutRate = normalizeCoachRevenueShareRate(
@@ -159,7 +192,16 @@ export default async function CoachEarningsPage() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-2xl">
+    <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-2xl space-y-4">
+      {connectEnabled && !isViewingAsCoach && !connectPayoutsActive ? (
+        <ConnectPayoutsCard status={connectAccountStatus} />
+      ) : null}
+      {connectEnabled && connectPayoutsActive ? (
+        <div className="rounded-xl border border-border bg-card/80 px-4 py-3 text-sm">
+          <span className="font-medium text-accent">Instant payouts active</span>
+          <span className="text-muted-foreground"> — your share transfers automatically when you complete a session.</span>
+        </div>
+      ) : null}
       <CoachEarningsClient
         coachId={coachId}
         payoutRate={payoutRate}

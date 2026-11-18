@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { checkSessionMilestonesForParent, isRewardsProgramEnabled } from '@/lib/rewards';
 import { notifyAdminsSessionCompleted } from '@/lib/twilio';
+import { getStripeInstance } from '@/lib/stripe/webhooks';
+import { isConnectEnabled, transferCoachPayoutForSession } from '@/lib/stripe/connect';
 
 /**
  * POST - Mark a session as completed.
@@ -135,6 +137,14 @@ export async function POST(
       coachUserId: session.athlete_id,
       completedByUserId: user.id,
     }).catch((e) => console.error('Admin session completed SMS:', e));
+
+    if (isConnectEnabled()) {
+      // Auto-pay the coach's share via Stripe Connect; any failure or skip
+      // leaves the session in the manual admin payout queue.
+      void transferCoachPayoutForSession(admin, getStripeInstance(tenant.slug), sessionId).catch(
+        (e) => console.error('Connect payout error:', e)
+      );
+    }
 
     if (isRewardsProgramEnabled()) {
       const { data: partRows } = await admin

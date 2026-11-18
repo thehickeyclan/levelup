@@ -29,7 +29,7 @@ import {
 import type { MarketWearState } from '@/lib/market/wear-state';
 import { normalizeListingAcceptsOffers, normalizeListingTypeForWrite } from '@/lib/market/accepts-offers';
 import { normalizeDisclosureTags } from '@/lib/market/disclosure-tags';
-import { fetchListingValueReference } from '@/lib/market/value-reference';
+import { fetchListingValueAssessment } from '@/lib/market/value-reference';
 import { evaluateRepriceNudge, repriceNudgeCopy } from '@/lib/market/reprice-nudge';
 import { findCatalogEntry } from '@/lib/market/shoe-id/catalog';
 import {
@@ -252,10 +252,10 @@ export async function GET(
       isOwner
     );
 
-    // Standards §6.1: the sold-price reference next to every ask — and on
-    // collection pieces, where it reads as what the pair is worth. Null when
-    // the evidence is under 3 combined real sales — no invented numbers.
-    const valueReference = await fetchListingValueReference(
+    // Standards §6.1 + the 2026-11-18 audit gate: a headline value only when
+    // the pool is variant-matched, unflagged and deep; otherwise the evidence
+    // itself (tier medians, IG median, last documented sale) with no number.
+    const valueAssessment = await fetchListingValueAssessment(
       createAdminClientIfAvailable(tenant.slug) ?? supabase,
       {
         brand,
@@ -267,6 +267,7 @@ export async function GET(
         excludeListingId: id,
       }
     );
+    const valueReference = valueAssessment.reference;
 
     // The seller sees what the weekly nudge would tell them, live — same
     // gates, so a banner here is never a surprise notification later.
@@ -320,6 +321,7 @@ export async function GET(
       colorway_aliases: catalogEnrichment?.colorway_aliases ?? [],
       condition_read: conditionRead,
       value_reference: valueReference,
+      value_evidence: valueAssessment.evidence,
       reprice_hint: repriceHint,
       pending_offer_count: pendingOfferCount ?? 0,
       following,

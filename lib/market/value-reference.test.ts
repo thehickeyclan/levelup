@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { assembleValueReference } from './value-reference';
+import { assembleValueAssessment, assembleValueReference } from './value-reference';
 import { getConditionTiers } from './condition-tiers';
 import { getIgPriceHistory } from './ig-price-history';
+import type { IgModelHistory } from './ig-price-history';
 
 const base = {
   marketValue: null,
@@ -11,107 +12,189 @@ const base = {
   tiers: null,
 } as const;
 
-describe('assembleValueReference', () => {
-  it('shows nothing under 3 combined sales — no invented numbers', () => {
-    expect(assembleValueReference({ ...base, documentedSales: 2 })).toBeNull();
-    expect(
-      assembleValueReference({ ...base, guildSales: 1, documentedSales: 1 })
-    ).toBeNull();
-  });
+const igStub = (over: Partial<IgModelHistory>): IgModelHistory => ({
+  brand: 'Test',
+  model: 'Model',
+  posts: 0,
+  priced: 0,
+  sold_priced: 0,
+  median_usd: null,
+  median_recent_24mo_usd: null,
+  min_usd: null,
+  max_usd: null,
+  first_date: null,
+  last_date: null,
+  latest: [],
+  ...over,
+});
 
-  it('uses the computed market value when no condition tier matches', () => {
-    const ref = assembleValueReference({
-      ...base,
-      marketValue: { low_cents: 20000, mid_cents: 27500, high_cents: 35000, confidence: 'medium' },
-      guildSales: 1,
-      documentedSales: 3,
+describe('assembleValueAssessment — the confidence gate (pricing audit 2026-11-18)', () => {
+  it('shows nothing at all under 3 combined sales — no invented numbers, no noise', () => {
+    expect(assembleValueAssessment({ ...base, documentedSales: 2 })).toEqual({
+      reference: null,
+      evidence: null,
     });
-    expect(ref).toMatchObject({ mid_cents: 27500, low_cents: 20000, confidence: 'medium' });
-    expect(ref!.source_label).toBe('From 1 Guild sale · 3 documented sales');
   });
 
-  it('condition-matched tier beats the pooled market value', () => {
-    // A pooled range beside a specific-condition pair anchors buyers wrong —
-    // the tier median for the listing's own condition wins (Muse, 17 Nov).
+  it('INVERTED model never prices a BNIB pair from the new tier (CS4 audit card 1)', () => {
+    // CS4: new $83 (4), good $250 (11), flagged INVERTED. The platform stamped
+    // Matt's $400 Orange/Black BNIB pair at $83 — a third of the used pool.
     const tiers = getConditionTiers('Adidas', 'Combat Speed 4');
-    const ref = assembleValueReference({
+    const { reference } = assembleValueAssessment({
       ...base,
-      marketValue: { low_cents: 6000, mid_cents: 10500, high_cents: 18000, confidence: 'medium' },
-      documentedSales: 11,
+      documentedSales: 19,
+      ig: getIgPriceHistory('Adidas', 'Combat Speed 4'),
+      tiers,
+      wearState: 'bnib',
+    });
+    expect(reference!.mid_cents).toBe(25000);
+    expect(reference!.detail_label).toContain('good-condition eBay median $250 (11 sales)');
+    expect(reference!.detail_label).toContain('inverted model');
+  });
+
+  it('INVERTED + premium colorway notes the colorway sits at or above the reference', () => {
+    const tiers = getConditionTiers('Adidas', 'Combat Speed 4');
+    const { reference } = assembleValueAssessment({
+      ...base,
+      documentedSales: 19,
+      tiers,
+      wearState: 'bnib',
+      colorwayProfile: { name: 'David Taylor', availability: 'limited', value_tier: 'rare' },
+    });
+    expect(reference!.mid_cents).toBe(25000);
+    expect(reference!.detail_label).toContain('"David Taylor" colorway — rare tier, sits at or above');
+  });
+
+  it('a premium colorway without curated values on an unflagged model shows evidence, not the pooled number (EX-EO audit cards 5/5b)', () => {
+    // The EX-EO pool is Successor reissues; a grail-tagged Russian original
+    // must never inherit its $254.
+    const tiers = getConditionTiers('Asics', 'EX-EO');
+    const { reference, evidence } = assembleValueAssessment({
+      ...base,
+      documentedSales: 9,
+      ig: getIgPriceHistory('Asics', 'EX-EO'),
+      tiers,
+      wearState: 'bnib',
+      colorwayProfile: { name: 'Russian Original — Red / Gold / White', availability: 'grail', value_tier: 'grail' },
+    });
+    expect(reference).toBeNull();
+    expect(evidence!.reason).toContain('Russian Original');
+    expect(evidence!.lines.join(' ')).toContain('new $253.99 (5)');
+  });
+
+  it('never anchors a thin tier when a deeper pool exists (DGU audit card 2)', () => {
+    // DGU: new n=2 ($139.99) is too thin; good n=31 ($110) is the market.
+    // The old card said ~$50 from three filtered comps.
+    const tiers = getConditionTiers('Asics', 'Dan Gable Ultimate');
+    const { reference } = assembleValueAssessment({
+      ...base,
+      documentedSales: 20,
+      ig: getIgPriceHistory('Asics', 'Dan Gable Ultimate'),
+      tiers,
+      wearState: 'new_no_box',
+    });
+    expect(reference!.mid_cents).toBe(11000);
+    expect(reference!.detail_label).toContain('good-condition eBay median $110 (31 sales)');
+    expect(reference!.detail_label).toContain('this pair is new');
+  });
+
+  it('demotes to evidence when eBay and IG disagree 3×+ (Split Second audit card 3)', () => {
+    // Split Second: eBay pool is V/VI/7 reissues at $39.88; the OG market
+    // trades on IG at $157–160. A $40 headline beside "IG median $157" lies.
+    const tiers = getConditionTiers('Asics', 'Split Second');
+    const { reference, evidence } = assembleValueAssessment({
+      ...base,
+      documentedSales: 19,
+      ig: getIgPriceHistory('Asics', 'Split Second'),
       tiers,
       wearState: 'used',
       condition: 'good',
     });
-    // CS4 good-tier median is $250 (11 sales) in the committed index.
-    expect(ref!.mid_cents).toBe(25000);
-    expect(ref!.low_cents).toBeNull();
-    expect(ref!.high_cents).toBeNull();
-    expect(ref!.detail_label).toContain('good-condition eBay median $250');
+    expect(reference).toBeNull();
+    expect(evidence!.reason).toContain('disagree');
+    expect(evidence!.lines.join(' ')).toContain('good $39.88 (19)');
+    expect(evidence!.lines.join(' ')).toContain('IG sold median $157');
   });
 
-  it('matches the new tier for a BNIB pair, not the pooled figure', () => {
-    const tiers = getConditionTiers('Adidas', 'Combat Speed 4');
-    const ref = assembleValueReference({
+  it('curated variant values price the pair even when the pools cannot (Cronin re-make, audit card 4)', () => {
+    // One documented sale is under the combined-sales floor, but the curated
+    // band exists precisely because no pool prices a re-make.
+    const { reference } = assembleValueAssessment({
       ...base,
-      documentedSales: 4,
-      tiers,
-      wearState: 'bnib',
-    });
-    // CS4 new-tier median is $83 (4 sales) — the INVERTED model's used pool
-    // carries the rare colorways, and BNIB must not inherit their prices.
-    expect(ref!.mid_cents).toBe(8300);
-    expect(ref!.detail_label).toContain('new-condition eBay median $83');
-  });
-
-  it('falls back to an IG point reference — no range the data cannot support', () => {
-    const ig = getIgPriceHistory('Asics', 'Rulon');
-    const ref = assembleValueReference({ ...base, ig });
-    expect(ref).not.toBeNull();
-    expect(ref!.confidence).toBe('low');
-    expect(ref!.low_cents).toBeNull();
-    expect(ref!.high_cents).toBeNull();
-    expect(ref!.source_label).toContain('IG resale post');
-  });
-
-  it('lets a curated colorway value override pooled model stats', () => {
-    const ref = assembleValueReference({
-      ...base,
-      marketValue: { low_cents: 5000, mid_cents: 6500, high_cents: 25000, confidence: 'medium' },
-      documentedSales: 5,
+      documentedSales: 1,
       colorwayProfile: {
-        name: 'Cherry',
-        availability: 'grail',
-        value_tier: 'grail',
-        value_low_cents: 30000,
-        value_mid_cents: 40000,
-        value_high_cents: 50000,
+        name: 'Navy / White / Total Orange',
+        availability: 'limited',
+        value_tier: 'rare',
+        value_low_cents: 50000,
+        value_high_cents: 75000,
       },
     });
-    // The colorway IS the price on inverted models — curated $400 beats pooled $65.
-    expect(ref!.mid_cents).toBe(40000);
-    expect(ref!.low_cents).toBe(30000);
-    expect(ref!.detail_label).toContain('"Cherry" colorway — grail tier');
+    expect(reference!.mid_cents).toBe(62500);
+    expect(reference!.low_cents).toBe(50000);
+    expect(reference!.high_cents).toBe(75000);
+    expect(reference!.detail_label).toContain('curated collector value');
   });
 
-  it('labels the colorway tier even without curated values', () => {
-    const ref = assembleValueReference({
+  it('rejects a thin pooled value — evidence instead of a low-confidence number', () => {
+    const { reference, evidence } = assembleValueAssessment({
       ...base,
-      marketValue: { low_cents: 5000, mid_cents: 6500, high_cents: 25000, confidence: 'medium' },
-      documentedSales: 5,
-      colorwayProfile: { name: 'Volt', availability: 'limited', value_tier: 'rare' },
-    });
-    expect(ref!.mid_cents).toBe(6500); // pooled stats stand
-    expect(ref!.detail_label).toContain('"Volt" colorway — rare tier');
-  });
-
-  it('marks the reference as stock-pair on modified listings', () => {
-    const ref = assembleValueReference({
-      ...base,
-      marketValue: { low_cents: 8000, mid_cents: 9000, high_cents: 11000, confidence: 'low' },
+      marketValue: { low_cents: 4000, mid_cents: 5000, high_cents: 6000, confidence: 'low' },
       documentedSales: 3,
+      lastDocumentedSale: { price_cents: 45000, label: 'Magic Man M2, good' },
+    });
+    expect(reference).toBeNull();
+    expect(evidence!.lines.join(' ')).toContain('Last documented sale $450 (Magic Man M2, good)');
+  });
+
+  it('IG point reference requires a deep IG pool', () => {
+    const thin = assembleValueAssessment({
+      ...base,
+      ig: igStub({ sold_priced: 5, median_usd: 180 }),
+    });
+    expect(thin.reference).toBeNull();
+    expect(thin.evidence).not.toBeNull();
+
+    const deep = assembleValueAssessment({
+      ...base,
+      ig: igStub({ sold_priced: 27, median_usd: 228 }),
+    });
+    expect(deep.reference!.mid_cents).toBe(22800);
+    expect(deep.reference!.confidence).toBe('low');
+    expect(deep.reference!.low_cents).toBeNull();
+    expect(deep.reference!.high_cents).toBeNull();
+  });
+
+  it('condition-matched deep tier still anchors a normal model', () => {
+    const { reference } = assembleValueAssessment({
+      ...base,
+      documentedSales: 10,
+      tiers: {
+        brand: 'Nike',
+        model: 'Inflict 4',
+        tiers: { new: { n: 8, median_usd: 105 }, good: { n: 6, median_usd: 60 } },
+      },
+      wearState: 'bnib',
+    });
+    expect(reference!.mid_cents).toBe(10500);
+    expect(reference!.detail_label).toContain('new-condition eBay median $105 (8 sales)');
+  });
+
+  it('carries the stock-pair caveat on both references and evidence', () => {
+    const ref = assembleValueReference({
+      ...base,
+      marketValue: { low_cents: 8000, mid_cents: 9000, high_cents: 11000, confidence: 'medium' },
+      documentedSales: 5,
       disclosureTags: ['sole_swapped', 'no_box'],
     });
     expect(ref!.stock_caveat).toContain('sole swapped');
     expect(ref!.stock_caveat).not.toContain('no box');
+
+    const { evidence } = assembleValueAssessment({
+      ...base,
+      documentedSales: 3,
+      disclosureTags: ['custom_painted'],
+    });
+    expect(evidence!.stock_caveat).toContain('custom painted');
   });
 });

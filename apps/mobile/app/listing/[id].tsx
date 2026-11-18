@@ -32,6 +32,13 @@ type ValueReference = {
   stock_caveat: string | null;
 };
 
+type ValueEvidence = {
+  reason: string;
+  lines: string[];
+  source_label: string;
+  stock_caveat: string | null;
+};
+
 type Listing = {
   id: string;
   title: string;
@@ -101,6 +108,7 @@ export default function ListingDetailScreen() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [shoeAbout, setShoeAbout] = useState<ShoeAbout | null>(null);
   const [valueReference, setValueReference] = useState<ValueReference | null>(null);
+  const [valueEvidence, setValueEvidence] = useState<ValueEvidence | null>(null);
   const [repriceHint, setRepriceHint] = useState<{ ratio: number; message: string } | null>(null);
 
   useEffect(() => {
@@ -114,11 +122,13 @@ export default function ListingDetailScreen() {
           viewer?: { isSeller?: boolean };
           shoe_about?: ShoeAbout | null;
           value_reference?: ValueReference | null;
+          value_evidence?: ValueEvidence | null;
           reprice_hint?: { ratio: number; message: string } | null;
         }>(`/api/market/listings/${id}`);
         if (!cancelled) {
           setListing(res.listing);
           setValueReference(res.value_reference ?? null);
+          setValueEvidence(res.value_evidence ?? null);
           setRepriceHint(res.reprice_hint ?? null);
           setSeller(res.seller ?? null);
           setFollowing(res.following === true);
@@ -383,6 +393,19 @@ export default function ListingDetailScreen() {
             <Text style={styles.referenceMeta}>{valueReference.stock_caveat}</Text>
           ) : null}
         </View>
+      ) : valueEvidence ? (
+        <View style={styles.evidenceCard}>
+          <Text style={styles.evidenceKicker}>
+            {listing.listing_type === 'collection' ? 'GUILD MARKET EVIDENCE' : 'GUILD SOLD-PRICE EVIDENCE'}
+          </Text>
+          <Text style={styles.referenceMeta}>{valueEvidence.reason}</Text>
+          {valueEvidence.lines.map((line) => (
+            <Text key={line} style={styles.evidenceLine}>
+              {line}
+            </Text>
+          ))}
+          <Text style={styles.referenceMeta}>{valueEvidence.source_label}</Text>
+        </View>
       ) : null}
 
       <View style={styles.badges}>
@@ -628,6 +651,19 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   repriceKicker: { ...typography.bodySemi, color: '#f59e0b', fontSize: 10, letterSpacing: 0.8 },
+  evidenceCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.textMuted,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+  evidenceKicker: { ...typography.bodySemi, color: colors.textSecondary, fontSize: 10, letterSpacing: 0.8 },
+  evidenceLine: { ...typography.body, color: colors.text, fontSize: 12, marginTop: 4 },
   referenceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   referenceKicker: { ...typography.bodySemi, color: colors.accentHover, fontSize: 10, letterSpacing: 0.8 },
   referenceValue: { ...typography.bodyBold, color: colors.text, fontSize: 15 },

@@ -14,6 +14,8 @@ export type CatalogPricingContext = {
   catalogMatched: boolean;
   colorwayProfile: ColorwayProfile | null;
   relevantSaleComps: SaleComp[];
+  /** Every stored comp on the model — card counts must equal this, not the filtered slice. */
+  allSaleComps: SaleComp[];
   sizeMultiplier: number;
   promptLines: string[];
 };
@@ -33,6 +35,7 @@ export async function buildCatalogPricingContext(
       catalogMatched: false,
       colorwayProfile: null,
       relevantSaleComps: [],
+      allSaleComps: [],
       sizeMultiplier,
       promptLines: [
         'No catalog match for this brand/model.',
@@ -93,6 +96,7 @@ export async function buildCatalogPricingContext(
     catalogMatched: true,
     colorwayProfile,
     relevantSaleComps,
+    allSaleComps: allComps,
     sizeMultiplier,
     promptLines,
   };

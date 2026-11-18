@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { QuickTradeListingSheet } from '@/components/market/quick-trade-listing-sheet';
 import { formatMarketShoeSizeDual } from '@/lib/market/listing-sizes';
-import type { ValueReference } from '@/lib/market/value-reference';
+import type { ValueEvidence, ValueReference } from '@/lib/market/value-reference';
 import { cn } from '@/lib/utils';
 
 export type OfferMode = 'cash' | 'trade' | 'cash_and_trade';
@@ -46,6 +46,7 @@ export function OfferFormClient({
   listingId,
   listing,
   valueReference = null,
+  valueEvidence = null,
   myListings,
   defaultTrade,
   currentUserId,
@@ -55,6 +56,7 @@ export function OfferFormClient({
   listingId: string;
   listing: OfferListingSummary;
   valueReference?: ValueReference | null;
+  valueEvidence?: ValueEvidence | null;
   myListings: OfferListingSummary[];
   defaultTrade: boolean;
   currentUserId: string;
@@ -234,6 +236,17 @@ export function OfferFormClient({
           {valueReference.stock_caveat ? (
             <p className="text-[11px] text-muted-foreground mt-1">{valueReference.stock_caveat}</p>
           ) : null}
+        </div>
+      ) : showCash && valueEvidence ? (
+        <div className="rounded-xl border border-border border-l-4 border-l-muted-foreground/40 bg-card px-4 py-3">
+          <p className="text-xs font-medium text-muted-foreground">Guild sold-price evidence</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{valueEvidence.reason}</p>
+          {valueEvidence.lines.map((line) => (
+            <p key={line} className="text-[11px] text-foreground mt-1">
+              {line}
+            </p>
+          ))}
+          <p className="text-[11px] text-muted-foreground mt-1">{valueEvidence.source_label}</p>
         </div>
       ) : null}
 

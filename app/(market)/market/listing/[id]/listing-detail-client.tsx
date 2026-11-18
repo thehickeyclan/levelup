@@ -20,7 +20,7 @@ import { RarityBadge } from '@/components/market/rarity-badge';
 import { ListingTypeQuickActions } from '@/components/market/listing-type-quick-actions';
 import { normalizeMarketRarity, rarityShortHint } from '@/lib/market/rarity';
 import { normalizeDisclosureTags, disclosureTagByCode } from '@/lib/market/disclosure-tags';
-import type { ValueReference } from '@/lib/market/value-reference';
+import type { ValueEvidence, ValueReference } from '@/lib/market/value-reference';
 import { collectionAcceptsOffers, isCollectionListingType, sellAcceptsOffers } from '@/lib/market/accepts-offers';
 import type { MarketListingType } from '@/lib/market/listing-type-options';
 import type { MarketSellerStats } from '@/lib/market/seller-reputation';
@@ -126,6 +126,7 @@ export default function ListingDetailClient() {
     sellerStats: MarketSellerStats | null;
     pending_offer_count: number;
     value_reference?: ValueReference | null;
+    value_evidence?: ValueEvidence | null;
     reprice_hint?: { ratio: number; message: string } | null;
     following?: boolean;
     follower_count?: number;
@@ -867,6 +868,22 @@ export default function ListingDetailClient() {
                 </p>
                 {data.value_reference.stock_caveat ? (
                   <p className="text-[11px] text-muted-foreground mt-1">{data.value_reference.stock_caveat}</p>
+                ) : null}
+              </div>
+            ) : data.value_evidence ? (
+              <div className="rounded-xl border border-border border-l-4 border-l-muted-foreground/40 bg-card px-4 py-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {isCollection ? 'Guild market evidence' : 'Guild sold-price evidence'}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1">{data.value_evidence.reason}</p>
+                {data.value_evidence.lines.map((line) => (
+                  <p key={line} className="text-[11px] text-foreground mt-1">
+                    {line}
+                  </p>
+                ))}
+                <p className="text-[11px] text-muted-foreground mt-1">{data.value_evidence.source_label}</p>
+                {data.value_evidence.stock_caveat ? (
+                  <p className="text-[11px] text-muted-foreground mt-1">{data.value_evidence.stock_caveat}</p>
                 ) : null}
               </div>
             ) : null}

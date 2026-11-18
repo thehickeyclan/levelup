@@ -7,7 +7,7 @@ import { findThreadIdByContext } from '@/lib/guild-messaging';
 import { listingAllowsCashOffer, listingAllowsTradeOffer } from '@/lib/market/accepts-offers';
 import { listingConditionDisplay } from '@/lib/market/wear-state';
 import { primaryListingImageUrl } from '@/lib/market/listing-images';
-import { fetchListingValueReference } from '@/lib/market/value-reference';
+import { fetchListingValueAssessment } from '@/lib/market/value-reference';
 import { OfferFormClient, type OfferListingSummary } from './offer-form-client';
 
 type ListingRow = {
@@ -121,9 +121,9 @@ export default async function ListingOfferPage({
   const admin = createAdminClient(tenant.slug);
 
   // The anchor must be tier-matched or it anchors wrong: this is the same
-  // condition- and colorway-aware reference the listing page shows, computed
-  // for the moment the buyer commits to a number.
-  const valueReference = await fetchListingValueReference(admin, {
+  // gated reference the listing page shows, computed for the moment the buyer
+  // commits to a number — and the evidence card when no number is earned.
+  const valueAssessment = await fetchListingValueAssessment(admin, {
     brand: listingRow.brand,
     model: listingRow.model,
     colorway: listingRow.colorway ?? null,
@@ -153,7 +153,8 @@ export default async function ListingOfferPage({
     <OfferFormClient
       listingId={listingId}
       listing={toSummary(listingRow)}
-      valueReference={valueReference}
+      valueReference={valueAssessment.reference}
+      valueEvidence={valueAssessment.evidence}
       myListings={myListings}
       defaultTrade={defaultTrade}
       currentUserId={user.id}

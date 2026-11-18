@@ -198,8 +198,8 @@ export default async function CoachEarningsPage({
       ) : null}
       {connectEnabled && connectPayoutsActive ? (
         <div className="rounded-xl border border-border bg-card/80 px-4 py-3 text-sm">
-          <span className="font-medium text-accent">Instant payouts active</span>
-          <span className="text-muted-foreground"> — your share transfers automatically when you complete a session.</span>
+          <span className="font-medium text-accent">Automatic payouts active</span>
+          <span className="text-muted-foreground"> — your share is sent when you complete a session and reaches your bank in about 2 business days.</span>
         </div>
       ) : null}
       <CoachEarningsClient

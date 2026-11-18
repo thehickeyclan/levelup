@@ -232,7 +232,7 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
                 <Link href={`/athlete/${id}`}>Full coach profile</Link>
               </Button>
               <Button asChild variant="outline" size="sm">
-                <Link href={canBookOrRegister ? `/book/${id}` : `/login?redirect=${encodeURIComponent(`/book/${id}`)}`}>
+                <Link href={canBookOrRegister ? `/book/${id}` : `/signup?redirect=${encodeURIComponent(`/book/${id}`)}`}>
                   {canBookOrRegister ? 'Book a session' : 'Sign in to book'}
                 </Link>
               </Button>
@@ -275,10 +275,10 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
             <p className="text-sm mt-2">
               Ask the coach for a session link, or{' '}
               <Link
-                href={canBookOrRegister ? `/book/${id}` : `/login?redirect=${encodeURIComponent(`/book/${id}`)}`}
+                href={canBookOrRegister ? `/book/${id}` : `/signup?redirect=${encodeURIComponent(`/book/${id}`)}`}
                 className="text-accent underline"
               >
-                {canBookOrRegister ? 'request a time' : 'sign in to request a time'}
+                {canBookOrRegister ? 'request a time' : 'create an account to request a time'}
               </Link>
               .
             </p>
@@ -314,16 +314,16 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
               cta = canBookOrRegister
                 ? { href: `/sessions/${s.id}/register`, label: 'Register' }
                 : {
-                    href: `/login?redirect=${encodeURIComponent(`/sessions/${s.id}/register`)}`,
-                    label: 'Sign in to register',
+                    href: `/signup?redirect=${encodeURIComponent(`/sessions/${s.id}/register`)}`,
+                    label: 'Sign up to register',
                   };
             } else {
               const bookPath = `/book/${id}?session=${s.id}`;
               cta = canBookOrRegister
                 ? { href: bookPath, label: 'Book' }
                 : {
-                    href: `/login?redirect=${encodeURIComponent(bookPath)}`,
-                    label: 'Sign in to book',
+                    href: `/signup?redirect=${encodeURIComponent(bookPath)}`,
+                    label: 'Sign up to book',
                   };
             }
 

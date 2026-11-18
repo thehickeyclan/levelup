@@ -100,7 +100,7 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
     .eq('id', id)
     .maybeSingle();
 
-  if (!athleteRow || !coachIsBookable(athleteRow as { status?: string | null })) {
+  if (!athleteRow || !coachIsBookable(athleteRow as { status?: string | null; active?: boolean | null })) {
     return (
       <div className="container mx-auto px-4 py-10 max-w-lg">
         <Card>
@@ -233,7 +233,7 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
               </Button>
               <Button asChild variant="outline" size="sm">
                 <Link href={canBookOrRegister ? `/book/${id}` : `/signup?redirect=${encodeURIComponent(`/book/${id}`)}`}>
-                  {canBookOrRegister ? 'Book a session' : 'Sign in to book'}
+                  {canBookOrRegister ? 'Book a session' : 'Sign up to book'}
                 </Link>
               </Button>
             </div>

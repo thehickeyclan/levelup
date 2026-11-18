@@ -132,19 +132,29 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
+    // Pay before telling anyone: the transfer is awaited (a void promise in a
+    // serverless route can be frozen mid-flight — money must never ride on
+    // that), and its real outcome drives the SMS, so "auto-pays — no action"
+    // is only ever said about a transfer that actually happened. Any failure
+    // or skip leaves the session in the manual admin payout queue.
+    let connectOutcome: 'transferred' | 'skipped' | 'failed' | undefined;
+    if (isConnectEnabled()) {
+      connectOutcome = await transferCoachPayoutForSession(
+        admin,
+        getStripeInstance(tenant.slug),
+        sessionId
+      ).catch((e) => {
+        console.error('Connect payout error:', e);
+        return 'failed' as const;
+      });
+    }
+
     void notifyAdminsSessionCompleted(admin, {
       sessionId,
       coachUserId: session.athlete_id,
       completedByUserId: user.id,
+      connectOutcome,
     }).catch((e) => console.error('Admin session completed SMS:', e));
-
-    if (isConnectEnabled()) {
-      // Auto-pay the coach's share via Stripe Connect; any failure or skip
-      // leaves the session in the manual admin payout queue.
-      void transferCoachPayoutForSession(admin, getStripeInstance(tenant.slug), sessionId).catch(
-        (e) => console.error('Connect payout error:', e)
-      );
-    }
 
     if (isRewardsProgramEnabled()) {
       const { data: partRows } = await admin

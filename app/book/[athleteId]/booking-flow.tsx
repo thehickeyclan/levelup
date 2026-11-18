@@ -284,8 +284,9 @@ export function BookingFlow({
         window.location.href = data.url;
         return;
       }
+      alert(data.error || 'Could not start the bundle purchase.');
     } catch {
-      /* fall through to reset */
+      alert('Could not start the bundle purchase.');
     }
     setBundleLoading(null);
   };

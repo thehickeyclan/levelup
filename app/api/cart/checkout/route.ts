@@ -98,8 +98,11 @@ export async function POST(req: NextRequest) {
     const uniqueWrestlerIds = [...new Set(lines.map((l) => l.wrestlerId))];
     const admin = createAdminClient(tenant.slug);
 
+    // The shipped mobile app also posts here without the field, so cart only
+    // records acceptance for now; flip to a hard 400 once the app's next
+    // build ships the waiver checkbox.
     if ((body as { waiverAccepted?: boolean }).waiverAccepted === true) {
-      void recordWaiverAcceptance(admin, { parentId: user.id, source: 'cart' });
+      await recordWaiverAcceptance(admin, { parentId: user.id, source: 'cart' });
     }
 
     for (const wid of uniqueWrestlerIds) {

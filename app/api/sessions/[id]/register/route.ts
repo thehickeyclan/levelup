@@ -75,10 +75,6 @@ export async function POST(
     const partnerInviteCodeNorm = (partnerInviteCode ?? '').trim().toUpperCase();
     const admin = createAdminClient(tenant.slug);
 
-    if ((body as { waiverAccepted?: boolean }).waiverAccepted === true) {
-      void recordWaiverAcceptance(admin, { parentId: user.id, sessionId, source: 'register' });
-    }
-
     let { data: session, error: sessionErr } = await supabase
       .from('sessions')
       .select('id, parent_id, athlete_id, join_policy, session_mode, session_type, partner_invite_code, current_participants, max_participants, price_per_participant, scheduled_datetime, status')
@@ -166,6 +162,19 @@ export async function POST(
     const current = s.current_participants ?? 1;
 
     const isOwner = s.parent_id === user.id;
+
+    // Mechanical waiver rule for paying families (web-only route — the mobile
+    // app does not call it): no acceptance, no registration. The session owner
+    // adding their own wrestler is not a checkout and is exempt.
+    if (!isOwner) {
+      if ((body as { waiverAccepted?: boolean }).waiverAccepted !== true) {
+        return NextResponse.json(
+          { error: 'Please agree to the Participation Waiver to register.' },
+          { status: 400 }
+        );
+      }
+      await recordWaiverAcceptance(admin, { parentId: user.id, sessionId, source: 'register' });
+    }
 
     if (isOwner) {
       const { data: yw } = await supabase

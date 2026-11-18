@@ -109,9 +109,15 @@ export async function POST(req: NextRequest) {
 
     const admin = createAdminClient(tenant.slug);
 
-    if ((body as { waiverAccepted?: boolean }).waiverAccepted === true) {
-      void recordWaiverAcceptance(admin, { parentId: user.id, source: 'booking' });
+    // Mechanical waiver rule (web-only route — the mobile app does not call
+    // it): no acceptance, no booking. Recorded before any session is created.
+    if ((body as { waiverAccepted?: boolean }).waiverAccepted !== true) {
+      return NextResponse.json(
+        { error: 'Please agree to the Participation Waiver to book.' },
+        { status: 400 }
+      );
     }
+    await recordWaiverAcceptance(admin, { parentId: user.id, source: 'booking' });
 
     const coachCheck = await verifyCoachForParentBooking(admin, athleteIdNorm);
     if (!coachCheck.ok) {

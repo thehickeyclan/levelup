@@ -31,7 +31,12 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single();
-    if (userData?.role !== 'parent' && userData?.role !== 'admin') {
+    // Same roles that can book: parents, self-managed athletes, admins.
+    if (
+      userData?.role !== 'parent' &&
+      userData?.role !== 'youth_wrestler' &&
+      userData?.role !== 'admin'
+    ) {
       return NextResponse.json({ error: 'Only families can prepay sessions' }, { status: 403 });
     }
 

@@ -10,7 +10,6 @@ import { logMessage } from './message-log';
 import { getSessionTypeDisplay } from './session-type-display';
 import { formatWeightClassLabel } from './wrestler-roster-display';
 import { coachPayoutUsd } from './coach-session-payout';
-import { coachHasActivePayouts, isConnectEnabled } from './stripe/connect';
 
 export type SupabaseAdmin = import('@supabase/supabase-js').SupabaseClient;
 
@@ -606,12 +605,13 @@ function participantWrestlerName(part: {
 async function loadSessionCompletedSmsContext(
   admin: SupabaseAdmin,
   sessionId: string,
-  coachUserId: string
+  coachUserId: string,
+  connectOutcome?: 'transferred' | 'skipped' | 'failed'
 ): Promise<SessionCompletedSmsContext | null> {
   const [{ data: athlete }, { data: session }, { data: parts }] = await Promise.all([
     admin
       .from('athletes')
-      .select('first_name, last_name, venmo_handle, zelle_email, stripe_account_id, stripe_payouts_enabled')
+      .select('first_name, last_name, venmo_handle, zelle_email')
       .eq('id', coachUserId)
       .maybeSingle(),
     admin
@@ -682,10 +682,9 @@ async function loadSessionCompletedSmsContext(
   const coachRow = athlete as {
     venmo_handle?: string | null;
     zelle_email?: string | null;
-    stripe_account_id?: string | null;
-    stripe_payouts_enabled?: boolean | null;
   } | null;
-  const autoPaid = isConnectEnabled() && coachHasActivePayouts(coachRow);
+  // Only a transfer that actually went through earns "no action" in the SMS.
+  const autoPaid = connectOutcome === 'transferred';
 
   return {
     coachName,
@@ -722,11 +721,22 @@ function buildAdminSessionCompletedBody(ctx: SessionCompletedSmsContext): string
  */
 export async function notifyAdminsSessionCompleted(
   admin: SupabaseAdmin,
-  opts: { sessionId: string; coachUserId: string; completedByUserId: string }
+  opts: {
+    sessionId: string;
+    coachUserId: string;
+    completedByUserId: string;
+    /** Result of the awaited Connect transfer; only 'transferred' reads as auto-paid. */
+    connectOutcome?: 'transferred' | 'skipped' | 'failed';
+  }
 ): Promise<void> {
   if (opts.completedByUserId !== opts.coachUserId) return;
 
-  const ctx = await loadSessionCompletedSmsContext(admin, opts.sessionId, opts.coachUserId);
+  const ctx = await loadSessionCompletedSmsContext(
+    admin,
+    opts.sessionId,
+    opts.coachUserId,
+    opts.connectOutcome
+  );
   if (!ctx) return;
 
   const opsTargets = await collectAdminBookingAlertPhonesE164(admin);

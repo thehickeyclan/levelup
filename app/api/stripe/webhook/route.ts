@@ -123,27 +123,53 @@ export async function POST(req: NextRequest) {
         const rawMetaTenant = (session.metadata?.tenant_slug as string | undefined)?.trim().toLowerCase();
         const tenantSlug = rawMetaTenant && rawMetaTenant in tenants ? rawMetaTenant : 'guild';
         const bundleAdmin = createAdminClient(tenantSlug);
-        // Stripe retries webhooks — the checkout session id in the description is the dedupe key.
-        const { data: existing } = await bundleAdmin
-          .from('credits')
-          .select('id')
-          .ilike('description', `%${session.id}%`)
-          .limit(1)
-          .maybeSingle();
-        if (!existing) {
-          const qty = session.metadata?.bundle_qty || '?';
-          const label = session.metadata?.bundle_label || 'session';
-          const result = await grantCredit({
-            userId: parentId,
-            amount: amountUsd,
-            reason: `Prepaid ${qty}-session bundle (${label}) — ${session.id}`,
-            sourceType: 'manual',
-            tenantSlug,
-          });
-          if (!result.success) {
-            console.error('Credit bundle grant failed:', session.id, result.error);
-            return NextResponse.json({ error: 'Credit grant failed' }, { status: 500 });
+        const qty = session.metadata?.bundle_qty || '?';
+        const label = session.metadata?.bundle_label || 'session';
+        const reason = `Prepaid ${qty}-session bundle (${label}) — ${session.id}`;
+
+        // Stripe delivers at-least-once, possibly concurrently. The unique index
+        // on credits.stripe_session_id makes the insert idempotent: a duplicate
+        // delivery hits 23505 and is acknowledged without a second grant.
+        const { error: insertErr } = await bundleAdmin.from('credits').insert({
+          parent_id: parentId,
+          amount: amountUsd,
+          remaining: amountUsd,
+          source: 'admin_grant',
+          description: reason,
+          expires_at: null,
+          stripe_session_id: session.id,
+        });
+        if (insertErr) {
+          if (insertErr.code === '23505') {
+            return NextResponse.json({ received: true }); // duplicate delivery
           }
+          if (insertErr.code === '42703') {
+            // stripe_session_id column not applied yet — fall back to an exact
+            // description match (deterministic string, no wildcard pitfalls).
+            // Small SELECT-then-INSERT race remains until the SQL lands.
+            const { data: existing } = await bundleAdmin
+              .from('credits')
+              .select('id')
+              .eq('description', reason)
+              .limit(1)
+              .maybeSingle();
+            if (!existing) {
+              const result = await grantCredit({
+                userId: parentId,
+                amount: amountUsd,
+                reason,
+                sourceType: 'manual',
+                tenantSlug,
+              });
+              if (!result.success) {
+                console.error('Credit bundle grant failed:', session.id, result.error);
+                return NextResponse.json({ error: 'Credit grant failed' }, { status: 500 });
+              }
+            }
+            return NextResponse.json({ received: true });
+          }
+          console.error('Credit bundle grant failed:', session.id, insertErr.message);
+          return NextResponse.json({ error: 'Credit grant failed' }, { status: 500 });
         }
         return NextResponse.json({ received: true });
       }

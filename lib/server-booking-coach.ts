@@ -12,16 +12,22 @@ export type VerifiedBookingCoach = {
 };
 
 /**
- * Access-first lane: a coach is bookable by direct link from the moment they
- * sign up (status 'pending' = awaiting review, still bookable; legacy null =
- * bookable). Only an explicit 'rejected' or 'suspended' status blocks booking.
- * `athletes.active` remains the PUBLIC DIRECTORY flag only (browse,
- * find-training, mobile directory) — never the booking gate.
+ * Access-first lane, fail-closed:
+ * - status 'pending' (awaiting directory review) is bookable by direct link —
+ *   that is the access-first launch lane for a brand-new coach.
+ * - status 'active' or legacy null is bookable only while `active` (the
+ *   directory/liveness flag) is true — so a coach an admin turned off, or a
+ *   deleted/anonymized account (anonymizer sets active=false), stays dead.
+ * - 'rejected', 'suspended', and any unknown status are never bookable.
  */
-export function coachIsBookable(coach: { status?: string | null } | null | undefined): boolean {
+export function coachIsBookable(
+  coach: { status?: string | null; active?: boolean | null } | null | undefined
+): boolean {
   if (!coach) return false;
   const status = coach.status ?? null;
-  return status !== 'rejected' && status !== 'suspended';
+  if (status === 'pending') return true;
+  if (status === 'active' || status === null) return coach.active === true;
+  return false;
 }
 
 export type VerifyCoachFailure = {
@@ -75,7 +81,7 @@ export async function verifyCoachForParentBooking(
   if (u?.role !== 'coach') {
     return { ok: false, status: 400, error: 'That account is not a coach profile.' };
   }
-  if (!coachIsBookable(athlete as { status?: string | null })) {
+  if (!coachIsBookable(athlete as { status?: string | null; active?: boolean | null })) {
     return {
       ok: false,
       status: 400,

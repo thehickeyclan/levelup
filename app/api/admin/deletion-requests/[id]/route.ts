@@ -125,6 +125,9 @@ export async function POST(
           venmo_handle: null,
           zelle_email: null,
           active: false,
+          // Belt and braces with coachIsBookable: a deleted coach must never be
+          // bookable even if a future rule change loosens the active check.
+          status: 'suspended',
           updated_at: new Date().toISOString(),
         })
         .eq('id', targetId);

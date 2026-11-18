@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { WaiverCheckbox } from '@/components/waiver-checkbox';
 
 const creditsFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -268,6 +269,7 @@ export function BookingFlow({
   const needsPartnerOption = isPartner && partnerOption === null && oneWrestler;
 
   const [bundleLoading, setBundleLoading] = useState<number | null>(null);
+  const [waiverChecked, setWaiverChecked] = useState(false);
   const buyBundle = async (qty: number) => {
     if (!selectedProduct) return;
     setBundleLoading(qty);
@@ -630,6 +632,7 @@ export function BookingFlow({
               ? promoCode.trim().toUpperCase()
               : undefined,
           useCredits,
+          waiverAccepted: waiverChecked,
         }),
       });
       const data = await res.json();
@@ -1314,12 +1317,16 @@ export function BookingFlow({
                     {(firstPartnerProduct?.parent_price ?? partnerPerPersonFallback).toFixed(0)} when they join.
                   </p>
                 )}
+                <div className="mt-4">
+                  <WaiverCheckbox checked={waiverChecked} onChange={setWaiverChecked} />
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-4">
                   <Button variant="outline" onClick={handleBack} className="flex-1 w-full sm:w-auto">Back</Button>
                   <Button
                     onClick={handlePay}
                     disabled={
                       loading ||
+                      !waiverChecked ||
                       selectedWrestlers.length < wrestlerBounds.min ||
                       selectedWrestlers.length > wrestlerBounds.max
                     }

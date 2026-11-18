@@ -26,6 +26,7 @@ import {
 } from '@/lib/stripe/guild-checkout-metadata';
 import { applyCredits, getCreditUsageSumForParentSession, getUserCreditBalance } from '@/lib/credits';
 import { GUILD_PERCENT_DISPLAY } from '@/lib/pricing';
+import { recordWaiverAcceptance } from '@/lib/waiver';
 import { sessionPricePerParticipantUsd } from '@/lib/session-price';
 import {
   isSessionOpenForRegistrationPayment,
@@ -73,6 +74,10 @@ export async function POST(
 
     const partnerInviteCodeNorm = (partnerInviteCode ?? '').trim().toUpperCase();
     const admin = createAdminClient(tenant.slug);
+
+    if ((body as { waiverAccepted?: boolean }).waiverAccepted === true) {
+      void recordWaiverAcceptance(admin, { parentId: user.id, sessionId, source: 'register' });
+    }
 
     let { data: session, error: sessionErr } = await supabase
       .from('sessions')
@@ -541,7 +546,7 @@ export async function POST(
     const stripeSession = await stripe.checkout.sessions.create(
       {
         mode: 'payment',
-        payment_method_types: ['card'],
+        payment_method_types: ['card', 'link', 'cashapp'],
         line_items: [
           {
             quantity: 1,

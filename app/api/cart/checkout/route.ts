@@ -23,6 +23,7 @@ import {
 import { sessionPricePerParticipantUsd } from '@/lib/session-price';
 import { verifyWrestlerBelongsToParentOrSelf } from '@/lib/wrestlers-for-parent';
 import { GUILD_PERCENT_DISPLAY } from '@/lib/pricing';
+import { recordWaiverAcceptance } from '@/lib/waiver';
 import {
   isSessionOpenForRegistrationPayment,
   registrationPaymentBlockedMessage,
@@ -96,6 +97,11 @@ export async function POST(req: NextRequest) {
 
     const uniqueWrestlerIds = [...new Set(lines.map((l) => l.wrestlerId))];
     const admin = createAdminClient(tenant.slug);
+
+    if ((body as { waiverAccepted?: boolean }).waiverAccepted === true) {
+      void recordWaiverAcceptance(admin, { parentId: user.id, source: 'cart' });
+    }
+
     for (const wid of uniqueWrestlerIds) {
       if (role === 'youth_wrestler' && wid !== user.id) {
         return NextResponse.json(
@@ -503,7 +509,7 @@ export async function POST(req: NextRequest) {
     const stripeSession = await stripe.checkout.sessions.create(
       {
         mode: 'payment',
-        payment_method_types: ['card'],
+        payment_method_types: ['card', 'link', 'cashapp'],
         line_items: stripeLineItems,
         metadata,
         payment_intent_data: guildPaymentIntentData(metadata),

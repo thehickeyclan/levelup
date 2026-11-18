@@ -16,6 +16,7 @@ import { normalizeCoachOrWrestlerId, verifyCoachForParentBooking } from '@/lib/s
 import { isPennyTestPricingEnabled } from '@/lib/penny-test-pricing';
 import { resolveCoachPayoutRate } from '@/lib/coach-session-payout';
 import { GUILD_PERCENT_DISPLAY } from '@/lib/pricing';
+import { recordWaiverAcceptance } from '@/lib/waiver';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
 import { applyCredits, getUserCreditBalance } from '@/lib/credits';
@@ -107,6 +108,11 @@ export async function POST(req: NextRequest) {
     }
 
     const admin = createAdminClient(tenant.slug);
+
+    if ((body as { waiverAccepted?: boolean }).waiverAccepted === true) {
+      void recordWaiverAcceptance(admin, { parentId: user.id, source: 'booking' });
+    }
+
     const coachCheck = await verifyCoachForParentBooking(admin, athleteIdNorm);
     if (!coachCheck.ok) {
       return NextResponse.json({ error: coachCheck.error }, { status: coachCheck.status });
@@ -452,7 +458,7 @@ export async function POST(req: NextRequest) {
         const stripeSession = await stripe.checkout.sessions.create(
           {
             mode: 'payment',
-            payment_method_types: ['card'],
+            payment_method_types: ['card', 'link', 'cashapp'],
             line_items: [
               {
                 quantity: 1,

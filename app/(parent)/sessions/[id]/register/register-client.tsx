@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { WaiverCheckbox } from '@/components/waiver-checkbox';
 import {
   Select,
   SelectContent,
@@ -55,6 +56,7 @@ export function SessionRegisterClient({
 }: SessionRegisterClientProps) {
   const router = useRouter();
   const [selectedWrestlerId, setSelectedWrestlerId] = useState(initialWrestlerId);
+  const [waiverChecked, setWaiverChecked] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [codeApplied, setCodeApplied] = useState(false);
   const [localPromoPercent, setLocalPromoPercent] = useState<number | null>(null);
@@ -200,6 +202,7 @@ export function SessionRegisterClient({
           promoCode: !isOwner && codeApplied ? codeTrimmed.toUpperCase() : undefined,
           partnerInviteCode: partnerInviteCode.trim() ? partnerInviteCode.trim().toUpperCase() : undefined,
           useCredits: !isOwner ? useCredits : undefined,
+          waiverAccepted: !isOwner ? waiverChecked : undefined,
         }),
       });
       const data = await res.json();
@@ -386,10 +389,16 @@ export function SessionRegisterClient({
           )}
         </div>
       )}
+      {!isOwner && (
+        <div className="mb-3">
+          <WaiverCheckbox checked={waiverChecked} onChange={setWaiverChecked} />
+        </div>
+      )}
       <Button
         type="submit"
         disabled={
           loading ||
+          (!isOwner && !waiverChecked) ||
           (selectedWrestler != null && selectedWrestler.hasValidCell === false) ||
           (selectedWrestler != null && selectedWrestler.hasGraduationYear === false)
         }

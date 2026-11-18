@@ -16,6 +16,7 @@ import { formatEST } from '@/lib/format-date';
 import { getSessionTypeDisplay } from '@/lib/session-type-display';
 import { useAutoAssignSoloWrestler } from '@/lib/hooks/use-auto-assign-solo-wrestler';
 import { Switch } from '@/components/ui/switch';
+import { WaiverCheckbox } from '@/components/waiver-checkbox';
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 type Wrestler = {
@@ -54,6 +55,7 @@ export function CartCheckoutClient({
   const [appliedDiscount, setAppliedDiscount] = useState<number>(existingDiscount ?? 0);
   const [promoApplied, setPromoApplied] = useState((existingDiscount ?? 0) > 0);
   const [useCredits, setUseCredits] = useState(true);
+  const [waiverChecked, setWaiverChecked] = useState(false);
 
   const allLinesHaveWrestler = items.length > 0 && items.every((i) => Boolean(i.athlete_id));
 
@@ -152,7 +154,7 @@ export function CartCheckoutClient({
       const res = await fetch('/api/cart/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lines, promoCode: promoPayload, useCredits }),
+        body: JSON.stringify({ lines, promoCode: promoPayload, useCredits, waiverAccepted: waiverChecked }),
       });
 
       const data = await res.json();
@@ -437,10 +439,13 @@ export function CartCheckoutClient({
             <p className="text-sm text-destructive">{error}</p>
           )}
 
+          <div className="mb-3">
+            <WaiverCheckbox checked={waiverChecked} onChange={setWaiverChecked} />
+          </div>
           {/* Checkout Button */}
           <Button
             onClick={handleCheckout}
-            disabled={loading || !allLinesHaveWrestler}
+            disabled={loading || !allLinesHaveWrestler || !waiverChecked}
             className="w-full min-h-[48px] text-base gap-2"
           >
             {loading ? (

@@ -4,7 +4,7 @@
  *
  * - If `athlete_payment` is set (> 0), use it (bookings, Stripe, or manual record).
  * - Else if we know what parents actually paid (sum of `session_participants.amount_paid`),
- *   coach share = that total × rate (default 80% via `COACH_REVENUE_FRACTION`; overrides on `session_payout_rate` / `athletes.payout_rate`).
+ *   coach share = that total × rate (default 85% via `COACH_REVENUE_FRACTION`; overrides on `session_payout_rate` / `athletes.payout_rate`).
  * - Otherwise estimate from roster: list price per slot × participants × coach share.
  */
 import { COACH_REVENUE_FRACTION, normalizeCoachRevenueShareRate } from '@/lib/pricing';
@@ -36,7 +36,7 @@ export type SessionCoachPayoutFields = {
   coach_payout_rate?: number | null;
 };
 
-/** Resolve revenue share for coach estimates: explicit arg → session → athlete → app default (80%). */
+/** Resolve revenue share for coach estimates: explicit arg → session → athlete → app default (85%). */
 export function resolveCoachPayoutRate(
   session: SessionCoachPayoutFields,
   explicitRate?: number

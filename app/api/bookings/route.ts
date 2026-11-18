@@ -15,6 +15,7 @@ import { checkoutAllowSavedAccountPercent, resolveCheckoutPercentOff } from '@/l
 import { normalizeCoachOrWrestlerId, verifyCoachForParentBooking } from '@/lib/server-booking-coach';
 import { isPennyTestPricingEnabled } from '@/lib/penny-test-pricing';
 import { resolveCoachPayoutRate } from '@/lib/coach-session-payout';
+import { GUILD_PERCENT_DISPLAY } from '@/lib/pricing';
 import { notifyCoachAndAdminsNewBooking } from '@/lib/twilio';
 import { COACH_SESSION_OVERLAP_ERROR, findCoachSessionTimeOverlap } from '@/lib/coach-session-overlap';
 import { applyCredits, getUserCreditBalance } from '@/lib/credits';
@@ -441,7 +442,7 @@ export async function POST(req: NextRequest) {
             category: 'booking',
             session_type: sessionType,
             coach_id: athleteIdNorm,
-            platform_fee_pct: '20',
+            platform_fee_pct: String(GUILD_PERCENT_DISPLAY),
             test_mode: testModePenny ? 'true' : 'false',
             booking_lines: bookingLines,
             ...(creditsToUse > 0 && { credits_to_use: creditsToUse.toFixed(2) }),

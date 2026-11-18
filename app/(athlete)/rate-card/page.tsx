@@ -23,7 +23,7 @@ export default async function RateCardPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Pricing & Session Types</h1>
         <p className="text-muted-foreground mt-1">
-          Build what you offer: duration (30m, 1hr, 1:30, 2hr), type (private, partner, small group), and price per person. Guild share is ~20% of what the parent pays; you receive the rest (80%).
+          Build what you offer: duration (30m, 1hr, 1:30, 2hr), type (private, partner, small group), and price per person. Guild share is 15% of what the parent pays; you keep 85%.
         </p>
       </div>
       <ServiceBuilder recommendedRates={recommendedRates} />

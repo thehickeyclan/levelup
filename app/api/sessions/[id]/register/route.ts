@@ -25,6 +25,7 @@ import {
   guildPaymentIntentData,
 } from '@/lib/stripe/guild-checkout-metadata';
 import { applyCredits, getCreditUsageSumForParentSession, getUserCreditBalance } from '@/lib/credits';
+import { GUILD_PERCENT_DISPLAY } from '@/lib/pricing';
 import { sessionPricePerParticipantUsd } from '@/lib/session-price';
 import {
   isSessionOpenForRegistrationPayment,
@@ -519,7 +520,7 @@ export async function POST(
         category: 'booking',
         session_type: String(sessionForStripe.session_type ?? ''),
         coach_id: String(coachId),
-        platform_fee_pct: '20',
+        platform_fee_pct: String(GUILD_PERCENT_DISPLAY),
         youth_wrestler_id: String(youthWrestlerId),
         register: 'true',
         credits_to_use: creditsToUse.toString(),

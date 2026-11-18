@@ -14,13 +14,13 @@ describe('buildCockpitMonthlyGuildNet', () => {
     );
 
     expect(result).toEqual([
-      { month: '2026-01', gross: 150, coachPayouts: 120, stripeFees: 4.95, net: 25.05 },
+      { month: '2026-01', gross: 150, coachPayouts: 127.5, stripeFees: 4.95, net: 17.55 },
       { month: '2026-02', gross: 0, coachPayouts: 0, stripeFees: 0, net: 0 },
-      { month: '2026-03', gross: 200, coachPayouts: 160, stripeFees: 6.1, net: 33.9 },
+      { month: '2026-03', gross: 200, coachPayouts: 170, stripeFees: 6.1, net: 23.9 },
     ]);
   });
 
-  it('enforces the standard 80% coach share and ignores unpaid rows', () => {
+  it('enforces the standard 85% coach share and ignores unpaid rows', () => {
     const result = buildCockpitMonthlyGuildNet(
       [
         { created_at: '2026-05-01T12:00:00Z', amount_paid: 100, stripe_fee: 3, session_payout_rate: 0.75 },
@@ -31,7 +31,7 @@ describe('buildCockpitMonthlyGuildNet', () => {
     );
 
     expect(result).toEqual([
-      { month: '2026-05', gross: 100, coachPayouts: 80, stripeFees: 3, net: 17 },
+      { month: '2026-05', gross: 100, coachPayouts: 85, stripeFees: 3, net: 12 },
     ]);
   });
 });

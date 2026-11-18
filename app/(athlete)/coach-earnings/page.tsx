@@ -60,7 +60,7 @@ export default async function CoachEarningsPage() {
         <div className="container mx-auto px-4 py-5 pb-24 md:py-8 max-w-2xl">
           <CoachEarningsClient
             coachId={coachId}
-            payoutRate={0.8}
+            payoutRate={normalizeCoachRevenueShareRate(null)}
             thisMonthEarnings={0}
             allTimeEarnings={0}
             projectedEarnings={0}

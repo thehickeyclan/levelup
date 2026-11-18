@@ -22,6 +22,7 @@ import {
 } from '@/lib/stripe/guild-checkout-metadata';
 import { sessionPricePerParticipantUsd } from '@/lib/session-price';
 import { verifyWrestlerBelongsToParentOrSelf } from '@/lib/wrestlers-for-parent';
+import { GUILD_PERCENT_DISPLAY } from '@/lib/pricing';
 import {
   isSessionOpenForRegistrationPayment,
   registrationPaymentBlockedMessage,
@@ -490,7 +491,7 @@ export async function POST(req: NextRequest) {
       extras: {
         category: 'booking',
         session_type: cartSessionType,
-        platform_fee_pct: '20',
+        platform_fee_pct: String(GUILD_PERCENT_DISPLAY),
         cart_checkout: 'true',
         cart_lines: cartLinesMeta,
         session_ids: sessionIdsUnique.join(','),

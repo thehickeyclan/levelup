@@ -7,7 +7,7 @@ export type VerifiedBookingCoach = {
   last_name: string;
   active: boolean;
   facility_id: string | null;
-  /** Coach revenue share of gross (e.g. 0.8); used when creating sessions from parent book flow */
+  /** Coach revenue share of gross (e.g. 0.85); used when creating sessions from parent book flow */
   payout_rate?: number | null;
 };
 

@@ -1684,7 +1684,7 @@ export function AdminDashboardClient({
 
     for (const s of filteredSess) {
       // participant_amount_paid_sum = line amounts on roster (often list price until Stripe settles)
-      // Coach share = sessionPayoutAmountUsd (80% default of paid sum / roster estimate; athlete_payment when set at payout)
+      // Coach share = sessionPayoutAmountUsd (85% default of paid sum / roster estimate; athlete_payment when set at payout)
       const parentsPaid = Number(s.participant_amount_paid_sum) || 0;
       const coachPaid = sessionPayoutAmountUsd(s);
       

@@ -9,6 +9,8 @@ import { formatEST } from './format-date';
 import { logMessage } from './message-log';
 import { getSessionTypeDisplay } from './session-type-display';
 import { formatWeightClassLabel } from './wrestler-roster-display';
+import { coachPayoutUsd } from './coach-session-payout';
+import { coachHasActivePayouts, isConnectEnabled } from './stripe/connect';
 
 export type SupabaseAdmin = import('@supabase/supabase-js').SupabaseClient;
 
@@ -553,7 +555,37 @@ type SessionCompletedSmsContext = {
   facilityName: string | null;
   paidCount: number;
   wrestlerSummary: string | null;
+  payoutUsd: number;
+  venmoHandle: string | null;
+  zelleEmail: string | null;
+  /** Connect will auto-transfer this payout — do not Venmo. */
+  autoPaid: boolean;
 };
+
+/**
+ * The pay-now line for the admin completion SMS: a prefilled Venmo link so the
+ * coach is paid within a minute of tapping "complete". Exported for tests.
+ */
+export function buildPayoutSmsLine(ctx: {
+  coachName: string;
+  payoutUsd: number;
+  venmoHandle: string | null;
+  zelleEmail: string | null;
+  autoPaid: boolean;
+}): string {
+  if (ctx.payoutUsd <= 0) return 'Nothing owed (no paid registrants).';
+  const amount = ctx.payoutUsd.toFixed(2);
+  if (ctx.autoPaid) return `$${amount} auto-pays via Stripe — no action.`;
+  const handle = ctx.venmoHandle?.trim().replace(/^@/, '');
+  if (handle) {
+    const note = encodeURIComponent('Guild session');
+    return `Pay ${ctx.coachName} $${amount} → https://venmo.com/${encodeURIComponent(handle)}?txn=pay&amount=${amount}&note=${note} then Mark paid in admin.`;
+  }
+  if (ctx.zelleEmail?.trim()) {
+    return `Pay ${ctx.coachName} $${amount} via Zelle: ${ctx.zelleEmail.trim()} then Mark paid in admin.`;
+  }
+  return `Owed $${amount} — no payout handle on file for ${ctx.coachName}.`;
+}
 
 function participantWrestlerName(part: {
   youth_wrestlers?:
@@ -577,15 +609,21 @@ async function loadSessionCompletedSmsContext(
   coachUserId: string
 ): Promise<SessionCompletedSmsContext | null> {
   const [{ data: athlete }, { data: session }, { data: parts }] = await Promise.all([
-    admin.from('athletes').select('first_name, last_name').eq('id', coachUserId).maybeSingle(),
+    admin
+      .from('athletes')
+      .select('first_name, last_name, venmo_handle, zelle_email, stripe_account_id, stripe_payouts_enabled')
+      .eq('id', coachUserId)
+      .maybeSingle(),
     admin
       .from('sessions')
-      .select('scheduled_datetime, session_type, facilities(name)')
+      .select(
+        'scheduled_datetime, session_type, athlete_payment, price_per_participant, current_participants, session_payout_rate, facilities(name)'
+      )
       .eq('id', sessionId)
       .maybeSingle(),
     admin
       .from('session_participants')
-      .select('youth_wrestlers(first_name, last_name), roster_first_name, roster_last_name')
+      .select('amount_paid, youth_wrestlers(first_name, last_name), roster_first_name, roster_last_name')
       .eq('session_id', sessionId)
       .eq('paid', true),
   ]);
@@ -624,7 +662,43 @@ async function loadSessionCompletedSmsContext(
       ? names.slice(0, 4).join(', ') + (names.length > 4 ? ` +${names.length - 4}` : '')
       : null;
 
-  return { coachName, typeLabel, dateStr, facilityName, paidCount, wrestlerSummary };
+  const sessionRow = session as {
+    athlete_payment?: number | null;
+    price_per_participant?: number | null;
+    current_participants?: number | null;
+    session_payout_rate?: number | null;
+  };
+  const paidSum = (parts ?? []).reduce(
+    (sum, p) => sum + Number((p as { amount_paid?: number | null }).amount_paid ?? 0),
+    0
+  );
+  const payoutUsd = coachPayoutUsd({
+    athlete_payment: sessionRow.athlete_payment,
+    price_per_participant: sessionRow.price_per_participant,
+    current_participants: sessionRow.current_participants,
+    participant_amount_paid_sum: paidSum,
+    session_payout_rate: sessionRow.session_payout_rate ?? null,
+  });
+  const coachRow = athlete as {
+    venmo_handle?: string | null;
+    zelle_email?: string | null;
+    stripe_account_id?: string | null;
+    stripe_payouts_enabled?: boolean | null;
+  } | null;
+  const autoPaid = isConnectEnabled() && coachHasActivePayouts(coachRow);
+
+  return {
+    coachName,
+    typeLabel,
+    dateStr,
+    facilityName,
+    paidCount,
+    wrestlerSummary,
+    payoutUsd,
+    venmoHandle: coachRow?.venmo_handle ?? null,
+    zelleEmail: coachRow?.zelle_email ?? null,
+    autoPaid,
+  };
 }
 
 function buildAdminSessionCompletedBody(ctx: SessionCompletedSmsContext): string {
@@ -635,7 +709,8 @@ function buildAdminSessionCompletedBody(ctx: SessionCompletedSmsContext): string
       : ctx.wrestlerSummary
         ? `${ctx.paidCount} paid (${ctx.wrestlerSummary})`
         : `${ctx.paidCount} paid`;
-  return `The Guild (ops): Coach ${ctx.coachName} marked complete — ${ctx.typeLabel}, ${ctx.dateStr}${place}. ${athletes}. Admin → Ready to pay.`.slice(
+  const payLine = buildPayoutSmsLine(ctx);
+  return `The Guild (ops): Coach ${ctx.coachName} marked complete — ${ctx.typeLabel}, ${ctx.dateStr}${place}. ${athletes}. ${payLine}`.slice(
     0,
     1600
   );

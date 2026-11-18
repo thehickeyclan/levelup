@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain, resolveHostnameFromHeaders } from '@/config/tenants';
 import { coachPublicScheduleUrl } from '@/lib/coach-public-schedule-url';
+import { coachIsBookable } from '@/lib/server-booking-coach';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,11 +21,11 @@ export async function GET(
   const admin = createAdminClient(tenant.slug);
   const { data: coach } = await admin
     .from('athletes')
-    .select('id, active')
+    .select('id, active, status')
     .eq('id', coachId)
     .maybeSingle();
 
-  if (!coach?.active) {
+  if (!coach || !coachIsBookable(coach as { status?: string | null })) {
     return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
   }
 

@@ -81,13 +81,21 @@ export function CoachWelcomeClient({ coachId, firstName, bookingUrl }: Props) {
           <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Your booking link</p>
             <p className="text-xs font-mono text-foreground break-all">{bookingUrl}</p>
-            <button
-              type="button"
-              onClick={copyBookingLink}
-              className="text-sm font-medium text-[#B89D60] hover:underline"
-            >
-              {copied ? 'Copied!' : 'Copy link'}
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={copyBookingLink}
+                className="text-sm font-medium text-[#B89D60] hover:underline"
+              >
+                {copied ? 'Copied!' : 'Copy link'}
+              </button>
+              <a
+                href={`/qr/coach/${coachId}`}
+                className="text-sm font-medium text-[#B89D60] hover:underline"
+              >
+                QR code
+              </a>
+            </div>
           </div>
           <CoachMilestoneFooterActions
             primary={{

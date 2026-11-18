@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { coachPublicScheduleUrl } from '@/lib/coach-public-schedule-url';
 import { QrLinkActions } from '@/components/qr-link-actions';
+import { coachIsBookable } from '@/lib/server-booking-coach';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,11 +61,11 @@ export default async function CoachSessionsQrPage({ params }: { params: Promise<
   const admin = createAdminClient(tenant.slug);
   const { data: athlete } = await admin
     .from('athletes')
-    .select('id, first_name, last_name, active')
+    .select('id, first_name, last_name, active, status')
     .eq('id', id)
     .maybeSingle();
 
-  if (!athlete?.active) notFound();
+  if (!athlete || !coachIsBookable(athlete as { status?: string | null })) notFound();
 
   const coachName =
     [athlete.first_name, athlete.last_name].filter(Boolean).join(' ').trim() || 'Coach';

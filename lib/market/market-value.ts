@@ -173,6 +173,8 @@ export async function fetchMarketValueData(
   documentedComps: PriceComp[];
   /** Every stored comp on the model, unfiltered — for honest card counts. */
   allSaleComps: SaleComp[];
+  /** Live manufacturer price when the model is still in production. */
+  currentRetail: { cents: number; source: string | null } | null;
   marketValue: MarketValueRange | null;
   colorwayProfile: import('@/lib/market/shoe-id/schemas').ColorwayProfile | null;
 }> {
@@ -204,6 +206,7 @@ export async function fetchMarketValueData(
     askingComps,
     documentedComps,
     allSaleComps: catalogContext.allSaleComps,
+    currentRetail: catalogContext.currentRetail,
     marketValue,
     colorwayProfile: catalogContext.colorwayProfile,
   };

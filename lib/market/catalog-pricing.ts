@@ -16,6 +16,8 @@ export type CatalogPricingContext = {
   relevantSaleComps: SaleComp[];
   /** Every stored comp on the model — card counts must equal this, not the filtered slice. */
   allSaleComps: SaleComp[];
+  /** Live manufacturer price when the model is still in production (catalog_price_cents + price_source). */
+  currentRetail: { cents: number; source: string | null } | null;
   sizeMultiplier: number;
   promptLines: string[];
 };
@@ -36,6 +38,7 @@ export async function buildCatalogPricingContext(
       colorwayProfile: null,
       relevantSaleComps: [],
       allSaleComps: [],
+      currentRetail: null,
       sizeMultiplier,
       promptLines: [
         'No catalog match for this brand/model.',
@@ -92,11 +95,23 @@ export async function buildCatalogPricingContext(
     `Size ${sizeUs ?? 'unknown'} US → apply ${sizeMultiplier.toFixed(2)}x multiplier vs peak sizes (9–11.5). Sizes under 9 and above 12 sell for less; 13+ much less.`
   );
 
+  const retailCents = entry.catalog_price_cents as number | null;
+  const currentRetail =
+    retailCents != null && retailCents > 0
+      ? { cents: retailCents, source: (entry.price_source as string | null) ?? null }
+      : null;
+  if (currentRetail) {
+    promptLines.push(
+      `Still in production: current manufacturer price $${Math.round(currentRetail.cents / 100)}${currentRetail.source ? ` (${currentRetail.source})` : ''} — a new pair of a standard colorway cannot be worth more than the live retail price.`
+    );
+  }
+
   return {
     catalogMatched: true,
     colorwayProfile,
     relevantSaleComps,
     allSaleComps: allComps,
+    currentRetail,
     sizeMultiplier,
     promptLines,
   };

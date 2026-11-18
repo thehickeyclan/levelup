@@ -180,6 +180,65 @@ describe('assembleValueAssessment — the confidence gate (pricing audit 2026-11
     expect(reference!.detail_label).toContain('new-condition eBay median $105 (8 sales)');
   });
 
+  it('a new pair of an in-production model references the live manufacturer price', () => {
+    // Audit follow-up (Matt, 18 Nov): a BNIB GEN-ONE still sold on Nidrogen's
+    // site is worth retail — not "not enough verified sales".
+    const { reference } = assembleValueAssessment({
+      ...base,
+      wearState: 'bnib',
+      currentRetail: { cents: 8900, source: 'nidrogen.com' },
+    });
+    expect(reference!.mid_cents).toBe(8900);
+    expect(reference!.confidence).toBe('high');
+    expect(reference!.detail_label).toContain('Still at retail — $89 at nidrogen.com');
+  });
+
+  it('a used pair of a current model keeps the pool value with retail as the stated ceiling', () => {
+    const { reference } = assembleValueAssessment({
+      ...base,
+      documentedSales: 6,
+      tiers: {
+        brand: 'Nidrogen',
+        model: 'GEN-ONE',
+        tiers: { good: { n: 6, median_usd: 55 } },
+      },
+      wearState: 'used',
+      condition: 'good',
+      currentRetail: { cents: 8900, source: 'nidrogen.com' },
+    });
+    expect(reference!.mid_cents).toBe(5500);
+    expect(reference!.detail_label).toContain('Still at retail — $89');
+  });
+
+  it('a premium colorway of a current model is never capped at retail', () => {
+    const { reference, evidence } = assembleValueAssessment({
+      ...base,
+      documentedSales: 6,
+      wearState: 'bnib',
+      currentRetail: { cents: 10500, source: 'nike.com' },
+      colorwayProfile: { name: 'OE Tokyo', availability: 'limited', value_tier: 'rare' },
+    });
+    expect(reference).toBeNull();
+    expect(evidence!.reason).toContain('OE Tokyo');
+    expect(evidence!.lines.join(' ')).toContain('Still at retail');
+  });
+
+  it('a matched colorway retail anchor beats the model-level price', () => {
+    const { reference } = assembleValueAssessment({
+      ...base,
+      wearState: 'bnib',
+      currentRetail: { cents: 10500, source: 'nike.com' },
+      colorwayProfile: {
+        name: 'Black / White',
+        availability: 'current_retail',
+        value_tier: 'common',
+        retail_anchor_cents: 9500,
+      },
+    });
+    expect(reference!.mid_cents).toBe(9500);
+    expect(reference!.confidence).toBe('high');
+  });
+
   it('carries the stock-pair caveat on both references and evidence', () => {
     const ref = assembleValueReference({
       ...base,

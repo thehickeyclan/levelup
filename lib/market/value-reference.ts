@@ -126,7 +126,26 @@ export type ValueAssessmentInput = {
   colorwayProfile?: ColorwayProfile | null;
   /** Most recent documented sale, for the evidence card. */
   lastDocumentedSale?: { price_cents: number; label: string | null } | null;
+  /** Live manufacturer price when the model is still in production. */
+  currentRetail?: { cents: number; source: string | null } | null;
 };
+
+/** The live retail anchor: the matched colorway's beats the model's. */
+function effectiveRetail(
+  input: ValueAssessmentInput
+): { cents: number; source: string | null } | null {
+  const profile = input.colorwayProfile;
+  if (profile?.availability === 'current_retail' && profile.retail_anchor_cents) {
+    return { cents: profile.retail_anchor_cents, source: input.currentRetail?.source ?? null };
+  }
+  return input.currentRetail ?? null;
+}
+
+function retailLine(input: ValueAssessmentInput): string | null {
+  const retail = effectiveRetail(input);
+  if (!retail) return null;
+  return `Still at retail — $${Math.round(retail.cents / 100)}${retail.source ? ` at ${retail.source}` : ''}`;
+}
 
 function buildSourceLabel(input: ValueAssessmentInput): string {
   const igSold = input.ig?.sold_priced ?? 0;
@@ -163,6 +182,8 @@ function igMedianLine(ig: IgModelHistory | null): string | null {
 
 function evidenceLines(input: ValueAssessmentInput): string[] {
   const lines: string[] = [];
+  const retail = retailLine(input);
+  if (retail) lines.push(retail);
   const tiers = input.tiers;
   if (tiers) {
     const parts = Object.keys(tiers.tiers)
@@ -254,12 +275,30 @@ export function assembleValueAssessment(input: ValueAssessmentInput): ValueAsses
     ]);
   }
 
+  const flag = input.tiers?.condition_flag?.trim() || null;
+  const wearKey = wearTierKey(input.wearState, input.condition);
+
+  // 1b. A model still in production prices itself: a new pair of a standard
+  // colorway is worth the manufacturer's live price, no sales pool needed.
+  // Premium colorways of current models are the exception — the retail page
+  // doesn't sell those, so they fall through to the variant branches.
+  const retail = effectiveRetail(input);
+  if (retail && wearKey === 'new' && !premium) {
+    return reference(input, retail.cents, null, null, 'high', [
+      `Still at retail — $${Math.round(retail.cents / 100)}${retail.source ? ` at ${retail.source}` : ''}`,
+      igMedianLine(input.ig),
+    ]);
+  }
+
   if (combined < MIN_COMBINED_SALES) {
+    if (retail) {
+      // Used pair of a current model with no sales history: retail is the
+      // honest ceiling, shown as evidence rather than invented as a value.
+      return evidenceOnly(input, 'No verified used-pair sales for this model yet — retail is the ceiling.');
+    }
     return { reference: null, evidence: null };
   }
 
-  const flag = input.tiers?.condition_flag?.trim() || null;
-  const wearKey = wearTierKey(input.wearState, input.condition);
   const matchedTier = pickTier(input.tiers ?? null, wearKey);
   const premiumNote = premium
     ? `"${profile!.name}" colorway — ${profile!.value_tier ?? 'grail'} tier, sits at or above this reference`
@@ -304,6 +343,7 @@ export function assembleValueAssessment(input: ValueAssessmentInput): ValueAsses
     }
     return reference(input, mid, null, null, 'medium', [
       `${matchedTier.label}-condition eBay median $${matchedTier.median_usd} (${matchedTier.n} sales)`,
+      retailLine(input),
       igMedianLine(input.ig),
     ]);
   }
@@ -327,6 +367,7 @@ export function assembleValueAssessment(input: ValueAssessmentInput): ValueAsses
         : null;
     return reference(input, mid, null, null, 'medium', [
       `${deep.label}-condition eBay median $${deep.median_usd} (${deep.n} sales)${mismatch ? ` — ${mismatch}` : ''}`,
+      retailLine(input),
       igMedianLine(input.ig),
     ]);
   }
@@ -341,6 +382,7 @@ export function assembleValueAssessment(input: ValueAssessmentInput): ValueAsses
       );
     }
     return reference(input, mv.mid_cents, mv.low_cents, mv.high_cents, mv.confidence, [
+      retailLine(input),
       igMedianLine(input.ig),
     ]);
   }
@@ -405,6 +447,7 @@ export async function fetchListingValueAssessment(
       condition: input.condition,
       disclosureTags: input.disclosure_tags,
       colorwayProfile: market.colorwayProfile,
+      currentRetail: market.currentRetail,
       lastDocumentedSale: lastComp
         ? {
             price_cents: lastComp.sold_price_cents,

@@ -11,6 +11,19 @@ export type VerifiedBookingCoach = {
   payout_rate?: number | null;
 };
 
+/**
+ * Access-first lane: a coach is bookable by direct link from the moment they
+ * sign up (status 'pending' = awaiting review, still bookable; legacy null =
+ * bookable). Only an explicit 'rejected' or 'suspended' status blocks booking.
+ * `athletes.active` remains the PUBLIC DIRECTORY flag only (browse,
+ * find-training, mobile directory) — never the booking gate.
+ */
+export function coachIsBookable(coach: { status?: string | null } | null | undefined): boolean {
+  if (!coach) return false;
+  const status = coach.status ?? null;
+  return status !== 'rejected' && status !== 'suspended';
+}
+
 export type VerifyCoachFailure = {
   ok: false;
   status: number;
@@ -46,7 +59,7 @@ export async function verifyCoachForParentBooking(
 ): Promise<VerifyCoachResult> {
   const { data: athlete, error } = await admin
     .from('athletes')
-    .select('id, first_name, last_name, active, facility_id, payout_rate')
+    .select('id, first_name, last_name, active, status, facility_id, payout_rate')
     .eq('id', coachId)
     .maybeSingle();
 
@@ -62,7 +75,7 @@ export async function verifyCoachForParentBooking(
   if (u?.role !== 'coach') {
     return { ok: false, status: 400, error: 'That account is not a coach profile.' };
   }
-  if (athlete.active !== true) {
+  if (!coachIsBookable(athlete as { status?: string | null })) {
     return {
       ok: false,
       status: 400,

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { checkoutAllowSavedAccountPercent } from '@/lib/checkout-promo';
+import { coachIsBookable } from '@/lib/server-booking-coach';
 import { getRecommendedPricesForCoach } from '@/lib/coach-session-pricing';
 import { coachPayoutFromParentPrice } from '@/lib/pricing';
 import { normalizeUuidParam } from '@/lib/normalize-uuid-param';
@@ -112,19 +113,19 @@ export default async function BookPage({
   const bookingAsAthlete = userData?.role === 'youth_wrestler';
   // parent, athlete (self-managed), and admin can book
 
-  // Fetch athlete data
-  const { data: athlete, error: athleteError } = await supabase
+  const admin = createAdminClient(tenantSlug);
+
+  // Fetch athlete data — admin client so RLS can't hide a not-yet-listed coach
+  // from the access-first direct-link lane; bookability is the status rule.
+  const { data: athlete, error: athleteError } = await admin
     .from('athletes')
-    .select('id, first_name, last_name, school, photo_url, facility_id, secondary_facility_id, total_sessions')
+    .select('id, first_name, last_name, school, photo_url, facility_id, secondary_facility_id, total_sessions, status')
     .eq('id', athleteId)
-    .eq('active', true)
     .single();
 
-  if (athleteError || !athlete) {
+  if (athleteError || !athlete || !coachIsBookable(athlete as { status?: string | null })) {
     notFound();
   }
-
-  const admin = createAdminClient(tenantSlug);
 
   // Stripe cancel_url sends the parent back here with their own unpaid hold's id.
   // Remove it so backing out of checkout never leaves a phantom "scheduled"

@@ -25,15 +25,15 @@ export async function sendCoachApplicationSubmittedToCoach(params: {
   const { to, firstName, tenant, baseUrl } = params;
   const name = escapeHtml(firstName.trim() || 'there');
   const product = escapeHtml(tenant.productName);
-  const pendingUrl = `${baseUrl.replace(/\/$/, '')}/coach-pending?submitted=1`;
+  const welcomeUrl = `${baseUrl.replace(/\/$/, '')}/coach-welcome`;
 
   const html = `
 <!DOCTYPE html>
 <html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px;">
   <p>Hi ${name},</p>
-  <p>Your ${product} coach account is created. You can begin building your business profile now.</p>
-  <p>We’ll verify your identity and any credentials you submitted, typically within 24–48 hours. Verification enables paid family bookings.</p>
-  <p>Sign in to continue setup: <a href="${escapeHtml(pendingUrl)}">${escapeHtml(pendingUrl)}</a></p>
+  <p>Your ${product} coach account is live. Set your rates and availability, then share your booking link — families you already coach can book and pay you today.</p>
+  <p>We’ll verify the credentials you submitted, typically within 24–48 hours. Verification adds you to the public coach directory, where new families can find you.</p>
+  <p>Finish setup: <a href="${escapeHtml(welcomeUrl)}">${escapeHtml(welcomeUrl)}</a></p>
   <p>If you have questions, reply to this email or write to ${escapeHtml(tenant.supportEmail)}.</p>
   <p>— ${product}</p>
 </body></html>
@@ -42,9 +42,11 @@ export async function sendCoachApplicationSubmittedToCoach(params: {
   const text = [
     `Hi ${firstName.trim() || 'there'},`,
     '',
-    `Your ${tenant.productName} coach account is created. Build your profile now while we verify your identity and credentials (typically within 24-48 hours).`,
+    `Your ${tenant.productName} coach account is live. Set your rates and availability, then share your booking link — families you already coach can book and pay you today.`,
     '',
-    `Continue setup: ${pendingUrl}`,
+    `We'll verify your credentials (typically 24-48 hours); verification adds you to the public coach directory.`,
+    '',
+    `Finish setup: ${welcomeUrl}`,
     '',
     `Questions: ${tenant.supportEmail}`,
     '',
@@ -114,8 +116,8 @@ export async function sendCoachApplicationApproved(params: {
 <!DOCTYPE html>
 <html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px;">
   <p>Hi ${name},</p>
-  <p>Great news — your ${escapeHtml(tenant.productName)} coach account has been <strong>verified</strong> and paid bookings are enabled.</p>
-  <p>Sign in to finish setup and start coaching: <a href="${escapeHtml(dashboardUrl)}">${escapeHtml(dashboardUrl)}</a></p>
+  <p>Great news — your ${escapeHtml(tenant.productName)} coach account has been <strong>verified</strong>. You're now listed in the public coach directory, where new families can find and book you.</p>
+  <p>Sign in to keep building: <a href="${escapeHtml(dashboardUrl)}">${escapeHtml(dashboardUrl)}</a></p>
   <p>— ${escapeHtml(tenant.productName)}</p>
 </body></html>
 `.trim();
@@ -123,7 +125,7 @@ export async function sendCoachApplicationApproved(params: {
   const text = [
     `Hi ${firstName.trim() || 'there'},`,
     '',
-    `Your ${tenant.productName} coach account is verified and paid bookings are enabled.`,
+    `Your ${tenant.productName} coach account is verified. You're now listed in the public coach directory, where new families can find and book you.`,
     '',
     `Go to your welcome checklist: ${dashboardUrl}`,
     '',

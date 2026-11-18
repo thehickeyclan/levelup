@@ -29,8 +29,9 @@ export default async function CoachWelcomePage() {
     .eq('id', user.id)
     .single();
 
+  // Access-first: new ('pending') coaches land here right after signup and get
+  // their booking link immediately; only rejection locks out.
   const status = athlete?.status || 'active';
-  if (status === 'pending') redirect('/coach-pending');
   if (status === 'rejected') redirect('/coach-pending');
   if (athlete?.coach_welcome_seen_at) redirect('/athlete-dashboard');
 

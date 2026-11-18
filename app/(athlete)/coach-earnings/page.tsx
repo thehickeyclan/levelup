@@ -88,8 +88,8 @@ export default async function CoachEarningsPage({
     redirect('/onboarding');
   }
 
+  // Access-first: 'pending' (awaiting review) coaches see earnings; only rejection locks out.
   const coachStatus = athlete.status || 'active';
-  if (!isViewingAsCoach && coachStatus === 'pending') redirect('/coach-pending');
   if (!isViewingAsCoach && coachStatus === 'rejected') redirect('/coach-pending');
 
   // Stripe Connect: sync status when the coach returns from Stripe onboarding.

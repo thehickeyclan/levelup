@@ -77,11 +77,9 @@ export default async function CoachHomePage({
     redirect('/onboarding');
   }
   
+  // Access-first: 'pending' coaches (awaiting review) use the full coach home;
+  // only an explicit rejection locks the account out.
   const coachStatus = athlete.status || 'active';
-  if (!isViewingAsCoach && coachStatus === 'pending') {
-    redirect('/coach-pending');
-  }
-
   if (!isViewingAsCoach && coachStatus === 'rejected') {
     redirect('/coach-pending');
   }

@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getTenantByDomain } from '@/config/tenants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { coachIsBookable } from '@/lib/server-booking-coach';
 import { Badge } from '@/components/ui/badge';
 import { BackLink } from '@/components/back-link';
 import { ProfileImage } from '@/components/profile-image';
@@ -91,13 +92,15 @@ export default async function CoachPublicSchedulePage({ params }: { params: Prom
   const supabase = await createClient(tenant.slug);
   const admin = createAdminClient(tenant.slug);
 
-  const { data: athleteRow } = await supabase
+  // Admin client: RLS can hide not-yet-listed coaches from anonymous visitors,
+  // and this public page is exactly where a brand-new coach's link must work.
+  const { data: athleteRow } = await admin
     .from('athletes')
-    .select('id, first_name, last_name, school, photo_url, photo_focus_x, photo_focus_y, active')
+    .select('id, first_name, last_name, school, photo_url, photo_focus_x, photo_focus_y, active, status')
     .eq('id', id)
     .maybeSingle();
 
-  if (!athleteRow || !athleteRow.active) {
+  if (!athleteRow || !coachIsBookable(athleteRow as { status?: string | null })) {
     return (
       <div className="container mx-auto px-4 py-10 max-w-lg">
         <Card>

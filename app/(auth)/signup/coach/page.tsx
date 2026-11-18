@@ -101,7 +101,7 @@ export default function CoachSignupPage() {
         router.push('/login?message=coach_account_created');
         return;
       }
-      router.push('/coach-pending?submitted=1');
+      router.push('/coach-welcome');
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not create your coach account');

@@ -252,21 +252,20 @@ export async function GET(
       isOwner
     );
 
-    // Standards §6.1 + the 2026-11-18 audit gate: a headline value only when
-    // the pool is variant-matched, unflagged and deep; otherwise the evidence
-    // itself (tier medians, IG median, last documented sale) with no number.
-    const valueAssessment = await fetchListingValueAssessment(
-      createAdminClientIfAvailable(tenant.slug) ?? supabase,
-      {
-        brand,
-        model,
-        colorway: (listing.colorway as string | null) ?? null,
-        wear_state: wearState,
-        condition: (listing.condition as string | null) ?? null,
-        disclosure_tags: (listing.disclosure_tags as string[] | null) ?? null,
-        excludeListingId: id,
-      }
-    );
+    // Seller-only (Matt, 18 Nov): the value reference and evidence are
+    // pricing guidance for the pair's owner, never public content — buyers
+    // and visitors see the listing without a platform-stamped number.
+    const valueAssessment = isOwner
+      ? await fetchListingValueAssessment(createAdminClientIfAvailable(tenant.slug) ?? supabase, {
+          brand,
+          model,
+          colorway: (listing.colorway as string | null) ?? null,
+          wear_state: wearState,
+          condition: (listing.condition as string | null) ?? null,
+          disclosure_tags: (listing.disclosure_tags as string[] | null) ?? null,
+          excludeListingId: id,
+        })
+      : { reference: null, evidence: null };
     const valueReference = valueAssessment.reference;
 
     // The seller sees what the weekly nudge would tell them, live — same

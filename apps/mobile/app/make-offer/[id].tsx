@@ -16,23 +16,6 @@ import { marketColors as colors, typography } from '@/lib/theme';
 
 type OfferType = 'cash' | 'trade' | 'cash_and_trade';
 
-type ValueReference = {
-  mid_cents: number;
-  low_cents: number | null;
-  high_cents: number | null;
-  confidence: string;
-  source_label: string;
-  detail_label: string | null;
-  stock_caveat: string | null;
-};
-
-type ValueEvidence = {
-  reason: string;
-  lines: string[];
-  source_label: string;
-  stock_caveat: string | null;
-};
-
 type Listing = {
   id: string;
   title: string;
@@ -76,8 +59,6 @@ export default function MakeOfferScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [listing, setListing] = useState<Listing | null>(null);
-  const [valueReference, setValueReference] = useState<ValueReference | null>(null);
-  const [valueEvidence, setValueEvidence] = useState<ValueEvidence | null>(null);
   const [ownListings, setOwnListings] = useState<OwnListing[]>([]);
   const [offerType, setOfferType] = useState<OfferType>('cash');
   const [amount, setAmount] = useState('');
@@ -92,15 +73,13 @@ export default function MakeOfferScreen() {
     void (async () => {
       try {
         const [listingRes, mineRes] = await Promise.all([
-          apiFetch<{ listing: Listing; value_reference?: ValueReference | null; value_evidence?: ValueEvidence | null }>(`/api/market/listings/${id}`),
+          apiFetch<{ listing: Listing }>(`/api/market/listings/${id}`),
           apiFetch<{ listings: OwnListing[] }>(`/api/market/listings?seller=me&status=active&exclude=${id}&limit=150`),
         ]);
         if (cancelled) return;
         const target = listingRes.listing;
         const mine = mineRes.listings ?? [];
         setListing(target);
-        setValueReference(listingRes.value_reference ?? null);
-        setValueEvidence(listingRes.value_evidence ?? null);
         setOwnListings(mine);
         setTradeListingId(mine[0]?.id ?? null);
         if (!cashAllowed(target) && tradeAllowed(target)) setOfferType('trade');
@@ -206,38 +185,6 @@ export default function MakeOfferScreen() {
         ) : null}
       </View>
 
-      {needsCash && valueReference ? (
-        <View style={styles.referenceCard}>
-          <View style={styles.referenceRow}>
-            <Text style={styles.referenceKicker}>GUILD SOLD-PRICE REFERENCE</Text>
-            <Text style={styles.referenceValue}>
-              ~${Math.round(valueReference.mid_cents / 100)}
-              {valueReference.low_cents != null && valueReference.high_cents != null
-                ? `  $${Math.round(valueReference.low_cents / 100)}–$${Math.round(valueReference.high_cents / 100)}`
-                : ''}
-            </Text>
-          </View>
-          <Text style={styles.referenceMeta}>
-            {valueReference.source_label}
-            {valueReference.detail_label ? ` · ${valueReference.detail_label}` : ''}
-          </Text>
-          {valueReference.stock_caveat ? (
-            <Text style={styles.referenceMeta}>{valueReference.stock_caveat}</Text>
-          ) : null}
-        </View>
-      ) : needsCash && valueEvidence ? (
-        <View style={styles.evidenceCard}>
-          <Text style={styles.evidenceKicker}>GUILD SOLD-PRICE EVIDENCE</Text>
-          <Text style={styles.referenceMeta}>{valueEvidence.reason}</Text>
-          {valueEvidence.lines.map((line) => (
-            <Text key={line} style={styles.evidenceLine}>
-              {line}
-            </Text>
-          ))}
-          <Text style={styles.referenceMeta}>{valueEvidence.source_label}</Text>
-        </View>
-      ) : null}
-
       {needsCash ? (
         <View style={styles.fieldBlock}>
           <Text style={styles.label}>Cash amount</Text>
@@ -342,14 +289,6 @@ const styles = StyleSheet.create({
   typeButtonSelected: { borderColor: colors.accent, backgroundColor: 'rgba(184,157,96,0.16)' },
   typeButtonText: { ...typography.bodySemi, color: colors.textMuted, fontSize: 12 },
   typeButtonTextSelected: { color: colors.accent },
-  referenceCard: { marginTop: 18, borderWidth: 1, borderColor: colors.border, borderLeftWidth: 4, borderLeftColor: colors.accent, backgroundColor: colors.surface, borderRadius: 12, padding: 12 },
-  referenceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 },
-  referenceKicker: { ...typography.brand, color: colors.accent, fontSize: 9 },
-  referenceValue: { ...typography.bodyBold, color: colors.text, fontSize: 15 },
-  referenceMeta: { ...typography.body, color: colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 5 },
-  evidenceCard: { marginTop: 18, borderWidth: 1, borderColor: colors.border, borderLeftWidth: 4, borderLeftColor: colors.textMuted, backgroundColor: colors.surface, borderRadius: 12, padding: 12 },
-  evidenceKicker: { ...typography.brand, color: colors.textSecondary, fontSize: 9 },
-  evidenceLine: { ...typography.body, color: colors.text, fontSize: 11, lineHeight: 16, marginTop: 4 },
   fieldBlock: { marginTop: 18 },
   label: { ...typography.bodyBold, color: colors.text, fontSize: 13, marginBottom: 8 },
   input: { ...typography.body, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, color: colors.text, fontSize: 15, padding: 13 },

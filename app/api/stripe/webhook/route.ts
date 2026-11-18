@@ -12,6 +12,7 @@ import { formatEST } from '@/lib/format-date';
 import { headers } from 'next/headers';
 import { maybeBackfillRosterSnapshot } from '@/lib/session-roster-snapshot';
 import { notifyAthleteFollowersJoinedSession } from '@/lib/notify-athlete-followers';
+import { grantCredit } from '@/lib/credits';
 import { maybeBackfillUserNameFromCheckoutSession } from '@/lib/stripe-backfill-user-name';
 import {
   countPaidSessionSpotsForParent,
@@ -109,7 +110,44 @@ export async function POST(req: NextRequest) {
       if (app !== 'the-guild') {
         return NextResponse.json({ received: true });
       }
-      
+
+      // Prepaid session bundle → family credit balance. Minimal by design:
+      // no pack tracking; bookings spend these credits like any others.
+      if (session.metadata?.category === 'credit_bundle') {
+        const parentId = session.metadata?.parent_id;
+        const amountUsd = (session.amount_total ?? 0) / 100;
+        if (!parentId || amountUsd <= 0) {
+          console.error('Credit bundle webhook: missing parent or amount', session.id);
+          return NextResponse.json({ received: true });
+        }
+        const rawMetaTenant = (session.metadata?.tenant_slug as string | undefined)?.trim().toLowerCase();
+        const tenantSlug = rawMetaTenant && rawMetaTenant in tenants ? rawMetaTenant : 'guild';
+        const bundleAdmin = createAdminClient(tenantSlug);
+        // Stripe retries webhooks — the checkout session id in the description is the dedupe key.
+        const { data: existing } = await bundleAdmin
+          .from('credits')
+          .select('id')
+          .ilike('description', `%${session.id}%`)
+          .limit(1)
+          .maybeSingle();
+        if (!existing) {
+          const qty = session.metadata?.bundle_qty || '?';
+          const label = session.metadata?.bundle_label || 'session';
+          const result = await grantCredit({
+            userId: parentId,
+            amount: amountUsd,
+            reason: `Prepaid ${qty}-session bundle (${label}) — ${session.id}`,
+            sourceType: 'manual',
+            tenantSlug,
+          });
+          if (!result.success) {
+            console.error('Credit bundle grant failed:', session.id, result.error);
+            return NextResponse.json({ error: 'Credit grant failed' }, { status: 500 });
+          }
+        }
+        return NextResponse.json({ received: true });
+      }
+
       // Handle cart checkout (multiple lines: session + wrestler per line; same session may repeat for two kids)
       if (isCartCheckout) {
         const parentId = session.metadata?.parent_id;

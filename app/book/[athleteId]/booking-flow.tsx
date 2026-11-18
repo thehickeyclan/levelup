@@ -267,6 +267,27 @@ export function BookingFlow({
   const isPartner = sessionChoice === 'partner';
   const needsPartnerOption = isPartner && partnerOption === null && oneWrestler;
 
+  const [bundleLoading, setBundleLoading] = useState<number | null>(null);
+  const buyBundle = async (qty: number) => {
+    if (!selectedProduct) return;
+    setBundleLoading(qty);
+    try {
+      const res = await fetch('/api/credits/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coachId: athlete.id, productId: selectedProduct.id, qty }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+    } catch {
+      /* fall through to reset */
+    }
+    setBundleLoading(null);
+  };
+
   const { data: creditsData } = useSWR('/api/credits', creditsFetcher);
   const creditBalance = typeof creditsData?.balance === 'number' ? creditsData.balance : 0;
   const creditsToApplyBooking =
@@ -1235,6 +1256,28 @@ export function BookingFlow({
                         </span>
                       </div>
                     )}
+                  </div>
+                )}
+                {selectedProduct && oneWrestler && (
+                  <div className="rounded-lg border border-border bg-card/60 p-3 text-sm flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-muted-foreground">
+                      Prepay sessions — credits apply to every booking automatically
+                    </span>
+                    <span className="flex gap-2">
+                      {[5, 10].map((qty) => (
+                        <button
+                          key={qty}
+                          type="button"
+                          onClick={() => buyBundle(qty)}
+                          disabled={bundleLoading !== null}
+                          className="rounded-full border border-accent/40 px-3 py-1 font-medium text-accent hover:bg-accent/10 disabled:opacity-50"
+                        >
+                          {bundleLoading === qty
+                            ? 'Opening…'
+                            : `${qty} × $${selectedProduct.parent_price.toFixed(0)}`}
+                        </button>
+                      ))}
+                    </span>
                   </div>
                 )}
                 <div className="pt-4 border-t flex justify-between items-center">
